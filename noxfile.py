@@ -118,7 +118,7 @@ def safety(session: NoxPoetrySession) -> None:
 @nox_session(python=python_versions)
 def mypy(session: NoxPoetrySession) -> None:
     """Type-check using mypy."""
-    args = session.posargs or ["src", "tests"]
+    args = session.posargs or ["app", "tests"]
     session.install(".")
     session.install("mypy", "pytest")
     session.run("mypy", *args)

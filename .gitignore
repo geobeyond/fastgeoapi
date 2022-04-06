@@ -6,5 +6,5 @@
 /.pytype/
 /dist/
 /docs_build/site/
-/src/*.egg-info/
+/app/*.egg-info/
 __pycache__/
