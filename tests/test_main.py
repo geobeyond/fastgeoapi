@@ -1,7 +1,6 @@
 """Test cases for the __main__ module."""
 import pytest
 from click.testing import CliRunner
-
 from fastgeoapi import __main__
 
 

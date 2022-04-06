@@ -45,7 +45,7 @@ repos:
         entry: reorder-python-imports
         language: system
         types: [python]
-        args: [--application-directories=src]
+        args: [--application-directories=app]
       - id: trailing-whitespace
         name: Trim Trailing Whitespace
         entry: trailing-whitespace-fixer
