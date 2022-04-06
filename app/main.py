@@ -12,6 +12,8 @@ from mangum import Mangum
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
 
+from pygeoapi.starlette_app import app as pygeoapi_app
+
 
 def create_app() -> FastAPI:
     """Handle application creation."""
@@ -37,6 +39,8 @@ def create_app() -> FastAPI:
     @app.exception_handler(AppExceptionError)
     async def custom_app_exception_handler(request, e):
         return await app_exception_handler(request, e)
+
+    app.mount(path="/api", app=pygeoapi_app)
 
     app.logger = create_logger(name="app.main")
 
