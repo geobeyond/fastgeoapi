@@ -16,7 +16,14 @@ classifiers = [
 Changelog = "https://github.com/geobeyond/fastgeoapi/releases"
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.9"
+fastapi = "^0.75.1"
+mangum = "^0.14.1"
+loguru = "^0.6.0"
+uvicorn = "^0.17.6"
+pydantic = {extras = ["dotenv"], version = "^1.9.0"}
+pygeoapi = "^0.12.0"
+jinja2 = "3.0.3"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
@@ -46,7 +53,7 @@ bandit = "1.7.2"
 fastgeoapi = "fastgeoapi.__main__:main"
 
 [tool.coverage.paths]
-source = ["src", "*/site-packages"]
+source = ["app", "*/site-packages"]
 tests = ["tests", "*/tests"]
 
 [tool.coverage.run]
