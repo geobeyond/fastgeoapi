@@ -2,12 +2,14 @@
 import uvicorn
 from app.config.app import configuration as cfg
 from app.config.logging import create_logger
+from app.config.auth import opa_config
 from app.utils.app_exceptions import app_exception_handler
 from app.utils.app_exceptions import AppExceptionError
 from app.utils.request_exceptions import http_exception_handler
 from app.utils.request_exceptions import request_validation_exception_handler
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
+from fastapi_opa import OPAMiddleware
 from mangum import Mangum
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
@@ -40,6 +42,8 @@ def create_app() -> FastAPI:
     async def custom_app_exception_handler(request, e):
         return await app_exception_handler(request, e)
 
+    # Add OPAMiddleware to the pygeoapi app
+    pygeoapi_app.add_middleware(OPAMiddleware, config=opa_config)
     app.mount(path="/api", app=pygeoapi_app)
 
     app.logger = create_logger(name="app.main")
