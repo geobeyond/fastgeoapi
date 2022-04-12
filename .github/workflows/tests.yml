@@ -63,6 +63,7 @@ jobs:
         run: |
           pipx install --pip-args=--constraint=.github/workflows/constraints.txt nox
           pipx inject --pip-args=--constraint=.github/workflows/constraints.txt nox nox-poetry
+          which nox
           nox --version
 
       - name: Compute pre-commit cache key
@@ -91,7 +92,6 @@ jobs:
 
       - name: Run Nox
         run: |
-          pipx ensurepath
           nox --force-color --python=${{ matrix.python }}
 
       - name: Upload coverage data
