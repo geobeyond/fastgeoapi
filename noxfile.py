@@ -6,10 +6,10 @@ from pathlib import Path
 from textwrap import dedent
 
 import nox
-from nox import session as nox_session
 
 try:
-    from nox_poetry import NoxPoetrySession
+    from nox_poetry import Session as NoxPoetrySession
+    from nox_poetry import session as nox_session
 except ImportError:
     message = f"""\
     Nox failed to import the 'nox-poetry' package.

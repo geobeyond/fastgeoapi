@@ -11,6 +11,10 @@ documentation = "https://fastgeoapi.readthedocs.io"
 classifiers = [
     "Development Status :: 1 - Planning",
 ]
+packages = [
+    { include = "app" },
+    { include = "app/**/*.py" },
+]
 
 [tool.poetry.urls]
 Changelog = "https://github.com/geobeyond/fastgeoapi/releases"
@@ -25,6 +29,7 @@ pydantic = {extras = ["dotenv"], version = "^1.9.0"}
 pygeoapi = "^0.12.0"
 jinja2 = "3.0.3"
 fastapi-opa = "^1.3.3"
+typer = "^0.4.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
@@ -45,7 +50,7 @@ reorder-python-imports = "^2.6.0"
 pre-commit-hooks = "^4.0.1"
 pyupgrade = "^2.29.1"
 mkdocs = "^1.3.0"
-mkdocs-material = "^8.2.8"
+mkdocs-material = "^8.2.9"
 mkdocs-material-extras = "^0.0.8"
 mkdocs-material-extensions = "^1.0.3"
 bandit = "1.7.2"
