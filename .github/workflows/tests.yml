@@ -91,6 +91,7 @@ jobs:
 
       - name: Run Nox
         run: |
+          pipx ensurepath
           nox --force-color --python=${{ matrix.python }}
 
       - name: Upload coverage data
@@ -133,6 +134,7 @@ jobs:
         run: |
           pipx install --pip-args=--constraint=.github/workflows/constraints.txt nox
           pipx inject --pip-args=--constraint=.github/workflows/constraints.txt nox nox-poetry
+          pipx list
           nox --version
 
       - name: Download coverage data
