@@ -1,8 +1,8 @@
 """Main module."""
 import uvicorn
 from app.config.app import configuration as cfg
-from app.config.logging import create_logger
 from app.config.auth import opa_config
+from app.config.logging import create_logger
 from app.utils.app_exceptions import app_exception_handler
 from app.utils.app_exceptions import AppExceptionError
 from app.utils.request_exceptions import http_exception_handler
@@ -11,10 +11,9 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi_opa import OPAMiddleware
 from mangum import Mangum
+from pygeoapi.starlette_app import app as pygeoapi_app
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
-
-from pygeoapi.starlette_app import app as pygeoapi_app
 
 
 def create_app() -> FastAPI:
