@@ -33,7 +33,9 @@ class DevConfig(GlobalConfig):
     LOG_FORMAT: Optional[str] = Field(None, env="DEV_LOG_FORMAT")
     OPA_URL: Optional[str] = Field(None, env="DEV_OPA_URL")
     APP_URI: Optional[str] = Field(None, env="DEV_APP_URI")
-    OIDC_WELL_KNOWN_ENDPOINT: Optional[str] = Field(None, env="DEV_OIDC_WELL_KNOWN_ENDPOINT")
+    OIDC_WELL_KNOWN_ENDPOINT: Optional[str] = Field(
+        None, env="DEV_OIDC_WELL_KNOWN_ENDPOINT"
+    )
     OIDC_CLIENT_ID: Optional[str] = Field(None, env="DEV_OIDC_CLIENT_ID")
     OIDC_CLIENT_SECRET: Optional[str] = Field(None, env="DEV_OIDC_CLIENT_SECRET")
 
@@ -52,7 +54,9 @@ class ProdConfig(GlobalConfig):
     LOG_FORMAT: Optional[str] = Field(None, env="PROD_LOG_FORMAT")
     OPA_URL: Optional[str] = Field(None, env="PROD_OPA_URL")
     APP_URI: Optional[str] = Field(None, env="PROD_APP_URI")
-    OIDC_WELL_KNOWN_ENDPOINT: Optional[str] = Field(None, env="PROD_OIDC_WELL_KNOWN_ENDPOINT")
+    OIDC_WELL_KNOWN_ENDPOINT: Optional[str] = Field(
+        None, env="PROD_OIDC_WELL_KNOWN_ENDPOINT"
+    )
     OIDC_CLIENT_ID: Optional[str] = Field(None, env="PROD_OIDC_CLIENT_ID")
     OIDC_CLIENT_SECRET: Optional[str] = Field(None, env="PROD_OIDC_CLIENT_SECRET")
 
