@@ -21,7 +21,7 @@ packages = [
 Changelog = "https://github.com/geobeyond/fastgeoapi/releases"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.8"
 fastapi = "^0.75.1"
 mangum = "^0.14.1"
 loguru = "^0.6.0"
@@ -31,6 +31,7 @@ pygeoapi = "^0.12.0"
 jinja2 = "3.0.3"
 fastapi-opa = "^1.3.3"
 typer = "^0.4.1"
+rasterio = "1.3a3" # fix https://github.com/rasterio/rasterio/issues/2333
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
@@ -61,7 +62,7 @@ ipython = "^8.2.0"
 fastgeoapi = "fastgeoapi.cli:main"
 
 [tool.coverage.paths]
-source = ["app", "*/site-packages"]
+source = [".", "*/site-packages"]
 tests = ["tests", "*/tests"]
 
 [tool.coverage.run]

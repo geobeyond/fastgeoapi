@@ -20,7 +20,7 @@ except ImportError:
     raise SystemExit(dedent(message)) from None
 
 
-package = "fastgeoapi"
+package = "app"
 python_versions = ["3.10", "3.9", "3.8"]
 nox.needs_version = ">= 2021.6.6"
 nox.options.sessions = (
@@ -177,9 +177,9 @@ def xdoctest(session: NoxPoetrySession) -> None:
 @nox_session(name="docs-build", python="3.10")
 def docs_build(session: NoxPoetrySession) -> None:
     """Build the documentation."""
-    args = session.posargs or ["site-dir"]
-    if not session.posargs and "FORCE_COLOR" in os.environ:
-        args.insert(0, "--color")
+    args = session.posargs or ["--config-file", "mkdocs.yml"]
+    # if not session.posargs and "FORCE_COLOR" in os.environ:
+    #     args.insert(0, "--color")
 
     session.install(".")
     session.install(
@@ -189,17 +189,17 @@ def docs_build(session: NoxPoetrySession) -> None:
         "mkdocs-material-extensions",
     )
 
-    build_dir = Path(".")
+    build_dir = Path("docs_build", "site")
     if build_dir.exists():
         shutil.rmtree(build_dir)
 
-    session.run("mkdocs build", *args)
+    session.run("python", "-m", "mkdocs", "build", *args)
 
 
 @nox_session(python="3.10")
 def docs(session: NoxPoetrySession) -> None:
     """Build and serve the documentation with live reloading on file changes."""
-    args = session.posargs or ["--open-browser", "docs"]
+    args = session.posargs
     session.install(".")
     session.install(
         "mkdocs",
@@ -208,8 +208,8 @@ def docs(session: NoxPoetrySession) -> None:
         "mkdocs-material-extensions",
     )
 
-    build_dir = Path(".")
+    build_dir = Path("docs_build", "site")
     if build_dir.exists():
         shutil.rmtree(build_dir)
 
-    session.run("mkdocs serve", *args)
+    session.run("python", "-m", "mkdocs", "serve", *args)
