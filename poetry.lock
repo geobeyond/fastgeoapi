@@ -573,6 +573,21 @@ perf = ["ipython"]
 testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-cov", "pytest-enabler (>=1.0.1)", "packaging", "pyfakefs", "flufl.flake8", "pytest-perf (>=0.9.2)", "pytest-black (>=0.3.7)", "pytest-mypy (>=0.9.1)", "importlib-resources (>=1.3)"]
 
 [[package]]
+name = "importlib-resources"
+version = "5.7.0"
+description = "Read resources from Python packages"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.dependencies]
+zipp = {version = ">=3.1.0", markers = "python_version < \"3.10\""}
+
+[package.extras]
+docs = ["sphinx", "jaraco.packaging (>=9)", "rst.linker (>=1.9)"]
+testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-cov", "pytest-enabler (>=1.0.1)", "pytest-black (>=0.3.7)", "pytest-mypy (>=0.9.1)"]
+
+[[package]]
 name = "iniconfig"
 version = "1.1.1"
 description = "iniconfig: brain-dead simple config-ini parsing"
@@ -662,6 +677,7 @@ python-versions = ">=3.7"
 
 [package.dependencies]
 attrs = ">=17.4.0"
+importlib-resources = {version = ">=1.4.0", markers = "python_version < \"3.9\""}
 pyrsistent = ">=0.14.0,<0.17.0 || >0.17.0,<0.17.1 || >0.17.1,<0.17.2 || >0.17.2"
 
 [package.extras]
@@ -1229,7 +1245,7 @@ pyyaml = "*"
 
 [[package]]
 name = "rasterio"
-version = "1.2.10"
+version = "1.3a3"
 description = "Fast and direct raster I/O for use with Numpy and SciPy"
 category = "main"
 optional = false
@@ -1246,7 +1262,7 @@ numpy = "*"
 snuggs = ">=1.4.1"
 
 [package.extras]
-all = ["numpydoc", "hypothesis", "matplotlib", "pytest-cov (>=2.2.0)", "sphinx", "ipython (>=2.0)", "boto3 (>=1.2.4)", "shapely", "pytest (>=2.8.2)", "packaging", "sphinx-rtd-theme", "ghp-import"]
+all = ["pytest-cov (>=2.2.0)", "sphinx-rtd-theme", "ipython (>=2.0)", "matplotlib", "shapely", "numpydoc", "sphinx", "ghp-import", "packaging", "boto3 (>=1.2.4)", "hypothesis", "pytest (>=2.8.2)"]
 docs = ["ghp-import", "numpydoc", "sphinx", "sphinx-rtd-theme"]
 ipython = ["ipython (>=2.0)"]
 plot = ["matplotlib"]
@@ -1631,7 +1647,7 @@ tests = ["codecov", "scikit-build", "cmake", "ninja", "pybind11", "pytest", "pyt
 name = "zipp"
 version = "3.8.0"
 description = "Backport of pathlib-compatible object wrapper for zip files"
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">=3.7"
 
@@ -1641,8 +1657,8 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 
 [metadata]
 lock-version = "1.1"
-python-versions = "^3.9"
-content-hash = "5d76a22e047d62007f36c3344d63aa236bb33479bf2a8bfa535a1a60be026c58"
+python-versions = "^3.8"
+content-hash = "5d3e4f7d24408c3d0da2f92b0c2d7d88940484eb2eb9c4289382b8dca552faed"
 
 [metadata.files]
 affine = [
@@ -1936,6 +1952,10 @@ idna = [
 importlib-metadata = [
     {file = "importlib_metadata-4.11.3-py3-none-any.whl", hash = "sha256:1208431ca90a8cca1a6b8af391bb53c1a2db74e5d1cef6ddced95d4b2062edc6"},
     {file = "importlib_metadata-4.11.3.tar.gz", hash = "sha256:ea4c597ebf37142f827b8f39299579e31685c31d3a438b59f469406afd0f2539"},
+]
+importlib-resources = [
+    {file = "importlib_resources-5.7.0-py3-none-any.whl", hash = "sha256:9c4c12f9ef4329a00c1f72f30bddb4f10e582766b8705980bb76356b3ba8bc91"},
+    {file = "importlib_resources-5.7.0.tar.gz", hash = "sha256:f6a4a9949f36ae289facec8dac1a899a54cbaf6a135cc8552d2c8b69209c06a3"},
 ]
 iniconfig = [
     {file = "iniconfig-1.1.1-py2.py3-none-any.whl", hash = "sha256:011e24c64b7f47f6ebd835bb12a743f2fbe9a26d4cecaa7f53bc4f35ee9da8b3"},
@@ -2336,15 +2356,15 @@ pyyaml-env-tag = [
     {file = "pyyaml_env_tag-0.1.tar.gz", hash = "sha256:70092675bda14fdec33b31ba77e7543de9ddc88f2e5b99160396572d11525bdb"},
 ]
 rasterio = [
-    {file = "rasterio-1.2.10-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:f86efb0e4989201f244d6818575d442b716ce81af6cd969c3caead76b9690837"},
-    {file = "rasterio-1.2.10-cp36-cp36m-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:831b6dbefb409c3ece23fa219d8446a7534e30c69a075fd366e72742b1f94c58"},
-    {file = "rasterio-1.2.10-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:42a1a6364313c384fcd631d850792621301e930449b47f72ced048c415c9c84e"},
-    {file = "rasterio-1.2.10-cp37-cp37m-manylinux1_x86_64.whl", hash = "sha256:1572003273225162933d4c88729076ac39050e7becd9de7d31988d1dd40942c1"},
-    {file = "rasterio-1.2.10-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:8f9867a3b6663396260fc5bdfbea372cac9202074b709478db741767f40dfffc"},
-    {file = "rasterio-1.2.10-cp38-cp38-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:ba95aa3221814e364ef49cf8dd8ca4a73e2ea702bd9228a3a845e197091792ae"},
-    {file = "rasterio-1.2.10-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:2394ce0ae1e7b49b456ddc6bbf00ce6840656e926046c1a5a54cd0f66ea67dc4"},
-    {file = "rasterio-1.2.10-cp39-cp39-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:c73248b4ba0564798bf64df869834821a7b823a4c9ceda3de9b772d69c3f5405"},
-    {file = "rasterio-1.2.10.tar.gz", hash = "sha256:6062456047ba6494fe18bd0da98a383b6fad5306b16cd52a22e76c59172a2b5f"},
+    {file = "rasterio-1.3a3-cp310-cp310-macosx_10_10_x86_64.whl", hash = "sha256:9d6fe343f6a74b6d8b5190f55f393a2bb9fa8c31b7fab006b13e6ece871fe7ec"},
+    {file = "rasterio-1.3a3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5362a09299d2137b2cd9ff05dc6e93e63c5560277a3feca52e78d42435837220"},
+    {file = "rasterio-1.3a3-cp37-cp37m-macosx_10_10_x86_64.whl", hash = "sha256:1092f94d603fd06ae82103b5874a2e3f5e0e07037ee66db4da4cfa64a979939a"},
+    {file = "rasterio-1.3a3-cp37-cp37m-manylinux2014_x86_64.whl", hash = "sha256:3f3c4ad13a80c809bf4c561b6f1b897416de1f7c9fbd39c9424d653469101486"},
+    {file = "rasterio-1.3a3-cp38-cp38-macosx_10_10_x86_64.whl", hash = "sha256:5f19a6b5796fa58b9c2c089f52c4c8590019d54230e2735167cb41ab7e9915de"},
+    {file = "rasterio-1.3a3-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:2dde141a0c2b5b32d3467c4560c27e476c4d666bdf2f983b0bc35a834ededbb0"},
+    {file = "rasterio-1.3a3-cp39-cp39-macosx_10_10_x86_64.whl", hash = "sha256:e909f06feed33974846aa24f3f897ece59bbb1373e5324302056ee60f6d0afcd"},
+    {file = "rasterio-1.3a3-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e78f1c663e76f3fc27d82a5470785aeb3392999e3313c9b311669e98046925b7"},
+    {file = "rasterio-1.3a3.tar.gz", hash = "sha256:79f0b5386a71c07086ea9a123538e3fd050a22791525563835b2284462e0d3ed"},
 ]
 reorder-python-imports = [
     {file = "reorder_python_imports-2.8.0-py2.py3-none-any.whl", hash = "sha256:03354608c610a25cba75a352ad86552849dcf3c90849fcb415298efc911a4ecf"},
