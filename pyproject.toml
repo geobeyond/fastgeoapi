@@ -12,7 +12,7 @@ classifiers = [
     "Development Status :: 1 - Planning",
 ]
 packages = [
-    { include = "__main__.py" },
+    { include = "cli.py" },
     { include = "app" },
     { include = "app/**/*.py" },
 ]
@@ -58,7 +58,7 @@ bandit = "1.7.2"
 ipython = "^8.2.0"
 
 [tool.poetry.scripts]
-fastgeoapi = "fastgeoapi.__main__:main"
+fastgeoapi = "fastgeoapi.cli:main"
 
 [tool.coverage.paths]
 source = ["app", "*/site-packages"]
