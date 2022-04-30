@@ -1,0 +1,329 @@
+{
+	"id": "43b445b7-5904-4b50-59be-ce950ed0432f",
+	"name": "PYGEOAPI",
+	"description": "",
+	"order": [],
+	"folders": [
+		{
+			"name": "app requests",
+			"description": "",
+			"collectionId": "43b445b7-5904-4b50-59be-ce950ed0432f",
+			"order": [
+				"5a7232c7-f87b-5911-2324-7cf88718b89d",
+				"c9984c7d-2877-c179-b93b-980b75107765",
+				"69ae92a7-2d39-3234-e8a6-66ae100d3226",
+				"726baf31-8753-b47e-ae39-305393db03b2"
+			],
+			"owner": 0,
+			"folders_order": [],
+			"id": "8d824cda-8010-efaf-38e6-037c36e2d88b"
+		},
+		{
+			"name": "server requests",
+			"description": "",
+			"collectionId": "43b445b7-5904-4b50-59be-ce950ed0432f",
+			"order": [
+				"df68469a-a161-a917-ed1d-e6a69ec17440",
+				"591f80f5-f411-7a80-d7fa-4391a6f376dc",
+				"2794b49c-3219-75bd-3755-5824496f244e"
+			],
+			"owner": 0,
+			"folders_order": [],
+			"id": "1779ae21-ccbb-c46d-7129-d522ddd407a5"
+		}
+	],
+	"folders_order": [
+		"1779ae21-ccbb-c46d-7129-d522ddd407a5",
+		"8d824cda-8010-efaf-38e6-037c36e2d88b"
+	],
+	"timestamp": 1650639935853,
+	"owner": 0,
+	"public": false,
+	"requests": [
+		{
+			"id": "2794b49c-3219-75bd-3755-5824496f244e",
+			"headers": "Content-Type: application/x-www-form-urlencoded\nAuthorization: Bearer {{access_token}}\n",
+			"headerData": [
+				{
+					"key": "Content-Type",
+					"value": "application/x-www-form-urlencoded",
+					"description": "",
+					"enabled": true
+				},
+				{
+					"key": "Authorization",
+					"value": "Bearer {{access_token}}",
+					"description": "",
+					"enabled": true
+				}
+			],
+			"url": "{{keycloak_server}}/auth/realms/{{realm}}/protocol/openid-connect/userinfo",
+			"folder": "1779ae21-ccbb-c46d-7129-d522ddd407a5",
+			"queryParams": [],
+			"preRequestScript": null,
+			"pathVariables": {},
+			"pathVariableData": [],
+			"method": "GET",
+			"data": null,
+			"dataMode": "params",
+			"tests": null,
+			"currentHelper": "normal",
+			"helperAttributes": {},
+			"time": 1650641080782,
+			"name": "GET USERINFO",
+			"description": "",
+			"collectionId": "43b445b7-5904-4b50-59be-ce950ed0432f",
+			"responses": []
+		},
+		{
+			"id": "591f80f5-f411-7a80-d7fa-4391a6f376dc",
+			"headers": "Content-Type: application/x-www-form-urlencoded\n",
+			"headerData": [
+				{
+					"key": "Content-Type",
+					"value": "application/x-www-form-urlencoded",
+					"description": "",
+					"enabled": true
+				}
+			],
+			"url": "{{keycloak_server}}/auth/realms/{{realm}}/protocol/openid-connect/token",
+			"folder": "1779ae21-ccbb-c46d-7129-d522ddd407a5",
+			"queryParams": [],
+			"preRequestScript": null,
+			"pathVariables": {},
+			"pathVariableData": [],
+			"method": "POST",
+			"data": [
+				{
+					"key": "grant_type",
+					"value": "password",
+					"description": "",
+					"type": "text",
+					"enabled": true
+				},
+				{
+					"key": "username",
+					"value": "{{username}}",
+					"description": "",
+					"type": "text",
+					"enabled": true
+				},
+				{
+					"key": "password",
+					"value": "{{password}}",
+					"description": "",
+					"type": "text",
+					"enabled": true
+				},
+				{
+					"key": "client_id",
+					"value": "{{client_id}}",
+					"description": "",
+					"type": "text",
+					"enabled": true
+				},
+				{
+					"key": "client_secret",
+					"value": "{{client_secret}}",
+					"description": "",
+					"type": "text",
+					"enabled": true
+				},
+				{
+					"key": "response_type",
+					"value": "{{response_types}}",
+					"description": "",
+					"type": "text",
+					"enabled": true
+				}
+			],
+			"dataMode": "urlencoded",
+			"tests": "var response = JSON.parse(responseBody);\npostman.setEnvironmentVariable(\"refresh_token\", response.refresh_token);\npostman.setEnvironmentVariable(\"access_token\", response.access_token);\npostman.setEnvironmentVariable(\"session_state\", response.session_state);",
+			"currentHelper": "normal",
+			"helperAttributes": {},
+			"time": 1650723079133,
+			"name": "GET TOKEN",
+			"description": "",
+			"collectionId": "43b445b7-5904-4b50-59be-ce950ed0432f",
+			"responses": []
+		},
+		{
+			"id": "5a7232c7-f87b-5911-2324-7cf88718b89d",
+			"headers": "Authorization: Bearer {{access_token}}\nContent-Type: application/x-www-form-urlencoded\n",
+			"headerData": [
+				{
+					"key": "Authorization",
+					"value": "Bearer {{access_token}}",
+					"description": "",
+					"enabled": true
+				},
+				{
+					"key": "Content-Type",
+					"value": "application/x-www-form-urlencoded",
+					"description": "",
+					"enabled": true
+				}
+			],
+			"url": "http://localhost:8000/v1/",
+			"queryParams": [],
+			"preRequestScript": null,
+			"pathVariables": {},
+			"pathVariableData": [],
+			"method": "GET",
+			"data": null,
+			"dataMode": "params",
+			"tests": null,
+			"currentHelper": "normal",
+			"helperAttributes": {},
+			"time": 1650803435599,
+			"name": "GET ROOT",
+			"description": "",
+			"collectionId": "43b445b7-5904-4b50-59be-ce950ed0432f",
+			"responses": []
+		},
+		{
+			"id": "69ae92a7-2d39-3234-e8a6-66ae100d3226",
+			"headers": "Content-Type: application/x-www-form-urlencoded\nAuthorization: Bearer {{access_token}}\n",
+			"headerData": [
+				{
+					"key": "Content-Type",
+					"value": "application/x-www-form-urlencoded",
+					"description": "",
+					"enabled": true
+				},
+				{
+					"key": "Authorization",
+					"value": "Bearer {{access_token}}",
+					"description": "",
+					"enabled": true
+				}
+			],
+			"url": "http://localhost:8000/v1/collections/obs",
+			"folder": "8d824cda-8010-efaf-38e6-037c36e2d88b",
+			"queryParams": [],
+			"preRequestScript": null,
+			"pathVariables": {},
+			"pathVariableData": [],
+			"method": "GET",
+			"data": [
+				{
+					"key": "username",
+					"value": "{{username}}",
+					"description": "",
+					"type": "text",
+					"enabled": true
+				},
+				{
+					"key": "password",
+					"value": "{{password}}",
+					"description": "",
+					"type": "text",
+					"enabled": true
+				}
+			],
+			"dataMode": "urlencoded",
+			"tests": null,
+			"currentHelper": "normal",
+			"helperAttributes": {},
+			"time": 1650642657655,
+			"name": "GET OBS",
+			"description": "",
+			"collectionId": "43b445b7-5904-4b50-59be-ce950ed0432f",
+			"responses": []
+		},
+		{
+			"id": "726baf31-8753-b47e-ae39-305393db03b2",
+			"headers": "Content-Type: application/x-www-form-urlencoded\nAuthorization: Bearer {{access_token}}\n",
+			"headerData": [
+				{
+					"key": "Content-Type",
+					"value": "application/x-www-form-urlencoded",
+					"description": "",
+					"enabled": true
+				},
+				{
+					"key": "Authorization",
+					"value": "Bearer {{access_token}}",
+					"description": "",
+					"enabled": true
+				}
+			],
+			"url": "http://localhost:8000/v1/collections/lakes",
+			"queryParams": [],
+			"preRequestScript": null,
+			"pathVariables": {},
+			"pathVariableData": [],
+			"method": "GET",
+			"data": null,
+			"dataMode": "params",
+			"tests": null,
+			"currentHelper": "normal",
+			"helperAttributes": {},
+			"time": 1650805263486,
+			"name": "GET LAKES",
+			"description": "",
+			"collectionId": "43b445b7-5904-4b50-59be-ce950ed0432f",
+			"responses": []
+		},
+		{
+			"id": "c9984c7d-2877-c179-b93b-980b75107765",
+			"headers": "Content-Type: application/x-www-form-urlencoded\nAuthorization: Bearer {{access_token}}\n",
+			"headerData": [
+				{
+					"key": "Content-Type",
+					"value": "application/x-www-form-urlencoded",
+					"description": "",
+					"enabled": true
+				},
+				{
+					"key": "Authorization",
+					"value": "Bearer {{access_token}}",
+					"description": "",
+					"enabled": true
+				}
+			],
+			"url": "http://localhost:8000/v1/collections/",
+			"folder": "8d824cda-8010-efaf-38e6-037c36e2d88b",
+			"queryParams": [],
+			"preRequestScript": null,
+			"pathVariables": {},
+			"pathVariableData": [],
+			"method": "GET",
+			"data": null,
+			"dataMode": "params",
+			"version": 2,
+			"tests": null,
+			"currentHelper": "normal",
+			"helperAttributes": {},
+			"time": 1650805267514,
+			"name": "GET ALL COLLECTIONS",
+			"description": "",
+			"collectionId": "43b445b7-5904-4b50-59be-ce950ed0432f",
+			"responses": []
+		},
+		{
+			"id": "df68469a-a161-a917-ed1d-e6a69ec17440",
+			"headers": "",
+			"headerData": [],
+			"url": "{{keycloak_server}}/auth/realms/{{realm}}/.well-known/openid-configuration",
+			"queryParams": [],
+			"pathVariables": {},
+			"pathVariableData": [],
+			"preRequestScript": null,
+			"method": "GET",
+			"collectionId": "43b445b7-5904-4b50-59be-ce950ed0432f",
+			"data": null,
+			"dataMode": "params",
+			"name": "GET CONFIG",
+			"description": "",
+			"descriptionFormat": "html",
+			"time": 1650640337321,
+			"version": 2,
+			"responses": [],
+			"tests": null,
+			"currentHelper": "normal",
+			"helperAttributes": {},
+			"folder": "1779ae21-ccbb-c46d-7129-d522ddd407a5"
+		}
+	]
+}

@@ -1,4 +1,4 @@
-# fastgeoapi
+# FASTGeoAPI
 
 [![PyPI](https://img.shields.io/pypi/v/fastgeoapi.svg)](https://pypi.org/project/fastgeoapi/)
 [![Status](https://img.shields.io/pypi/status/fastgeoapi.svg)](https://pypi.org/project/fastgeoapi/)
@@ -12,13 +12,22 @@
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
+## Architecture
+
+This diagram gives an overview of the basic architecture:
+
+![general architecture](docs/images/fastgeoapi_architecture.png)
+
 ## Features
 
-- TODO
+- Provide authentication and authorization for vanilla [pygeoapi](https://github.com/geopython/pygeoapi/)
 
 ## Requirements
 
-- TODO
+- [pygeoapi](https://github.com/geopython/pygeoapi/)
+- [fastapi-opa](https://github.com/busykoala/fastapi-opa)
+- An OpenID Connect provider (Keycloak, WSO2, etc)
+- Open Policy Agent (OPA)
 
 ## Installation
 
@@ -26,7 +35,32 @@ You can install _fastgeoapi_ via [pip](https://pip.pypa.io/) from
 [PyPI](https://pypi.org/):
 
 ```console
-$ pip install fastgeoapi
+pip install fastgeoapi
+```
+
+## Development
+
+After cloning the repository, you should use `poetry` to create the virtual environment and install the dependencies:
+
+```shell
+poetry shell
+```
+
+```shell
+poetry install
+```
+
+Once Keycloak and OPA have been started then you have to configure the required variables for the pygeoapi configuration:
+
+```shell
+export PYGEOAPI_CONFIG=example-config.yml
+export PYGEOAPI_OPENAPI=example-openapi.yml
+```
+
+Finally you can start FASTGeoAPI in development mode:
+
+```shell
+uvicorn app.main:app --port 5000 --reload
 ```
 
 ## Usage
@@ -34,6 +68,12 @@ $ pip install fastgeoapi
 Please see the [Command-line
 Reference](https://fastgeoapi.readthedocs.io/en/latest/usage.html) for
 details.
+
+Please have a look at the `docker-compose.yml` file under `scripts/iam` to start the stack with **Keycloak** and **Open Policy Agent** locally. There is a `README.md` file which explains how to use it.
+
+The file `scripts/iam/keycloak/realm-export.json` can be used to import an already configured realm into Keycloak.
+
+The files under `scripts/postman` can be used to setup Postman with a configuration that is ready to perform the requests for the whole stack.
 
 ## Contributing
 

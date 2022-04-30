@@ -1,0 +1,216 @@
+{
+    "info": {
+        "_postman_id": "43b445b7-5904-4b50-59be-ce950ed0432f",
+        "name": "PYGEOAPI",
+        "schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "server requests",
+            "item": [
+                {
+                    "name": "GET CONFIG",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": []
+                        },
+                        "url": "{{keycloak_server}}/auth/realms/{{realm}}/.well-known/openid-configuration"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "GET TOKEN",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "var response = JSON.parse(responseBody);",
+                                    "postman.setEnvironmentVariable(\"refresh_token\", response.refresh_token);",
+                                    "postman.setEnvironmentVariable(\"access_token\", response.access_token);",
+                                    "postman.setEnvironmentVariable(\"session_state\", response.session_state);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/x-www-form-urlencoded"
+                            }
+                        ],
+                        "body": {
+                            "mode": "urlencoded",
+                            "urlencoded": [
+                                {
+                                    "key": "grant_type",
+                                    "value": "password",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "username",
+                                    "value": "{{username}}",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "password",
+                                    "value": "{{password}}",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "client_id",
+                                    "value": "{{client_id}}",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "client_secret",
+                                    "value": "{{client_secret}}",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "response_type",
+                                    "value": "{{response_types}}",
+                                    "type": "text"
+                                }
+                            ]
+                        },
+                        "url": "{{keycloak_server}}/auth/realms/{{realm}}/protocol/openid-connect/token"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "GET USERINFO",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/x-www-form-urlencoded"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": []
+                        },
+                        "url": "{{keycloak_server}}/auth/realms/{{realm}}/protocol/openid-connect/userinfo"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "app requests",
+            "item": [
+                {
+                    "name": "GET ROOT",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/x-www-form-urlencoded"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": []
+                        },
+                        "url": "http://localhost:8000/v1/"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "GET ALL COLLECTIONS",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/x-www-form-urlencoded"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": []
+                        },
+                        "url": "http://localhost:8000/v1/collections/"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "GET OBS",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/x-www-form-urlencoded"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "urlencoded",
+                            "urlencoded": [
+                                {
+                                    "key": "username",
+                                    "value": "{{username}}",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "password",
+                                    "value": "{{password}}",
+                                    "type": "text"
+                                }
+                            ]
+                        },
+                        "url": "http://localhost:8000/v1/collections/obs"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "GET LAKES",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/x-www-form-urlencoded"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": []
+                        },
+                        "url": "http://localhost:8000/v1/collections/lakes"
+                    },
+                    "response": []
+                }
+            ]
+        }
+    ]
+}
