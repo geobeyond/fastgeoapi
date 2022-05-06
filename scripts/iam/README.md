@@ -208,10 +208,7 @@ you would get the following content:
   "id": "lakes",
   "title": "Large Lakes",
   "description": "lakes of the world, public domain",
-  "keywords": [
-    "lakes",
-    "water bodies"
-  ],
+  "keywords": ["lakes", "water bodies"],
   "links": [
     {
       "type": "text/html",
@@ -271,23 +268,11 @@ you would get the following content:
   ],
   "extent": {
     "spatial": {
-      "bbox": [
-        [
-          -180,
-          -90,
-          180,
-          90
-        ]
-      ],
+      "bbox": [[-180, -90, 180, 90]],
       "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
     },
     "temporal": {
-      "interval": [
-        [
-          "2011-11-11T11:11:11+00:00",
-          null
-        ]
-      ]
+      "interval": [["2011-11-11T11:11:11+00:00", null]]
     }
   },
   "itemType": "feature"
