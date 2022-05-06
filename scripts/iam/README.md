@@ -13,29 +13,45 @@ Open the administration interface at `http://localhost:8282/auth` and access wit
 ### Create a new realm
 
 - _Add realm_ with the name `pygeoapi` and click on the _Create_ button
+  ![Add a realm](../../docs/images/add_realm.png)
 - In the _Clients_ menu under _Configure_ click on the button _Create_ on the top-right corner to _Add Client_ with a **Client ID** called `pygeoapi-client` and then click _Save_.
+  ![Create client](../../docs/images/add_client.png)
+
 - In the _settings_ page
+
   - Set _Access Type_ to `confidential`
   - Set _Root URL_ to `http://localhost:5000`
   - Set _Valid Redirect URIs_ to `http://localhost:5000/*`
   - Set _Admin URL_ to `http://localhost:5000`
   - Set _Web Origins_ to `http://localhost:5000/*`
   - Click the _Save_ button
+    ![Save user data](../../docs/images/configure_urls.png)
+
 - Set _client_id_ and _client_secret_ in the application configuration
 
 ### Create new users
 
-Add new users in the _Users_ menu
+Click on the _Add User_ button the _Users_ page
+
+![Users](../../docs/images/users.png)
 
 - Add _Username_ with value `francbartoli`
+
+![Franbartoli](../../docs/images/add_user.png)
+
 - Under _Credentials_
   - Set _Password_ to `francbartoli`
   - Set _Temporary_ to `off`
+
+![Set password](../../docs/images/add_user_password.png)
+
 - Under _Attributes_
 
   - Set key/value
     - `user=francbartoli`
     - `company=geobeyond`
+
+![User attributes](../../docs/images/add_user_attributes.png)
 
 - Add _Username_ with value `tomkralidis`
 - Under _Credentials_
@@ -52,6 +68,8 @@ Under the tab _Mappers_ of the new realm set the following mapping:
 
 - Name: user-mapping
 - Name: company-mapping
+
+![Add mappers](../../docs/images/add_mappers.png)
 
 ## Update the policy
 
