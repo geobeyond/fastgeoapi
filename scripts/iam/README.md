@@ -13,9 +13,9 @@ Open the administration interface at `http://localhost:8282/auth` and access wit
 ### Create a new realm
 
 - _Add realm_ with the name `pygeoapi` and click on the _Create_ button
-![Add a realm](https://user-images.githubusercontent.com/31009679/167174126-71da0d0b-85ea-4336-9d60-6690c0d334f4.png)
+![Add a realm](../../docs/images/add_realm.png)
 - In the _Clients_ menu under _Configure_ click on the button _Create_ on the top-right corner to _Add Client_ with a **Client ID** called `pygeoapi-client` and then click _Save_.
-![Screenshot 2022-05-06 at 16 15 13](https://user-images.githubusercontent.com/31009679/167174235-0877435f-0f67-4db9-947a-7d1d4b08a714.png)
+![Create client](../../docs/images/add_client.png)
 
 - In the _settings_ page
   - Set _Access Type_ to `confidential`
@@ -24,29 +24,35 @@ Open the administration interface at `http://localhost:8282/auth` and access wit
   - Set _Admin URL_ to `http://localhost:5000`
   - Set _Web Origins_ to `http://localhost:5000/*`
   - Click the _Save_ button
-![Screenshot 2022-05-06 at 16 16 17](https://user-images.githubusercontent.com/31009679/167174338-ea4680b1-d0e9-47fc-b4bc-21771526791c.png)
+![Save user data](../../docs/images/configure_urls.png)
 
 - Set _client_id_ and _client_secret_ in the application configuration
 
 ### Create new users
 
-![Screenshot 2022-05-06 at 16 16 41](https://user-images.githubusercontent.com/31009679/167174787-fb3556cc-2a7b-4d79-b325-94716f01712e.png)
+Click on the _Add User_ button the _Users_ page
 
-Add new users in the _Users_ menu
+![Users](../../docs/images/users.png)
+
 
 - Add _Username_ with value `francbartoli`
+
+![Franbartoli](../../docs/images/add_user.png)
+    
 - Under _Credentials_
   - Set _Password_ to `francbartoli`
   - Set _Temporary_ to `off`
+
+![Set password](../../docs/images/add_user_password.png)
+
+
 - Under _Attributes_
 
   - Set key/value
     - `user=francbartoli`
     - `company=geobeyond`
 
-![Screenshot 2022-05-06 at 16 16 51](https://user-images.githubusercontent.com/31009679/167174913-f8cc061f-d57f-452a-aeb2-26292a32eade.png)
-![Screenshot 2022-05-06 at 16 17 15](https://user-images.githubusercontent.com/31009679/167174930-36cd24bc-fa80-48f8-9ace-aadbc7ec19d4.png)
-
+![User attributes](../../docs/images/add_user_attributes.png)
 
 - Add _Username_ with value `tomkralidis`
 - Under _Credentials_
@@ -64,7 +70,7 @@ Under the tab _Mappers_ of the new realm set the following mapping:
 - Name: user-mapping
 - Name: company-mapping
 
-![Screenshot 2022-05-06 at 17 36 55](https://user-images.githubusercontent.com/31009679/167175131-1616e798-3f73-4a55-bde4-fb245588d55e.png)
+![Add mappers](../../docs/images/add_mappers.png)
 
 
 ## Update the policy
