@@ -2,7 +2,7 @@
 import inspect
 
 from app.config.logging import create_logger
-from app.utils.app_exceptions import AppExceptionCase
+from app.utils.app_exceptions import AppExceptionError
 
 
 logger = create_logger("app.utils.service_result")
@@ -13,7 +13,7 @@ class ServiceResult:
 
     def __init__(self, arg):
         """Initialize the service result class."""
-        if isinstance(arg, AppExceptionCase):
+        if isinstance(arg, AppExceptionError):
             self.success = False
             self.exception_case = arg.exception_case
             self.status_code = arg.status_code
