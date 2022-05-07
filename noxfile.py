@@ -102,6 +102,7 @@ def precommit(session: NoxPoetrySession) -> None:
         "pyupgrade",
         "reorder-python-imports",
     )
+    session.run("pre-commit", "clean")
     session.run("pre-commit", *args)
     if args and args[0] == "install":
         activate_virtualenv_in_precommit_hooks(session)

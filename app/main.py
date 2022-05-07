@@ -1,8 +1,15 @@
 """Main module."""
 from typing import Any
 
-import uvicorn
 import loguru
+import uvicorn
+from app.config.app import configuration as cfg
+from app.config.auth import opa_config
+from app.config.logging import create_logger
+from app.utils.app_exceptions import app_exception_handler
+from app.utils.app_exceptions import AppExceptionError
+from app.utils.request_exceptions import http_exception_handler
+from app.utils.request_exceptions import request_validation_exception_handler
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi_opa import OPAMiddleware
@@ -11,17 +18,12 @@ from pygeoapi.starlette_app import app as pygeoapi_app
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
 
-from app.config.app import configuration as cfg
-from app.config.auth import opa_config
-from app.config.logging import create_logger
-from app.utils.app_exceptions import app_exception_handler
-from app.utils.app_exceptions import AppExceptionError
-from app.utils.request_exceptions import http_exception_handler
-from app.utils.request_exceptions import request_validation_exception_handler
-
 
 class ModifiedFastAPI(FastAPI):
+    """Subclass of FastAPI that possesses a logger attribute."""
+
     def __init__(self, **extra: Any):
+        """Included the self.logger attribute."""
         super().__init__(**extra)
         self.logger: loguru.Logger = loguru.logger
 
@@ -29,7 +31,6 @@ class ModifiedFastAPI(FastAPI):
 def create_app() -> ModifiedFastAPI:
     """Handle application creation."""
     app = ModifiedFastAPI(title="Fastgeoapi", root_path=cfg.ROOT_PATH, debug=True)
-
 
     # Set all CORS enabled origins
     app.add_middleware(
