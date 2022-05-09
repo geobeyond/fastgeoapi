@@ -19,7 +19,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
 
 
-class ModifiedFastAPI(FastAPI):
+class FastGeoAPI(FastAPI):
     """Subclass of FastAPI that possesses a logger attribute."""
 
     def __init__(self, **extra: Any):
