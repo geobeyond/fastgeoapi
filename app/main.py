@@ -28,9 +28,9 @@ class FastGeoAPI(FastAPI):
         self.logger: loguru.Logger = loguru.logger
 
 
-def create_app() -> ModifiedFastAPI:
+def create_app() -> FastGeoAPI:
     """Handle application creation."""
-    app = ModifiedFastAPI(title="Fastgeoapi", root_path=cfg.ROOT_PATH, debug=True)
+    app = FastGeoAPI(title="Fastgeoapi", root_path=cfg.ROOT_PATH, debug=True)
 
     # Set all CORS enabled origins
     app.add_middleware(
