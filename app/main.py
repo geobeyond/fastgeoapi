@@ -19,7 +19,7 @@ from app.utils.request_exceptions import request_validation_exception_handler
 
 def create_app() -> FastAPI:
     """Handle application creation."""
-    app = FastAPI(title="Fastgeoapi", root_path=cfg.ROOT_PATH, debug=True)
+    app = FastAPI(title="fastgeoapi", root_path=cfg.ROOT_PATH, debug=True)
 
     # Set all CORS enabled origins
     app.add_middleware(

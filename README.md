@@ -1,4 +1,4 @@
-# FASTGeoAPI
+# fastgeoapi
 
 A FastAPI application leveraged by pygeoapi
 
@@ -59,7 +59,7 @@ export PYGEOAPI_CONFIG=example-config.yml
 export PYGEOAPI_OPENAPI=example-openapi.yml
 ```
 
-Finally you can start FASTGeoAPI in development mode:
+Finally you can start fastgeoapi in development mode:
 
 ```shell
 uvicorn app.main:app --port 5000 --reload
