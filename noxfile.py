@@ -102,6 +102,7 @@ def precommit(session: NoxPoetrySession) -> None:
         "pyupgrade",
         "reorder-python-imports",
     )
+    session.run("pre-commit", "clean")
     session.run("pre-commit", *args)
     if args and args[0] == "install":
         activate_virtualenv_in_precommit_hooks(session)
@@ -118,7 +119,7 @@ def safety(session: NoxPoetrySession) -> None:
 @nox_session(python=python_versions)
 def mypy(session: NoxPoetrySession) -> None:
     """Type-check using mypy."""
-    args = session.posargs or ["app", "tests"]
+    args = session.posargs or ["app", "tests", "--namespace-packages"]
     session.install(".")
     session.install("mypy", "pytest")
     session.run("mypy", *args)
