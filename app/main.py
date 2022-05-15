@@ -30,7 +30,7 @@ class FastGeoAPI(FastAPI):
 
 def create_app() -> FastGeoAPI:
     """Handle application creation."""
-    app = FastGeoAPI(title="Fastgeoapi", root_path=cfg.ROOT_PATH, debug=True)
+    app = FastAPI(title="fastgeoapi", root_path=cfg.ROOT_PATH, debug=True)
 
     # Set all CORS enabled origins
     app.add_middleware(
