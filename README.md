@@ -59,7 +59,7 @@ export PYGEOAPI_CONFIG=example-config.yml
 export PYGEOAPI_OPENAPI=example-openapi.yml
 ```
 
-Finally you can start fastgeoapi in development mode:
+Finally, you can start fastgeoapi in development mode:
 
 ```shell
 uvicorn app.main:app --port 5000 --reload
@@ -71,7 +71,7 @@ Please see the [Command-line
 Reference](https://fastgeoapi.readthedocs.io/en/latest/usage.html) for
 details.
 
-Please have a look at the `docker-compose.yml` file under `scripts/iam` to start the stack with **Keycloak** and **Open Policy Agent** locally. There is a `README.md` file which explains how to use it.
+Please have a look at the `docker-compose.yml` file under `scripts/iam` to start the stack with **Keycloak** and **Open Policy Agent** locally. There is a `README.md` file that explains how to use it.
 
 The file `scripts/iam/keycloak/realm-export.json` can be used to import an already configured realm into Keycloak.
 
@@ -85,14 +85,12 @@ Guide](CONTRIBUTING.rst).
 ## License
 
 Distributed under the terms of the [MIT
-license](https://opensource.org/licenses/MIT), _fastgeoapi_ is free and
-open source software.
+license](https://opensource.org/licenses/MIT), _fastgeoapi_ is free and open-source software.
 
 ## Issues
 
 If you encounter any problems, please [file an
-issue](https://github.com/geobeyond/fastgeoapi/issues) along with a
-detailed description.
+issue](https://github.com/geobeyond/fastgeoapi/issues) along with a detailed description.
 
 ## Credits
 
