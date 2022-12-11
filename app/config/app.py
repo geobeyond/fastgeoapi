@@ -39,6 +39,8 @@ class DevConfig(GlobalConfig):
     )
     OIDC_CLIENT_ID: Optional[str] = Field(None, env="DEV_OIDC_CLIENT_ID")
     OIDC_CLIENT_SECRET: Optional[str] = Field(None, env="DEV_OIDC_CLIENT_SECRET")
+    API_KEY_ENABLED: Optional[bool] = Field(None, env="DEV_API_KEY_ENABLED")
+    API_KEY_PYGEOAPI: Optional[str] = Field(None, env="DEV_API_KEY_PYGEOAPI")
 
 
 class ProdConfig(GlobalConfig):
@@ -61,6 +63,8 @@ class ProdConfig(GlobalConfig):
     )
     OIDC_CLIENT_ID: Optional[str] = Field(None, env="PROD_OIDC_CLIENT_ID")
     OIDC_CLIENT_SECRET: Optional[str] = Field(None, env="PROD_OIDC_CLIENT_SECRET")
+    API_KEY_ENABLED: Optional[bool] = Field(None, env="PROD_API_KEY_ENABLED")
+    API_KEY_PYGEOAPI: Optional[str] = Field(None, env="PROD_API_KEY_PYGEOAPI")
 
 
 class FactoryConfig:

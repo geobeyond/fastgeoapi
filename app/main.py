@@ -58,6 +58,14 @@ def create_app() -> FastGeoAPI:
         from app.config.auth import opa_config
 
         pygeoapi_app.add_middleware(OPAMiddleware, config=opa_config)
+    elif cfg.API_KEY_ENABLED:
+        from fastapi_key_auth import AuthorizerMiddleware
+
+        pygeoapi_app.add_middleware(
+            AuthorizerMiddleware,
+            public_paths=["/openapi"],
+            key_pattern="API_KEY_"
+        )
     app.mount(path="/api", app=pygeoapi_app)
 
     app.logger = create_logger(name="app.main")
