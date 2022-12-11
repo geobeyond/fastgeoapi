@@ -41,7 +41,6 @@ fastgeoapi = "fastgeoapi.cli:main"
 [tool.poetry.group.dev.dependencies]
 pytest = "^6.2.5"
 coverage = {extras = ["toml"], version = "^6.1"}
-mypy = "^0.910"
 typeguard = "^2.13.2"
 xdoctest = {extras = ["colors"], version = "^0.15.10"}
 pre-commit = "^2.15.0"
@@ -62,6 +61,7 @@ mkdocs-material-extensions = "^1.0.3"
 bandit = "^1.7.2"
 ipython = "^8.2.0"
 safety = "<2.0"
+mypy = "^0.991"
 
 [tool.coverage.paths]
 source = [".", "*/site-packages"]
