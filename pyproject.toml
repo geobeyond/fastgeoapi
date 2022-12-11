@@ -32,6 +32,7 @@ uvicorn = {extras = ["standard"], version = "^0.20.0"}
 fastapi = "^0.88.0"
 typer = {extras = ["all"], version = "^0.7.0"}
 pydantic = {extras = ["dotenv", "email"], version = "^1.10.2"}
+nest-asyncio = "^1.5.6"
 
 [tool.poetry.scripts]
 fastgeoapi = "fastgeoapi.cli:main"
