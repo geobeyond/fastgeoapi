@@ -1950,7 +1950,7 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "9fc41e239a8d48f100b05046cbc8f379d5b882bfeb2239680c039711e0df5fd4"
+content-hash = "0988ce9c5e7f56167790ef9f93f4ff82d4f3db121edd66b7e00bf89007d2f0cd"
 
 [metadata.files]
 affine = [
