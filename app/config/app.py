@@ -31,6 +31,7 @@ class DevConfig(GlobalConfig):
     LOG_ROTATION: Optional[str] = Field(None, env="DEV_LOG_ROTATION")
     LOG_RETENTION: Optional[str] = Field(None, env="DEV_LOG_RETENTION")
     LOG_FORMAT: Optional[str] = Field(None, env="DEV_LOG_FORMAT")
+    OPA_ENABLED: Optional[bool] = Field(None, env="DEV_OPA_ENABLED")
     OPA_URL: Optional[str] = Field(None, env="DEV_OPA_URL")
     APP_URI: Optional[str] = Field(None, env="DEV_APP_URI")
     OIDC_WELL_KNOWN_ENDPOINT: Optional[str] = Field(
@@ -52,6 +53,7 @@ class ProdConfig(GlobalConfig):
     LOG_ROTATION: Optional[str] = Field(None, env="PROD_LOG_ROTATION")
     LOG_RETENTION: Optional[str] = Field(None, env="PROD_LOG_RETENTION")
     LOG_FORMAT: Optional[str] = Field(None, env="PROD_LOG_FORMAT")
+    OPA_ENABLED: Optional[bool] = Field(None, env="PROD_OPA_ENABLED")
     OPA_URL: Optional[str] = Field(None, env="PROD_OPA_URL")
     APP_URI: Optional[str] = Field(None, env="PROD_APP_URI")
     OIDC_WELL_KNOWN_ENDPOINT: Optional[str] = Field(
