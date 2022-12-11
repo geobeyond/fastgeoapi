@@ -1,4 +1,5 @@
 """Main module."""
+import os
 from typing import Any
 
 import loguru
@@ -13,7 +14,6 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi_opa import OPAMiddleware
 from mangum import Mangum
-from pygeoapi.starlette_app import app as pygeoapi_app
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
 
@@ -51,6 +51,17 @@ def create_app() -> FastGeoAPI:
     @app.exception_handler(AppExceptionError)
     async def custom_app_exception_handler(request, e):
         return await app_exception_handler(request, e)
+
+    try:
+        # override pygeoapi os variables
+        os.environ["PYGEOAPI_CONFIG"] = cfg.PYGEOAPI_CONFIG
+        os.environ["PYGEOAPI_OPENAPI"] = cfg.PYGEOAPI_OPENAPI
+        from pygeoapi.starlette_app import app as pygeoapi_app
+    except FileNotFoundError:
+        loguru.logger.error(
+            "Please configure pygeoapi settings in .env properly"
+        )
+        raise
 
     # Add OPAMiddleware to the pygeoapi app
     if cfg.OPA_ENABLED:

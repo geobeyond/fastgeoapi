@@ -41,6 +41,8 @@ class DevConfig(GlobalConfig):
     OIDC_CLIENT_SECRET: Optional[str] = Field(None, env="DEV_OIDC_CLIENT_SECRET")
     API_KEY_ENABLED: Optional[bool] = Field(None, env="DEV_API_KEY_ENABLED")
     API_KEY_PYGEOAPI: Optional[str] = Field(None, env="DEV_API_KEY_PYGEOAPI")
+    PYGEOAPI_CONFIG: Optional[str] = Field(None, env="DEV_PYGEOAPI_CONFIG")
+    PYGEOAPI_OPENAPI: Optional[str] = Field(None, env="DEV_PYGEOAPI_OPENAPI")
 
 
 class ProdConfig(GlobalConfig):
@@ -65,6 +67,8 @@ class ProdConfig(GlobalConfig):
     OIDC_CLIENT_SECRET: Optional[str] = Field(None, env="PROD_OIDC_CLIENT_SECRET")
     API_KEY_ENABLED: Optional[bool] = Field(None, env="PROD_API_KEY_ENABLED")
     API_KEY_PYGEOAPI: Optional[str] = Field(None, env="PROD_API_KEY_PYGEOAPI")
+    PYGEOAPI_CONFIG: Optional[str] = Field(None, env="PROD_PYGEOAPI_CONFIG")
+    PYGEOAPI_OPENAPI: Optional[str] = Field(None, env="PROD_PYGEOAPI_OPENAPI")
 
 
 class FactoryConfig:
