@@ -113,7 +113,7 @@ tzdata = ["tzdata"]
 
 [[package]]
 name = "bandit"
-version = "1.7.2"
+version = "1.7.4"
 description = "Security oriented static analyser for python code."
 category = "dev"
 optional = false
@@ -459,17 +459,15 @@ pyflakes = ">=2.5.0,<2.6.0"
 
 [[package]]
 name = "flake8-bandit"
-version = "2.1.2"
+version = "4.1.1"
 description = "Automated security testing with bandit and flake8."
 category = "dev"
 optional = false
-python-versions = "*"
+python-versions = ">=3.6"
 
 [package.dependencies]
-bandit = "*"
-flake8 = "*"
-flake8-polyfill = "*"
-pycodestyle = "*"
+bandit = ">=1.7.3"
+flake8 = ">=5.0.0"
 
 [[package]]
 name = "flake8-bugbear"
@@ -1952,7 +1950,7 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "ac56f0b7e5601c8cf94637dfc58e820c43a3efc5e46c35d52ba141b94a0e7b65"
+content-hash = "9fc41e239a8d48f100b05046cbc8f379d5b882bfeb2239680c039711e0df5fd4"
 
 [metadata.files]
 affine = [
@@ -2009,8 +2007,8 @@ backports-zoneinfo = [
     {file = "backports.zoneinfo-0.2.1.tar.gz", hash = "sha256:fadbfe37f74051d024037f223b8e001611eac868b5c5b06144ef4d8b799862f2"},
 ]
 bandit = [
-    {file = "bandit-1.7.2-py3-none-any.whl", hash = "sha256:e20402cadfd126d85b68ed4c8862959663c8c372dbbb1fca8f8e2c9f55a067ec"},
-    {file = "bandit-1.7.2.tar.gz", hash = "sha256:6d11adea0214a43813887bfe71a377b5a9955e4c826c8ffd341b494e3ab25260"},
+    {file = "bandit-1.7.4-py3-none-any.whl", hash = "sha256:412d3f259dab4077d0e7f0c11f50f650cc7d10db905d98f6520a95a18049658a"},
+    {file = "bandit-1.7.4.tar.gz", hash = "sha256:2d63a8c573417bae338962d4b9b06fbc6080f74ecd955a092849e1e65c717bd2"},
 ]
 black = [
     {file = "black-22.12.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9eedd20838bd5d75b80c9f5487dbcb06836a43833a37846cf1d8c1cc01cef59d"},
@@ -2261,7 +2259,8 @@ flake8 = [
     {file = "flake8-5.0.4.tar.gz", hash = "sha256:6fbe320aad8d6b95cec8b8e47bc933004678dc63095be98528b7bdd2a9f510db"},
 ]
 flake8-bandit = [
-    {file = "flake8_bandit-2.1.2.tar.gz", hash = "sha256:687fc8da2e4a239b206af2e54a90093572a60d0954f3054e23690739b0b0de3b"},
+    {file = "flake8_bandit-4.1.1-py3-none-any.whl", hash = "sha256:4c8a53eb48f23d4ef1e59293657181a3c989d0077c9952717e98a0eace43e06d"},
+    {file = "flake8_bandit-4.1.1.tar.gz", hash = "sha256:068e09287189cbfd7f986e92605adea2067630b75380c6b5733dab7d87f9a84e"},
 ]
 flake8-bugbear = [
     {file = "flake8-bugbear-21.11.29.tar.gz", hash = "sha256:8b04cb2fafc6a78e1a9d873bd3988e4282f7959bb6b0d7c1ae648ec09b937a7b"},
