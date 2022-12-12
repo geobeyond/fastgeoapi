@@ -58,9 +58,7 @@ def create_app() -> FastGeoAPI:
         os.environ["PYGEOAPI_OPENAPI"] = cfg.PYGEOAPI_OPENAPI
         from pygeoapi.starlette_app import app as pygeoapi_app
     except FileNotFoundError:
-        loguru.logger.error(
-            "Please configure pygeoapi settings in .env properly"
-        )
+        loguru.logger.error("Please configure pygeoapi settings in .env properly")
         raise
 
     # Add OPAMiddleware to the pygeoapi app
@@ -72,6 +70,7 @@ def create_app() -> FastGeoAPI:
         if not cfg.PYGEOAPI_KEY_GLOBAL:
             raise ValueError("pygeoapi API KEY is missing")
         from fastapi_key_auth import AuthorizerMiddleware
+
         os.environ["PYGEOAPI_KEY_GLOBAL"] = cfg.PYGEOAPI_KEY_GLOBAL
 
         pygeoapi_app.add_middleware(
