@@ -119,6 +119,7 @@ def create_app():  # noqa: C901
         if not cfg.PYGEOAPI_KEY_GLOBAL:
             raise ValueError("pygeoapi API KEY is missing")
         from fastapi_key_auth import AuthorizerMiddleware
+        os.environ["PYGEOAPI_KEY_GLOBAL"] = cfg.PYGEOAPI_KEY_GLOBAL
 
         os.environ["PYGEOAPI_KEY_GLOBAL"] = cfg.PYGEOAPI_KEY_GLOBAL
 
