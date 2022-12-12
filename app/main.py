@@ -69,10 +69,13 @@ def create_app() -> FastGeoAPI:
 
         pygeoapi_app.add_middleware(OPAMiddleware, config=opa_config)
     elif cfg.API_KEY_ENABLED:
+        if not cfg.PYGEOAPI_KEY_GLOBAL:
+            raise ValueError("pygeoapi API KEY is missing")
         from fastapi_key_auth import AuthorizerMiddleware
+        os.environ["PYGEOAPI_KEY_GLOBAL"] = cfg.PYGEOAPI_KEY_GLOBAL
 
         pygeoapi_app.add_middleware(
-            AuthorizerMiddleware, public_paths=["/openapi"], key_pattern="API_KEY_"
+            AuthorizerMiddleware, public_paths=["/openapi"], key_pattern="PYGEOAPI_KEY_"
         )
     app.mount(path="/api", app=pygeoapi_app)
 

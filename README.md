@@ -62,7 +62,7 @@ export PYGEOAPI_OPENAPI=example-openapi.yml
 Finally, you can start fastgeoapi in development mode:
 
 ```shell
-uvicorn app.main:app --port 5000 --reload
+uvicorn app.main:app --port 5000 --loop asyncio --reload
 ```
 
 ## Usage
