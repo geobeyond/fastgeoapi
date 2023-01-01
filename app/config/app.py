@@ -12,6 +12,8 @@ class GlobalConfig(BaseSettings):
     # shell environment variable having the same name, that will take precedence.
 
     ENV_STATE: Optional[str] = Field(None, env="ENV_STATE")
+    HOST: Optional[str] = Field(None, env="HOST")
+    PORT: Optional[str] = Field(None, env="PORT")
 
     class Config:
         """Loads the dotenv file."""
@@ -41,6 +43,7 @@ class DevConfig(GlobalConfig):
     OIDC_CLIENT_SECRET: Optional[str] = Field(None, env="DEV_OIDC_CLIENT_SECRET")
     API_KEY_ENABLED: Optional[bool] = Field(None, env="DEV_API_KEY_ENABLED")
     PYGEOAPI_KEY_GLOBAL: Optional[str] = Field(None, env="DEV_PYGEOAPI_KEY_GLOBAL")
+    PYGEOAPI_BASEURL: Optional[str] = Field(None, env="DEV_PYGEOAPI_BASEURL")
     PYGEOAPI_CONFIG: Optional[str] = Field(None, env="DEV_PYGEOAPI_CONFIG")
     PYGEOAPI_OPENAPI: Optional[str] = Field(None, env="DEV_PYGEOAPI_OPENAPI")
 
@@ -67,12 +70,13 @@ class ProdConfig(GlobalConfig):
     OIDC_CLIENT_SECRET: Optional[str] = Field(None, env="PROD_OIDC_CLIENT_SECRET")
     API_KEY_ENABLED: Optional[bool] = Field(None, env="PROD_API_KEY_ENABLED")
     PYGEOAPI_KEY_GLOBAL: Optional[str] = Field(None, env="PROD_PYGEOAPI_KEY_GLOBAL")
+    PYGEOAPI_BASEURL: Optional[str] = Field(None, env="PROD_PYGEOAPI_BASEURL")
     PYGEOAPI_CONFIG: Optional[str] = Field(None, env="PROD_PYGEOAPI_CONFIG")
     PYGEOAPI_OPENAPI: Optional[str] = Field(None, env="PROD_PYGEOAPI_OPENAPI")
 
 
 class FactoryConfig:
-    """Returns a config instance dependending on the ENV_STATE variable."""
+    """Returns a config instance depending on the ENV_STATE variable."""
 
     def __init__(self, env_state: Optional[str]):
         """Initialize factory configuration."""

@@ -1,21 +1,39 @@
 """Main module."""
 import os
+import sys
+from pathlib import Path
 from typing import Any
 
 import loguru
 import uvicorn
+from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
+from fastapi_opa import OPAMiddleware
+from loguru import logger
+from mangum import Mangum
+from pygeoapi.l10n import LocaleError
+from pygeoapi.openapi import generate_openapi_document
+from pygeoapi.provider.base import ProviderConnectionError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.cors import CORSMiddleware
+
 from app.config.app import configuration as cfg
 from app.config.logging import create_logger
 from app.utils.app_exceptions import app_exception_handler
 from app.utils.app_exceptions import AppExceptionError
+from app.utils.pygeoapi_exceptions import PygeoapiEnvError
+from app.utils.pygeoapi_exceptions import PygeoapiLanguageError
 from app.utils.request_exceptions import http_exception_handler
 from app.utils.request_exceptions import request_validation_exception_handler
-from fastapi import FastAPI
-from fastapi.exceptions import RequestValidationError
-from fastapi_opa import OPAMiddleware
-from mangum import Mangum
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from starlette.middleware.cors import CORSMiddleware
+
+
+if cfg.LOG_LEVEL == "debug":
+    logger.remove()
+    logger.add(
+        sys.stdout,
+        colorize=True,
+        format="<green>{time:HH:mm:ss}</green> | {level} | <level>{message}</level>",
+    )
 
 
 class FastGeoAPI(FastAPI):
@@ -24,10 +42,10 @@ class FastGeoAPI(FastAPI):
     def __init__(self, **extra: Any):
         """Included the self.logger attribute."""
         super().__init__(**extra)
-        self.logger: loguru.Logger = loguru.logger
+        self.logger: loguru.Logger = logger
 
 
-def create_app() -> FastGeoAPI:
+def create_app() -> FastGeoAPI:  # noqa: C901
     """Handle application creation."""
     app = FastGeoAPI(title="fastgeoapi", root_path=cfg.ROOT_PATH, debug=True)
 
@@ -56,10 +74,42 @@ def create_app() -> FastGeoAPI:
         # override pygeoapi os variables
         os.environ["PYGEOAPI_CONFIG"] = cfg.PYGEOAPI_CONFIG
         os.environ["PYGEOAPI_OPENAPI"] = cfg.PYGEOAPI_OPENAPI
-        from pygeoapi.starlette_app import app as pygeoapi_app
+        os.environ["PYGEOAPI_BASEURL"] = cfg.PYGEOAPI_BASEURL
+        if not (os.environ["PYGEOAPI_CONFIG"] and os.environ["PYGEOAPI_OPENAPI"]):
+            logger.error("pygeoapi variables are not configured")
+            raise PygeoapiEnvError("PYGEOAPI_CONFIG and PYGEOAPI_OPENAPI are not set")
+        else:
+            # fill pygeoapi configuration with fastapi host and port
+            os.environ["HOST"] = cfg.HOST
+            os.environ["PORT"] = cfg.PORT
+
+            # import starlette application once env vars are set
+            from pygeoapi.starlette_app import app as pygeoapi_app
+
+            pygeoapi_conf = Path.cwd() / os.environ["PYGEOAPI_CONFIG"]
+            pygeoapi_oapi = Path.cwd() / os.environ["PYGEOAPI_OPENAPI"]
+            with pygeoapi_oapi.open(mode="w") as oapi_file:
+                oapi_content = generate_openapi_document(
+                    pygeoapi_conf,
+                    output_format="yaml",
+                )
+                logger.debug(f"OpenAPI content: \n{oapi_content}")
+                oapi_file.write(oapi_content)
+
     except FileNotFoundError:
-        loguru.logger.error("Please configure pygeoapi settings in .env properly")
+        logger.error("Please configure pygeoapi settings in .env properly")
         raise
+    except OSError as e:
+        logger.error(f"Runtime environment variables: \n{cfg}")
+        raise PygeoapiEnvError from e
+    except LocaleError as e:
+        logger.error(f"Runtime language configuration: \n{oapi_content}")
+        raise PygeoapiLanguageError from e
+    except ProviderConnectionError as e:
+        logger.error(f"Runtime environment variables: \n{cfg}")
+        logger.error(f"pygeoapi configuration: \n{pygeoapi_conf}")
+        logger.error(e)
+        raise e
 
     # Add OPAMiddleware to the pygeoapi app
     if cfg.OPA_ENABLED:
