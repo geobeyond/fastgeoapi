@@ -794,6 +794,12 @@ files = [
 fastapi = ">=0.84.0,<=0.92.0"
 starlette = ">=0.25.0,<0.26.0"
 
+[package.source]
+type = "git"
+url = "https://github.com/francbartoli/fastapi-key-auth"
+reference = "update-deps"
+resolved_reference = "5a55551a2c669d1f9187ee5d3fe54c8cb53c6a90"
+
 [[package]]
 name = "fastapi-opa"
 version = "1.4.2"
@@ -1223,7 +1229,7 @@ files = [
 zipp = ">=0.5"
 
 [package.extras]
-docs = ["furo", "jaraco.packaging (>=9)", "jaraco.tidelift (>=1.4)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-lint"]
+docs = ["furo", "jaraco.packaging (>=9)", "jaraco.tidelift (>=1.4)", "rst.linker (>=1.9)", "sphinx (>=3.5)"]
 perf = ["ipython"]
 testing = ["flake8 (<5)", "flufl.flake8", "importlib-resources (>=1.3)", "packaging", "pyfakefs", "pytest (>=6)", "pytest-black (>=0.3.7)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=1.3)", "pytest-flake8", "pytest-mypy (>=0.9.1)", "pytest-perf (>=0.9.2)"]
 
