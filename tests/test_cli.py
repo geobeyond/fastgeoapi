@@ -1,7 +1,6 @@
 """Test cases for the cli module."""
-from cli import app
-
 import pytest
+from cli import app
 from typer.testing import CliRunner
 
 
