@@ -22,7 +22,7 @@ except ImportError:
 
 package = "app"
 python_versions = ["3.10", "3.9", "3.8"]
-nox.needs_version = ">= 2021.6.6"
+nox.needs_version = ">= 2022.11.21"
 nox.options.sessions = (
     "pre-commit",
     "safety",
@@ -120,6 +120,10 @@ def safety(session: NoxPoetrySession) -> None:
         "51457",
         "-i",
         "51358",
+        # 51668: https://github.com/sqlalchemy/sqlalchemy/pull/8563,
+        # still in beta + major version change sqlalchemy 2.0.0b1
+        "-i",
+        "51668",
         "--full-report",
         f"--file={requirements}",
     )

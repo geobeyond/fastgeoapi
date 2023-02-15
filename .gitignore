@@ -130,3 +130,7 @@ dmypy.json
 
 # OS
 .DS_Store
+
+pygeoapi-config.yml
+
+pygeoapi-openapi.yml
