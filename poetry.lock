@@ -50,21 +50,6 @@ files = [
 ]
 
 [[package]]
-name = "aspy-refactor-imports"
-version = "2.3.0"
-description = "Utilities for refactoring imports in python-like syntax."
-category = "dev"
-optional = false
-python-versions = ">=3.7"
-files = [
-    {file = "aspy.refactor_imports-2.3.0-py2.py3-none-any.whl", hash = "sha256:a60432fc0c0b948aa371da520b896ddcbbee71b1820eeda6d2c04f039bac13b9"},
-    {file = "aspy.refactor_imports-2.3.0.tar.gz", hash = "sha256:5a7775b31e55a762f807c218a3f9f1a7ff1313d766605a301f2ed937cdfa242a"},
-]
-
-[package.dependencies]
-cached-property = "*"
-
-[[package]]
 name = "asttokens"
 version = "2.2.1"
 description = "Annotate AST trees with source code positions"
@@ -226,18 +211,6 @@ colorama = ["colorama (>=0.4.3)"]
 d = ["aiohttp (>=3.7.4)"]
 jupyter = ["ipython (>=7.8.0)", "tokenize-rt (>=3.2.0)"]
 uvloop = ["uvloop (>=0.15.2)"]
-
-[[package]]
-name = "cached-property"
-version = "1.5.2"
-description = "A decorator for caching properties in classes."
-category = "dev"
-optional = false
-python-versions = "*"
-files = [
-    {file = "cached-property-1.5.2.tar.gz", hash = "sha256:9fa5755838eecbb2d234c3aa390bd80fbd3ac6b6869109bfc1b499f7bd89a130"},
-    {file = "cached_property-1.5.2-py2.py3-none-any.whl", hash = "sha256:df4f613cf7ad9a588cc381aaf4a512d26265ecebd5eb9e1ba12f1319eb85a6a0"},
-]
 
 [[package]]
 name = "certifi"
@@ -436,6 +409,18 @@ files = [
     {file = "charset_normalizer-3.0.1-cp39-cp39-win32.whl", hash = "sha256:39cf9ed17fe3b1bc81f33c9ceb6ce67683ee7526e65fde1447c772afc54a1bb8"},
     {file = "charset_normalizer-3.0.1-cp39-cp39-win_amd64.whl", hash = "sha256:0a11e971ed097d24c534c037d298ad32c6ce81a45736d31e0ff0ad37ab437d59"},
     {file = "charset_normalizer-3.0.1-py3-none-any.whl", hash = "sha256:7e189e2e1d3ed2f4aebabd2d5b0f931e883676e51c7624826e0a4e5fe8a0bf24"},
+]
+
+[[package]]
+name = "classify-imports"
+version = "4.2.0"
+description = "Utilities for refactoring imports in python-like syntax."
+category = "dev"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "classify_imports-4.2.0-py2.py3-none-any.whl", hash = "sha256:dbbc264b70a470ed8c6c95976a11dfb8b7f63df44ed1af87328bbed2663f5161"},
+    {file = "classify_imports-4.2.0.tar.gz", hash = "sha256:7abfb7ea92149b29d046bd34573d247ba6e68cc28100c801eba4af17964fc40e"},
 ]
 
 [[package]]
@@ -795,23 +780,19 @@ test = ["anyio[trio] (>=3.2.1,<4.0.0)", "black (==22.10.0)", "coverage[toml] (>=
 
 [[package]]
 name = "fastapi-key-auth"
-version = "0.8.0"
+version = "0.9.0"
 description = "API key validation Middleware"
 category = "main"
 optional = false
-python-versions = "^3.7"
-files = []
-develop = false
+python-versions = ">=3.7,<4.0"
+files = [
+    {file = "fastapi_key_auth-0.9.0-py3-none-any.whl", hash = "sha256:17822823294129020a342a5dab3f8841b58a9d21c36245b693057e2eb42864ec"},
+    {file = "fastapi_key_auth-0.9.0.tar.gz", hash = "sha256:8974267cf970b51dd68aa1093cfec0bebed7e128761ccec966fb42bbbd12f68b"},
+]
 
 [package.dependencies]
 fastapi = ">=0.84.0,<=0.92.0"
-starlette = "^0.25.0"
-
-[package.source]
-type = "git"
-url = "https://github.com/francbartoli/fastapi-key-auth"
-reference = "update-deps"
-resolved_reference = "5a55551a2c669d1f9187ee5d3fe54c8cb53c6a90"
+starlette = ">=0.25.0,<0.26.0"
 
 [[package]]
 name = "fastapi-opa"
@@ -2248,7 +2229,7 @@ unicodecsv = "*"
 type = "git"
 url = "https://github.com/geopython/pygeoapi"
 reference = "master"
-resolved_reference = "74ddb1215dca0c5dddc6429971aa30804115dfa6"
+resolved_reference = "6844a8522082fc775b2a94b86db476035841b1ee"
 
 [[package]]
 name = "pygeofilter"
@@ -2737,18 +2718,18 @@ files = [
 
 [[package]]
 name = "reorder-python-imports"
-version = "2.8.0"
+version = "3.9.0"
 description = "Tool for reordering python imports"
 category = "dev"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "reorder_python_imports-2.8.0-py2.py3-none-any.whl", hash = "sha256:03354608c610a25cba75a352ad86552849dcf3c90849fcb415298efc911a4ecf"},
-    {file = "reorder_python_imports-2.8.0.tar.gz", hash = "sha256:435af2a6feb39de3c4b7a415079f85b4b0052d3a7ed9ea7b269b0aff725abdaf"},
+    {file = "reorder_python_imports-3.9.0-py2.py3-none-any.whl", hash = "sha256:3f9c16e8781f54c944756d0d1eb34a8c863554f7a4eb3693f574fe19b1a29b56"},
+    {file = "reorder_python_imports-3.9.0.tar.gz", hash = "sha256:49292ed537829a6bece9fb3746fc1bbe98f52643be5de01a4e13680268a5b0ec"},
 ]
 
 [package.dependencies]
-"aspy.refactor-imports" = ">=2.3.0,<3"
+classify-imports = ">=4.1"
 
 [[package]]
 name = "requests"
@@ -2964,14 +2945,14 @@ vectorized = ["numpy"]
 
 [[package]]
 name = "shellingham"
-version = "1.5.1"
+version = "1.5.0.post1"
 description = "Tool to Detect Surrounding Shell"
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "shellingham-1.5.1-py2.py3-none-any.whl", hash = "sha256:ce5f6d0062c719deabf696bccfab5273e09a6ea1b0ed32867aff03392adbdc51"},
-    {file = "shellingham-1.5.1.tar.gz", hash = "sha256:41bc81fa8d74afb04338e0398f9732ee2217407ade778ae1e2709bde89d85c45"},
+    {file = "shellingham-1.5.0.post1-py2.py3-none-any.whl", hash = "sha256:368bf8c00754fd4f55afb7bbb86e272df77e4dc76ac29dbcbb81a59e9fc15744"},
+    {file = "shellingham-1.5.0.post1.tar.gz", hash = "sha256:823bc5fb5c34d60f285b624e7264f4dda254bc803a3774a147bf99c0e3004a28"},
 ]
 
 [[package]]
@@ -3276,14 +3257,14 @@ test = ["black (>=22.3.0,<23.0.0)", "coverage (>=6.2,<7.0)", "isort (>=5.0.6,<6.
 
 [[package]]
 name = "typing-extensions"
-version = "4.4.0"
+version = "4.5.0"
 description = "Backported and Experimental Type Hints for Python 3.7+"
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "typing_extensions-4.4.0-py3-none-any.whl", hash = "sha256:16fa4864408f655d35ec496218b85f79b3437c829e93320c7c9215ccfd92489e"},
-    {file = "typing_extensions-4.4.0.tar.gz", hash = "sha256:1511434bb92bf8dd198c12b1cc812e800d4181cfcb867674e0f8279cc93087aa"},
+    {file = "typing_extensions-4.5.0-py3-none-any.whl", hash = "sha256:fb33085c39dd998ac16d1431ebc293a8b3eedd00fd4a32de0ff79002c19511b4"},
+    {file = "typing_extensions-4.5.0.tar.gz", hash = "sha256:5cb5f4a79139d699607b3ef622a1dedafa84e115ab0024e0d9c044a9479ca7cb"},
 ]
 
 [[package]]
@@ -3678,4 +3659,4 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "b3e907025b559bd522bb28cc56de53e4ba2407ebe00b46cde368bd80edd865fb"
+content-hash = "e952fe2b1446faba1c50a180b8251ebf2ea155ed32e0ecaa3c54780aa74579b3"

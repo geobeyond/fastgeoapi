@@ -120,8 +120,10 @@ def safety(session: NoxPoetrySession) -> None:
         "51457",
         "-i",
         "51358",
+        # 51668: https://github.com/sqlalchemy/sqlalchemy/pull/8563,
+        # still in beta + major version change sqlalchemy 2.0.0b1
         "-i",
-        "51668", # 51668: https://github.com/sqlalchemy/sqlalchemy/pull/8563, still in beta + major version change sqlalchemy 2.0.0b1
+        "51668",
         "--full-report",
         f"--file={requirements}",
     )
