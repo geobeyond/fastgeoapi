@@ -794,12 +794,6 @@ files = [
 fastapi = ">=0.84.0,<=0.92.0"
 starlette = ">=0.25.0,<0.26.0"
 
-[package.source]
-type = "git"
-url = "https://github.com/francbartoli/fastapi-key-auth"
-reference = "update-deps"
-resolved_reference = "5a55551a2c669d1f9187ee5d3fe54c8cb53c6a90"
-
 [[package]]
 name = "fastapi-opa"
 version = "1.4.2"

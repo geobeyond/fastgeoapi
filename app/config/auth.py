@@ -1,9 +1,8 @@
 """Authn and Authz module."""
+from app.config.app import configuration as cfg
 from fastapi_opa import OPAConfig
 from fastapi_opa.auth import OIDCAuthentication
 from fastapi_opa.auth import OIDCConfig
-
-from app.config.app import configuration as cfg
 
 
 # The hostname of your Open Policy Agent instance
