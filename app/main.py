@@ -44,7 +44,7 @@ class FastGeoAPI(FastAPI):
         self.logger: loguru.Logger = logger
 
 
-def create_app() -> FastGeoAPI:  # noqa: C901
+def create_app():  # noqa: C901
     """Handle application creation."""
     app = FastGeoAPI(title="fastgeoapi", root_path=cfg.ROOT_PATH, debug=True)
 
@@ -119,8 +119,6 @@ def create_app() -> FastGeoAPI:  # noqa: C901
         if not cfg.PYGEOAPI_KEY_GLOBAL:
             raise ValueError("pygeoapi API KEY is missing")
         from fastapi_key_auth import AuthorizerMiddleware
-
-        os.environ["PYGEOAPI_KEY_GLOBAL"] = cfg.PYGEOAPI_KEY_GLOBAL
 
         os.environ["PYGEOAPI_KEY_GLOBAL"] = cfg.PYGEOAPI_KEY_GLOBAL
 
