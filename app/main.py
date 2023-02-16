@@ -44,7 +44,7 @@ class FastGeoAPI(FastAPI):
         self.logger: loguru.Logger = logger
 
 
-def create_app() -> FastGeoAPI:  # noqa: C901
+def create_app():  # noqa: C901
     """Handle application creation."""
     app = FastGeoAPI(title="fastgeoapi", root_path=cfg.ROOT_PATH, debug=True)
 
