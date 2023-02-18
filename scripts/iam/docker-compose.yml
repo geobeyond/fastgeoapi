@@ -1,13 +1,17 @@
 version: "2"
 services:
   keycloak:
-    image: jboss/keycloak:latest
+    platform: linux/amd64
+    image: quay.io/keycloak/keycloak:latest
     ports:
       - 8282:8080
+    command:
+      - "start-dev"
     environment:
-      - KEYCLOAK_USER=admin
-      - KEYCLOAK_PASSWORD=admin
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
   opa:
+    platform: linux/amd64
     image: openpolicyagent/opa:latest
     ports:
       - 8383:8181
