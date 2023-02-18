@@ -2502,18 +2502,18 @@ tzdata = {version = "*", markers = "python_version >= \"3.6\""}
 
 [[package]]
 name = "pyupgrade"
-version = "2.38.2"
+version = "2.38.4"
 description = "A tool to automatically upgrade syntax for newer versions."
 category = "dev"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "pyupgrade-2.38.2-py2.py3-none-any.whl", hash = "sha256:41bb9a9fd48fe57163b0dacffff433d6d5a63a0f7c2402918917b5f1a533342b"},
-    {file = "pyupgrade-2.38.2.tar.gz", hash = "sha256:a5d778c9de0b53975c6a9eac2d0df5adfad244a9f7d7993d8a114223ebbda367"},
+    {file = "pyupgrade-2.38.4-py2.py3-none-any.whl", hash = "sha256:944ff993c396ddc2b9012eb3de4cda138eb4c149b22c6c560d4c8bfd0e180982"},
+    {file = "pyupgrade-2.38.4.tar.gz", hash = "sha256:1eb43a49f416752929741ba4d706bf3f33593d3cac9bdc217fc1ef55c047c1f4"},
 ]
 
 [package.dependencies]
-tokenize-rt = ">=3.2.0"
+tokenize-rt = "<5"
 
 [[package]]
 name = "pyyaml"
@@ -3165,14 +3165,14 @@ files = [
 
 [[package]]
 name = "tokenize-rt"
-version = "5.0.0"
+version = "4.2.1"
 description = "A wrapper around the stdlib `tokenize` which roundtrips."
 category = "main"
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.6.1"
 files = [
-    {file = "tokenize_rt-5.0.0-py2.py3-none-any.whl", hash = "sha256:c67772c662c6b3dc65edf66808577968fb10badfc2042e3027196bed4daf9e5a"},
-    {file = "tokenize_rt-5.0.0.tar.gz", hash = "sha256:3160bc0c3e8491312d0485171dea861fc160a240f5f5766b72a1165408d10740"},
+    {file = "tokenize_rt-4.2.1-py2.py3-none-any.whl", hash = "sha256:08a27fa032a81cf45e8858d0ac706004fcd523e8463415ddf1442be38e204ea8"},
+    {file = "tokenize_rt-4.2.1.tar.gz", hash = "sha256:0d4f69026fed520f8a1e0103aa36c406ef4661417f20ca643f913e33531b3b94"},
 ]
 
 [[package]]
@@ -3659,4 +3659,4 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "e952fe2b1446faba1c50a180b8251ebf2ea155ed32e0ecaa3c54780aa74579b3"
+content-hash = "0d033253cfcf837133a8f3fcf349e7c13055212274d9ce8b3a7a01be84ff4842"
