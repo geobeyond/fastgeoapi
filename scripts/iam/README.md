@@ -187,6 +187,12 @@ allow {
 
 ## Get Access Token
 
+Get the `client secret` from Keycloack, in Clients -> Client details go to Credetials Tab and show / copy the value:
+
+![Get Client Secret](../../docs/images/get_client_secret.png)
+
+To set environment variables do the following, replacing `client_id` with the `client secret`:
+
 ```shell
 export KC_RESPONSE=$(curl -X POST 'http://localhost:8282/realms/pygeoapi/protocol/openid-connect/token' \
  -H "Content-Type: application/x-www-form-urlencoded" \
