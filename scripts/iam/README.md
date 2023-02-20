@@ -92,7 +92,17 @@ Under the tab _Realm roles_ of the new realm set the following roles:
 
 ![Add realm roles](../../docs/images/add_mappers.png)
 
-Simply click on the button _Create role_ and fill in the _Role name_ field and the attributes that are designed to be used in the new realm (i.e. `user`, `company`, etc).
+Click on the button _Create role_ and fill in the _Role name_ field and the attributes that are designed to be used in the new realm (i.e. `user`, `company`, etc).
+
+When the role is saved, it's necessary to associate it with both user _francbartoli_ and _tomkralidis_ in Users section.
+
+For each user, in the tab Role Mapping of User Details:
+
+- Click on the button *Assign role*
+- Assign roles *user-role* and *company-role*
+
+![User details Role Mapping](../../docs/images/role_mapping.png)
+
 
 ## Update the policy
 
@@ -205,7 +215,7 @@ export KC_RESPONSE=$(curl -X POST 'http://localhost:8282/realms/pygeoapi/protoco
  -d 'scope=openid profile email' | jq -r '.')
 ```
 
-Obtain the different response objects:
+Then obtain the different response objects:
 
 ```shell
 KC_ACCESS_TOKEN=$(echo $KC_RESPONSE| jq -r .access_token)
