@@ -83,14 +83,16 @@ Click on the _Users_ menu in the list of the left panel
     - `user=tomkralidis`
     - `company=osgeo`
 
-### Create the mapping
+### Create the mapping roles
 
-Under the tab _Mappers_ of the new realm set the following mapping:
+Under the tab _Realm roles_ of the new realm set the following roles:
 
-- Name: user-mapping
-- Name: company-mapping
+- Name: user-role
+- Name: company-role
 
-![Add mappers](../../docs/images/add_mappers.png)
+![Add realm roles](../../docs/images/add_mappers.png)
+
+Simply click on the button _Create role_ and fill in the _Role name_ field and the attributes that are designed to be used in the new realm (i.e. `user`, `company`, etc).
 
 ## Update the policy
 
@@ -101,9 +103,9 @@ docker-compose stop opa
 docker-compose up -d
 ```
 
-### Company based authorization policy
+### Company-based authorization policy
 
-Let's imagine our users have some attributes, for example the `company` where they are working. In this case we'd like to use it for authorization purposes. If certain rules are added to the policy file, such as:
+Let's imagine our users have some attributes, for example, the `company` where they are working. In this case, we'd like to use it for authorization purposes. If certain rules are added to the policy file, such as:
 
 - allow users from company `osgeo` to access only the collection `obs`
 
