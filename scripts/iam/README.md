@@ -2,24 +2,45 @@
 
 ## Run Keycloak and OPA together
 
+From the root go to the folder `scripts/iam`:
+
 ```shell
-docker-compose up -d
+docker compose up -d
+```
+
+Alternatively, you can run separately Keycloak with the following command:
+
+```shell
+docker[podman] run --rm --name keycloak -p 8282:8080 \
+  -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=admin \
+  quay.io/keycloak/keycloak:latest \
+  start-dev
+```
+
+and Open Policy Agent with the Rego file for authorization rules:
+
+```shell
+docker[podman] run --rm --name opa -p 8383:8181 \
+  -v ./policy:/policy \
+  openpolicyagent/opa:latest \
+  run --server --log-level debug /policy/auth.rego
 ```
 
 ## Configure Keycloak
 
-Open the administration interface at `http://localhost:8282/auth` and access with the credentials `admin/admin`.
+Open the administration interface at `http://localhost:8282` and access with the credentials `admin/admin`.
 
 ### Create a new realm
 
 - _Add realm_ with the name `pygeoapi` and click on the _Create_ button
   ![Add a realm](../../docs/images/add_realm.png)
-- In the _Clients_ menu under _Configure_ click on the button _Create_ on the top-right corner to _Add Client_ with a **Client ID** called `pygeoapi-client` and then click _Save_.
+- In the _Clients_ menu under _Manage_ click on the button _Create_ on the _Clients list_ tab, then click the _Create client_ button and fill **Client ID** with `pygeoapi-client`. Then click _Next_.
+  ![Client page](../../docs/images/clients_page.png)
   ![Create client](../../docs/images/add_client.png)
 
-- In the _settings_ page
+- Click on the item just created and in the _settings_ tab
 
-  - Set _Access Type_ to `confidential`
+  - Set _Client authentication_ to `On`
   - Set _Root URL_ to `http://localhost:5000`
   - Set _Valid Redirect URIs_ to `http://localhost:5000/*`
   - Set _Admin URL_ to `http://localhost:5000`
@@ -27,25 +48,25 @@ Open the administration interface at `http://localhost:8282/auth` and access wit
   - Click the _Save_ button
     ![Save user data](../../docs/images/configure_urls.png)
 
-- Set _client_id_ and _client_secret_ in the application configuration
+- Set _client_id_ and _client_secret_ in the configuration of the _Credentials_ tab.
 
 ### Create new users
 
-Click on the _Add User_ button the _Users_ page
+Click on the _Users_ menu in the list of the left panel
 
 ![Users](../../docs/images/users.png)
 
-- Add _Username_ with value `francbartoli`
+- Click the _Create new user_ button and fill the _Username_ with the value `francbartoli` then click _Create_
 
-![Franbartoli](../../docs/images/add_user.png)
+![franbartoli](../../docs/images/add_user.png)
 
-- Under _Credentials_
+- Click on the tab _Credentials_
   - Set _Password_ to `francbartoli`
   - Set _Temporary_ to `off`
 
 ![Set password](../../docs/images/add_user_password.png)
 
-- Under _Attributes_
+- Click on the tab _Attributes_
 
   - Set key/value
     - `user=francbartoli`
@@ -54,10 +75,10 @@ Click on the _Add User_ button the _Users_ page
 ![User attributes](../../docs/images/add_user_attributes.png)
 
 - Add _Username_ with value `tomkralidis`
-- Under _Credentials_
+- On the tab _Credentials_
   - Set _Password_ to `tomkralidis`
   - Set _Temporary_ to `off`
-- Under _Attributes_
+- On the tab _Attributes_
   - Set key/value
     - `user=tomkralidis`
     - `company=osgeo`
@@ -165,14 +186,15 @@ allow {
 ## Get Access Token
 
 ```shell
-export KC_RESPONSE=$(curl -X POST 'http://localhost:8282/auth/realms/pygeoapi/protocol/openid-connect/token' \
+export KC_RESPONSE=$(curl -X POST 'http://localhost:8282/realms/pygeoapi/protocol/openid-connect/token' \
  -H "Content-Type: application/x-www-form-urlencoded" \
  -d "username=francbartoli" \
- -d 'password=pygeoapi' \
+ -d 'password=francbartoli' \
  -d 'grant_type=password' \
  -d 'client_id=pygeoapi-client' \
- -d 'client_secret=eCjOPQsddOd1KoImn7ONlof9TxUIbJX1' \
- -d 'response_type=code id_token token' | jq -r '.')
+ -d 'client_secret=AXgyaD0WTjZaXEH0ry3ebZmE1s3ZL3Wc' \
+ -d 'response_type=code id_token token' \
+ -d 'scope=openid profile email' | jq -r '.')
 ```
 
 Obtain the different response objects:
@@ -186,18 +208,20 @@ KC_REFRESH_TOKEN=$(echo $KC_RESPONSE| jq -r .refresh_token)
 Verify that the user information is correct:
 
 ```shell
-curl -X GET 'http://localhost:8282/auth/realms/pygeoapi/protocol/openid-connect/userinfo' -H "Content-Type: application/x-www-form-urlencoded" -H "Authorization: Bearer $KC_ACCESS_TOKEN" | jq .
+curl -X GET 'http://localhost:8282/realms/pygeoapi/protocol/openid-connect/userinfo' -H "Content-Type: application/x-www-form-urlencoded" -H "Authorization: Bearer $KC_ACCESS_TOKEN" | jq .
 ```
 
 you would get something like this:
 
 ```json
 {
-  "sub": "f18a75db-e2a7-4d43-88b0-7bd9330a5c4d",
+  "sub": "1469109e-ac3a-475d-abbf-5ff34ee1502e",
   "email_verified": false,
   "company": "geobeyond",
   "preferred_username": "francbartoli",
-  "user": "francbartoli"
+  "given_name": "",
+  "user": "francbartoli",
+  "family_name": ""
 }
 ```
 
