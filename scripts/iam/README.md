@@ -98,8 +98,8 @@ When the role is saved, it's necessary to associate it with both user _francbart
 
 For each user, in the tab Role Mapping of User Details:
 
-- Click on the button *Assign role*
-- Assign roles *user-role* and *company-role*
+- Click on the button _Assign role_*_
+- Assign roles _user-role_ and _company-role_
 
 ![User details Role Mapping](../../docs/images/role_mapping.png)
 
