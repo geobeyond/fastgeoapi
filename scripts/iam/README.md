@@ -103,7 +103,6 @@ For each user, in the tab Role Mapping of User Details:
 
 ![User details Role Mapping](../../docs/images/role_mapping.png)
 
-
 ## Update the policy
 
 If there are changes in the `auth.rego` then restart the OPA server
