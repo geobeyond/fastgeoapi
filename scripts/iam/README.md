@@ -98,7 +98,7 @@ When the role is saved, it's necessary to associate it with both user _francbart
 
 For each user, in the tab Role Mapping of User Details:
 
-- Click on the button _Assign role_*_
+- Click on the button _Assign role_
 - Assign roles _user-role_ and _company-role_
 
 ![User details Role Mapping](../../docs/images/role_mapping.png)
@@ -210,8 +210,8 @@ export KC_RESPONSE=$(curl -X POST 'http://localhost:8282/realms/pygeoapi/protoco
  -d 'password=francbartoli' \
  -d 'grant_type=password' \
  -d 'client_id=pygeoapi-client' \
- -d 'client_secret=AXgyaD0WTjZaXEH0ry3ebZmE1s3ZL3Wc' \
- -d 'response_type=code id_token token' \
+ -d 'client_secret=RE7P8vMkdk5ZsITzGufzyBbN0PiEmzII' \
+ -d 'response_type=code id_token token company' \
  -d 'scope=openid profile email' | jq -r '.')
 ```
 
