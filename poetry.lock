@@ -1836,6 +1836,21 @@ files = [
 ]
 
 [[package]]
+name = "openapi-schema-pydantic"
+version = "1.2.4"
+description = "OpenAPI (v3) specification schema as pydantic class"
+category = "main"
+optional = false
+python-versions = ">=3.6.1"
+files = [
+    {file = "openapi-schema-pydantic-1.2.4.tar.gz", hash = "sha256:3e22cf58b74a69f752cc7e5f1537f6e44164282db2700cbbcd3bb99ddd065196"},
+    {file = "openapi_schema_pydantic-1.2.4-py3-none-any.whl", hash = "sha256:a932ecc5dcbb308950282088956e94dea069c9823c84e507d64f6b622222098c"},
+]
+
+[package.dependencies]
+pydantic = ">=1.8.2"
+
+[[package]]
 name = "packaging"
 version = "23.0"
 description = "Core utilities for Python packages"
@@ -3659,4 +3674,4 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "0d033253cfcf837133a8f3fcf349e7c13055212274d9ce8b3a7a01be84ff4842"
+content-hash = "d494677cb278dd2217042bc316ac101df4c3633684fa64ac34ec86aff85e495a"

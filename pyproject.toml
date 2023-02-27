@@ -38,6 +38,7 @@ sqlalchemy = "^1.4.45"
 geoalchemy2 = "^0.12.5"
 shapely = "<2.0"
 psycopg2 = "^2.9.5"
+openapi-schema-pydantic = "^1.2.4"
 
 [tool.poetry.scripts]
 fastgeoapi = "fastgeoapi.cli:main"
