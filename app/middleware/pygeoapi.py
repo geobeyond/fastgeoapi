@@ -1,4 +1,7 @@
 """Openapi middleware module."""
+from typing import Any
+from typing import Dict
+
 from openapi_schema_pydantic import OpenAPI
 from openapi_schema_pydantic import SecurityScheme
 from starlette.datastructures import Headers
@@ -41,12 +44,17 @@ class OpenapiSecurityMiddleware:
 class OpenAPIResponder:
     """OpenAPI responder interface."""
 
-    def __init__(self, app: ASGIApp, security_scheme: SecurityScheme):
+    def __init__(
+        self,
+        app: ASGIApp,
+        security_scheme: SecurityScheme,
+        headers: Dict[Any, Any] = {},  # noqa: B006
+    ):
         """Initialize the OpenAPI responder class."""
         self.app = app
         self.initial_message = {}  # type: Message
         self.security_scheme = security_scheme
-        self.headers = {}
+        self.headers = headers
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """Call the Openapi responder interface."""
@@ -63,7 +71,7 @@ class OpenAPIResponder:
             headers = Headers(raw=self.initial_message["headers"])
             headers_dict = dict(headers.items())
             content_type = headers_dict.get("content-type")
-            if "application/vnd.oai.openapi+json" not in content_type:
+            if "application/vnd.oai.openapi+json" not in str(content_type):
                 raise ValueError(f"Unsupported content type: {content_type}")
             self.headers.update(headers_dict)
         if message_type == "http.response.body":
@@ -78,7 +86,7 @@ class OpenAPIResponder:
                     }
                 }
                 body = openapi.dict(by_alias=True, exclude_none=True)
-                components = openapi.components.dict(by_alias=True, exclude_none=True)
+                components = body.get("components")
                 if components:
                     components.update(security_schemes)
                 body["components"] = components
