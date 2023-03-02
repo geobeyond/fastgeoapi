@@ -1500,14 +1500,14 @@ source = ["Cython (>=0.29.7)"]
 
 [[package]]
 name = "mangum"
-version = "0.14.1"
+version = "0.17.0"
 description = "AWS Lambda support for ASGI applications"
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "mangum-0.14.1-py3-none-any.whl", hash = "sha256:cf941325c8dbbde861f7e71e456d581004283fada0c499df5a21eb71c7ff37dd"},
-    {file = "mangum-0.14.1.tar.gz", hash = "sha256:0909390363266d2d3c3794cd564901991b0ae23235b5a363c4265efd965a0af4"},
+    {file = "mangum-0.17.0-py3-none-any.whl", hash = "sha256:f00be705605bc4793958df62e4d249abf58d254c39d90bb410d069570206f4a2"},
+    {file = "mangum-0.17.0.tar.gz", hash = "sha256:5b4e26375e12eed051687670466d17968f8b74beecaca432edd4eb4127f78509"},
 ]
 
 [package.dependencies]
@@ -3661,4 +3661,4 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "862804d951b0770b6b10b11643f51ef84adba163dba4d41ef643806b17f86b1c"
+content-hash = "3e48e121bbe15efa56ebf08167ee7e4031f5ec0e16b376a0badf491d08c3f35a"
