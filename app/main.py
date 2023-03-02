@@ -8,6 +8,7 @@ import loguru
 import uvicorn
 from app.config.app import configuration as cfg
 from app.config.logging import create_logger
+from app.middleware.pygeoapi import OpenapiSecurityMiddleware
 from app.utils.app_exceptions import app_exception_handler
 from app.utils.app_exceptions import AppExceptionError
 from app.utils.pygeoapi_exceptions import PygeoapiEnvError
@@ -19,6 +20,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi_opa import OPAMiddleware
 from loguru import logger
 from mangum import Mangum
+from openapi_schema_pydantic.v3.v3_0_3 import SecurityScheme
 from pygeoapi.l10n import LocaleError
 from pygeoapi.openapi import generate_openapi_document
 from pygeoapi.provider.base import ProviderConnectionError
@@ -112,10 +114,14 @@ def create_app():  # noqa: C901
 
     # Add OPAMiddleware to the pygeoapi app
     if cfg.OPA_ENABLED:
+        if cfg.API_KEY_ENABLED:
+            raise ValueError("OPA_ENABLED and API_KEY_ENABLED are mutually exclusive")
         from app.config.auth import opa_config
 
         pygeoapi_app.add_middleware(OPAMiddleware, config=opa_config)
     elif cfg.API_KEY_ENABLED:
+        if cfg.OPA_ENABLED:
+            raise ValueError("OPA_ENABLED and API_KEY_ENABLED are mutually exclusive")
         if not cfg.PYGEOAPI_KEY_GLOBAL:
             raise ValueError("pygeoapi API KEY is missing")
         from fastapi_key_auth import AuthorizerMiddleware
@@ -125,6 +131,12 @@ def create_app():  # noqa: C901
         pygeoapi_app.add_middleware(
             AuthorizerMiddleware, public_paths=["/openapi"], key_pattern="PYGEOAPI_KEY_"
         )
+        security_scheme = SecurityScheme(
+            type="apiKey", name="X-API-KEY", security_scheme_in="header"
+        )
+    pygeoapi_app.add_middleware(
+        OpenapiSecurityMiddleware, security_scheme=security_scheme
+    )
     app.mount(path="/api", app=pygeoapi_app)
 
     app.logger = create_logger(name="app.main")
