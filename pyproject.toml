@@ -26,7 +26,7 @@ mangum = "^0.14.1"
 loguru = "^0.6.0"
 jinja2 = "3.0.3"
 fastapi-opa = "^1.3.3"
-rasterio = "1.3a3" # fix https://github.com/rasterio/rasterio/issues/2333
+rasterio = "1.3.6" # fix https://github.com/rasterio/rasterio/issues/2333
 pygeoapi = {git = "https://github.com/geopython/pygeoapi", rev = "master"}
 uvicorn = {extras = ["standard"], version = "^0.20.0"}
 fastapi = "^0.92.0"
