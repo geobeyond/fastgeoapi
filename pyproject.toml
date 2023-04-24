@@ -34,7 +34,7 @@ typer = {extras = ["all"], version = "^0.7.0"}
 pydantic = {extras = ["dotenv", "email"], version = "^1.10.2"}
 nest-asyncio = "^1.5.6"
 fastapi-key-auth = "^0.9.0"
-sqlalchemy = "^1.4.45"
+sqlalchemy = "^2.0.10"
 geoalchemy2 = "^0.12.5"
 shapely = "<2.0"
 psycopg2 = "^2.9.5"
