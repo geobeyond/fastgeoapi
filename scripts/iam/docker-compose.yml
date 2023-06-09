@@ -1,18 +1,40 @@
-version: "2"
+version: "3.9"
 services:
   keycloak:
-    image: jboss/keycloak:latest
+    image: quay.io/keycloak/keycloak:21.1.1
     ports:
       - 8282:8080
     environment:
-      - KEYCLOAK_USER=admin
-      - KEYCLOAK_PASSWORD=admin
+      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
+      - DB_VENDOR=${DB_VENDOR}
+      - DB_ADDR=${DB_ADDR}
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - KEYCLOAK_HOSTNAME=${KEYCLOAK_HOSTNAME}
+      - CLIENT_SECRET=${CLIENT_SECRET}
+    command: -v start-dev --import-realm
     volumes:
-      - ./keycloak:/opt/jboss/keycloak/imports
-    command: 
-      - "-b 0.0.0.0 -Dkeycloak.import=/opt/jboss/keycloak/imports/realm-export.json"
+      - ./keycloak/imports:/opt/keycloak/data/import
+    depends_on:
+      postgres:
+        condition: service_healthy
+  postgres:
+    image: postgres:14.3
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
   opa:
-    image: openpolicyagent/opa:latest
+    image: openpolicyagent/opa:0.53.1
     ports:
       - 8383:8181
     command:
@@ -22,3 +44,9 @@ services:
       - "/policy/auth.rego"
     volumes:
       - ./policy:/policy
+    depends_on:
+      keycloak:
+        condition: service_started
+
+volumes:
+  postgres_data:
