@@ -17,7 +17,7 @@
               "mode": "formdata",
               "formdata": []
             },
-            "url": "{{keycloak_server}}/auth/realms/{{realm}}/.well-known/openid-configuration"
+            "url": "{{keycloak_server}}/realms/{{realm}}/.well-known/openid-configuration"
           },
           "response": []
         },
@@ -80,7 +80,7 @@
                 }
               ]
             },
-            "url": "{{keycloak_server}}/auth/realms/{{realm}}/protocol/openid-connect/token"
+            "url": "{{keycloak_server}}/realms/{{realm}}/protocol/openid-connect/token"
           },
           "response": []
         },
@@ -102,7 +102,7 @@
               "mode": "formdata",
               "formdata": []
             },
-            "url": "{{keycloak_server}}/auth/realms/{{realm}}/protocol/openid-connect/userinfo"
+            "url": "{{keycloak_server}}/realms/{{realm}}/protocol/openid-connect/userinfo"
           },
           "response": []
         }
