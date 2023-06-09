@@ -165,7 +165,7 @@ allow {
 ## Get Access Token
 
 ```shell
-export KC_RESPONSE=$(curl -X POST 'http://localhost:8282/auth/realms/pygeoapi/protocol/openid-connect/token' \
+export KC_RESPONSE=$(curl -X POST 'http://localhost:8282/realms/pygeoapi/protocol/openid-connect/token' \
  -H "Content-Type: application/x-www-form-urlencoded" \
  -d "username=francbartoli" \
  -d 'password=pygeoapi' \
@@ -186,7 +186,7 @@ KC_REFRESH_TOKEN=$(echo $KC_RESPONSE| jq -r .refresh_token)
 Verify that the user information is correct:
 
 ```shell
-curl -X GET 'http://localhost:8282/auth/realms/pygeoapi/protocol/openid-connect/userinfo' -H "Content-Type: application/x-www-form-urlencoded" -H "Authorization: Bearer $KC_ACCESS_TOKEN" | jq .
+curl -X GET 'http://localhost:8282/realms/pygeoapi/protocol/openid-connect/userinfo' -H "Content-Type: application/x-www-form-urlencoded" -H "Authorization: Bearer $KC_ACCESS_TOKEN" | jq .
 ```
 
 you would get something like this:
