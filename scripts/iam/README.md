@@ -171,7 +171,7 @@ export KC_RESPONSE=$(curl -X POST 'http://localhost:8282/realms/pygeoapi/protoco
  -d 'password=pygeoapi' \
  -d 'grant_type=password' \
  -d 'client_id=pygeoapi-client' \
- -d 'client_secret=eCjOPQsddOd1KoImn7ONlof9TxUIbJX1' \
+ -d 'client_secret=2yholx8r3mqyUJaOoJiZhcqvQDQwmgyD' \
  -d 'response_type=code id_token token' | jq -r '.')
 ```
 
