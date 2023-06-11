@@ -12,9 +12,13 @@ services:
       - DB_DATABASE=${DB_DATABASE}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
-      - KEYCLOAK_HOSTNAME=${KEYCLOAK_HOSTNAME}
       - CLIENT_SECRET=${CLIENT_SECRET}
-    command: -v start-dev --import-realm
+      - KC_HOSTNAME=${KC_HOSTNAME}
+      - KC_HEALTH_ENABLED=${KC_HEALTH_ENABLED}
+      - KC_METRICS_ENABLED=${KC_METRICS_ENABLED}
+      - KC_HOSTNAME_STRICT_HTTPS=${KC_HOSTNAME_STRICT_HTTPS}
+      - KC_HOSTNAME_STRICT=${KC_HOSTNAME_STRICT}
+    command: -v start --http-enabled=true --import-realm --optimized
     volumes:
       - ./keycloak/imports:/opt/keycloak/data/import
     depends_on:
