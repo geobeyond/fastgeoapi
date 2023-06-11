@@ -8,7 +8,14 @@ docker-compose up -d
 
 ## Configure Keycloak
 
-Open the administration interface at `http://localhost:8282/auth` and access with the credentials `admin/admin`.
+Open the administration interface at `http://localhost:8282/admin/master/console/` and access with the credentials `admin/admin`.
+
+---
+**NOTE**
+
+If you are using the provided Docker setup, the Keycloak realm JSON file will be automatically loaded during startup. This file contains the realm configuration, including the realm name and settings. However, if you are using a different Keycloak setup, follow the steps below to manually create/import the realm and clients
+
+---
 
 ### Create a new realm
 
