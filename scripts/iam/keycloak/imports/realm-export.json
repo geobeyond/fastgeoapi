@@ -584,7 +584,7 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "**********",
+      "secret": "${CLIENT_SECRET}",
       "redirectUris": ["http://localhost:5000/*"],
       "webOrigins": ["http://localhost:5000/*"],
       "notBefore": 0,

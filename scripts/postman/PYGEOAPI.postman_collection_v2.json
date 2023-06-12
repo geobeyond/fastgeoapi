@@ -17,7 +17,7 @@
               "mode": "formdata",
               "formdata": []
             },
-            "url": "{{keycloak_server}}/auth/realms/{{realm}}/.well-known/openid-configuration"
+            "url": "{{keycloak_server}}/realms/{{realm}}/.well-known/openid-configuration"
           },
           "response": []
         },
@@ -80,7 +80,7 @@
                 }
               ]
             },
-            "url": "{{keycloak_server}}/auth/realms/{{realm}}/protocol/openid-connect/token"
+            "url": "{{keycloak_server}}/realms/{{realm}}/protocol/openid-connect/token"
           },
           "response": []
         },
@@ -102,7 +102,7 @@
               "mode": "formdata",
               "formdata": []
             },
-            "url": "{{keycloak_server}}/auth/realms/{{realm}}/protocol/openid-connect/userinfo"
+            "url": "{{keycloak_server}}/realms/{{realm}}/protocol/openid-connect/userinfo"
           },
           "response": []
         }
@@ -129,7 +129,7 @@
               "mode": "formdata",
               "formdata": []
             },
-            "url": "http://localhost:8000/v1/"
+            "url": "http://localhost:5000/api/"
           },
           "response": []
         },
@@ -151,7 +151,7 @@
               "mode": "formdata",
               "formdata": []
             },
-            "url": "http://localhost:8000/v1/collections/"
+            "url": "http://localhost:5000/api/collections/"
           },
           "response": []
         },
@@ -184,7 +184,7 @@
                 }
               ]
             },
-            "url": "http://localhost:8000/v1/collections/obs"
+            "url": "http://localhost:5000/api/collections/obs"
           },
           "response": []
         },
@@ -206,7 +206,7 @@
               "mode": "formdata",
               "formdata": []
             },
-            "url": "http://localhost:8000/v1/collections/lakes"
+            "url": "http://localhost:5000/api/collections/lakes"
           },
           "response": []
         }

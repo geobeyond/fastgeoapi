@@ -57,7 +57,7 @@
           "enabled": true
         }
       ],
-      "url": "{{keycloak_server}}/auth/realms/{{realm}}/protocol/openid-connect/userinfo",
+      "url": "{{keycloak_server}}/realms/{{realm}}/protocol/openid-connect/userinfo",
       "folder": "1779ae21-ccbb-c46d-7129-d522ddd407a5",
       "queryParams": [],
       "preRequestScript": null,
@@ -86,7 +86,7 @@
           "enabled": true
         }
       ],
-      "url": "{{keycloak_server}}/auth/realms/{{realm}}/protocol/openid-connect/token",
+      "url": "{{keycloak_server}}/realms/{{realm}}/protocol/openid-connect/token",
       "folder": "1779ae21-ccbb-c46d-7129-d522ddd407a5",
       "queryParams": [],
       "preRequestScript": null,
@@ -164,7 +164,7 @@
           "enabled": true
         }
       ],
-      "url": "http://localhost:8000/v1/",
+      "url": "http://localhost:5000/api/",
       "queryParams": [],
       "preRequestScript": null,
       "pathVariables": {},
@@ -198,7 +198,7 @@
           "enabled": true
         }
       ],
-      "url": "http://localhost:8000/v1/collections/obs",
+      "url": "http://localhost:5000/api/collections/obs",
       "folder": "8d824cda-8010-efaf-38e6-037c36e2d88b",
       "queryParams": [],
       "preRequestScript": null,
@@ -248,7 +248,7 @@
           "enabled": true
         }
       ],
-      "url": "http://localhost:8000/v1/collections/lakes",
+      "url": "http://localhost:5000/api/collections/lakes",
       "queryParams": [],
       "preRequestScript": null,
       "pathVariables": {},
@@ -282,7 +282,7 @@
           "enabled": true
         }
       ],
-      "url": "http://localhost:8000/v1/collections/",
+      "url": "http://localhost:5000/api/collections/",
       "folder": "8d824cda-8010-efaf-38e6-037c36e2d88b",
       "queryParams": [],
       "preRequestScript": null,
@@ -305,7 +305,7 @@
       "id": "df68469a-a161-a917-ed1d-e6a69ec17440",
       "headers": "",
       "headerData": [],
-      "url": "{{keycloak_server}}/auth/realms/{{realm}}/.well-known/openid-configuration",
+      "url": "{{keycloak_server}}/realms/{{realm}}/.well-known/openid-configuration",
       "queryParams": [],
       "pathVariables": {},
       "pathVariableData": [],

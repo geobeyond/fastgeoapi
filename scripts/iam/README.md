@@ -1,4 +1,4 @@
-# How to use Keycloak and Open Policy Agent
+## How to use Keycloak and Open Policy Agent
 
 ## Run Keycloak and OPA together
 
@@ -28,7 +28,17 @@ docker[podman] run --rm --name opa -p 8383:8181 \
 
 ## Configure Keycloak
 
-Open the administration interface at `http://localhost:8282` and access with the credentials `admin/admin`.
+Open the administration interface at `http://localhost:8282/admin/master/console/` and access with the credentials `admin/admin`.
+
+---
+
+**NOTE**
+
+1. If you are using the provided Docker setup, the Keycloak realm JSON file will be automatically loaded during startup. This file contains the realm configuration, including the realm name and settings. However, if you are using a different Keycloak setup, follow the steps below to manually create/import the realm and
+
+2. To provide better support for Docker environments, we have made updates to the Keycloak setup. One important change is the inclusion of persistent storage for the database using PostgreSQL. This ensures that any changes made to Keycloak configuration or data will be preserved even after restarting the Docker container.
+
+---
 
 ### Create a new realm
 
@@ -209,7 +219,7 @@ export KC_RESPONSE=$(curl -X POST 'http://localhost:8282/realms/pygeoapi/protoco
  -d 'password=francbartoli' \
  -d 'grant_type=password' \
  -d 'client_id=pygeoapi-client' \
- -d 'client_secret=RE7P8vMkdk5ZsITzGufzyBbN0PiEmzII' \
+ -d 'client_secret=2yholx8r3mqyUJaOoJiZhcqvQDQwmgyD' \
  -d 'response_type=code id_token token company' \
  -d 'scope=openid profile email' | jq -r '.')
 ```

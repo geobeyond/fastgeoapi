@@ -1,18 +1,46 @@
-version: "2"
+version: "3.9"
 services:
   keycloak:
-    platform: linux/amd64
-    image: quay.io/keycloak/keycloak:latest
+    image: quay.io/keycloak/keycloak:21.1.1
     ports:
       - 8282:8080
     command:
       - "start-dev"
     environment:
-      - KEYCLOAK_ADMIN=admin
-      - KEYCLOAK_ADMIN_PASSWORD=admin
+      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
+      - DB_VENDOR=${DB_VENDOR}
+      - DB_ADDR=${DB_ADDR}
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - CLIENT_SECRET=${CLIENT_SECRET}
+      - KC_HOSTNAME=${KC_HOSTNAME}
+      - KC_HEALTH_ENABLED=${KC_HEALTH_ENABLED}
+      - KC_METRICS_ENABLED=${KC_METRICS_ENABLED}
+      - KC_HOSTNAME_STRICT_HTTPS=${KC_HOSTNAME_STRICT_HTTPS}
+      - KC_HOSTNAME_STRICT=${KC_HOSTNAME_STRICT}
+    command: -v start --http-enabled=true --import-realm --optimized
+    volumes:
+      - ./keycloak/imports:/opt/keycloak/data/import
+    depends_on:
+      postgres:
+        condition: service_healthy
+  postgres:
+    image: postgres:14.3
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
   opa:
-    platform: linux/amd64
-    image: openpolicyagent/opa:latest
+    image: openpolicyagent/opa:0.53.1
     ports:
       - 8383:8181
     command:
@@ -22,3 +50,9 @@ services:
       - "/policy/auth.rego"
     volumes:
       - ./policy:/policy
+    depends_on:
+      keycloak:
+        condition: service_started
+
+volumes:
+  postgres_data:
