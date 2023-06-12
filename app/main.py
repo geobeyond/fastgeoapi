@@ -83,7 +83,7 @@ def create_app():  # noqa: C901
             os.environ["PORT"] = cfg.PORT
 
             # import starlette application once env vars are set
-            from pygeoapi.starlette_app import app as pygeoapi_app
+            from pygeoapi.starlette_app import APP as pygeoapi_app
 
             pygeoapi_conf = Path.cwd() / os.environ["PYGEOAPI_CONFIG"]
             pygeoapi_oapi = Path.cwd() / os.environ["PYGEOAPI_OPENAPI"]
