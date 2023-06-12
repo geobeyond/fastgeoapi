@@ -119,6 +119,7 @@ def create_app():  # noqa: C901
         from app.config.auth import opa_config
 
         PYGEOAPI_APP.add_middleware(OPAMiddleware, config=opa_config)
+        security_scheme = None
     elif cfg.API_KEY_ENABLED:
         if cfg.OPA_ENABLED:
             raise ValueError("OPA_ENABLED and API_KEY_ENABLED are mutually exclusive")
@@ -135,9 +136,12 @@ def create_app():  # noqa: C901
         security_scheme = SecurityScheme(
             type="apiKey", name="X-API-KEY", security_scheme_in="header"
         )
-    PYGEOAPI_APP.add_middleware(
-        OpenapiSecurityMiddleware, security_scheme=security_scheme
-    )
+
+    if security_scheme:
+        PYGEOAPI_APP.add_middleware(
+            OpenapiSecurityMiddleware, security_scheme=security_scheme
+        )
+
     app.mount(path="/api", app=PYGEOAPI_APP)
 
     app.logger = create_logger(name="app.main")
