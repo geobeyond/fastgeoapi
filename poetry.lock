@@ -1645,7 +1645,6 @@ files = [
 name = "openapi-schema-pydantic"
 version = "1.2.4"
 description = "OpenAPI (v3) specification schema as pydantic class"
-category = "main"
 optional = false
 python-versions = ">=3.6.1"
 files = [
@@ -2288,7 +2287,7 @@ files = [
 ]
 
 [package.dependencies]
-tokenize-rt = "<5"
+tokenize-rt = ">=3.2.0"
 
 [[package]]
 name = "pyyaml"
@@ -3402,4 +3401,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "70768508821153dd322d44ccebc29e14c22a646913da055fc3b3dfe7457947f2"
+content-hash = "931086986d6e642f58777804edcc02fef4cd33dc7a6a4e06d96af4abe0f2f422"
