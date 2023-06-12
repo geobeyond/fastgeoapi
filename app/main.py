@@ -83,7 +83,7 @@ def create_app():  # noqa: C901
             os.environ["PORT"] = cfg.PORT
 
             # import starlette application once env vars are set
-            from pygeoapi.starlette_app import APP as pygeoapi_app
+            from pygeoapi.starlette_app import APP as PYGEOAPI_APP
 
             pygeoapi_conf = Path.cwd() / os.environ["PYGEOAPI_CONFIG"]
             pygeoapi_oapi = Path.cwd() / os.environ["PYGEOAPI_OPENAPI"]
@@ -114,7 +114,7 @@ def create_app():  # noqa: C901
     if cfg.OPA_ENABLED:
         from app.config.auth import opa_config
 
-        pygeoapi_app.add_middleware(OPAMiddleware, config=opa_config)
+        PYGEOAPI_APP.add_middleware(OPAMiddleware, config=opa_config)
     elif cfg.API_KEY_ENABLED:
         if not cfg.PYGEOAPI_KEY_GLOBAL:
             raise ValueError("pygeoapi API KEY is missing")
@@ -122,10 +122,10 @@ def create_app():  # noqa: C901
 
         os.environ["PYGEOAPI_KEY_GLOBAL"] = cfg.PYGEOAPI_KEY_GLOBAL
 
-        pygeoapi_app.add_middleware(
+        PYGEOAPI_APP.add_middleware(
             AuthorizerMiddleware, public_paths=["/openapi"], key_pattern="PYGEOAPI_KEY_"
         )
-    app.mount(path="/api", app=pygeoapi_app)
+    app.mount(path="/api", app=PYGEOAPI_APP)
 
     app.logger = create_logger(name="app.main")
 
