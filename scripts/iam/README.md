@@ -1,4 +1,4 @@
-# How to use Keycloak and Open Policy Agent
+## How to use Keycloak and Open Policy Agent
 
 ## Run Keycloak and OPA together
 
