@@ -5,20 +5,21 @@ services:
     ports:
       - 8282:8080
     environment:
-      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN}
+      - CLIENT_SECRET=${CLIENT_SECRET} # predefined client secret
+      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN} # default user name and password of keycloak admin
       - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
-      - DB_VENDOR=${DB_VENDOR}
-      - DB_ADDR=${DB_ADDR}
-      - DB_DATABASE=${DB_DATABASE}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - CLIENT_SECRET=${CLIENT_SECRET}
-      - KC_HOSTNAME=${KC_HOSTNAME}
+      - KC_HOSTNAME=${KC_HOSTNAME} # to be changed in prodection
       - KC_HEALTH_ENABLED=${KC_HEALTH_ENABLED}
       - KC_METRICS_ENABLED=${KC_METRICS_ENABLED}
       - KC_HOSTNAME_STRICT_HTTPS=${KC_HOSTNAME_STRICT_HTTPS}
       - KC_HOSTNAME_STRICT=${KC_HOSTNAME_STRICT}
-    command: -v start --http-enabled=true --import-realm --optimized
+      - KC_DB=${KC_DB} #db
+      - KC_DB_URL_HOST=${KC_DB_URL_HOST}
+      - KC_DB_URL_DATABASE=${POSTGRES_DB}
+      - KC_DB_USERNAME=${POSTGRES_USER}
+      - KC_DB_PASSWORD=${POSTGRES_PASSWORD}
+      - KC_OVERRIDE=${KC_OVERRIDE} # skip override of data if already exists
+    command: -v start --http-enabled=true --import-realm
     volumes:
       - ./keycloak/imports:/opt/keycloak/data/import
     depends_on:
