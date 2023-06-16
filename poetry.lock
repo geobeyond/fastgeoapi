@@ -743,17 +743,17 @@ all = ["email-validator (>=1.1.1)", "httpx (>=0.23.0)", "itsdangerous (>=1.1.0)"
 
 [[package]]
 name = "fastapi-key-auth"
-version = "0.11.0"
+version = "0.12.0"
 description = "API key validation Middleware"
 optional = false
 python-versions = ">=3.8,<4.0"
 files = [
-    {file = "fastapi_key_auth-0.11.0-py3-none-any.whl", hash = "sha256:6eceeeb3ec6f695578c7c49a226bb6da7da2518d8ebe24c1d5d73eafce7990c0"},
-    {file = "fastapi_key_auth-0.11.0.tar.gz", hash = "sha256:81f845ffde8b604c37867d2bbadb71bfc93be48b657412ac62a39fee1d466254"},
+    {file = "fastapi_key_auth-0.12.0-py3-none-any.whl", hash = "sha256:686c55bba4f23ba0a1d9806dc1438213cc0366b22eb27f869a6bfca22adeefce"},
+    {file = "fastapi_key_auth-0.12.0.tar.gz", hash = "sha256:19174c1f662a0f24b61800ad3b5b208c60497c9b39a871b65cee2cc9f345a3e2"},
 ]
 
 [package.dependencies]
-fastapi = ">=0.84.0"
+fastapi = ">=0.95.0"
 starlette = ">=0.25.0"
 
 [[package]]
@@ -779,13 +779,13 @@ saml = ["python-multipart", "python3-saml"]
 
 [[package]]
 name = "filelock"
-version = "3.12.1"
+version = "3.12.2"
 description = "A platform independent file lock."
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "filelock-3.12.1-py3-none-any.whl", hash = "sha256:42f1e4ff2b497311213d61ad7aac5fed9050608e5309573f101eefa94143134a"},
-    {file = "filelock-3.12.1.tar.gz", hash = "sha256:82b1f7da46f0ae42abf1bc78e548667f484ac59d2bcec38c713cee7e2eb51e83"},
+    {file = "filelock-3.12.2-py3-none-any.whl", hash = "sha256:cbb791cdea2a72f23da6ac5b5269ab0a0d161e9ef0100e653b69049a7706d1ec"},
+    {file = "filelock-3.12.2.tar.gz", hash = "sha256:002740518d8aa59a26b0c76e10fb8c6e15eae825d34b6fdf670333fd7b938d81"},
 ]
 
 [package.extras]
@@ -2915,13 +2915,13 @@ pbr = ">=2.0.0,<2.1.0 || >2.1.0"
 
 [[package]]
 name = "tinydb"
-version = "4.7.1"
+version = "4.8.0"
 description = "TinyDB is a tiny, document oriented database optimized for your happiness :)"
 optional = false
 python-versions = ">=3.7,<4.0"
 files = [
-    {file = "tinydb-4.7.1-py3-none-any.whl", hash = "sha256:1534e498ca23f55c43b0f1e7c0cf174049498ab45a887c82ba9831e0f9868df3"},
-    {file = "tinydb-4.7.1.tar.gz", hash = "sha256:8955c239a79b8a6c8f637900152e2de38690848199d71d870c33c16405433ca5"},
+    {file = "tinydb-4.8.0-py3-none-any.whl", hash = "sha256:30c06d12383d7c332e404ca6a6103fb2b32cbf25712689648c39d9a6bd34bd3d"},
+    {file = "tinydb-4.8.0.tar.gz", hash = "sha256:6dd686a9c5a75dfa9280088fd79a419aefe19cd7f4bd85eba203540ef856d564"},
 ]
 
 [[package]]
@@ -3401,4 +3401,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "931086986d6e642f58777804edcc02fef4cd33dc7a6a4e06d96af4abe0f2f422"
+content-hash = "5ffb7ab45561ec0bd10b8481aee1094d1b2c24bcf47f1df3577c24e3948a58ed"
