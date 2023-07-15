@@ -1642,18 +1642,18 @@ files = [
 ]
 
 [[package]]
-name = "openapi-schema-pydantic"
-version = "1.2.4"
-description = "OpenAPI (v3) specification schema as pydantic class"
+name = "openapi-pydantic"
+version = "0.3.1"
+description = "Pydantic OpenAPI schema implementation"
 optional = false
-python-versions = ">=3.6.1"
+python-versions = ">=3.8,<4.0"
 files = [
-    {file = "openapi-schema-pydantic-1.2.4.tar.gz", hash = "sha256:3e22cf58b74a69f752cc7e5f1537f6e44164282db2700cbbcd3bb99ddd065196"},
-    {file = "openapi_schema_pydantic-1.2.4-py3-none-any.whl", hash = "sha256:a932ecc5dcbb308950282088956e94dea069c9823c84e507d64f6b622222098c"},
+    {file = "openapi_pydantic-0.3.1-py3-none-any.whl", hash = "sha256:ec62937803d74d8dee92bd69614301190cd3be34d8e8617ca3cdd339fa11dfa2"},
+    {file = "openapi_pydantic-0.3.1.tar.gz", hash = "sha256:04a3de61cc88ec60fd595ca67175b751716414d1bb97e5edb918986c8ce5a731"},
 ]
 
 [package.dependencies]
-pydantic = ">=1.8.2"
+pydantic = ">=1.8"
 
 [[package]]
 name = "packaging"
@@ -3401,4 +3401,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "5ffb7ab45561ec0bd10b8481aee1094d1b2c24bcf47f1df3577c24e3948a58ed"
+content-hash = "f732d87af3b4c419902a4f1636cd30a123f075e562578bff8173859d6e15c539"
