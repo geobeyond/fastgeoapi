@@ -21,7 +21,7 @@ services:
       - KC_OVERRIDE=${KC_OVERRIDE} # skip override of data if already exists
     command: -v start --http-enabled=true --import-realm
     volumes:
-      - ./keycloak/imports:/opt/keycloak/data/import
+      - ./keycloak/imports/pygeoapi-realm.json:/opt/keycloak/data/import/pygeoapi-realm.json
     depends_on:
       postgres:
         condition: service_healthy
