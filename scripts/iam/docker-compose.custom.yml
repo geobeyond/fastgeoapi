@@ -1,0 +1,63 @@
+version: "3.9"
+services:
+  keycloak:
+    image: geobeyond/keycloak:22.0-custom
+    ports:
+      - 8282:8080
+    environment:
+      - CLIENT_SECRET=${CLIENT_SECRET} # predefined client secret
+      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN} # default user name and password of keycloak admin
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
+      - KC_HOSTNAME=${KC_HOSTNAME} # to be changed in prodection
+      - KC_HEALTH_ENABLED=${KC_HEALTH_ENABLED}
+      - KC_METRICS_ENABLED=${KC_METRICS_ENABLED}
+      - KC_HOSTNAME_STRICT_HTTPS=${KC_HOSTNAME_STRICT_HTTPS}
+      - KC_HOSTNAME_STRICT=${KC_HOSTNAME_STRICT}
+      - KC_DB=${KC_DB} #db
+      - KC_DB_URL_HOST=${KC_DB_URL_HOST}
+      - KC_DB_URL_DATABASE=${POSTGRES_DB}
+      - KC_DB_USERNAME=${POSTGRES_USER}
+      - KC_DB_PASSWORD=${POSTGRES_PASSWORD}
+      - KC_OVERRIDE=${KC_OVERRIDE} # skip override of data if already exists
+    command: -v start --http-enabled=true --import-realm
+    volumes:
+      - ./keycloak/imports/pygeoapi-realm.json:/opt/keycloak/data/import/pygeoapi-realm.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent --write-out 'HTTP CODE : %{http_code}\n' --output /dev/null http://localhost:8080/ || exit 1"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+  postgres:
+    image: postgres:14.3
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+  opa:
+    image: openpolicyagent/opa:0.54.0
+    ports:
+      - 8383:8181
+    command:
+      - "run"
+      - "--server"
+      - "--log-level=debug"
+      - "/policy/auth.rego"
+    volumes:
+      - ./policy:/policy
+    depends_on:
+      keycloak:
+        condition: service_started
+
+volumes:
+  postgres_data:

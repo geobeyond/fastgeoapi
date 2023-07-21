@@ -38,6 +38,17 @@ Open the administration interface at `http://localhost:8282/admin/master/console
 
 2. To provide better support for Docker environments, we have made updates to the Keycloak setup. One important change is the inclusion of persistent storage for the database using PostgreSQL. This ensures that any changes made to Keycloak configuration or data will be preserved even after restarting the Docker container.
 
+3. If you are using an M1-based Mac, you have to use [Docker Buildx](https://docs.docker.com/buildx/working-with-buildx/) instead of `docker build`. If you are building for x86-based systems use `--platform linux/amd64`, and for ARM-based systems use `--platform linux/arm64`. In the scripts, make sure to comment out `docker build`, `docker tag`, and `docker push` commands and add the following command instead once a custom image has been built, i.e. `geobeyond/keycloak:latest`. A custom `Dockerfile` is provided for the usage within the `docker-compose.custom.yml`.
+
+    ```shell
+    docker buildx build -t geobeyond/keycloak:latest --platform linux/amd64 --push -f ./keycloak/Dockerfile.custom .
+    ```
+
+    ```shell
+    # Start the custom composition
+    docker compose -f ./docker-compose.custom.yml up -d
+    ```
+
 ---
 
 ### Create a new realm
