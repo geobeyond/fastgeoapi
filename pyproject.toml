@@ -44,7 +44,7 @@ openapi-schema-pydantic = "^1.2.4"
 fastgeoapi = "fastgeoapi.cli:main"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^6.2.5"
+pytest = "^7.4.0"
 coverage = {extras = ["toml"], version = "^6.5.0"}
 typeguard = "^2.13.3"
 xdoctest = {extras = ["colors"], version = "^0.15.10"}
