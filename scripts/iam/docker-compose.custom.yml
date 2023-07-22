@@ -26,7 +26,11 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl --fail --silent --write-out 'HTTP CODE : %{http_code}\n' --output /dev/null http://localhost:8080/ || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "curl --fail --silent --write-out 'HTTP CODE : %{http_code}\n' --output /dev/null http://localhost:8080/ || exit 1",
+        ]
       interval: 1m
       timeout: 10s
       retries: 3
