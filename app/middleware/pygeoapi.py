@@ -2,8 +2,8 @@
 from typing import Any
 from typing import Dict
 
-from openapi_schema_pydantic import OpenAPI
-from openapi_schema_pydantic import SecurityScheme
+from openapi_pydantic import OpenAPI
+from openapi_pydantic import SecurityScheme
 from starlette.datastructures import Headers
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp
