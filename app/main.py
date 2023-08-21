@@ -146,7 +146,7 @@ def create_app():  # noqa: C901
             OpenapiSecurityMiddleware, security_scheme=security_scheme
         )
 
-    app.mount(path="/api", app=PYGEOAPI_APP)
+    app.mount(path=cfg.FASTGEOAPI_CONTEXT, app=PYGEOAPI_APP)
 
     app.logger = create_logger(name="app.main")
 
