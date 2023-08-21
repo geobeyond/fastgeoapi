@@ -18,7 +18,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
         net-tools \
         procps \
         tini \
-        unzip && \
+        unzip \
+        vim && \
     apt-get --yes clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -41,7 +42,7 @@ ENV PATH="$PATH:/home/appuser/.local/bin" \
 
 # Only copy the dependencies for now and install them
 WORKDIR /home/appuser/app
-COPY --chown=appuser:appuser pyproject.toml poetry.lock .env pygeoapi-config.yml pygeoapi-openapi.yml /home/appuser/app/
+COPY --chown=appuser:appuser pyproject.toml poetry.lock .env pygeoapi-config.yml /home/appuser/app/
 RUN poetry install --no-root --only main
 
 EXPOSE 5000
@@ -61,4 +62,4 @@ RUN poetry run python -c "import compileall; compileall.compile_path(maxlevels=1
 # use tini as the init process
 ENTRYPOINT ["tini", "-g", "--"]
 
-CMD ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0" "--port" "5000"]
+CMD ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5000", "--loop", "asyncio"]
