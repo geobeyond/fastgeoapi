@@ -1,5 +1,4 @@
 """Build the Dockerfile."""
-
 import logging
 import shlex
 import shutil
@@ -28,11 +27,11 @@ def main(
         default=None,
         help="Name of the git branch to use as the base for the docker cache",
     ),
-    docker_platform: str = typer.Option( # noqa: B008
+    docker_platform: str = typer.Option(  # noqa: B008
         default="linux/amd64",
         help="Docker architecture to use as the target platform for the build",
     ),
-    use_cache: bool = typer.Option( # noqa: B008
+    use_cache: bool = typer.Option(  # noqa: B008
         default=True,
         help="Use Docker cache for the build",
     ),
@@ -90,15 +89,13 @@ def main(
         if use_cache:
             for cache_image in possible_docker_caches:
                 build_command = " ".join(
-                    (build_command, f"--build-arg 'BUILDKIT_INLINE_CACHE=1'")
+                    (build_command, "--build-arg 'BUILDKIT_INLINE_CACHE=1'")
                 )  # noqa
                 build_command = " ".join(
                     (build_command, f"--cache-from {cache_image}")
                 )  # noqa
         else:
-            build_command = " ".join(
-                    (build_command, f"--no-cache")
-                )  # noqa
+            build_command = " ".join((build_command, f"--no-cache"))  # noqa
         build_command = " ".join((build_command, build_context_path))
         logger.info(f"build_command: {build_command}")
         _run_external_command(build_command, capture_output=False)

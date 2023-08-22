@@ -122,7 +122,9 @@ def create_app():  # noqa: C901
         PYGEOAPI_APP.add_middleware(OPAMiddleware, config=opa_config)
 
         security_scheme = SecurityScheme(
-            type="openIdConnect", name="OIDC", openIdConnectUrl=cfg.OIDC_WELL_KNOWN_ENDPOINT
+            type="openIdConnect",
+            name="OIDC",
+            openIdConnectUrl=cfg.OIDC_WELL_KNOWN_ENDPOINT,
         )
     elif cfg.API_KEY_ENABLED:
         if cfg.OPA_ENABLED:
