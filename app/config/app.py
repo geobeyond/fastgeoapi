@@ -46,6 +46,7 @@ class DevConfig(GlobalConfig):
     PYGEOAPI_BASEURL: Optional[str] = Field(None, env="DEV_PYGEOAPI_BASEURL")
     PYGEOAPI_CONFIG: Optional[str] = Field(None, env="DEV_PYGEOAPI_CONFIG")
     PYGEOAPI_OPENAPI: Optional[str] = Field(None, env="DEV_PYGEOAPI_OPENAPI")
+    FASTGEOAPI_CONTEXT: Optional[str] = Field(None, env="DEV_FASTGEOAPI_CONTEXT")
 
 
 class ProdConfig(GlobalConfig):
@@ -73,6 +74,7 @@ class ProdConfig(GlobalConfig):
     PYGEOAPI_BASEURL: Optional[str] = Field(None, env="PROD_PYGEOAPI_BASEURL")
     PYGEOAPI_CONFIG: Optional[str] = Field(None, env="PROD_PYGEOAPI_CONFIG")
     PYGEOAPI_OPENAPI: Optional[str] = Field(None, env="PROD_PYGEOAPI_OPENAPI")
+    FASTGEOAPI_CONTEXT: Optional[str] = Field(None, env="PROD_FASTGEOAPI_CONTEXT")
 
 
 class FactoryConfig:

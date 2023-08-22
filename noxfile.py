@@ -21,7 +21,7 @@ except ImportError:
 
 
 package = "app"
-python_versions = ["3.10", "3.9", "3.8"]
+python_versions = ["3.10", "3.9"]
 nox.needs_version = ">= 2022.11.21"
 nox.options.sessions = (
     "pre-commit",

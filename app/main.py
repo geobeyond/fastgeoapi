@@ -20,7 +20,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi_opa import OPAMiddleware
 from loguru import logger
 from mangum import Mangum
-from openapi_schema_pydantic.v3.v3_0_3 import SecurityScheme
+from openapi_pydantic.v3.v3_0_3 import SecurityScheme
 from pygeoapi.l10n import LocaleError
 from pygeoapi.openapi import generate_openapi_document
 from pygeoapi.provider.base import ProviderConnectionError
@@ -113,13 +113,19 @@ def create_app():  # noqa: C901
         raise e
 
     # Add OPAMiddleware to the pygeoapi app
+    security_scheme = None
     if cfg.OPA_ENABLED:
         if cfg.API_KEY_ENABLED:
             raise ValueError("OPA_ENABLED and API_KEY_ENABLED are mutually exclusive")
         from app.config.auth import opa_config
 
         PYGEOAPI_APP.add_middleware(OPAMiddleware, config=opa_config)
-        security_scheme = None
+
+        security_scheme = SecurityScheme(
+            type="openIdConnect",
+            name="OIDC",
+            openIdConnectUrl=cfg.OIDC_WELL_KNOWN_ENDPOINT,
+        )
     elif cfg.API_KEY_ENABLED:
         if cfg.OPA_ENABLED:
             raise ValueError("OPA_ENABLED and API_KEY_ENABLED are mutually exclusive")
@@ -142,7 +148,7 @@ def create_app():  # noqa: C901
             OpenapiSecurityMiddleware, security_scheme=security_scheme
         )
 
-    app.mount(path="/api", app=PYGEOAPI_APP)
+    app.mount(path=cfg.FASTGEOAPI_CONTEXT, app=PYGEOAPI_APP)
 
     app.logger = create_logger(name="app.main")
 
@@ -159,4 +165,4 @@ if cfg.AWS_LAMBDA_DEPLOY:
     handler = Mangum(app)
 
 if __name__ == "__main__":
-    uvicorn.run(app, port=5000)
+    uvicorn.run(app, port=cfg.PORT)
