@@ -39,6 +39,7 @@ geoalchemy2 = "^0.12.5"
 shapely = "<2.0"
 psycopg2 = "^2.9.6"
 openapi-pydantic = "^0.3.1"
+pygeofilter = {extras = ["backend-sqlalchemy"], version = "^0.2.1"}
 
 [tool.poetry.scripts]
 fastgeoapi = "fastgeoapi.cli:main"
