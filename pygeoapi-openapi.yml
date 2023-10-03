@@ -1,6 +1,32 @@
 components:
   parameters:
+    bbox:
+      description: Only features that have a geometry that intersects the bounding
+        box are selected.The bounding box is provided as four or six numbers, depending
+        on whether the coordinate reference system includes a vertical axis (height
+        or depth).
+      explode: false
+      in: query
+      name: bbox
+      required: false
+      schema:
+        items:
+          type: number
+        maxItems: 6
+        minItems: 4
+        type: array
+      style: form
     bbox-crs:
+      description: Indicates the coordinate reference system for the given bbox coordinates.
+      explode: false
+      in: query
+      name: bbox-crs
+      required: false
+      schema:
+        format: uri
+        type: string
+      style: form
+    bbox-crs-epsg:
       description: Indicates the EPSG for the given bbox coordinates.
       explode: false
       in: query
@@ -10,9 +36,18 @@ components:
         default: 4326
         type: integer
       style: form
+    crs:
+      description: Indicates the coordinate reference system for the results.
+      explode: false
+      in: query
+      name: crs
+      required: false
+      schema:
+        format: uri
+        type: string
+      style: form
     f:
-      description:
-        The optional f parameter indicates the output format which the
+      description: The optional f parameter indicates the output format which the
         server shall provide as part of the response document.  The default format
         is GeoJSON.
       explode: false
@@ -22,14 +57,13 @@ components:
       schema:
         default: json
         enum:
-          - json
-          - html
-          - jsonld
+        - json
+        - html
+        - jsonld
         type: string
       style: form
     lang:
-      description:
-        The optional lang parameter instructs the server return a response
+      description: The optional lang parameter instructs the server return a response
         in a certain language, if supported.  If the language is not among the available
         values, the Accept-Language header language will be used if it is supported.
         If the header is missing, the default server language is used. Note that providers
@@ -43,12 +77,11 @@ components:
       schema:
         default: en-US
         enum:
-          - en-US
-          - fr-CA
+        - en-US
+        - fr-CA
         type: string
     offset:
-      description:
-        The optional offset parameter indicates the index within the result
+      description: The optional offset parameter indicates the index within the result
         set from which the server shall begin presenting results in the response document.  The
         first element has an index of 0 (default).
       explode: false
@@ -61,8 +94,7 @@ components:
         type: integer
       style: form
     properties:
-      description:
-        The properties that should be included for each feature. The parameter
+      description: The properties that should be included for each feature. The parameter
         value is a comma-separated list of property names.
       explode: false
       in: query
@@ -92,13 +124,15 @@ components:
         type: object
       style: form
   responses:
-    "200":
+    '200':
       description: successful operation
+    '204':
+      description: no content
     Queryables:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/queryables"
+            $ref: '#/components/schemas/queryables'
       description: successful queryables operation
     default:
       content:
@@ -114,7 +148,7 @@ components:
           type: string
         language:
           default:
-            - en
+          - en
           description: the language used for the title and description
           type: string
         queryable:
@@ -131,17 +165,17 @@ components:
           format: url
           type: string
       required:
-        - queryable
-        - type
+      - queryable
+      - type
       type: object
     queryables:
       properties:
         queryables:
           items:
-            $ref: "#/components/schemas/queryable"
+            $ref: '#/components/schemas/queryable'
           type: array
       required:
-        - queryables
+      - queryables
       type: object
 info:
   contact:
@@ -154,11 +188,11 @@ info:
     url: https://creativecommons.org/licenses/by/4.0/
   termsOfService: https://creativecommons.org/licenses/by/4.0/
   title: pygeoapi default instance
-  version: 0.15.dev0
+  version: 0.16.dev0
   x-keywords:
-    - geospatial
-    - data
-    - api
+  - geospatial
+  - data
+  - api
 openapi: 3.0.2
 paths:
   /:
@@ -166,423 +200,528 @@ paths:
       description: Landing page
       operationId: getLandingPage
       parameters:
-        - $ref: "#/components/parameters/f"
-        - $ref: "#/components/parameters/lang"
+      - $ref: '#/components/parameters/f'
+      - $ref: '#/components/parameters/lang'
       responses:
-        "200":
+        '200':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/LandingPage
-        "400":
+        '400':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter
-        "500":
+        '500':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError
       summary: Landing page
       tags:
-        - server
+      - server
   /collections:
     get:
       description: Collections
       operationId: getCollections
       parameters:
-        - $ref: "#/components/parameters/f"
-        - $ref: "#/components/parameters/lang"
+      - $ref: '#/components/parameters/f'
+      - $ref: '#/components/parameters/lang'
       responses:
-        "200":
+        '200':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/LandingPage
-        "400":
+        '400':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter
-        "500":
+        '500':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError
       summary: Collections
       tags:
-        - server
+      - server
   /collections/lakes:
     get:
       description: lakes of the world, public domain
       operationId: describeLakesCollection
       parameters:
-        - $ref: "#/components/parameters/f"
-        - $ref: "#/components/parameters/lang"
+      - $ref: '#/components/parameters/f'
+      - $ref: '#/components/parameters/lang'
       responses:
-        "200":
+        '200':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/Collection
-        "400":
+        '400':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter
-        "404":
+        '404':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound
-        "500":
+        '500':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError
       summary: Get Large Lakes metadata
       tags:
-        - lakes
+      - lakes
   /collections/lakes/items:
     get:
       description: lakes of the world, public domain
       operationId: getLakesFeatures
       parameters:
-        - &id001
-          description:
-            The optional f parameter indicates the output format which the
-            server shall provide as part of the response document.  The default format
-            is GeoJSON.
-          explode: false
-          in: query
-          name: f
-          required: false
-          schema:
-            default: json
+      - &id001
+        description: The optional f parameter indicates the output format which the
+          server shall provide as part of the response document.  The default format
+          is GeoJSON.
+        explode: false
+        in: query
+        name: f
+        required: false
+        schema:
+          default: json
+          enum:
+          - json
+          - html
+          - jsonld
+          - csv
+          type: string
+        style: form
+      - &id002
+        description: The optional lang parameter instructs the server return a response
+          in a certain language, if supported.  If the language is not among the available
+          values, the Accept-Language header language will be used if it is supported.
+          If the header is missing, the default server language is used. Note that
+          providers may only support a single language (or often no language at all),
+          that can be different from the server language.  Language strings can be
+          written in a complex (e.g. "fr-CA,fr;q=0.9,en-US;q=0.8,en;q=0.7"), simple
+          (e.g. "de") or locale-like (e.g. "de-CH" or "fr_BE") fashion.
+        in: query
+        name: lang
+        required: false
+        schema:
+          default: en-US
+          enum:
+          - en-US
+          - fr-CA
+          type: string
+      - $ref: '#/components/parameters/bbox'
+      - $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/limit
+      - $ref: '#/components/parameters/crs'
+      - $ref: '#/components/parameters/bbox-crs'
+      - description: The properties that should be included for each feature. The
+          parameter value is a comma-separated list of property names.
+        explode: false
+        in: query
+        name: properties
+        required: false
+        schema:
+          items:
             enum:
-              - json
-              - html
-              - jsonld
-              - csv
+            - id
+            - scalerank
+            - name
+            - name_alt
+            - admin
+            - featureclass
             type: string
-          style: form
-        - &id002
-          description:
-            The optional lang parameter instructs the server return a response
-            in a certain language, if supported.  If the language is not among the available
-            values, the Accept-Language header language will be used if it is supported.
-            If the header is missing, the default server language is used. Note that
-            providers may only support a single language (or often no language at all),
-            that can be different from the server language.  Language strings can be
-            written in a complex (e.g. "fr-CA,fr;q=0.9,en-US;q=0.8,en;q=0.7"), simple
-            (e.g. "de") or locale-like (e.g. "de-CH" or "fr_BE") fashion.
-          in: query
-          name: lang
-          required: false
-          schema:
-            default: en-US
-            enum:
-              - en-US
-              - fr-CA
-            type: string
-        - $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/bbox
-        - $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/limit
-        - description:
-            The properties that should be included for each feature. The
-            parameter value is a comma-separated list of property names.
-          explode: false
-          in: query
-          name: properties
-          required: false
-          schema:
-            items:
-              enum:
-                - id
-                - scalerank
-                - name
-                - name_alt
-                - admin
-                - featureclass
-              type: string
-            type: array
-          style: form
-        - $ref: "#/components/parameters/vendorSpecificParameters"
-        - $ref: "#/components/parameters/skipGeometry"
-        - $ref: https://raw.githubusercontent.com/opengeospatial/ogcapi-records/master/core/openapi/parameters/sortby.yaml
-        - $ref: "#/components/parameters/offset"
-        - explode: false
-          in: query
-          name: id
-          required: false
-          schema:
-            type: integer
-          style: form
-        - explode: false
-          in: query
-          name: scalerank
-          required: false
-          schema:
-            type: integer
-          style: form
-        - explode: false
-          in: query
-          name: name
-          required: false
-          schema:
-            type: string
-          style: form
-        - explode: false
-          in: query
-          name: name_alt
-          required: false
-          schema:
-            type: string
-          style: form
-        - explode: false
-          in: query
-          name: admin
-          required: false
-          schema:
-            type: string
-          style: form
-        - explode: false
-          in: query
-          name: featureclass
-          required: false
-          schema:
-            type: string
-          style: form
+          type: array
+        style: form
+      - $ref: '#/components/parameters/vendorSpecificParameters'
+      - $ref: '#/components/parameters/skipGeometry'
+      - $ref: https://raw.githubusercontent.com/opengeospatial/ogcapi-records/master/core/openapi/parameters/sortby.yaml
+      - $ref: '#/components/parameters/offset'
+      - explode: false
+        in: query
+        name: id
+        required: false
+        schema:
+          type: integer
+        style: form
+      - explode: false
+        in: query
+        name: scalerank
+        required: false
+        schema:
+          type: integer
+        style: form
+      - explode: false
+        in: query
+        name: name
+        required: false
+        schema:
+          type: string
+        style: form
+      - explode: false
+        in: query
+        name: name_alt
+        required: false
+        schema:
+          type: string
+        style: form
+      - explode: false
+        in: query
+        name: admin
+        required: false
+        schema:
+          type: string
+        style: form
+      - explode: false
+        in: query
+        name: featureclass
+        required: false
+        schema:
+          type: string
+        style: form
       responses:
-        "200":
+        '200':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/Features
-        "400":
+        '400':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter
-        "404":
+        '404':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound
-        "500":
+        '500':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError
       summary: Get Large Lakes items
       tags:
-        - lakes
+      - lakes
+    options:
+      operationId: optionsLakesFeatures
+      responses:
+        '200':
+          description: options response
+      summary: Options for Large Lakes items
+      tags:
+      - lakes
   /collections/lakes/items/{featureId}:
     get:
       description: lakes of the world, public domain
       operationId: getLakesFeature
       parameters:
-        - $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/featureId
-        - $ref: "#/components/parameters/f"
-        - $ref: "#/components/parameters/lang"
+      - $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/featureId
+      - $ref: '#/components/parameters/crs'
+      - $ref: '#/components/parameters/f'
+      - $ref: '#/components/parameters/lang'
       responses:
-        "200":
+        '200':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/Feature
-        "400":
+        '400':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter
-        "404":
+        '404':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound
-        "500":
+        '500':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError
       summary: Get Large Lakes item by id
       tags:
-        - lakes
+      - lakes
+    options:
+      operationId: optionsLakesFeature
+      parameters:
+      - $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/featureId
+      responses:
+        '200':
+          description: options response
+      summary: Options for Large Lakes item by id
+      tags:
+      - lakes
   /collections/lakes/queryables:
     get:
       description: lakes of the world, public domain
       operationId: getLakesQueryables
       parameters:
-        - *id001
-        - *id002
+      - *id001
+      - *id002
       responses:
-        "200":
-          $ref: "#/components/responses/Queryables"
-        "400":
+        '200':
+          $ref: '#/components/responses/Queryables'
+        '400':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter
-        "404":
+        '404':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound
-        "500":
+        '500':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError
       summary: Get Large Lakes queryables
       tags:
-        - lakes
+      - lakes
   /collections/obs:
     get:
       description: My cool observations
       operationId: describeObsCollection
       parameters:
-        - $ref: "#/components/parameters/f"
-        - $ref: "#/components/parameters/lang"
+      - $ref: '#/components/parameters/f'
+      - $ref: '#/components/parameters/lang'
       responses:
-        "200":
+        '200':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/Collection
-        "400":
+        '400':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter
-        "404":
+        '404':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound
-        "500":
+        '500':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError
       summary: Get Observations metadata
       tags:
-        - obs
+      - obs
   /collections/obs/items:
     get:
       description: My cool observations
       operationId: getObsFeatures
       parameters:
-        - *id001
-        - *id002
-        - $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/bbox
-        - $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/limit
-        - description:
-            The properties that should be included for each feature. The
-            parameter value is a comma-separated list of property names.
-          explode: false
-          in: query
-          name: properties
-          required: false
-          schema:
-            items:
-              enum:
-                - id
-                - stn_id
-                - datetime
-                - value
-              type: string
-            type: array
-          style: form
-        - $ref: "#/components/parameters/vendorSpecificParameters"
-        - $ref: "#/components/parameters/skipGeometry"
-        - $ref: https://raw.githubusercontent.com/opengeospatial/ogcapi-records/master/core/openapi/parameters/sortby.yaml
-        - $ref: "#/components/parameters/offset"
-        - explode: false
-          in: query
-          name: id
-          required: false
-          schema:
+      - *id001
+      - *id002
+      - $ref: '#/components/parameters/bbox'
+      - $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/limit
+      - $ref: '#/components/parameters/crs'
+      - $ref: '#/components/parameters/bbox-crs'
+      - description: The properties that should be included for each feature. The
+          parameter value is a comma-separated list of property names.
+        explode: false
+        in: query
+        name: properties
+        required: false
+        schema:
+          items:
+            enum:
+            - id
+            - stn_id
+            - datetime
+            - value
             type: string
-          style: form
-        - explode: false
-          in: query
-          name: stn_id
-          required: false
-          schema:
-            type: integer
-          style: form
-        - explode: false
-          in: query
-          name: datetime
-          required: false
-          schema:
-            type: string
-          style: form
-        - explode: false
-          in: query
-          name: value
-          required: false
-          schema:
-            type: number
-          style: form
+          type: array
+        style: form
+      - $ref: '#/components/parameters/vendorSpecificParameters'
+      - $ref: '#/components/parameters/skipGeometry'
+      - $ref: https://raw.githubusercontent.com/opengeospatial/ogcapi-records/master/core/openapi/parameters/sortby.yaml
+      - $ref: '#/components/parameters/offset'
+      - explode: false
+        in: query
+        name: id
+        required: false
+        schema:
+          type: string
+        style: form
+      - explode: false
+        in: query
+        name: stn_id
+        required: false
+        schema:
+          type: integer
+        style: form
+      - explode: false
+        in: query
+        name: datetime
+        required: false
+        schema:
+          type: string
+        style: form
+      - explode: false
+        in: query
+        name: value
+        required: false
+        schema:
+          type: number
+        style: form
       responses:
-        "200":
+        '200':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/Features
-        "400":
+        '400':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter
-        "404":
+        '404':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound
-        "500":
+        '500':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError
       summary: Get Observations items
       tags:
-        - obs
+      - obs
+    options:
+      operationId: optionsObsFeatures
+      responses:
+        '200':
+          description: options response
+      summary: Options for Observations items
+      tags:
+      - obs
   /collections/obs/items/{featureId}:
     get:
       description: My cool observations
       operationId: getObsFeature
       parameters:
-        - $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/featureId
-        - $ref: "#/components/parameters/f"
-        - $ref: "#/components/parameters/lang"
+      - $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/featureId
+      - $ref: '#/components/parameters/crs'
+      - $ref: '#/components/parameters/f'
+      - $ref: '#/components/parameters/lang'
       responses:
-        "200":
+        '200':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/Feature
-        "400":
+        '400':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter
-        "404":
+        '404':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound
-        "500":
+        '500':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError
       summary: Get Observations item by id
       tags:
-        - obs
+      - obs
+    options:
+      operationId: optionsObsFeature
+      parameters:
+      - $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/featureId
+      responses:
+        '200':
+          description: options response
+      summary: Options for Observations item by id
+      tags:
+      - obs
   /collections/obs/queryables:
     get:
       description: My cool observations
       operationId: getObsQueryables
       parameters:
-        - *id001
-        - *id002
+      - *id001
+      - *id002
       responses:
-        "200":
-          $ref: "#/components/responses/Queryables"
-        "400":
+        '200':
+          $ref: '#/components/responses/Queryables'
+        '400':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter
-        "404":
+        '404':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound
-        "500":
+        '500':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError
       summary: Get Observations queryables
       tags:
-        - obs
+      - obs
   /conformance:
     get:
       description: API conformance definition
       operationId: getConformanceDeclaration
       parameters:
-        - $ref: "#/components/parameters/f"
-        - $ref: "#/components/parameters/lang"
+      - $ref: '#/components/parameters/f'
+      - $ref: '#/components/parameters/lang'
       responses:
-        "200":
+        '200':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/LandingPage
-        "400":
+        '400':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter
-        "500":
+        '500':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError
       summary: API conformance definition
       tags:
-        - server
+      - server
+  /jobs:
+    get:
+      description: Retrieve a list of jobs
+      operationId: getJobs
+      responses:
+        '200':
+          $ref: '#/components/responses/200'
+        '404':
+          $ref: https://schemas.opengis.net/ogcapi/processes/part1/1.0/openapi/responses/NotFound.yaml
+        default:
+          $ref: '#/components/responses/default'
+      summary: Retrieve jobs list
+      tags:
+      - jobs
+  /jobs/{jobId}:
+    delete:
+      description: Cancel / delete job
+      operationId: deleteJob
+      parameters:
+      - &id003
+        description: job identifier
+        in: path
+        name: jobId
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          $ref: '#/components/responses/204'
+        '404':
+          $ref: https://schemas.opengis.net/ogcapi/processes/part1/1.0/openapi/responses/NotFound.yaml
+        default:
+          $ref: '#/components/responses/default'
+      summary: Cancel / delete job
+      tags:
+      - jobs
+    get:
+      description: Retrieve job details
+      operationId: getJob
+      parameters:
+      - *id003
+      - $ref: '#/components/parameters/f'
+      responses:
+        '200':
+          $ref: '#/components/responses/200'
+        '404':
+          $ref: https://schemas.opengis.net/ogcapi/processes/part1/1.0/openapi/responses/NotFound.yaml
+        default:
+          $ref: '#/components/responses/default'
+      summary: Retrieve job details
+      tags:
+      - jobs
+  /jobs/{jobId}/results:
+    get:
+      description: Retrive job resiults
+      operationId: getJobResults
+      parameters:
+      - *id003
+      - $ref: '#/components/parameters/f'
+      responses:
+        '200':
+          $ref: '#/components/responses/200'
+        '404':
+          $ref: https://schemas.opengis.net/ogcapi/processes/part1/1.0/openapi/responses/NotFound.yaml
+        default:
+          $ref: '#/components/responses/default'
+      summary: Retrieve job results
+      tags:
+      - jobs
   /openapi:
     get:
       description: This document
       operationId: getOpenapi
       parameters:
-        - $ref: "#/components/parameters/f"
-        - $ref: "#/components/parameters/lang"
-        - description: UI to render the OpenAPI document
-          explode: false
-          in: query
-          name: ui
-          required: false
-          schema:
-            default: swagger
-            enum:
-              - swagger
-              - redoc
-            type: string
-          style: form
+      - $ref: '#/components/parameters/f'
+      - $ref: '#/components/parameters/lang'
+      - description: UI to render the OpenAPI document
+        explode: false
+        in: query
+        name: ui
+        required: false
+        schema:
+          default: swagger
+          enum:
+          - swagger
+          - redoc
+          type: string
+        style: form
       responses:
-        "200":
-          $ref: "#/components/responses/200"
-        "400":
+        '200':
+          $ref: '#/components/responses/200'
+        '400':
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter
         default:
-          $ref: "#/components/responses/default"
+          $ref: '#/components/responses/default'
       summary: This document
       tags:
-        - server
+      - server
   /processes:
     get:
       description: Processes
       operationId: getProcesses
       parameters:
-        - $ref: "#/components/parameters/f"
+      - $ref: '#/components/parameters/f'
       responses:
-        "200":
+        '200':
           $ref: https://schemas.opengis.net/ogcapi/processes/part1/1.0/openapi/responses/ProcessList.yaml
         default:
-          $ref: "#/components/responses/default"
+          $ref: '#/components/responses/default'
       summary: Processes
       tags:
-        - server
+      - server
   /processes/hello-world:
     get:
-      description:
-        An example process that takes a name as input, and echoes it back
+      description: An example process that takes a name as input, and echoes it back
         as output. Intended to demonstrate a simple process with a single literal
         input.
       operationId: describeHello-worldProcess
       parameters:
-        - $ref: "#/components/parameters/f"
+      - $ref: '#/components/parameters/f'
       responses:
-        "200":
-          $ref: "#/components/responses/200"
+        '200':
+          $ref: '#/components/responses/200'
         default:
-          $ref: "#/components/responses/default"
+          $ref: '#/components/responses/default'
       summary: Get process metadata
       tags:
-        - hello-world
+      - hello-world
   /processes/hello-world/execution:
     post:
-      description:
-        An example process that takes a name as input, and echoes it back
+      description: An example process that takes a name as input, and echoes it back
         as output. Intended to demonstrate a simple process with a single literal
         input.
       operationId: executeHello-worldJob
@@ -598,35 +737,36 @@ paths:
         description: Mandatory execute request JSON
         required: true
       responses:
-        "200":
-          $ref: "#/components/responses/200"
-        "201":
+        '200':
+          $ref: '#/components/responses/200'
+        '201':
           $ref: https://schemas.opengis.net/ogcapi/processes/part1/1.0/openapi/responses/ExecuteAsync.yaml
-        "404":
+        '404':
           $ref: https://schemas.opengis.net/ogcapi/processes/part1/1.0/openapi/responses/NotFound.yaml
-        "500":
+        '500':
           $ref: https://schemas.opengis.net/ogcapi/processes/part1/1.0/openapi/responses/ServerError.yaml
         default:
-          $ref: "#/components/responses/default"
+          $ref: '#/components/responses/default'
       summary: Process Hello World execution
       tags:
-        - hello-world
+      - hello-world
 servers:
-  - description: pygeoapi provides an API to geospatial data
-    url: http://localhost:5000/api
+- description: pygeoapi provides an API to geospatial data
+  url: http://localhost:5000/geoapi
 tags:
-  - description: pygeoapi provides an API to geospatial data
-    externalDocs:
-      description: information
-      url: https://example.org
-    name: server
-  - description: SpatioTemporal Asset Catalog
-    name: stac
-  - description: My cool observations
-    name: obs
-  - description: lakes of the world, public domain
-    name: lakes
-  - description:
-      An example process that takes a name as input, and echoes it back as
-      output. Intended to demonstrate a simple process with a single literal input.
-    name: hello-world
+- description: pygeoapi provides an API to geospatial data
+  externalDocs:
+    description: information
+    url: https://example.org
+  name: server
+- description: Process jobs
+  name: jobs
+- description: SpatioTemporal Asset Catalog
+  name: stac
+- description: My cool observations
+  name: obs
+- description: lakes of the world, public domain
+  name: lakes
+- description: An example process that takes a name as input, and echoes it back as
+    output. Intended to demonstrate a simple process with a single literal input.
+  name: hello-world
