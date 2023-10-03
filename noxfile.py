@@ -124,6 +124,8 @@ def safety(session: NoxPoetrySession) -> None:
         # still in beta + major version change sqlalchemy 2.0.0b1
         "-i",
         "51668",
+        "-i",
+        "61493",
         "--full-report",
         f"--file={requirements}",
     )
