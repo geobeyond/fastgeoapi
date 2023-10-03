@@ -1,4 +1,5 @@
 """App configuration module."""
+from functools import lru_cache
 from typing import Optional
 
 import pydantic
@@ -108,6 +109,7 @@ class FactoryConfig:
         """Initialize factory configuration."""
         self.env_state = env_state
 
+    @lru_cache()
     def __call__(self):
         """Handle runtime configuration."""
         if self.env_state == "dev":
