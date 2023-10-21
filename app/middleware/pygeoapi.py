@@ -2,8 +2,8 @@
 from typing import Any
 from typing import Dict
 
-from openapi_pydantic import OpenAPI
-from openapi_pydantic import SecurityScheme
+from openapi_pydantic.v3.v3_0_3 import OpenAPI
+from openapi_pydantic.v3.v3_0_3 import SecurityScheme
 from starlette.datastructures import Headers
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp
@@ -76,16 +76,16 @@ class OpenAPIResponder:
             self.headers.update(headers_dict)
         if message_type == "http.response.body":
             initial_body = message.get("body", b"").decode()
-            openapi = OpenAPI.parse_raw(initial_body)
+            openapi = OpenAPI.model_validate_json(initial_body)
             if self.security_scheme.type == "apiKey":
                 security_schemes = {
                     "securitySchemes": {
-                        "PygeoApiKey": self.security_scheme.dict(
+                        "PygeoApiKey": self.security_scheme.model_dump(
                             by_alias=True, exclude_none=True
                         )
                     }
                 }
-                body = openapi.dict(by_alias=True, exclude_none=True)
+                body = openapi.model_dump(by_alias=True, exclude_none=True)
                 components = body.get("components")
                 if components:
                     components.update(security_schemes)
@@ -102,8 +102,8 @@ class OpenAPIResponder:
                 if secured_paths:
                     body["paths"] = secured_paths
                 binary_body = (
-                    OpenAPI.parse_obj(body)
-                    .json(by_alias=True, exclude_none=True, indent=2)
+                    OpenAPI(**body)
+                    .model_dump_json(by_alias=True, exclude_none=True, indent=2)
                     .encode()
                 )
                 headers = MutableHeaders(raw=self.initial_message["headers"])
