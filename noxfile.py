@@ -26,6 +26,7 @@ nox.needs_version = ">= 2022.11.21"
 nox.options.sessions = (
     "pre-commit",
     "safety",
+    "bandit",
     "mypy",
     "tests",
     "typeguard",
@@ -129,6 +130,14 @@ def safety(session: NoxPoetrySession) -> None:
         "--full-report",
         f"--file={requirements}",
     )
+
+
+@nox_session(python=python_versions)
+def bandit(session: NoxPoetrySession) -> None:
+    """Scan code for vulnerabilities."""
+    args = session.posargs or ["-r", "app", "-v"]
+    session.install("bandit")
+    session.run("bandit", *args)
 
 
 @nox_session(python=python_versions)
