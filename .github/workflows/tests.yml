@@ -14,6 +14,7 @@ jobs:
         include:
           - { python: "3.10", os: "ubuntu-20.04", session: "pre-commit" }
           - { python: "3.10", os: "ubuntu-20.04", session: "safety" }
+          - { python: "3.10", os: "ubuntu-20.04", session: "bandit" }
           - { python: "3.10", os: "ubuntu-20.04", session: "mypy" }
           - { python: "3.9", os: "ubuntu-20.04", session: "mypy" }
           - { python: "3.10", os: "ubuntu-20.04", session: "tests" }
