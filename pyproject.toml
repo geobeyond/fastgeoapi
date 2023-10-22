@@ -69,7 +69,7 @@ ipython = "^8.12.2"
 safety = "<2.0"
 mypy = "^1.5.0"
 commitizen = "^3.6.0"
-pdbpp = "^0.10.3"
+pdbpp = {git = "https://github.com/pdbpp/pdbpp", rev = "master"}
 fencer = "^0.3.6"
 
 [tool.coverage.paths]

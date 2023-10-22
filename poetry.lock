@@ -764,18 +764,22 @@ python-dateutil = ">=2.4"
 
 [[package]]
 name = "fancycompleter"
-version = "0.9.1"
+version = "0.9.2.dev3+g67e3ec1"
 description = "colorful TAB completion for Python prompt"
 optional = false
 python-versions = "*"
-files = [
-    {file = "fancycompleter-0.9.1-py3-none-any.whl", hash = "sha256:dd076bca7d9d524cc7f25ec8f35ef95388ffef9ef46def4d3d25e9b044ad7080"},
-    {file = "fancycompleter-0.9.1.tar.gz", hash = "sha256:09e0feb8ae242abdfd7ef2ba55069a46f011814a80fe5476be48f51b00247272"},
-]
+files = []
+develop = false
 
 [package.dependencies]
 pyreadline = {version = "*", markers = "platform_system == \"Windows\""}
-pyrepl = ">=0.8.2"
+pyrepl = {git = "https://github.com/pdbpp/pyrepl", rev = "master"}
+
+[package.source]
+type = "git"
+url = "https://github.com/pdbpp/fancycompleter"
+reference = "master"
+resolved_reference = "67e3ec128cf8d44be6e48e775234c07f4b23064e"
 
 [[package]]
 name = "fastapi"
@@ -1965,23 +1969,28 @@ files = [
 
 [[package]]
 name = "pdbpp"
-version = "0.10.3"
+version = "0.10.4.dev225+ge1c2e34"
 description = "pdb++, a drop-in replacement for pdb"
 optional = false
 python-versions = "*"
-files = [
-    {file = "pdbpp-0.10.3-py2.py3-none-any.whl", hash = "sha256:79580568e33eb3d6f6b462b1187f53e10cd8e4538f7d31495c9181e2cf9665d1"},
-    {file = "pdbpp-0.10.3.tar.gz", hash = "sha256:d9e43f4fda388eeb365f2887f4e7b66ac09dce9b6236b76f63616530e2f669f5"},
-]
+files = []
+develop = false
 
 [package.dependencies]
-fancycompleter = ">=0.8"
+fancycompleter = {git = "https://github.com/pdbpp/fancycompleter", rev = "master"}
 pygments = "*"
+six = "*"
 wmctrl = "*"
 
 [package.extras]
 funcsigs = ["funcsigs"]
 testing = ["funcsigs", "pytest"]
+
+[package.source]
+type = "git"
+url = "https://github.com/pdbpp/pdbpp"
+reference = "master"
+resolved_reference = "e1c2e347cc55a6dd89e058e56a1366ada68884bc"
 
 [[package]]
 name = "pep8-naming"
@@ -2558,13 +2567,18 @@ files = [
 
 [[package]]
 name = "pyrepl"
-version = "0.9.0"
+version = "0.8.5.dev53+gca192a8"
 description = "A library for building flexible command line interfaces"
 optional = false
 python-versions = "*"
-files = [
-    {file = "pyrepl-0.9.0.tar.gz", hash = "sha256:292570f34b5502e871bbb966d639474f2b57fbfcd3373c2d6a2f3d56e681a775"},
-]
+files = []
+develop = false
+
+[package.source]
+type = "git"
+url = "https://github.com/pdbpp/pyrepl"
+reference = "master"
+resolved_reference = "ca192a80b76700118b9bfd261a3d098b92ccfc31"
 
 [[package]]
 name = "pytest"
@@ -4108,4 +4122,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "28bc1f73be5c69218962e9f1de45afd7c26a7fe6a8e8d6e1ac913df06a143bde"
+content-hash = "7c69dec6776e2680102c966b9ccc0cc983898894a6c4e322794da652dd0d0ecc"
