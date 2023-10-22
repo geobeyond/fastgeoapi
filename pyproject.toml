@@ -49,6 +49,7 @@ pytest = "^7.4.0"
 coverage = {extras = ["toml"], version = "^6.5.0"}
 typeguard = "^2.13.3"
 xdoctest = {extras = ["colors"], version = "^0.15.10"}
+# datamodel-code-generator = {extras = ["http"], version = "^0.22.1"}
 pre-commit = "^2.21.0"
 black = "^22.12.0"
 flake8-bandit = "^4.1.1"
@@ -71,6 +72,7 @@ mypy = "^1.5.0"
 commitizen = "^3.6.0"
 pdbpp = {git = "https://github.com/pdbpp/pdbpp", rev = "master"}
 fencer = "^0.3.6"
+# jsonref = "^1.1.0"
 
 [tool.coverage.paths]
 source = [".", "*/site-packages"]
