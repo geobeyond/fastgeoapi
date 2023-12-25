@@ -23,23 +23,23 @@ Changelog = "https://github.com/geobeyond/fastgeoapi/releases"
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
 mangum = "^0.14.1"
-loguru = "^0.7.0"
+loguru = "^0.7.2"
 jinja2 = "3.0.3"
-fastapi-opa = "^1.4.5"
+fastapi-opa = "^1.4.7"
 rasterio = "1.3.9" # fix https://github.com/rasterio/rasterio/issues/2333
 pygeoapi = {git = "https://github.com/geopython/pygeoapi", rev = "master"}
-uvicorn = {extras = ["standard"], version = "^0.23.0"}
-fastapi = {extras = ["all"], version = "^0.104"}
+uvicorn = {extras = ["standard"], version = "^0.25.0"}
+fastapi = {extras = ["all"], version = "^0.106"}
 typer = {extras = ["all"], version = "^0.9.0"}
 nest-asyncio = "^1.5.6"
 fastapi-key-auth = "^0.12.0"
-sqlalchemy = "^1.4.49"
+sqlalchemy = "^1.4.50"
 geoalchemy2 = "^0.12.5"
 shapely = "<2.0"
 psycopg2 = "^2.9.7"
 openapi-pydantic = "^0.3.2"
 pygeofilter = {extras = ["backend-sqlalchemy"], version = "^0.2.1"}
-pydantic-settings = "^2.0.3"
+pydantic-settings = "^2.1.0"
 
 [tool.poetry.scripts]
 fastgeoapi = "cli:app"
