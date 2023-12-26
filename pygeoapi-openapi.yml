@@ -1,6 +1,33 @@
 components:
   parameters:
+    bbox:
+      description:
+        Only features that have a geometry that intersects the bounding
+        box are selected.The bounding box is provided as four or six numbers, depending
+        on whether the coordinate reference system includes a vertical axis (height
+        or depth).
+      explode: false
+      in: query
+      name: bbox
+      required: false
+      schema:
+        items:
+          type: number
+        maxItems: 6
+        minItems: 4
+        type: array
+      style: form
     bbox-crs:
+      description: Indicates the coordinate reference system for the given bbox coordinates.
+      explode: false
+      in: query
+      name: bbox-crs
+      required: false
+      schema:
+        format: uri
+        type: string
+      style: form
+    bbox-crs-epsg:
       description: Indicates the EPSG for the given bbox coordinates.
       explode: false
       in: query
@@ -9,6 +36,16 @@ components:
       schema:
         default: 4326
         type: integer
+      style: form
+    crs:
+      description: Indicates the coordinate reference system for the results.
+      explode: false
+      in: query
+      name: crs
+      required: false
+      schema:
+        format: uri
+        type: string
       style: form
     f:
       description:
@@ -94,6 +131,8 @@ components:
   responses:
     "200":
       description: successful operation
+    "204":
+      description: no content
     Queryables:
       content:
         application/json:
@@ -154,7 +193,7 @@ info:
     url: https://creativecommons.org/licenses/by/4.0/
   termsOfService: https://creativecommons.org/licenses/by/4.0/
   title: pygeoapi default instance
-  version: 0.15.dev0
+  version: 0.16.dev0
   x-keywords:
     - geospatial
     - data
@@ -256,8 +295,10 @@ paths:
               - en-US
               - fr-CA
             type: string
-        - $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/bbox
+        - $ref: "#/components/parameters/bbox"
         - $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/limit
+        - $ref: "#/components/parameters/crs"
+        - $ref: "#/components/parameters/bbox-crs"
         - description:
             The properties that should be included for each feature. The
             parameter value is a comma-separated list of property names.
@@ -335,12 +376,21 @@ paths:
       summary: Get Large Lakes items
       tags:
         - lakes
+    options:
+      operationId: optionsLakesFeatures
+      responses:
+        "200":
+          description: options response
+      summary: Options for Large Lakes items
+      tags:
+        - lakes
   /collections/lakes/items/{featureId}:
     get:
       description: lakes of the world, public domain
       operationId: getLakesFeature
       parameters:
         - $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/featureId
+        - $ref: "#/components/parameters/crs"
         - $ref: "#/components/parameters/f"
         - $ref: "#/components/parameters/lang"
       responses:
@@ -353,6 +403,16 @@ paths:
         "500":
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError
       summary: Get Large Lakes item by id
+      tags:
+        - lakes
+    options:
+      operationId: optionsLakesFeature
+      parameters:
+        - $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/featureId
+      responses:
+        "200":
+          description: options response
+      summary: Options for Large Lakes item by id
       tags:
         - lakes
   /collections/lakes/queryables:
@@ -400,8 +460,10 @@ paths:
       parameters:
         - *id001
         - *id002
-        - $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/bbox
+        - $ref: "#/components/parameters/bbox"
         - $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/limit
+        - $ref: "#/components/parameters/crs"
+        - $ref: "#/components/parameters/bbox-crs"
         - description:
             The properties that should be included for each feature. The
             parameter value is a comma-separated list of property names.
@@ -463,12 +525,21 @@ paths:
       summary: Get Observations items
       tags:
         - obs
+    options:
+      operationId: optionsObsFeatures
+      responses:
+        "200":
+          description: options response
+      summary: Options for Observations items
+      tags:
+        - obs
   /collections/obs/items/{featureId}:
     get:
       description: My cool observations
       operationId: getObsFeature
       parameters:
         - $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/featureId
+        - $ref: "#/components/parameters/crs"
         - $ref: "#/components/parameters/f"
         - $ref: "#/components/parameters/lang"
       responses:
@@ -481,6 +552,16 @@ paths:
         "500":
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError
       summary: Get Observations item by id
+      tags:
+        - obs
+    options:
+      operationId: optionsObsFeature
+      parameters:
+        - $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/featureId
+      responses:
+        "200":
+          description: options response
+      summary: Options for Observations item by id
       tags:
         - obs
   /collections/obs/queryables:
@@ -519,6 +600,75 @@ paths:
       summary: API conformance definition
       tags:
         - server
+  /jobs:
+    get:
+      description: Retrieve a list of jobs
+      operationId: getJobs
+      responses:
+        "200":
+          $ref: "#/components/responses/200"
+        "404":
+          $ref: https://schemas.opengis.net/ogcapi/processes/part1/1.0/openapi/responses/NotFound.yaml
+        default:
+          $ref: "#/components/responses/default"
+      summary: Retrieve jobs list
+      tags:
+        - jobs
+  /jobs/{jobId}:
+    delete:
+      description: Cancel / delete job
+      operationId: deleteJob
+      parameters:
+        - &id003
+          description: job identifier
+          in: path
+          name: jobId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          $ref: "#/components/responses/204"
+        "404":
+          $ref: https://schemas.opengis.net/ogcapi/processes/part1/1.0/openapi/responses/NotFound.yaml
+        default:
+          $ref: "#/components/responses/default"
+      summary: Cancel / delete job
+      tags:
+        - jobs
+    get:
+      description: Retrieve job details
+      operationId: getJob
+      parameters:
+        - *id003
+        - $ref: "#/components/parameters/f"
+      responses:
+        "200":
+          $ref: "#/components/responses/200"
+        "404":
+          $ref: https://schemas.opengis.net/ogcapi/processes/part1/1.0/openapi/responses/NotFound.yaml
+        default:
+          $ref: "#/components/responses/default"
+      summary: Retrieve job details
+      tags:
+        - jobs
+  /jobs/{jobId}/results:
+    get:
+      description: Retrive job resiults
+      operationId: getJobResults
+      parameters:
+        - *id003
+        - $ref: "#/components/parameters/f"
+      responses:
+        "200":
+          $ref: "#/components/responses/200"
+        "404":
+          $ref: https://schemas.opengis.net/ogcapi/processes/part1/1.0/openapi/responses/NotFound.yaml
+        default:
+          $ref: "#/components/responses/default"
+      summary: Retrieve job results
+      tags:
+        - jobs
   /openapi:
     get:
       description: This document
@@ -613,13 +763,15 @@ paths:
         - hello-world
 servers:
   - description: pygeoapi provides an API to geospatial data
-    url: http://localhost:5000/api
+    url: http://localhost:5000/geoapi
 tags:
   - description: pygeoapi provides an API to geospatial data
     externalDocs:
       description: information
       url: https://example.org
     name: server
+  - description: Process jobs
+    name: jobs
   - description: SpatioTemporal Asset Catalog
     name: stac
   - description: My cool observations

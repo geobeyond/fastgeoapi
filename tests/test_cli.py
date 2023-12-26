@@ -10,7 +10,7 @@ def runner() -> CliRunner:
     return CliRunner()
 
 
-def test_main_succeeds(runner: CliRunner) -> None:
+def test_openapi_succeeds(runner: CliRunner) -> None:
     """It exits with a status code of zero."""
-    result = runner.invoke(app)
+    result = runner.invoke(app, ["openapi"])
     assert result.exit_code == 0

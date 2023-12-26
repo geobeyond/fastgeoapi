@@ -26,6 +26,7 @@ nox.needs_version = ">= 2022.11.21"
 nox.options.sessions = (
     "pre-commit",
     "safety",
+    "bandit",
     "mypy",
     "tests",
     "typeguard",
@@ -124,9 +125,19 @@ def safety(session: NoxPoetrySession) -> None:
         # still in beta + major version change sqlalchemy 2.0.0b1
         "-i",
         "51668",
+        "-i",
+        "61493",
         "--full-report",
         f"--file={requirements}",
     )
+
+
+@nox_session(python=python_versions)
+def bandit(session: NoxPoetrySession) -> None:
+    """Scan code for vulnerabilities."""
+    args = session.posargs or ["-r", "app", "-v"]
+    session.install("bandit")
+    session.run("bandit", *args)
 
 
 @nox_session(python=python_versions)
