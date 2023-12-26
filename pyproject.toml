@@ -87,6 +87,7 @@ show_missing = true
 fail_under = 100
 
 [tool.mypy]
+exclude = ".venv"
 strict = true
 warn_unreachable = true
 pretty = true
