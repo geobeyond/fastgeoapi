@@ -4,15 +4,12 @@ from abc import abstractmethod
 from typing import List
 from typing import Optional
 
-from starlette.requests import Request
-
 from app.auth.auth_interface import AuthInterface
+from starlette.requests import Request
 
 
 class Injectable(ABC):
-    def __init__(
-        self, key: str, skip_endpoints: Optional[List[str]] = []
-    ) -> None:
+    def __init__(self, key: str, skip_endpoints: Optional[List[str]] = []) -> None:
         self.key = key
         self.skip_endpoints = [re.compile(skip) for skip in skip_endpoints]
 

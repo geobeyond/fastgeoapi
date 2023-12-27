@@ -4,6 +4,9 @@ import re
 from typing import List
 from typing import Optional
 
+from app.auth.exceptions import AuthenticationException
+from app.auth.oidc import OIDCProvider
+from app.config.logging import create_logger
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
@@ -11,10 +14,6 @@ from starlette.types import ASGIApp
 from starlette.types import Receive
 from starlette.types import Scope
 from starlette.types import Send
-
-from app.auth.exceptions import AuthenticationException
-from app.auth.oidc import OIDCProvider
-from app.config.logging import create_logger
 
 try:
     Pattern = re.Pattern
@@ -66,9 +65,7 @@ class OIDCMiddleware:
         self.app = app
         self.skip_endpoints = [re.compile(skip) for skip in skip_endpoints]
 
-    async def __call__(
-        self, scope: Scope, receive: Receive, send: Send
-    ) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "lifespan":
             return await self.app(scope, receive, send)
 
@@ -91,9 +88,7 @@ class OIDCMiddleware:
                     request, self.config.accepted_methods
                 )
                 if asyncio.iscoroutine(user_info_or_auth_redirect):
-                    user_info_or_auth_redirect = (
-                        await user_info_or_auth_redirect
-                    )
+                    user_info_or_auth_redirect = await user_info_or_auth_redirect
                 if isinstance(user_info_or_auth_redirect, dict):
                     successful = True
                     break
@@ -102,9 +97,7 @@ class OIDCMiddleware:
 
         # Some authentication flows require a prior redirect to id provider
         if isinstance(user_info_or_auth_redirect, RedirectResponse):
-            return await user_info_or_auth_redirect.__call__(
-                scope, receive, send
-            )
+            return await user_info_or_auth_redirect.__call__(scope, receive, send)
         if not successful:
             return await self.get_unauthorized_response(scope, receive, send)
 
@@ -114,7 +107,5 @@ class OIDCMiddleware:
     async def get_unauthorized_response(
         scope: Scope, receive: Receive, send: Send
     ) -> None:
-        response = JSONResponse(
-            status_code=401, content={"message": "Unauthenticated"}
-        )
+        response = JSONResponse(status_code=401, content={"message": "Unauthenticated"})
         return await response(scope, receive, send)

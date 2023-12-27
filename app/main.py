@@ -8,8 +8,8 @@ import loguru
 import uvicorn
 from app.config.app import configuration as cfg
 from app.config.logging import create_logger
-from app.middleware.pygeoapi import OpenapiSecurityMiddleware
 from app.middleware.oidc import OIDCMiddleware
+from app.middleware.pygeoapi import OpenapiSecurityMiddleware
 from app.utils.app_exceptions import app_exception_handler
 from app.utils.app_exceptions import AppExceptionError
 from app.utils.pygeoapi_exceptions import PygeoapiEnvError

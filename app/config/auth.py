@@ -1,8 +1,8 @@
 """Authn and Authz module."""
-from app.config.app import configuration as cfg
-from app.auth.auth_jwks import JWKSConfig
 from app.auth.auth_jwks import JWKSAuthentication
+from app.auth.auth_jwks import JWKSConfig
 from app.auth.oidc import OIDCProvider
+from app.config.app import configuration as cfg
 from fastapi_opa import OPAConfig
 from fastapi_opa.auth import OIDCAuthentication
 from fastapi_opa.auth import OIDCConfig
