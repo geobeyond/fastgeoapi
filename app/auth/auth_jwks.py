@@ -1,17 +1,21 @@
-import httpx
 import typing
-
-from authlib.jose import JsonWebToken, JsonWebKey, KeySet, JWTClaims, errors
-from cachetools import cached, TTLCache
 from dataclasses import dataclass
 from dataclasses import field
-from fastapi import HTTPException
-from starlette.requests import Request
-from starlette.responses import RedirectResponse
 
+import httpx
 from app.auth.auth_interface import AuthInterface
 from app.auth.exceptions import OIDCException
 from app.config.logging import create_logger
+from authlib.jose import errors
+from authlib.jose import JsonWebKey
+from authlib.jose import JsonWebToken
+from authlib.jose import JWTClaims
+from authlib.jose import KeySet
+from cachetools import cached
+from cachetools import TTLCache
+from fastapi import HTTPException
+from starlette.requests import Request
+from starlette.responses import RedirectResponse
 
 
 logger = create_logger("app.auth.auth_jwks")
@@ -23,7 +27,6 @@ class JWKSConfig:
 
 
 class JWKSAuthentication(AuthInterface):
-
     def __init__(self, config: JWKSConfig) -> None:
         self.config = config
 

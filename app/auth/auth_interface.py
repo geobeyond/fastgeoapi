@@ -13,9 +13,7 @@ class AuthInterface(ABC):
     """
 
     @abstractmethod
-    async def authenticate(
-        self, request: Request
-    ) -> Union[RedirectResponse, Dict]:
+    async def authenticate(self, request: Request) -> Union[RedirectResponse, Dict]:
         """The method returns a dictionary containing the valid and authorized
         users information or a redirect since some flows require calling a
         identity broker beforehand.
