@@ -9,6 +9,7 @@ import uvicorn
 from app.config.app import configuration as cfg
 from app.config.logging import create_logger
 from app.middleware.pygeoapi import OpenapiSecurityMiddleware
+from app.middleware.oidc import OIDCMiddleware
 from app.utils.app_exceptions import app_exception_handler
 from app.utils.app_exceptions import AppExceptionError
 from app.utils.pygeoapi_exceptions import PygeoapiEnvError
@@ -115,16 +116,32 @@ def create_app():  # noqa: C901
     # Add OPAMiddleware to the pygeoapi app
     security_scheme = None
     if cfg.OPA_ENABLED:
-        if cfg.API_KEY_ENABLED:
-            raise ValueError("OPA_ENABLED and API_KEY_ENABLED are mutually exclusive")
-        from app.config.auth import opa_config
+        if cfg.API_KEY_ENABLED or cfg.JWKS_ENABLED:
+            raise ValueError(
+                "OPA_ENABLED, JWKS_ENABLED and API_KEY_ENABLED are mutually exclusive"
+            )
+        from app.config.auth import auth_config
 
-        PYGEOAPI_APP.add_middleware(OPAMiddleware, config=opa_config)
+        PYGEOAPI_APP.add_middleware(OPAMiddleware, config=auth_config)
 
         security_scheme = SecurityScheme(
             type="openIdConnect",
             name="OIDC",
             openIdConnectUrl=cfg.OIDC_WELL_KNOWN_ENDPOINT,
+        )
+    elif cfg.JWKS_ENABLED:
+        if cfg.API_KEY_ENABLED or cfg.OPA_ENABLED:
+            raise ValueError(
+                "OPA_ENABLED, JWKS_ENABLED and API_KEY_ENABLED are mutually exclusive"
+            )
+        from app.config.auth import auth_config
+
+        PYGEOAPI_APP.add_middleware(OIDCMiddleware, config=auth_config)
+
+        security_scheme = SecurityScheme(
+            type="openIdConnect",
+            name="OIDC",
+            openIdConnectUrl=cfg.OIDC_JWKS_ENDPOINT,
         )
     elif cfg.API_KEY_ENABLED:
         if cfg.OPA_ENABLED:

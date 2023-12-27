@@ -67,6 +67,12 @@ class DevConfig(GlobalConfig):
     API_KEY_ENABLED: Optional[bool] = pydantic.Field(
         None, env="DEV_API_KEY_ENABLED"
     )  # type: ignore
+    JWKS_ENABLED: Optional[bool] = pydantic.Field(
+        None, env="DEV_JWKS_ENABLED"
+    )  # type: ignore
+    OIDC_JWKS_ENDPOINT: Optional[str] = pydantic.Field(
+        None, env="DEV_OIDC_JWKS_ENDPOINT"
+    )  # type: ignore
     PYGEOAPI_KEY_GLOBAL: Optional[str] = pydantic.Field(
         None, env="DEV_PYGEOAPI_KEY_GLOBAL"
     )  # type: ignore
@@ -130,6 +136,9 @@ class ProdConfig(GlobalConfig):
     )  # type: ignore
     API_KEY_ENABLED: Optional[bool] = pydantic.Field(
         None, env="PROD_API_KEY_ENABLED"
+    )  # type: ignore
+    OIDC_JWKS_ENDPOINT: Optional[str] = pydantic.Field(
+        None, env="PROD_OIDC_JWKS_ENDPOINT"
     )  # type: ignore
     PYGEOAPI_KEY_GLOBAL: Optional[str] = pydantic.Field(
         None, env="PROD_PYGEOAPI_KEY_GLOBAL"
