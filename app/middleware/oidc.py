@@ -3,7 +3,7 @@ import re
 from typing import List
 from typing import Optional
 
-from app.auth.exceptions import AuthenticationException
+from app.auth.exceptions import OIDCException
 from app.auth.oidc import OIDCProvider
 from app.config.app import configuration as cfg
 from app.config.logging import create_logger
@@ -99,11 +99,14 @@ class OIDCMiddleware:
                 )
                 if asyncio.iscoroutine(user_info_or_auth_redirect):
                     user_info_or_auth_redirect = await user_info_or_auth_redirect
+                logger.debug(
+                    f"user info taken from jwt is: {user_info_or_auth_redirect}"
+                )
                 if isinstance(user_info_or_auth_redirect, dict):
                     successful = True
                     break
-            except AuthenticationException:
-                logger.error("AuthenticationException raised on login")
+            except OIDCException as e:
+                logger.error("Authentication Exception raised on login")
 
         # Some authentication flows require a prior redirect to id provider
         if isinstance(user_info_or_auth_redirect, RedirectResponse):
