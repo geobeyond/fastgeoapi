@@ -1,11 +1,11 @@
 import asyncio
-import logging
 import re
 from typing import List
 from typing import Optional
 
 from app.auth.exceptions import AuthenticationException
 from app.auth.oidc import OIDCProvider
+from app.config.app import configuration as cfg
 from app.config.logging import create_logger
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
@@ -63,7 +63,15 @@ class OIDCMiddleware:
     ) -> None:
         self.config = config
         self.app = app
-        self.skip_endpoints = [re.compile(skip) for skip in skip_endpoints]
+        if cfg.FASTGEOAPI_CONTEXT and not cfg.FASTGEOAPI_CONTEXT in skip_endpoints:
+            self.skip_endpoints = [
+                re.compile(f"{cfg.FASTGEOAPI_CONTEXT}{skip}") for skip in skip_endpoints
+            ]
+        else:
+            self.skip_endpoints = [
+                re.compile(skip) for skip in skip_endpoints
+            ]
+        logger.debug(f"Compiled skippable endpoints: {self.skip_endpoints}")
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "lifespan":
@@ -77,7 +85,9 @@ class OIDCMiddleware:
             return await self.app(scope, receive, send)
 
         # allow openapi endpoints without authentication
+        logger.debug(f"Evaluate if {request.url.path} is skippable")
         if should_skip_endpoint(request.url.path, self.skip_endpoints):
+            logger.info(f"{request.url.path} is skippable")
             return await self.app(scope, receive, send)
 
         # authenticate user or get redirect to identity provider
