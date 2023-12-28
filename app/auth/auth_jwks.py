@@ -36,7 +36,7 @@ class JWKSAuthentication(AuthInterface):
         Get cached or new JWKS.
         """
         url = self.config.jwks_uri
-        # logger.info(f"Fetching JWKS from {url}")
+        logger.info(f"Fetching JSON Web Key Set from {url}")
         async with httpx.AsyncClient() as client:
             response = await client.get(url)
             return JsonWebKey.import_key_set(response.json())
@@ -63,11 +63,11 @@ class JWKSAuthentication(AuthInterface):
                 claims.setdefault("aud", claims["client_id"])
             claims.validate()
         except errors.ExpiredTokenError:
-            logger.error("Unable to validate token")
-            raise HTTPException(status_code=401, detail="Expired auth token")
+            logger.error("Unable to validate an expired token")
+            raise OIDCException("Unable to validate an expired token")
         except errors.JoseError:
             logger.error("Unable to decode token")
-            raise HTTPException(status_code=403, detail="Bad auth token")
+            raise OIDCException("Unable to decode token")
 
         return claims
 
