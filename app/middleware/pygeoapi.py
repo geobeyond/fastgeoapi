@@ -4,6 +4,7 @@ from typing import Dict
 
 from openapi_pydantic.v3.v3_0_3 import OpenAPI
 from openapi_pydantic.v3.v3_0_3 import SecurityScheme
+from pydantic_core import ValidationError
 from starlette.datastructures import Headers
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp
@@ -12,6 +13,10 @@ from starlette.types import Receive
 from starlette.types import Scope
 from starlette.types import Send
 
+from app.config.logging import create_logger
+
+
+logger = create_logger("app.middleware.pygeoapi")
 
 routes_with_middleware = ["/openapi"]
 queryparams_with_middleware = ["f=json"]
@@ -72,11 +77,16 @@ class OpenAPIResponder:
             headers_dict = dict(headers.items())
             content_type = headers_dict.get("content-type")
             if "application/vnd.oai.openapi+json" not in str(content_type):
-                raise ValueError(f"Unsupported content type: {content_type}")
+                logger.error(f"Incosistent content-type: {content_type}")
+                raise ValueError(f"Wrong content-type: {content_type} for openapi path")
             self.headers.update(headers_dict)
         if message_type == "http.response.body":
             initial_body = message.get("body", b"").decode()
-            openapi = OpenAPI.model_validate_json(initial_body)
+            try:
+                openapi = OpenAPI.model_validate_json(initial_body)
+            except ValidationError as e:
+                logger.error(e)
+                raise
             if self.security_scheme.type == "apiKey":
                 security_schemes = {
                     "securitySchemes": {
@@ -85,29 +95,37 @@ class OpenAPIResponder:
                         )
                     }
                 }
-                body = openapi.model_dump(by_alias=True, exclude_none=True)
-                components = body.get("components")
-                if components:
-                    components.update(security_schemes)
-                body["components"] = components
-                paths = openapi.paths
-                if paths:
-                    secured_paths = {}
-                    for key, value in paths.items():
-                        if value.get:
-                            value.get.security = [{"PygeoApiKey": []}]
-                        if value.post:
-                            value.post.security = [{"PygeoApiKey": []}]
-                        secured_paths.update({key: value})
-                if secured_paths:
-                    body["paths"] = secured_paths
-                binary_body = (
-                    OpenAPI(**body)
-                    .model_dump_json(by_alias=True, exclude_none=True, indent=2)
-                    .encode()
-                )
-                headers = MutableHeaders(raw=self.initial_message["headers"])
-                headers["Content-Length"] = str(len(binary_body))
-                message["body"] = binary_body
-                await self.send(self.initial_message)
-                await self.send(message)
+            elif self.security_scheme.type == "openIdConnect":
+                security_schemes = {
+                    "securitySchemes": {
+                        "openId": self.security_scheme.model_dump(
+                            by_alias=True, exclude_none=True
+                        )
+                    }
+                }
+            body = openapi.model_dump(by_alias=True, exclude_none=True)
+            components = body.get("components")
+            if components:
+                components.update(security_schemes)
+            body["components"] = components
+            paths = openapi.paths
+            if paths:
+                secured_paths = {}
+                for key, value in paths.items():
+                    if value.get:
+                        value.get.security = [{"PygeoApiKey": []}]
+                    if value.post:
+                        value.post.security = [{"PygeoApiKey": []}]
+                    secured_paths.update({key: value})
+            if secured_paths:
+                body["paths"] = secured_paths
+            binary_body = (
+                OpenAPI(**body)
+                .model_dump_json(by_alias=True, exclude_none=True, indent=2)
+                .encode()
+            )
+            headers = MutableHeaders(raw=self.initial_message["headers"])
+            headers["Content-Length"] = str(len(binary_body))
+            message["body"] = binary_body
+            await self.send(self.initial_message)
+            await self.send(message)
