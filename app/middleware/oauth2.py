@@ -3,8 +3,8 @@ import re
 from typing import List
 from typing import Optional
 
-from app.auth.exceptions import OIDCException
-from app.auth.oidc import OIDCProvider
+from app.auth.exceptions import Oauth2Exception
+from app.auth.oauth2 import Oauth2Provider
 from app.config.app import configuration as cfg
 from app.config.logging import create_logger
 from fastapi.responses import JSONResponse
@@ -22,7 +22,7 @@ except AttributeError:
     Pattern = None
 
 
-logger = create_logger("app.middleware.oidc")
+logger = create_logger("app.middleware.oauth2")
 
 
 def should_skip_endpoint(endpoint: str, skip_endpoints: List[Pattern]) -> bool:
@@ -49,11 +49,11 @@ class OwnReceive:
         return self.data
 
 
-class OIDCMiddleware:
+class Oauth2Middleware:
     def __init__(
         self,
         app: ASGIApp,
-        config: OIDCProvider,
+        config: Oauth2Provider,
         skip_endpoints: Optional[List[str]] = [
             "/openapi",
             "/openapi.json",
@@ -105,7 +105,7 @@ class OIDCMiddleware:
                 if isinstance(user_info_or_auth_redirect, dict):
                     successful = True
                     break
-            except OIDCException as e:
+            except Oauth2Exception as e:
                 logger.error("Authentication Exception raised on login")
 
         # Some authentication flows require a prior redirect to id provider

@@ -70,8 +70,11 @@ class DevConfig(GlobalConfig):
     JWKS_ENABLED: Optional[bool] = pydantic.Field(
         None, env="DEV_JWKS_ENABLED"
     )  # type: ignore
-    OIDC_JWKS_ENDPOINT: Optional[str] = pydantic.Field(
-        None, env="DEV_OIDC_JWKS_ENDPOINT"
+    OAUTH2_JWKS_ENDPOINT: Optional[str] = pydantic.Field(
+        None, env="DEV_OAUTH2_JWKS_ENDPOINT"
+    )  # type: ignore
+    OAUTH2_TOKEN_ENDPOINT: Optional[str] = pydantic.Field(
+        None, env="DEV_OAUTH2_TOKEN_ENDPOINT"
     )  # type: ignore
     PYGEOAPI_KEY_GLOBAL: Optional[str] = pydantic.Field(
         None, env="DEV_PYGEOAPI_KEY_GLOBAL"
@@ -84,6 +87,9 @@ class DevConfig(GlobalConfig):
     )  # type: ignore
     PYGEOAPI_OPENAPI: Optional[str] = pydantic.Field(
         None, env="DEV_PYGEOAPI_OPENAPI"
+    )  # type: ignore
+    PYGEOAPI_SECURITY_SCHEME: Optional[str] = pydantic.Field(
+        None, env="DEV_PYGEOAPI_SECURITY_SCHEME"
     )  # type: ignore
     FASTGEOAPI_CONTEXT: Optional[str] = pydantic.Field(
         None, env="DEV_FASTGEOAPI_CONTEXT"
@@ -137,8 +143,11 @@ class ProdConfig(GlobalConfig):
     API_KEY_ENABLED: Optional[bool] = pydantic.Field(
         None, env="PROD_API_KEY_ENABLED"
     )  # type: ignore
-    OIDC_JWKS_ENDPOINT: Optional[str] = pydantic.Field(
-        None, env="PROD_OIDC_JWKS_ENDPOINT"
+    OAUTH2_JWKS_ENDPOINT: Optional[str] = pydantic.Field(
+        None, env="PROD_OAUTH2_JWKS_ENDPOINT"
+    )  # type: ignore
+    OAUTH2_TOKEN_ENDPOINT: Optional[str] = pydantic.Field(
+        None, env="PROD_OAUTH2_TOKEN_ENDPOINT"
     )  # type: ignore
     PYGEOAPI_KEY_GLOBAL: Optional[str] = pydantic.Field(
         None, env="PROD_PYGEOAPI_KEY_GLOBAL"
@@ -151,6 +160,9 @@ class ProdConfig(GlobalConfig):
     )  # type: ignore
     PYGEOAPI_OPENAPI: Optional[str] = pydantic.Field(
         None, env="PROD_PYGEOAPI_OPENAPI"
+    )  # type: ignore
+    PYGEOAPI_SECURITY_SCHEME: Optional[str] = pydantic.Field(
+        None, env="PROD_PYGEOAPI_SECURITY_SCHEME"
     )  # type: ignore
     FASTGEOAPI_CONTEXT: Optional[str] = pydantic.Field(
         None, env="PROD_FASTGEOAPI_CONTEXT"
