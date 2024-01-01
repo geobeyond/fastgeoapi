@@ -18,7 +18,7 @@ class Injectable(ABC):
         pass
 
 
-class OIDCProvider:
+class Oauth2Provider:
     def __init__(
         self,
         authentication: [AuthInterface, List[AuthInterface]],
@@ -26,7 +26,7 @@ class OIDCProvider:
         accepted_methods: Optional[List[str]] = ["id_token", "access_token"],
     ) -> None:
         """
-        Configuration container for the OIDCMiddleware.
+        Configuration container for the Oauth2Middleware.
 
         PARAMETERS
         ----------

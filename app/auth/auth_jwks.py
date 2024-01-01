@@ -4,7 +4,7 @@ from dataclasses import field
 
 import httpx
 from app.auth.auth_interface import AuthInterface
-from app.auth.exceptions import OIDCException
+from app.auth.exceptions import Oauth2Exception
 from app.config.logging import create_logger
 from authlib.jose import errors
 from authlib.jose import JsonWebKey
@@ -64,10 +64,10 @@ class JWKSAuthentication(AuthInterface):
             claims.validate()
         except errors.ExpiredTokenError:
             logger.error("Unable to validate an expired token")
-            raise OIDCException("Unable to validate an expired token")
+            raise Oauth2Exception("Unable to validate an expired token")
         except errors.JoseError:
             logger.error("Unable to decode token")
-            raise OIDCException("Unable to decode token")
+            raise Oauth2Exception("Unable to decode token")
 
         return claims
 
@@ -79,7 +79,7 @@ class JWKSAuthentication(AuthInterface):
         bearer = request.headers.get("Authorization")
         if not bearer:
             logger.exception("Unable to get a token")
-            raise OIDCException("Auth token not found")
+            raise Oauth2Exception("Auth token not found")
         access_token = bearer.replace("Bearer ", "")
         try:
             claims = await self.decode_token(access_token)
@@ -87,4 +87,4 @@ class JWKSAuthentication(AuthInterface):
                 pass
             return claims
         except:
-            raise OIDCException("Authentication error")
+            raise Oauth2Exception("Authentication error")

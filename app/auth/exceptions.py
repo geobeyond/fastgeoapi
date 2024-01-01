@@ -4,7 +4,7 @@ class AuthenticationException(Exception):
     pass
 
 
-class OIDCException(AuthenticationException):
-    """OIDC authentication flow exception."""
+class Oauth2Exception(AuthenticationException):
+    """Oauth2 authentication flow exception."""
 
     pass

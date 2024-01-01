@@ -1,7 +1,7 @@
 """Authn and Authz module."""
 from app.auth.auth_jwks import JWKSAuthentication
 from app.auth.auth_jwks import JWKSConfig
-from app.auth.oidc import OIDCProvider
+from app.auth.oauth2 import Oauth2Provider
 from app.config.app import configuration as cfg
 from fastapi_opa import OPAConfig
 from fastapi_opa.auth import OIDCAuthentication
@@ -24,6 +24,6 @@ if cfg.OPA_ENABLED:
     oidc_auth = OIDCAuthentication(oidc_config)
     auth_config = OPAConfig(authentication=oidc_auth, opa_host=opa_host)
 elif cfg.JWKS_ENABLED:
-    jwks_config = JWKSConfig(jwks_uri=cfg.OIDC_JWKS_ENDPOINT)
+    jwks_config = JWKSConfig(jwks_uri=cfg.OAUTH2_JWKS_ENDPOINT)
     jwks_auth = JWKSAuthentication(jwks_config)
-    auth_config = OIDCProvider(authentication=jwks_auth)
+    auth_config = Oauth2Provider(authentication=jwks_auth)
