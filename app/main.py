@@ -21,7 +21,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi_opa import OPAMiddleware
 from loguru import logger
 from mangum import Mangum
-from openapi_pydantic.v3.v3_0_3 import SecurityScheme, OAuthFlows, OAuthFlow
+from openapi_pydantic.v3.v3_0_3 import OAuthFlow
+from openapi_pydantic.v3.v3_0_3 import OAuthFlows
+from openapi_pydantic.v3.v3_0_3 import SecurityScheme
 from pygeoapi.l10n import LocaleError
 from pygeoapi.openapi import generate_openapi_document
 from pygeoapi.provider.base import ProviderConnectionError
@@ -114,7 +116,7 @@ def create_app():  # noqa: C901
         raise e
 
     # Add OPAMiddleware to the pygeoapi app
-    security_scheme = None
+    security_schemes = []
     if cfg.OPA_ENABLED:
         if cfg.API_KEY_ENABLED or cfg.JWKS_ENABLED:
             raise ValueError(
@@ -124,10 +126,12 @@ def create_app():  # noqa: C901
 
         PYGEOAPI_APP.add_middleware(OPAMiddleware, config=auth_config)
 
-        security_schemes = [SecurityScheme(
-            type="openIdConnect",
-            openIdConnectUrl=cfg.OIDC_WELL_KNOWN_ENDPOINT,
-        )]
+        security_schemes = [
+            SecurityScheme(
+                type="openIdConnect",
+                openIdConnectUrl=cfg.OIDC_WELL_KNOWN_ENDPOINT,
+            )
+        ]
     elif cfg.JWKS_ENABLED:
         if cfg.API_KEY_ENABLED or cfg.OPA_ENABLED:
             raise ValueError(
@@ -143,17 +147,13 @@ def create_app():  # noqa: C901
                 name="pygeoapi",
                 flows=OAuthFlows(
                     clientCredentials=OAuthFlow(
-                        tokenUrl=cfg.OAUTH2_TOKEN_ENDPOINT,
-                        scopes={}
+                        tokenUrl=cfg.OAUTH2_TOKEN_ENDPOINT, scopes={}
                     )
-                )
+                ),
             ),
             SecurityScheme(
-                type="http",
-                name="pygeoapi",
-                scheme="bearer",
-                bearerFormat="JWT"
-            )
+                type="http", name="pygeoapi", scheme="bearer", bearerFormat="JWT"
+            ),
         ]
     elif cfg.API_KEY_ENABLED:
         if cfg.OPA_ENABLED:
@@ -168,9 +168,9 @@ def create_app():  # noqa: C901
             AuthorizerMiddleware, public_paths=["/openapi"], key_pattern="PYGEOAPI_KEY_"
         )
 
-        security_schemes = [SecurityScheme(
-            type="apiKey", name="X-API-KEY", security_scheme_in="header"
-        )]
+        security_schemes = [
+            SecurityScheme(type="apiKey", name="X-API-KEY", security_scheme_in="header")
+        ]
 
     if security_schemes:
         PYGEOAPI_APP.add_middleware(
