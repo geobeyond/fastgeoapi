@@ -95,7 +95,7 @@ class OpenAPIResponder:
                 item in ["http", "apiKey", "oauth2", "openIdConnect"]
                 for item in security_scheme_types
             ):
-                security_schemes = {"securitySchemes": {}}
+                security_schemes = {"securitySchemes": {}}  # type: dict[str, dict]
                 dumped_schemes = {}
                 for scheme in self.security_schemes:
                     dumped_schemes.update(

@@ -4,7 +4,7 @@ import re
 from typing import List
 from typing import Optional
 
-from app.auth.exceptions import Oauth2Exception
+from app.auth.exceptions import Oauth2Error
 from app.auth.oauth2 import Oauth2Provider
 from app.config.app import configuration as cfg
 from app.config.logging import create_logger
@@ -16,22 +16,16 @@ from starlette.types import Receive
 from starlette.types import Scope
 from starlette.types import Send
 
-try:
-    Pattern = re.Pattern
-except AttributeError:
-    # Python3.6 does not contain re.Pattern
-    Pattern = None
-
 
 logger = create_logger("app.middleware.oauth2")
 
 
-def should_skip_endpoint(endpoint: str, skip_endpoints: List[Pattern]) -> bool:
+def should_skip_endpoint(endpoint: str, skip_endpoints: List[re.Pattern]) -> bool:
     """Evaluate whether a given endpoint should be skipped.
 
     Args:
         endpoint (str): Endpoint path
-        skip_endpoints (List[Pattern]): Pattern to skip
+        skip_endpoints (List[re.Pattern]): Pattern to skip
 
     Returns:
         bool: Result of the evaluation
@@ -75,12 +69,15 @@ class Oauth2Middleware:
         """Initialize OAuth2 authentication middleware."""
         self.config = config
         self.app = app
-        if cfg.FASTGEOAPI_CONTEXT and cfg.FASTGEOAPI_CONTEXT not in skip_endpoints:
+        if cfg.FASTGEOAPI_CONTEXT not in skip_endpoints:  # type:ignore
             self.skip_endpoints = [
-                re.compile(f"{cfg.FASTGEOAPI_CONTEXT}{skip}") for skip in skip_endpoints
+                re.compile(f"{cfg.FASTGEOAPI_CONTEXT}{skip}")  # type:ignore
+                for skip in skip_endpoints  # type:ignore
             ]
         else:
-            self.skip_endpoints = [re.compile(skip) for skip in skip_endpoints]
+            self.skip_endpoints = [
+                re.compile(skip) for skip in skip_endpoints  # type:ignore
+            ]
         logger.debug(f"Compiled skippable endpoints: {self.skip_endpoints}")
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
@@ -116,7 +113,7 @@ class Oauth2Middleware:
                 if isinstance(user_info_or_auth_redirect, dict):
                     successful = True
                     break
-            except Oauth2Exception as e:
+            except Oauth2Error as e:
                 logger.error(f"Authentication Exception raised on login \n{e}")
 
         # Some authentication flows require a prior redirect to id provider
