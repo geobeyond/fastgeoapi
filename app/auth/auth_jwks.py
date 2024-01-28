@@ -1,21 +1,22 @@
+"""Auth JWKS module."""
 import typing
 from dataclasses import dataclass
 from dataclasses import field
 
 import httpx
 from app.auth.auth_interface import AuthInterface
-from app.auth.exceptions import Oauth2Exception
+from app.auth.exceptions import Oauth2Error
 from app.config.logging import create_logger
 from authlib.jose import errors
 from authlib.jose import JsonWebKey
 from authlib.jose import JsonWebToken
 from authlib.jose import JWTClaims
 from authlib.jose import KeySet
-from cachetools import cached
-from cachetools import TTLCache
-from fastapi import HTTPException
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
+
+# from cachetools import cached
+# from cachetools import TTLCache
 
 
 logger = create_logger("app.auth.auth_jwks")
@@ -23,18 +24,21 @@ logger = create_logger("app.auth.auth_jwks")
 
 @dataclass
 class JWKSConfig:
+    """JWKS configuration instance."""
+
     jwks_uri: str = field(default="")
 
 
 class JWKSAuthentication(AuthInterface):
+    """JWKS authentication instance."""
+
     def __init__(self, config: JWKSConfig) -> None:
+        """Initialize the authentication."""
         self.config = config
 
     # @cached(TTLCache(maxsize=1, ttl=3600))
     async def get_jwks(self) -> KeySet:
-        """
-        Get cached or new JWKS.
-        """
+        """Get cached or new JWKS."""
         url = self.config.jwks_uri
         logger.info(f"Fetching JSON Web Key Set from {url}")
         async with httpx.AsyncClient() as client:
@@ -45,9 +49,7 @@ class JWKSAuthentication(AuthInterface):
         self,
         token: str,
     ) -> JWTClaims:
-        """
-        Validate & decode JWT.
-        """
+        """Validate and decode JWT."""
         try:
             jwks = await self.get_jwks()
             claims = JsonWebToken(["RS256"]).decode(
@@ -64,27 +66,28 @@ class JWKSAuthentication(AuthInterface):
             claims.validate()
         except errors.ExpiredTokenError:
             logger.error("Unable to validate an expired token")
-            raise Oauth2Exception("Unable to validate an expired token")
+            raise Oauth2Error("Unable to validate an expired token")  # noqa
         except errors.JoseError:
             logger.error("Unable to decode token")
-            raise Oauth2Exception("Unable to decode token")
+            raise Oauth2Error("Unable to decode token")  # noqa
 
         return claims
 
     async def authenticate(
         self,
         request: Request,
-        accepted_methods: typing.Optional[typing.List[str]] = ["access_token"],
+        accepted_methods: typing.Optional[typing.List[str]] = ["access_token"],  # noqa
     ) -> typing.Union[RedirectResponse, typing.Dict]:
+        """Authenticate the caller with the incoming request."""
         bearer = request.headers.get("Authorization")
         if not bearer:
             logger.exception("Unable to get a token")
-            raise Oauth2Exception("Auth token not found")
+            raise Oauth2Error("Auth token not found")
         access_token = bearer.replace("Bearer ", "")
         try:
             claims = await self.decode_token(access_token)
             if not claims:
                 pass
             return claims
-        except:
-            raise Oauth2Exception("Authentication error")
+        except Exception:
+            raise Oauth2Error("Authentication error")  # noqa

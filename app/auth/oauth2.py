@@ -1,3 +1,4 @@
+"""OAuth2 provider module."""
 import re
 from abc import ABC
 from abc import abstractmethod
@@ -9,24 +10,34 @@ from starlette.requests import Request
 
 
 class Injectable(ABC):
-    def __init__(self, key: str, skip_endpoints: Optional[List[str]] = []) -> None:
+    """Define interface for injectables."""
+
+    def __init__(
+        self, key: str, skip_endpoints: Optional[List[str]] = []  # noqa B006
+    ) -> None:
+        """Set properties initialization for injectables."""
         self.key = key
         self.skip_endpoints = [re.compile(skip) for skip in skip_endpoints]
 
     @abstractmethod
     async def extract(self, request: Request) -> List:
+        """Extract the token from the request."""
         pass
 
 
 class Oauth2Provider:
+    """OAuth2 middleware."""
+
     def __init__(
         self,
         authentication: [AuthInterface, List[AuthInterface]],
         injectables: Optional[List[Injectable]] = None,
-        accepted_methods: Optional[List[str]] = ["id_token", "access_token"],
+        accepted_methods: Optional[List[str]] = [  # noqa B006
+            "id_token",
+            "access_token",
+        ],
     ) -> None:
-        """
-        Configuration container for the Oauth2Middleware.
+        """Handle configuration container for the OAuth2 middleware.  # noqa D405
 
         PARAMETERS
         ----------
@@ -39,7 +50,6 @@ class Oauth2Provider:
         accepted_methods: List[str], default=["id_token", "access_token"]
             List of accepted authentication methods.
         """
-
         if not isinstance(authentication, list):
             authentication = [authentication]
         self.authentication = authentication

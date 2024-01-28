@@ -1,3 +1,4 @@
+"""OAuth2 middleware module."""
 import asyncio
 import re
 from typing import List
@@ -26,6 +27,15 @@ logger = create_logger("app.middleware.oauth2")
 
 
 def should_skip_endpoint(endpoint: str, skip_endpoints: List[Pattern]) -> bool:
+    """Evaluate whether a given endpoint should be skipped.
+
+    Args:
+        endpoint (str): Endpoint path
+        skip_endpoints (List[Pattern]): Pattern to skip
+
+    Returns:
+        bool: Result of the evaluation
+    """
     for skip in skip_endpoints:
         if skip.match(endpoint):
             return True
@@ -33,16 +43,15 @@ def should_skip_endpoint(endpoint: str, skip_endpoints: List[Pattern]) -> bool:
 
 
 class OwnReceive:
-    """
-    This class is required in order to access the request
-    body multiple times.
-    """
+    """This class is required in order to access the request body multiple times."""
 
     def __init__(self, receive: Receive):
+        """Initialize OwnReceive class."""
         self.receive = receive
         self.data = None
 
     async def __call__(self):
+        """Call OwnReceive class."""
         if self.data is None:
             self.data = await self.receive()
 
@@ -50,30 +59,32 @@ class OwnReceive:
 
 
 class Oauth2Middleware:
+    """OAuth2 security middleware."""
+
     def __init__(
         self,
         app: ASGIApp,
         config: Oauth2Provider,
-        skip_endpoints: Optional[List[str]] = [
+        skip_endpoints: Optional[List[str]] = [  # noqa B006
             "/openapi",
             "/openapi.json",
             "/docs",
             "/redoc",
         ],
     ) -> None:
+        """Initialize OAuth2 authentication middleware."""
         self.config = config
         self.app = app
-        if cfg.FASTGEOAPI_CONTEXT and not cfg.FASTGEOAPI_CONTEXT in skip_endpoints:
+        if cfg.FASTGEOAPI_CONTEXT and cfg.FASTGEOAPI_CONTEXT not in skip_endpoints:
             self.skip_endpoints = [
                 re.compile(f"{cfg.FASTGEOAPI_CONTEXT}{skip}") for skip in skip_endpoints
             ]
         else:
-            self.skip_endpoints = [
-                re.compile(skip) for skip in skip_endpoints
-            ]
+            self.skip_endpoints = [re.compile(skip) for skip in skip_endpoints]
         logger.debug(f"Compiled skippable endpoints: {self.skip_endpoints}")
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Call the OAuth2 middleware."""
         if scope["type"] == "lifespan":
             return await self.app(scope, receive, send)
 
@@ -106,7 +117,7 @@ class Oauth2Middleware:
                     successful = True
                     break
             except Oauth2Exception as e:
-                logger.error("Authentication Exception raised on login")
+                logger.error(f"Authentication Exception raised on login \n{e}")
 
         # Some authentication flows require a prior redirect to id provider
         if isinstance(user_info_or_auth_redirect, RedirectResponse):
@@ -120,5 +131,6 @@ class Oauth2Middleware:
     async def get_unauthorized_response(
         scope: Scope, receive: Receive, send: Send
     ) -> None:
+        """Prepare response for unauthorized access."""
         response = JSONResponse(status_code=401, content={"message": "Unauthenticated"})
         return await response(scope, receive, send)

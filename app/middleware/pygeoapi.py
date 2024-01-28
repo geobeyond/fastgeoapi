@@ -3,6 +3,8 @@ from typing import Any
 from typing import Dict
 from typing import List
 
+from app.config.app import configuration as cfg
+from app.config.logging import create_logger
 from openapi_pydantic.v3.v3_0_3 import OpenAPI
 from openapi_pydantic.v3.v3_0_3 import SecurityScheme
 from pydantic_core import ValidationError
@@ -13,9 +15,6 @@ from starlette.types import Message
 from starlette.types import Receive
 from starlette.types import Scope
 from starlette.types import Send
-
-from app.config.app import configuration as cfg
-from app.config.logging import create_logger
 
 
 logger = create_logger("app.middleware.pygeoapi")
@@ -93,19 +92,15 @@ class OpenAPIResponder:
                 security_scheme.type for security_scheme in self.security_schemes
             ]
             if all(
-                item in [
-                    "http", "apiKey", "oauth2", "openIdConnect"
-                ] for item in security_scheme_types
+                item in ["http", "apiKey", "oauth2", "openIdConnect"]
+                for item in security_scheme_types
             ):
-                security_schemes = {
-                    "securitySchemes": {
-                    }
-                }
+                security_schemes = {"securitySchemes": {}}
                 dumped_schemes = {}
                 for scheme in self.security_schemes:
                     dumped_schemes.update(
                         {
-                            f"pygeoapi {cfg.PYGEOAPI_SECURITY_SCHEME}": scheme.model_dump(
+                            f"pygeoapi {cfg.PYGEOAPI_SECURITY_SCHEME}": scheme.model_dump(  # noqa B950
                                 by_alias=True, exclude_none=True
                             )
                         }
@@ -121,9 +116,13 @@ class OpenAPIResponder:
                 secured_paths = {}
                 for key, value in paths.items():
                     if value.get:
-                        value.get.security = [{f"pygeoapi {cfg.PYGEOAPI_SECURITY_SCHEME}": []}]
+                        value.get.security = [
+                            {f"pygeoapi {cfg.PYGEOAPI_SECURITY_SCHEME}": []}
+                        ]
                     if value.post:
-                        value.post.security = [{f"pygeoapi {cfg.PYGEOAPI_SECURITY_SCHEME}": []}]
+                        value.post.security = [
+                            {f"pygeoapi {cfg.PYGEOAPI_SECURITY_SCHEME}": []}
+                        ]
                     secured_paths.update({key: value})
             if secured_paths:
                 body["paths"] = secured_paths
