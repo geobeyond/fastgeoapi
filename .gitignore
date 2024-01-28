@@ -130,3 +130,4 @@ dmypy.json
 
 # OS
 .DS_Store
+.aider*
