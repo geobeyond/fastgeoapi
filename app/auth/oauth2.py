@@ -17,7 +17,9 @@ class Injectable(ABC):
     ) -> None:
         """Set properties initialization for injectables."""
         self.key = key
-        self.skip_endpoints = [re.compile(skip) for skip in skip_endpoints]
+        self.skip_endpoints = [
+            re.compile(skip) for skip in skip_endpoints  # type:ignore
+        ]
 
     @abstractmethod
     async def extract(self, request: Request) -> List:
@@ -30,7 +32,7 @@ class Oauth2Provider:
 
     def __init__(
         self,
-        authentication: [AuthInterface, List[AuthInterface]],
+        authentication: [AuthInterface, List[AuthInterface]],  # type:ignore
         injectables: Optional[List[Injectable]] = None,
         accepted_methods: Optional[List[str]] = [  # noqa B006
             "id_token",
