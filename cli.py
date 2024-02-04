@@ -9,10 +9,11 @@ from app.utils.pygeoapi_exceptions import PygeoapiLanguageError
 from loguru import logger
 from openapi_pydantic.v3.v3_0_3 import OpenAPI
 from openapi_pydantic.v3.v3_0_3 import SecurityScheme
+from rich.console import Console
+
 from pygeoapi.l10n import LocaleError
 from pygeoapi.openapi import generate_openapi_document
 from pygeoapi.provider.base import ProviderConnectionError
-from rich.console import Console
 
 
 err_console = Console(stderr=True)

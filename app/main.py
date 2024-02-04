@@ -24,11 +24,12 @@ from mangum import Mangum
 from openapi_pydantic.v3.v3_0_3 import OAuthFlow
 from openapi_pydantic.v3.v3_0_3 import OAuthFlows
 from openapi_pydantic.v3.v3_0_3 import SecurityScheme
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.cors import CORSMiddleware
+
 from pygeoapi.l10n import LocaleError
 from pygeoapi.openapi import generate_openapi_document
 from pygeoapi.provider.base import ProviderConnectionError
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from starlette.middleware.cors import CORSMiddleware
 
 
 if cfg.LOG_LEVEL == "debug":

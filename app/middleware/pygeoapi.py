@@ -3,11 +3,9 @@ from typing import Any
 from typing import Dict
 from typing import List
 
-from app.config.app import configuration as cfg
 from app.config.logging import create_logger
-from openapi_pydantic.v3.v3_0_3 import OpenAPI
+from app.pygeoapi.openapi import augment_security
 from openapi_pydantic.v3.v3_0_3 import SecurityScheme
-from pydantic_core import ValidationError
 from starlette.datastructures import Headers
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp
@@ -83,54 +81,12 @@ class OpenAPIResponder:
             self.headers.update(headers_dict)
         if message_type == "http.response.body":
             initial_body = message.get("body", b"").decode()
-            try:
-                openapi = OpenAPI.model_validate_json(initial_body)
-            except ValidationError as e:
-                logger.error(e)
-                raise
-            security_scheme_types = [
-                security_scheme.type for security_scheme in self.security_schemes
-            ]
-            if all(
-                item in ["http", "apiKey", "oauth2", "openIdConnect"]
-                for item in security_scheme_types
-            ):
-                security_schemes = {"securitySchemes": {}}  # type: dict[str, dict]
-                dumped_schemes = {}
-                for scheme in self.security_schemes:
-                    dumped_schemes.update(
-                        {
-                            f"pygeoapi {cfg.PYGEOAPI_SECURITY_SCHEME}": scheme.model_dump(  # noqa B950
-                                by_alias=True, exclude_none=True
-                            )
-                        }
-                    )
-                security_schemes["securitySchemes"] = dumped_schemes
-            body = openapi.model_dump(by_alias=True, exclude_none=True)
-            components = body.get("components")
-            if components:
-                components.update(security_schemes)
-            body["components"] = components
-            paths = openapi.paths
-            if paths:
-                secured_paths = {}
-                for key, value in paths.items():
-                    if value.get:
-                        value.get.security = [
-                            {f"pygeoapi {cfg.PYGEOAPI_SECURITY_SCHEME}": []}
-                        ]
-                    if value.post:
-                        value.post.security = [
-                            {f"pygeoapi {cfg.PYGEOAPI_SECURITY_SCHEME}": []}
-                        ]
-                    secured_paths.update({key: value})
-            if secured_paths:
-                body["paths"] = secured_paths
-            binary_body = (
-                OpenAPI(**body)
-                .model_dump_json(by_alias=True, exclude_none=True, indent=2)
-                .encode()
+            openapi_body = augment_security(
+                doc=initial_body, security_schemes=self.security_schemes
             )
+            binary_body = openapi_body.model_dump_json(
+                by_alias=True, exclude_none=True, indent=2
+            ).encode()
             headers = MutableHeaders(raw=self.initial_message["headers"])
             headers["Content-Length"] = str(len(binary_body))
             message["body"] = binary_body
