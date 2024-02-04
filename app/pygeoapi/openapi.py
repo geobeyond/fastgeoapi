@@ -12,7 +12,7 @@ from pydantic_core import ValidationError
 logger = create_logger("app.pygeoapi.openapi")
 
 
-def augment_security(doc: Dict, security_schemes: List[SecurityScheme]) -> OpenAPI:
+def augment_security(doc: str, security_schemes: List[SecurityScheme]) -> OpenAPI:
     """Augment openapi document with security sections."""
     try:
         openapi = OpenAPI.model_validate_json(doc)
