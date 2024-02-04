@@ -1,5 +1,4 @@
 """Override vanilla openapi module."""
-from typing import Dict
 from typing import List
 
 from app.config.app import configuration as cfg
