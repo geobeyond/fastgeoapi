@@ -31,69 +31,69 @@ class DevConfig(GlobalConfig):
 
     ROOT_PATH: Optional[str] = pydantic.Field(None, env="DEV_ROOT_PATH")  # type: ignore
     AWS_LAMBDA_DEPLOY: Optional[bool] = pydantic.Field(
-        None, env="DEV_AWS_LAMBDA_DEPLOY"
-    )  # type: ignore
+        None, env="DEV_AWS_LAMBDA_DEPLOY"  # type: ignore
+    )
     LOG_PATH: Optional[str] = pydantic.Field(None, env="DEV_LOG_PATH")  # type: ignore
     LOG_FILENAME: Optional[str] = pydantic.Field(
-        None, env="DEV_LOG_FILENAME"
-    )  # type: ignore
+        None, env="DEV_LOG_FILENAME"  # type: ignore
+    )
     LOG_LEVEL: Optional[str] = pydantic.Field(None, env="DEV_LOG_LEVEL")  # type: ignore
     LOG_ENQUEUE: Optional[bool] = pydantic.Field(
-        None, env="DEV_LOG_ENQUEUE"
-    )  # type: ignore
+        None, env="DEV_LOG_ENQUEUE"  # type: ignore
+    )
     LOG_ROTATION: Optional[str] = pydantic.Field(
-        None, env="DEV_LOG_ROTATION"
-    )  # type: ignore
+        None, env="DEV_LOG_ROTATION"  # type: ignore
+    )
     LOG_RETENTION: Optional[str] = pydantic.Field(
-        None, env="DEV_LOG_RETENTION"
-    )  # type: ignore
+        None, env="DEV_LOG_RETENTION"  # type: ignore
+    )
     LOG_FORMAT: Optional[str] = pydantic.Field(
-        None, env="DEV_LOG_FORMAT"
-    )  # type: ignore
+        None, env="DEV_LOG_FORMAT"  # type: ignore
+    )
     OPA_ENABLED: Optional[bool] = pydantic.Field(
-        None, env="DEV_OPA_ENABLED"
-    )  # type: ignore
+        None, env="DEV_OPA_ENABLED"  # type: ignore
+    )
     OPA_URL: Optional[str] = pydantic.Field(None, env="DEV_OPA_URL")  # type: ignore
     APP_URI: Optional[str] = pydantic.Field(None, env="DEV_APP_URI")  # type: ignore
     OIDC_WELL_KNOWN_ENDPOINT: Optional[str] = pydantic.Field(
-        None, env="DEV_OIDC_WELL_KNOWN_ENDPOINT"
-    )  # type: ignore
+        None, env="DEV_OIDC_WELL_KNOWN_ENDPOINT"  # type: ignore
+    )
     OIDC_CLIENT_ID: Optional[str] = pydantic.Field(
-        None, env="DEV_OIDC_CLIENT_ID"
-    )  # type: ignore
+        None, env="DEV_OIDC_CLIENT_ID"  # type: ignore
+    )
     OIDC_CLIENT_SECRET: Optional[str] = pydantic.Field(
-        None, env="DEV_OIDC_CLIENT_SECRET"
-    )  # type: ignore
+        None, env="DEV_OIDC_CLIENT_SECRET"  # type: ignore
+    )
     API_KEY_ENABLED: Optional[bool] = pydantic.Field(
-        None, env="DEV_API_KEY_ENABLED"
-    )  # type: ignore
+        None, env="DEV_API_KEY_ENABLED"  # type: ignore
+    )
     JWKS_ENABLED: Optional[bool] = pydantic.Field(
-        None, env="DEV_JWKS_ENABLED"
-    )  # type: ignore
+        None, env="DEV_JWKS_ENABLED"  # type: ignore
+    )
     OAUTH2_JWKS_ENDPOINT: Optional[str] = pydantic.Field(
-        None, env="DEV_OAUTH2_JWKS_ENDPOINT"
-    )  # type: ignore
+        None, env="DEV_OAUTH2_JWKS_ENDPOINT"  # type: ignore
+    )
     OAUTH2_TOKEN_ENDPOINT: Optional[str] = pydantic.Field(
-        None, env="DEV_OAUTH2_TOKEN_ENDPOINT"
-    )  # type: ignore
+        None, env="DEV_OAUTH2_TOKEN_ENDPOINT"  # type: ignore
+    )
     PYGEOAPI_KEY_GLOBAL: Optional[str] = pydantic.Field(
-        None, env="DEV_PYGEOAPI_KEY_GLOBAL"
-    )  # type: ignore
+        None, env="DEV_PYGEOAPI_KEY_GLOBAL"  # type: ignore
+    )
     PYGEOAPI_BASEURL: Optional[str] = pydantic.Field(
-        None, env="DEV_PYGEOAPI_BASEURL"
-    )  # type: ignore
+        None, env="DEV_PYGEOAPI_BASEURL"  # type: ignore
+    )
     PYGEOAPI_CONFIG: Optional[str] = pydantic.Field(
-        None, env="DEV_PYGEOAPI_CONFIG"
-    )  # type: ignore
+        None, env="DEV_PYGEOAPI_CONFIG"  # type: ignore
+    )
     PYGEOAPI_OPENAPI: Optional[str] = pydantic.Field(
-        None, env="DEV_PYGEOAPI_OPENAPI"
-    )  # type: ignore
+        None, env="DEV_PYGEOAPI_OPENAPI"  # type: ignore
+    )
     PYGEOAPI_SECURITY_SCHEME: Optional[str] = pydantic.Field(
-        None, env="DEV_PYGEOAPI_SECURITY_SCHEME"
-    )  # type: ignore
+        None, env="DEV_PYGEOAPI_SECURITY_SCHEME"  # type: ignore
+    )
     FASTGEOAPI_CONTEXT: Optional[str] = pydantic.Field(
-        None, env="DEV_FASTGEOAPI_CONTEXT"
-    )  # type: ignore
+        None, env="DEV_FASTGEOAPI_CONTEXT"  # type: ignore
+    )
 
     model_config = SettingsConfigDict(env_prefix="DEV_")
 
@@ -102,71 +102,71 @@ class ProdConfig(GlobalConfig):
     """Production configurations."""
 
     ROOT_PATH: Optional[str] = pydantic.Field(
-        None, env="PROD_ROOT_PATH"
-    )  # type: ignore
+        None, env="PROD_ROOT_PATH"  # type: ignore
+    )
     AWS_LAMBDA_DEPLOY: Optional[bool] = pydantic.Field(
-        None, env="PROD_AWS_LAMBDA_DEPLOY"
-    )  # type: ignore
+        None, env="PROD_AWS_LAMBDA_DEPLOY"  # type: ignore
+    )
     LOG_PATH: Optional[str] = pydantic.Field(None, env="PROD_LOG_PATH")  # type: ignore
     LOG_FILENAME: Optional[str] = pydantic.Field(
-        None, env="PROD_LOG_FILENAME"
-    )  # type: ignore
+        None, env="PROD_LOG_FILENAME"  # type: ignore
+    )
     LOG_LEVEL: Optional[str] = pydantic.Field(
-        None, env="PROD_LOG_LEVEL"
-    )  # type: ignore
+        None, env="PROD_LOG_LEVEL"  # type: ignore
+    )
     LOG_ENQUEUE: Optional[bool] = pydantic.Field(
-        None, env="PROD_LOG_ENQUEUE"
-    )  # type: ignore
+        None, env="PROD_LOG_ENQUEUE"  # type: ignore
+    )
     LOG_ROTATION: Optional[str] = pydantic.Field(
-        None, env="PROD_LOG_ROTATION"
-    )  # type: ignore
+        None, env="PROD_LOG_ROTATION"  # type: ignore
+    )
     LOG_RETENTION: Optional[str] = pydantic.Field(
-        None, env="PROD_LOG_RETENTION"
-    )  # type: ignore
+        None, env="PROD_LOG_RETENTION"  # type: ignore
+    )
     LOG_FORMAT: Optional[str] = pydantic.Field(
-        None, env="PROD_LOG_FORMAT"
-    )  # type: ignore
+        None, env="PROD_LOG_FORMAT"  # type: ignore
+    )
     OPA_ENABLED: Optional[bool] = pydantic.Field(
-        None, env="PROD_OPA_ENABLED"
-    )  # type: ignore
+        None, env="PROD_OPA_ENABLED"  # type: ignore
+    )
     OPA_URL: Optional[str] = pydantic.Field(None, env="PROD_OPA_URL")  # type: ignore
     APP_URI: Optional[str] = pydantic.Field(None, env="PROD_APP_URI")  # type: ignore
     OIDC_WELL_KNOWN_ENDPOINT: Optional[str] = pydantic.Field(
-        None, env="PROD_OIDC_WELL_KNOWN_ENDPOINT"
-    )  # type: ignore
+        None, env="PROD_OIDC_WELL_KNOWN_ENDPOINT"  # type: ignore
+    )
     OIDC_CLIENT_ID: Optional[str] = pydantic.Field(
-        None, env="PROD_OIDC_CLIENT_ID"
-    )  # type: ignore
+        None, env="PROD_OIDC_CLIENT_ID"  # type: ignore
+    )
     OIDC_CLIENT_SECRET: Optional[str] = pydantic.Field(
-        None, env="PROD_OIDC_CLIENT_SECRET"
-    )  # type: ignore
+        None, env="PROD_OIDC_CLIENT_SECRET"  # type: ignore
+    )
     API_KEY_ENABLED: Optional[bool] = pydantic.Field(
-        None, env="PROD_API_KEY_ENABLED"
-    )  # type: ignore
+        None, env="PROD_API_KEY_ENABLED"  # type: ignore
+    )
     OAUTH2_JWKS_ENDPOINT: Optional[str] = pydantic.Field(
-        None, env="PROD_OAUTH2_JWKS_ENDPOINT"
-    )  # type: ignore
+        None, env="PROD_OAUTH2_JWKS_ENDPOINT"  # type: ignore
+    )
     OAUTH2_TOKEN_ENDPOINT: Optional[str] = pydantic.Field(
-        None, env="PROD_OAUTH2_TOKEN_ENDPOINT"
-    )  # type: ignore
+        None, env="PROD_OAUTH2_TOKEN_ENDPOINT"  # type: ignore
+    )
     PYGEOAPI_KEY_GLOBAL: Optional[str] = pydantic.Field(
-        None, env="PROD_PYGEOAPI_KEY_GLOBAL"
-    )  # type: ignore
+        None, env="PROD_PYGEOAPI_KEY_GLOBAL"  # type: ignore
+    )
     PYGEOAPI_BASEURL: Optional[str] = pydantic.Field(
-        None, env="PROD_PYGEOAPI_BASEURL"
-    )  # type: ignore
+        None, env="PROD_PYGEOAPI_BASEURL"  # type: ignore
+    )
     PYGEOAPI_CONFIG: Optional[str] = pydantic.Field(
-        None, env="PROD_PYGEOAPI_CONFIG"
-    )  # type: ignore
+        None, env="PROD_PYGEOAPI_CONFIG"  # type: ignore
+    )
     PYGEOAPI_OPENAPI: Optional[str] = pydantic.Field(
-        None, env="PROD_PYGEOAPI_OPENAPI"
-    )  # type: ignore
+        None, env="PROD_PYGEOAPI_OPENAPI"  # type: ignore
+    )
     PYGEOAPI_SECURITY_SCHEME: Optional[str] = pydantic.Field(
-        None, env="PROD_PYGEOAPI_SECURITY_SCHEME"
-    )  # type: ignore
+        None, env="PROD_PYGEOAPI_SECURITY_SCHEME"  # type: ignore
+    )
     FASTGEOAPI_CONTEXT: Optional[str] = pydantic.Field(
-        None, env="PROD_FASTGEOAPI_CONTEXT"
-    )  # type: ignore
+        None, env="PROD_FASTGEOAPI_CONTEXT"  # type: ignore
+    )
 
     model_config = SettingsConfigDict(env_prefix="PROD_")
 
