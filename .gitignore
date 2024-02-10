@@ -131,3 +131,5 @@ dmypy.json
 # OS
 .DS_Store
 .aider*
+
+pygeoapi-openapi.json
