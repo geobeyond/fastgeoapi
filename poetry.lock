@@ -74,34 +74,6 @@ files = [
 test = ["coverage", "mypy", "pexpect", "ruff", "wheel"]
 
 [[package]]
-name = "argcomplete"
-version = "3.1.6"
-description = "Bash tab completion for argparse"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "argcomplete-3.1.6-py3-none-any.whl", hash = "sha256:71f4683bc9e6b0be85f2b2c1224c47680f210903e23512cfebfe5a41edfd883a"},
-    {file = "argcomplete-3.1.6.tar.gz", hash = "sha256:3b1f07d133332547a53c79437527c00be48cca3807b1d4ca5cab1b26313386a6"},
-]
-
-[package.extras]
-test = ["coverage", "mypy", "pexpect", "ruff", "wheel"]
-
-[[package]]
-name = "argcomplete"
-version = "3.1.6"
-description = "Bash tab completion for argparse"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "argcomplete-3.1.6-py3-none-any.whl", hash = "sha256:71f4683bc9e6b0be85f2b2c1224c47680f210903e23512cfebfe5a41edfd883a"},
-    {file = "argcomplete-3.1.6.tar.gz", hash = "sha256:3b1f07d133332547a53c79437527c00be48cca3807b1d4ca5cab1b26313386a6"},
-]
-
-[package.extras]
-test = ["coverage", "mypy", "pexpect", "ruff", "wheel"]
-
-[[package]]
 name = "asttokens"
 version = "2.4.1"
 description = "Annotate AST trees with source code positions"
@@ -1911,6 +1883,21 @@ files = [
 pydantic = ">=1.8"
 
 [[package]]
+name = "openapi-resolver"
+version = "0.0.6"
+description = "Resolve and bundle openapi v3 specs."
+optional = false
+python-versions = "*"
+files = [
+    {file = "openapi_resolver-0.0.6.tar.gz", hash = "sha256:2cb47e606967dfa7686f269f34037f548acf39c64f3f8592eaafe5f01dae6dca"},
+]
+
+[package.dependencies]
+pathlib = "*"
+pyyaml = "*"
+six = "*"
+
+[[package]]
 name = "orjson"
 version = "3.9.13"
 description = "Fast, correct Python JSON library supporting dataclasses, datetimes, and numpy"
@@ -2004,6 +1991,17 @@ files = [
 [package.extras]
 qa = ["flake8 (==3.8.3)", "mypy (==0.782)"]
 testing = ["docopt", "pytest (<6.0.0)"]
+
+[[package]]
+name = "pathlib"
+version = "1.0.1"
+description = "Object-oriented filesystem paths"
+optional = false
+python-versions = "*"
+files = [
+    {file = "pathlib-1.0.1-py3-none-any.whl", hash = "sha256:f35f95ab8b0f59e6d354090350b44a80a80635d22efdedfa84c7ad1cf0a74147"},
+    {file = "pathlib-1.0.1.tar.gz", hash = "sha256:6940718dfc3eff4258203ad5021090933e5c04707d5ca8cc9e73c94a7894ea9f"},
+]
 
 [[package]]
 name = "pathspec"
@@ -3461,6 +3459,23 @@ files = [
 tests = ["pytest", "pytest-cov"]
 
 [[package]]
+name = "termynal"
+version = "0.12.0"
+description = "A lightweight and modern animated terminal window"
+optional = false
+python-versions = ">=3.8.1,<4.0.0"
+files = [
+    {file = "termynal-0.12.0-py3-none-any.whl", hash = "sha256:057ff23e2845abdfc36a55f71e2935d4663829cb7ce62661be881d9e10b74ec4"},
+    {file = "termynal-0.12.0.tar.gz", hash = "sha256:ef410c20bb4eef975e3d1a0bf02c9d63304a488b502c2151f15fd38be0d6d32a"},
+]
+
+[package.dependencies]
+markdown = "*"
+
+[package.extras]
+mkdocs = ["mkdocs (>=1.4,<2.0)"]
+
+[[package]]
 name = "tinydb"
 version = "4.8.0"
 description = "TinyDB is a tiny, document oriented database optimized for your happiness :)"
@@ -4080,4 +4095,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "870540acf3fb43f5a77a050b8288895b0b0c5578c7f8e778a803bf8da5b886eb"
+content-hash = "a6431bbfe948bce6776495c4ed6c449cebe416b05abf1d019efc5f2609d1994c"
