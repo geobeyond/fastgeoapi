@@ -43,5 +43,5 @@ jobs:
       - name: Run Spectral
         uses: stoplightio/spectral-action@latest
         with:
-          file_glob: 'pygeoapi-openapi.json'
-          spectral_ruleset: '.spectral.yaml'
+          file_glob: "pygeoapi-openapi.json"
+          spectral_ruleset: ".spectral.yaml"
