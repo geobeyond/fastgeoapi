@@ -1,3 +1,73 @@
 site_name: fastgeoapi
 docs_dir: docs
 site_dir: docs_build/site
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.annotation
+    - content.code.copy
+  language: en
+  palette:
+    - scheme: default
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to Dark Mode
+      primary: green
+      accent: red
+    - scheme: slate
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to Light Mode
+      primary: green
+      accent: blue grey
+  icon:
+    admonition:
+      note: octicons/tag-16
+      abstract: octicons/checklist-16
+      info: octicons/info-16
+      tip: octicons/squirrel-16
+      success: octicons/check-16
+      question: octicons/question-16
+      warning: octicons/alert-16
+      failure: octicons/x-circle-16
+      danger: octicons/zap-16
+      bug: octicons/bug-16
+      example: octicons/beaker-16
+      quote: octicons/quote-16
+plugins:
+  - termynal:
+      prompt_literal_start:
+        - "$"
+extra:
+  social:
+    - icon: fontawesome/brands/github-alt
+      link: https://github.com/geobeyond
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/geobeyond
+    - icon: fontawesome/brands/linkedin
+      link: https://www.linkedin.com/company/geobeyond
+
+      markdown_extensions:
+        - pymdownx.highlight:
+            anchor_linenums: true
+        - pymdownx.inlinehilite
+        - pymdownx.snippets
+        - admonition
+        - pymdownx.arithmatex:
+            generic: true
+        - footnotes
+        - pymdownx.details
+        - pymdownx.superfences
+        - pymdownx.mark
+        - attr_list
+        - pymdownx.emoji
+
+copyright: |
+  &copy; Copyright 2024 <a href="https://github.com/geobeyond">Geobeyond team</a>.
