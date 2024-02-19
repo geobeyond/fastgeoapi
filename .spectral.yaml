@@ -1,1 +1,2 @@
-extends: ["https://unpkg.com/@stoplight/spectral-owasp-ruleset/dist/ruleset.mjs"]
+extends:
+  ["https://unpkg.com/@stoplight/spectral-owasp-ruleset/dist/ruleset.mjs"]
