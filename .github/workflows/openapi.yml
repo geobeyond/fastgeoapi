@@ -38,7 +38,6 @@ jobs:
         run: |
           echo 'extends: ["spectral:oas"]' > .spectral.oas3.yaml
 
-
       # Create OWASP API Security 10 ruleset
       - name: Create OWASP API Security 10
         run: |
