@@ -33,15 +33,28 @@ jobs:
           poetry install
           poetry run fastgeoapi openapi
 
+      # Create OAS3 ruleset
+      - name: Create OAS 3
+        run: |
+          echo 'extends: ["spectral:oas"]' > .spectral.oas3.yaml
+
+
       # Create OWASP API Security 10 ruleset
       - name: Create OWASP API Security 10
         run: |
           npm install -g @stoplight/spectral-owasp-ruleset@latest
-          echo 'extends: ["https://unpkg.com/@stoplight/spectral-owasp-ruleset/dist/ruleset.mjs"]' > .spectral.yaml
+          echo 'extends: ["https://unpkg.com/@stoplight/spectral-owasp-ruleset/dist/ruleset.mjs"]' > .spectral.owasp-top-10.yaml
 
-      # Run Spectral
-      - name: Run Spectral
+      # Run Spectral for OWASP Top 10
+      - name: Run Spectral for OAS3
         uses: stoplightio/spectral-action@latest
         with:
           file_glob: "pygeoapi-openapi.json"
-          spectral_ruleset: ".spectral.yaml"
+          spectral_ruleset: ".spectral.oas3.yaml"
+
+      # Run Spectral for OWASP Top 10
+      - name: Run Spectral for OWASP top 10
+        uses: stoplightio/spectral-action@latest
+        with:
+          file_glob: "pygeoapi-openapi.json"
+          spectral_ruleset: ".spectral.owasp-top-10.yaml"
