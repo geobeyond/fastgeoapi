@@ -26,23 +26,16 @@ jobs:
   deploy-docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.1.1
-      - name: Configure Git Credentials
-        run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+      - uses: actions/checkout@v4
       - name: Setup Python
-        uses: actions/setup-python@v5.0.0
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: 3.*
+      - uses: actions/cache@v2
+        with:
+          key: ${{ github.ref }}
+          path: .cache
       - name: Install dependencies
         run: pip install mkdocs mkdocs-material termynal
-      - name: Build MkDocs site
-        run: mkdocs build
-      - name: Deploy to GitHub Pages
-        uses: mhausenblas/mkdocs-deploy-gh-pages@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.FASTGEOAPI_GITHUB_TOKEN }}
-          CONFIG_FILE: ./mkdocs.yml
-          EXTRA_PACKAGES: build-base
-          REQUIREMENTS: .github/requirements-docs.txt
+      - name: Deploy and publish to GitHub Pages
+        run: mkdocs gh-deploy --force
