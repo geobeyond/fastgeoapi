@@ -18,12 +18,12 @@ $ pip install fastgeoapi
 
 ## Usage
 
-Please see the [Command-line Reference](usage.html) for details.
+Please see the [Command-line Reference](usage.md) for details.
 
 ## Contributing
 
 Contributions are very welcome. To learn more, see the [Contributor
-Guide](contributing.html).
+Guide](contributing.md).
 
 ## License
 
