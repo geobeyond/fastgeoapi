@@ -54,20 +54,20 @@ extra:
     - icon: fontawesome/brands/linkedin
       link: https://www.linkedin.com/company/geobeyond
 
-      markdown_extensions:
-        - pymdownx.highlight:
-            anchor_linenums: true
-        - pymdownx.inlinehilite
-        - pymdownx.snippets
-        - admonition
-        - pymdownx.arithmatex:
-            generic: true
-        - footnotes
-        - pymdownx.details
-        - pymdownx.superfences
-        - pymdownx.mark
-        - attr_list
-        - pymdownx.emoji
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - admonition
+  - pymdownx.arithmatex:
+      generic: true
+  - footnotes
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.mark
+  - attr_list
+  - pymdownx.emoji
 
 copyright: |
   &copy; Copyright 2024 <a href="https://github.com/geobeyond">Geobeyond team</a>.
