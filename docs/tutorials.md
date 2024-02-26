@@ -23,10 +23,11 @@ The protection mechanisms introduced above are mutually exclusive and they apply
 The configuration happens in the `.env` file where the environment variables for development and production are defined. As explained in the [getting-started](getting-started.md) section their prefix identifies the target environment (i.e. `DEV_` vs `PROD_`). Let's go through the different mechanisms.
 
 Please make sure to have cloned the [repo](https://github.com/geobeyond/fastgeoapi) before starting the following sections.
+Also, it is supposed to having set the environment for development with `ENV_STATE=dev` in the `.env` file.
 
 ### API KEY
 
-Supposing you have set the environment for development with `ENV_STATE=dev` in the `.env` file, the configuration can be controlled with these two additional settings:
+The security configuration, in this case, can be enabled with these two additional settings:
 
 ```yml
 # api-keys
@@ -59,6 +60,7 @@ ValueError: OPA_ENABLED, JWKS_ENABLED and API_KEY_ENABLED are mutually exclusive
 This error is expected since more security schemes at the same time are enabled. Change their value accordingly:
 
 ```yml
+DEV_API_KEY_ENABLED=true
 DEV_OPA_ENABLED=false
 DEV_JWKS_ENABLED=false
 ```
@@ -103,7 +105,7 @@ $ curl http://localhost:5000/geoapi/collections/obs -vv
 {"detail":"no api key"}
 ```
 
-Using the API-KEY we are getting the expected response:
+Using the API-KEY we are overcoming the unauthorized error and getting the expected response:
 
 <!-- termynal -->
 ```shell
@@ -244,7 +246,168 @@ $ curl -H "X-API-KEY: pygeoapi" http://localhost:5000/geoapi/collections/obs -vv
 
 ### OAuth2
 
-TBD
+In this case we are challenging the client to present valid JSON Web Tokens (JWTs) and getting to verify the token’s signature against the public key with the JSON Web Key Set (JWKS) endpoint of the authorization server.
+
+Change the `.env` file with these settings:
+
+```yml
+DEV_API_KEY_ENABLED=false
+DEV_OPA_ENABLED=false
+DEV_JWKS_ENABLED=true
+```
+
+And configure a valid JWKS and Token endpoint for the authorization server:
+
+!!! Tip "Use OAuth2 playground"
+    There are some playgrounds available which can be used for the sake of testing the workflow. Let's use the one from [Auth0 by Okta](https://openidconnect.net/).
+
+```yml
+# oidc-jwks-only
+DEV_JWKS_ENABLED=true
+DEV_OAUTH2_JWKS_ENDPOINT=https://samples.auth0.com/.well-known/jwks.json
+DEV_OAUTH2_TOKEN_ENDPOINT=https://samples.auth0.com/oauth/token
+```
+
+Use the OAuth2 server infrastructure to get the `access token` and then use that to consume the protected resource from the **fastgeoapi** server.
+
+Let's get testing the collection again:
+
+<!-- termynal -->
+```shell
+# This time we are passing the OAuth2 security scheme with the retrieved token
+$ curl -H "Authorization: Bearer <access_token>" http://localhost:5000/geoapi/collections/obs -vv
+
+*   Trying [::1]:5000...
+* connect to ::1 port 5000 failed: Connection refused
+*   Trying 127.0.0.1:5000...
+* Connected to localhost (127.0.0.1) port 5000
+> GET /geoapi/collections/obs HTTP/1.1
+> Host: localhost:5000
+> User-Agent: curl/8.4.0
+> Accept: */*
+> X-API-KEY: pygeoapi
+>
+< HTTP/1.1 200 OK
+< date: Mon, 26 Feb 2024 14:25:14 GMT
+< server: uvicorn
+< content-length: 3552
+< content-type: application/json
+< x-powered-by: pygeoapi 0.16.dev0
+< content-language: en-US
+<
+{
+    "id":"obs",
+    "title":"Observations",
+    "description":"My cool observations",
+    "keywords":[
+        "observations",
+        "monitoring"
+    ],
+    "links":[
+        {
+            "type":"text/csv",
+            "rel":"canonical",
+            "title":"data",
+            "href":"https://github.com/mapserver/mapserver/blob/branch-7-0/msautotest/wxs/data/obs.csv",
+            "hreflang":"en-US"
+        },
+        {
+            "type":"text/csv",
+            "rel":"alternate",
+            "title":"data",
+            "href":"https://raw.githubusercontent.com/mapserver/mapserver/branch-7-0/msautotest/wxs/data/obs.csv",
+            "hreflang":"en-US"
+        },
+        {
+            "type":"application/json",
+            "rel":"root",
+            "title":"The landing page of this server as JSON",
+            "href":"http://localhost:5000/geoapi?f=json"
+        },
+        {
+            "type":"text/html",
+            "rel":"root",
+            "title":"The landing page of this server as HTML",
+            "href":"http://localhost:5000/geoapi?f=html"
+        },
+        {
+            "type":"application/json",
+            "rel":"self",
+            "title":"This document as JSON",
+            "href":"http://localhost:5000/geoapi/collections/obs?f=json"
+        },
+        {
+            "type":"application/ld+json",
+            "rel":"alternate",
+            "title":"This document as RDF (JSON-LD)",
+            "href":"http://localhost:5000/geoapi/collections/obs?f=jsonld"
+        },
+        {
+            "type":"text/html",
+            "rel":"alternate",
+            "title":"This document as HTML",
+            "href":"http://localhost:5000/geoapi/collections/obs?f=html"
+        },
+        {
+            "type":"application/schema+json",
+            "rel":"http://www.opengis.net/def/rel/ogc/1.0/queryables",
+            "title":"Queryables for this collection as JSON",
+            "href":"http://localhost:5000/geoapi/collections/obs/queryables?f=json"
+        },
+        {
+            "type":"text/html",
+            "rel":"http://www.opengis.net/def/rel/ogc/1.0/queryables",
+            "title":"Queryables for this collection as HTML",
+            "href":"http://localhost:5000/geoapi/collections/obs/queryables?f=html"
+        },
+        {
+            "type":"application/geo+json",
+            "rel":"items",
+            "title":"items as GeoJSON",
+            "href":"http://localhost:5000/geoapi/collections/obs/items?f=json"
+        },
+        {
+            "type":"application/ld+json",
+            "rel":"items",
+            "title":"items as RDF (GeoJSON-LD)",
+            "href":"http://localhost:5000/geoapi/collections/obs/items?f=jsonld"
+        },
+        {
+            "type":"text/html",
+            "rel":"items",
+            "title":"Items as HTML",
+            "href":"http://localhost:5000/geoapi/collections/obs/items?f=html"
+        }
+    ],
+    "extent":{
+        "spatial":{
+            "bbox":[
+                [
+                    -180,
+                    -90,
+                    180,
+                    90
+                ]
+            ],
+            "crs":"http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+        },
+        "temporal":{
+            "interval":[
+                [
+                    "2000-10-30T18:24:39+00:00",
+                    "2007-10-30T08:57:29+00:00"
+                ]
+            ]
+        }
+    },
+    "itemType":"feature",
+    "crs":[
+        "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+    ],
+    "storageCRS":"http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+* Connection #0 to host localhost left intact
+}
+```
 
 ### OpenID Connect
 
