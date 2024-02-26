@@ -8,7 +8,6 @@ jobs:
   spectral-oas:
     name: Lint and validate OpenAPI document for pygeoapi configuration
     runs-on: ubuntu-latest
-    needs: build
     steps:
       # Check out the repository
       - name: Check out the repository
@@ -48,7 +47,6 @@ jobs:
   spectral-owasp:
     name: Validate OpenAPI document against OWASP Top 10 API security rules
     runs-on: ubuntu-latest
-    needs: build
     steps:
       # Check out the repository
       - name: Check out the repository
