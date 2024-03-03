@@ -74,6 +74,7 @@ commitizen = "^3.6.0"
 fencer = "^0.3.6"
 # jsonref = "^1.1.0"
 openapi-resolver = "^0.0.6"
+mkdocs-swagger-ui-tag = "^0.6.8"
 
 [tool.coverage.paths]
 source = [".", "*/site-packages"]
