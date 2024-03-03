@@ -40,7 +40,10 @@ jobs:
           sudo apt-add-repository ppa:ubuntugis/ubuntugis-unstable
           sudo apt-get update
           sudo apt-get install gdal-bin libgdal-dev
-      - name: Install fastgeoapi and run schemathesis tests
+      - name: Install fastgeoapi and run the server
         run: |
           poetry install
-          poetry run uvicorn app.main:app --host 0.0.0.0 --port 6000 --reload --loop asyncio && poetry run st run --checks all "http://0.0.0.0:6000/openapi?f=json"
+          poetry run uvicorn app.main:app --host 0.0.0.0 --port 6000 --reload --loop asyncio
+      - name: Run schemathesis command and tests
+        run: |
+          poetry run st run --checks all "http://0.0.0.0:6000/geoapi/openapi?f=json"
