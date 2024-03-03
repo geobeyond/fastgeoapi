@@ -40,15 +40,19 @@ jobs:
           sudo apt-add-repository ppa:ubuntugis/ubuntugis-unstable
           sudo apt-get update
           sudo apt-get install gdal-bin libgdal-dev
-      - name: Install fastgeoapi and run the server
+      - name: Install fastgeoapi and run the server with API-KEY protection
+        env:
+          ENV_STATE: dev
+          OPA_ENABLED: false
+          API_KEY_ENABLED: true
+          JWKS_ENABLED: false
         run: |
           poetry install
+          ENV_STATE=$ENV_STATE
+          OPA_ENABLED=$OPA_ENABLED
+          API_KEY_ENABLED=$API_KEY_ENABLED
+          JWKS_ENABLED=$JWKS_ENABLED
           poetry run uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload --loop asyncio &
       - name: Run schemathesis command and tests
-        # env:
-        #   ENV_STATE: dev
-        #   OPA_ENABLED: false
-        #   API_KEY_ENABLED: true
-        #   JWKS_ENABLED: false
         run: |
           poetry run py.test tests/test_openapi_contract.py -vv
