@@ -3,7 +3,7 @@
 ## Authentication and Authorization
 
 !!! tip "Familiarize with the topic"
-    If you don't have prior experience with the topic, we recommend reading [Authentication and Authorization in Applications](https://www.permit.io/blog/authentication-vs-authorization), which is a really good introduction on the difference between Authentication and Authorization that helps you understand how they focus on two different purposes.
+If you don't have prior experience with the topic, we recommend reading [Authentication and Authorization in Applications](https://www.permit.io/blog/authentication-vs-authorization), which is a really good introduction on the difference between Authentication and Authorization that helps you understand how they focus on two different purposes.
 
 This tutorial aims to guide the user to configure **fastgeoapi** with a mechanism that fits with your security requirements.
 The tool supports different security schemes for [OGC APIs](https://ogcapi.ogc.org/) served by [pygeoapi](https://pygeoapi.io) and allows optionally to enable a coarse or fine-grade authorization for a _collection_ and the endpoints based on user needs and use cases.
@@ -15,7 +15,7 @@ Supported security schemes are:
 - **OpenID Connect**: It looks like very similar to OAuth2 and in fact it is built on top of that. It allows to identify and authenticate a user in mobile and Single-Page Application (SPA).
 
 !!! note "OAuth2 vs OpenID Connect"
-    It is beneficial to clarify that they serve two different purposes. [OAuth2](https://en.wikipedia.org/wiki/OAuth) is a framework for _Authorization_ while [OpenID Connect](https://openid.net/developers/how-connect-works/) is a protocol for _Authentication_. If you would like to develop further the concepts then [this]() is an appropriate read.
+It is beneficial to clarify that they serve two different purposes. [OAuth2](https://en.wikipedia.org/wiki/OAuth) is a framework for _Authorization_ while [OpenID Connect](https://openid.net/developers/how-connect-works/) is a protocol for _Authentication_. If you would like to develop further the concepts then [this]() is an appropriate read.
 
 ## Configure and protect pygeoapi
 
@@ -40,6 +40,7 @@ Setting `DEV_API_KEY_ENABLE` to `true` is the way to enable a flat protection to
 Start the server with the usual command:
 
 <!-- termynal -->
+
 ```shell
 $ uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload --loop asyncio
 ...
@@ -68,6 +69,7 @@ DEV_JWKS_ENABLED=false
 and then start again the server:
 
 <!-- termynal -->
+
 ```shell
 $ uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload --loop asyncio
 ...
@@ -83,6 +85,7 @@ $ uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload --loop asyncio
 Let's get testing one of the collection available in the `pygeoapi-config.yml` (i.e. `obs`) without or with the API-KEY:
 
 <!-- termynal -->
+
 ```shell
 $ curl http://localhost:5000/geoapi/collections/obs -vv
 
@@ -108,6 +111,7 @@ $ curl http://localhost:5000/geoapi/collections/obs -vv
 Using the API-KEY we are overcoming the unauthorized error and getting the expected response:
 
 <!-- termynal -->
+
 ```shell
 # This time we are passing the correct security scheme with the secret
 $ curl -H "X-API-KEY: pygeoapi" http://localhost:5000/geoapi/collections/obs -vv
@@ -259,7 +263,7 @@ DEV_JWKS_ENABLED=true
 And configure a valid JWKS and Token endpoint for the authorization server:
 
 !!! Tip "Use OAuth2 playground"
-    There are some playgrounds available which can be used for the sake of testing the workflow. Let's use the one from [Auth0 by Okta](https://openidconnect.net/).
+There are some playgrounds available which can be used for the sake of testing the workflow. Let's use the one from [Auth0 by Okta](https://openidconnect.net/).
 
 ```yml
 # oidc-jwks-only
@@ -273,6 +277,7 @@ Use the OAuth2 server infrastructure to get the `access token` and then use that
 Let's get testing the collection again:
 
 <!-- termynal -->
+
 ```shell
 # This time we are passing the OAuth2 security scheme with the retrieved token
 $ curl -H "Authorization: Bearer <access_token>" http://localhost:5000/geoapi/collections/obs -vv
