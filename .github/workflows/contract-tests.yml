@@ -45,5 +45,10 @@ jobs:
           poetry install
           poetry run uvicorn app.main:app --host 0.0.0.0 --port 6000 --reload --loop asyncio &
       - name: Run schemathesis command and tests
+        env:
+          ENV_STATE: dev
+          OPA_ENABLED: false
+          API_KEY_ENABLED: true
+          JWKS_ENABLED: false
         run: |
-          ENV_STATE=dev API_KEY_ENABLED=true JWKS_ENABLED=false poetry run st run -H "X-API-Key: pygeoapi" --checks all "http://0.0.0.0:6000/geoapi/openapi?f=json"
+          ENV_STATE=$ENV_STATE OPA_ENABLED=$OPA_ENABLED API_KEY_ENABLED=$API_KEY_ENABLED JWKS_ENABLED=$JWKS_ENABLED poetry run st run -H "X-API-KEY: pygeoapi" --checks all "http://0.0.0.0:6000/geoapi/openapi?f=json"
