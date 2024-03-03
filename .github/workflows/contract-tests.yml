@@ -42,6 +42,5 @@ jobs:
           sudo apt-get install gdal-bin libgdal-dev
       - name: Install fastgeoapi and run schemathesis tests
         run: |
-          poetry install
-          poetry run uvicorn app.main:app --host 0.0.0.0 --port 6000 --reload --loop asyncio &
-          poetry run st run --checks all "http://0.0.0.0:6000/openapi?f=json"
+          poetry install && poetry shell
+          poetry run uvicorn app.main:app --host 0.0.0.0 --port 6000 --reload --loop asyncio && poetry run st run --checks all "http://0.0.0.0:6000/openapi?f=json"
