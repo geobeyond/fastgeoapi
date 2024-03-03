@@ -66,5 +66,5 @@ jobs:
       - name: Install fastgeoapi and run schemathesis tests
         run: |
           poetry install
-          poetry run uvicorn app.main:app --host 0.0.0.0 --port 6000 --reload --loop asyncio
+          poetry run uvicorn app.main:app --host 0.0.0.0 --port 6000 --reload --loop asyncio &
           poetry run st run --checks all "http://localhost:6000/openapi?f=json"
