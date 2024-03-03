@@ -2655,7 +2655,7 @@ unicodecsv = "*"
 type = "git"
 url = "https://github.com/geopython/pygeoapi"
 reference = "master"
-resolved_reference = "b6bf0a72b2841e4a257a7e327979d371190dbf8b"
+resolved_reference = "34d595accf0d7cb9da2887ff39553d70312f3e5e"
 
 [[package]]
 name = "pygeofilter"
@@ -4637,4 +4637,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "5e22f6c775f61e23a968a33034473afb8cf8fa185dbeba87dc7d1160b4876582"
+content-hash = "da90012a260455a29f16c9db51735f2d0a2e70833ee3cb88977c24f718e6fa36"
