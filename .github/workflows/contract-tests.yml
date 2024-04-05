@@ -19,7 +19,7 @@ jobs:
 
       - name: Upgrade pip
         run: |
-          pip install --constraint=.github/workflows/constraints.txt pip
+          pip install --constraint=$GITHUB_WORKSPACE/.github/workflows/constraints.txt pip
           pip --version
 
       - name: Upgrade pip in virtual environments
@@ -33,7 +33,7 @@ jobs:
 
       - name: Install Poetry
         run: |
-          pipx install --pip-args=--constraint=.github/workflows/constraints.txt poetry
+          pipx install --pip-args=--constraint=$GITHUB_WORKSPACE/.github/workflows/constraints.txt poetry
           poetry --version
       - name: Install GDAL
         run: |
