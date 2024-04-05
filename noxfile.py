@@ -155,7 +155,7 @@ def mypy(session: NoxPoetrySession) -> None:
 def tests(session: NoxPoetrySession) -> None:
     """Run the test suite."""
     session.install(".")
-    session.install("coverage[toml]", "pytest", "pygments")
+    session.install("coverage[toml]", "pytest", "pygments", "schemathesis")
     try:
         session.run("coverage", "run", "--parallel", "-m", "pytest", *session.posargs)
     finally:
