@@ -1,13 +1,14 @@
 """Override vanilla openapi module."""
+
 from typing import List
 
-from app.auth.models import unauthorized
-from app.config.app import configuration as cfg
-from app.config.logging import create_logger
 from openapi_pydantic.v3.v3_0_3 import OpenAPI
 from openapi_pydantic.v3.v3_0_3 import SecurityScheme
 from pydantic_core import ValidationError
 
+from app.auth.models import unauthorized
+from app.config.app import configuration as cfg
+from app.config.logging import create_logger
 
 logger = create_logger("app.pygeoapi.openapi")
 

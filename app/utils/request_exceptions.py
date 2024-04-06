@@ -1,4 +1,5 @@
 """Request exceptions module."""
+
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException

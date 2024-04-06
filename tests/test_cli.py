@@ -1,6 +1,8 @@
 """Test cases for the cli module."""
-from cli import app
+
 from typer.testing import CliRunner
+
+from cli import app
 
 
 def test_openapi_succeeds(runner: CliRunner) -> None:

@@ -1,4 +1,5 @@
 """App exceptions module."""
+
 from fastapi import Request
 from starlette.responses import JSONResponse
 

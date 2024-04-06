@@ -1,6 +1,6 @@
 """OpenAPI contract tests module."""
-import schemathesis
 
+import schemathesis
 
 schema = schemathesis.from_pytest_fixture("protected_apikey_schema")
 

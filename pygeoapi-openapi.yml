@@ -110,6 +110,13 @@ components:
           type: string
         type: array
       style: form
+    resourceId:
+      description: Configuration resource identifier
+      in: path
+      name: resourceId
+      required: true
+      schema:
+        type: string
     skipGeometry:
       description: This option can be used to skip response geometries for each feature.
       explode: false
@@ -377,6 +384,7 @@ paths:
       tags:
         - lakes
     options:
+      description: lakes of the world, public domain
       operationId: optionsLakesFeatures
       responses:
         "200":
@@ -406,6 +414,7 @@ paths:
       tags:
         - lakes
     options:
+      description: lakes of the world, public domain
       operationId: optionsLakesFeature
       parameters:
         - $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/featureId
@@ -432,6 +441,25 @@ paths:
         "500":
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError
       summary: Get Large Lakes queryables
+      tags:
+        - lakes
+  /collections/lakes/schema:
+    get:
+      description: lakes of the world, public domain
+      operationId: getLakesQueryables
+      parameters:
+        - *id001
+        - *id002
+      responses:
+        "200":
+          $ref: "#/components/responses/Queryables"
+        "400":
+          $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter
+        "404":
+          $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound
+        "500":
+          $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError
+      summary: Get Large Lakes schema
       tags:
         - lakes
   /collections/obs:
@@ -526,6 +554,7 @@ paths:
       tags:
         - obs
     options:
+      description: My cool observations
       operationId: optionsObsFeatures
       responses:
         "200":
@@ -555,6 +584,7 @@ paths:
       tags:
         - obs
     options:
+      description: My cool observations
       operationId: optionsObsFeature
       parameters:
         - $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/featureId
@@ -581,6 +611,25 @@ paths:
         "500":
           $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError
       summary: Get Observations queryables
+      tags:
+        - obs
+  /collections/obs/schema:
+    get:
+      description: My cool observations
+      operationId: getObsQueryables
+      parameters:
+        - *id001
+        - *id002
+      responses:
+        "200":
+          $ref: "#/components/responses/Queryables"
+        "400":
+          $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter
+        "404":
+          $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound
+        "500":
+          $ref: https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError
+      summary: Get Observations schema
       tags:
         - obs
   /conformance:
