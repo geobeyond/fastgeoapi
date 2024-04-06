@@ -9,6 +9,7 @@ from pydantic_core import ValidationError
 from app.auth.models import unauthorized
 from app.config.app import configuration as cfg
 from app.config.logging import create_logger
+from app.pygeoapi.models import not_found
 
 logger = create_logger("app.pygeoapi.openapi")
 
@@ -61,6 +62,8 @@ def augment_security(doc: str, security_schemes: List[SecurityScheme]) -> OpenAP
                 ]
                 if value.options.responses:
                     value.options.responses.update(unauthorized)
+                    # Remove when it is fixed from pygeoapi
+                    value.options.responses.update(not_found)
             if value.delete:
                 value.delete.security = [
                     {f"pygeoapi {cfg.PYGEOAPI_SECURITY_SCHEME}": []}
