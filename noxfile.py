@@ -102,7 +102,7 @@ def precommit(session: NoxPoetrySession) -> None:
         "pre-commit",
         "pre-commit-hooks",
         "pyupgrade",
-        "reorder-python-imports",
+        "isort",
     )
     session.run("pre-commit", "clean")
     session.run("pre-commit", *args)
@@ -181,7 +181,7 @@ def coverage(session: NoxPoetrySession) -> None:
 def typeguard(session: NoxPoetrySession) -> None:
     """Runtime type checking using Typeguard."""
     session.install(".")
-    session.install("pytest", "typeguard", "pygments")
+    session.install("pytest", "typeguard", "pygments", "schemathesis")
     session.run("pytest", f"--typeguard-packages={package}", *session.posargs)
 
 
