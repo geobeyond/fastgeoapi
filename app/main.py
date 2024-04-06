@@ -1,4 +1,5 @@
 """Main module."""
+
 import os
 import sys
 from pathlib import Path
@@ -6,16 +7,6 @@ from typing import Any
 
 import loguru
 import uvicorn
-from app.config.app import configuration as cfg
-from app.config.logging import create_logger
-from app.middleware.oauth2 import Oauth2Middleware
-from app.middleware.pygeoapi import OpenapiSecurityMiddleware
-from app.utils.app_exceptions import app_exception_handler
-from app.utils.app_exceptions import AppExceptionError
-from app.utils.pygeoapi_exceptions import PygeoapiEnvError
-from app.utils.pygeoapi_exceptions import PygeoapiLanguageError
-from app.utils.request_exceptions import http_exception_handler
-from app.utils.request_exceptions import request_validation_exception_handler
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi_opa import OPAMiddleware
@@ -24,13 +15,22 @@ from mangum import Mangum
 from openapi_pydantic.v3.v3_0_3 import OAuthFlow
 from openapi_pydantic.v3.v3_0_3 import OAuthFlows
 from openapi_pydantic.v3.v3_0_3 import SecurityScheme
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from starlette.middleware.cors import CORSMiddleware
-
 from pygeoapi.l10n import LocaleError
 from pygeoapi.openapi import generate_openapi_document
 from pygeoapi.provider.base import ProviderConnectionError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.cors import CORSMiddleware
 
+from app.config.app import configuration as cfg
+from app.config.logging import create_logger
+from app.middleware.oauth2 import Oauth2Middleware
+from app.middleware.pygeoapi import OpenapiSecurityMiddleware
+from app.utils.app_exceptions import AppExceptionError
+from app.utils.app_exceptions import app_exception_handler
+from app.utils.pygeoapi_exceptions import PygeoapiEnvError
+from app.utils.pygeoapi_exceptions import PygeoapiLanguageError
+from app.utils.request_exceptions import http_exception_handler
+from app.utils.request_exceptions import request_validation_exception_handler
 
 if cfg.LOG_LEVEL == "debug":
     logger.remove()

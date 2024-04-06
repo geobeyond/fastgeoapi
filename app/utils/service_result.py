@@ -1,9 +1,9 @@
 """Service result module."""
+
 import inspect
 
 from app.config.logging import create_logger
 from app.utils.app_exceptions import AppExceptionError
-
 
 logger = create_logger("app.utils.service_result")
 

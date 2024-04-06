@@ -1,12 +1,13 @@
 """Authn and Authz module."""
-from app.auth.auth_jwks import JWKSAuthentication
-from app.auth.auth_jwks import JWKSConfig
-from app.auth.oauth2 import Oauth2Provider
-from app.config.app import configuration as cfg
+
 from fastapi_opa import OPAConfig
 from fastapi_opa.auth import OIDCAuthentication
 from fastapi_opa.auth import OIDCConfig
 
+from app.auth.auth_jwks import JWKSAuthentication
+from app.auth.auth_jwks import JWKSConfig
+from app.auth.oauth2 import Oauth2Provider
+from app.config.app import configuration as cfg
 
 # The hostname of your Open Policy Agent instance
 opa_host = cfg.OPA_URL

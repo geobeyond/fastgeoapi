@@ -1,11 +1,9 @@
 """Openapi middleware module."""
+
 from typing import Any
 from typing import Dict
 from typing import List
 
-from app.config.app import configuration as cfg
-from app.config.logging import create_logger
-from app.pygeoapi.openapi import augment_security
 from openapi_pydantic.v3.v3_0_3 import SecurityScheme
 from starlette.datastructures import Headers
 from starlette.datastructures import MutableHeaders
@@ -15,6 +13,9 @@ from starlette.types import Receive
 from starlette.types import Scope
 from starlette.types import Send
 
+from app.config.app import configuration as cfg
+from app.config.logging import create_logger
+from app.pygeoapi.openapi import augment_security
 
 logger = create_logger("app.middleware.pygeoapi")
 
