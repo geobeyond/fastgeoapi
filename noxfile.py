@@ -213,6 +213,7 @@ def docs_build(session: NoxPoetrySession) -> None:
         "mkdocs-material",
         "mkdocs-material-extras",
         "mkdocs-material-extensions",
+        "termynal",
     )
 
     build_dir = Path("docs_build", "site")
@@ -232,6 +233,7 @@ def docs(session: NoxPoetrySession) -> None:
         "mkdocs-material",
         "mkdocs-material-extras",
         "mkdocs-material-extensions",
+        "termynal",
     )
 
     build_dir = Path("docs_build", "site")
