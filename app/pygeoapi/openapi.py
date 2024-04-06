@@ -49,6 +49,14 @@ def augment_security(doc: str, security_schemes: List[SecurityScheme]) -> OpenAP
                 value.get.security = [{f"pygeoapi {cfg.PYGEOAPI_SECURITY_SCHEME}": []}]
             if value.post:
                 value.post.security = [{f"pygeoapi {cfg.PYGEOAPI_SECURITY_SCHEME}": []}]
+            if value.options:
+                value.options.security = [
+                    {f"pygeoapi {cfg.PYGEOAPI_SECURITY_SCHEME}": []}
+                ]
+            if value.delete:
+                value.delete.security = [
+                    {f"pygeoapi {cfg.PYGEOAPI_SECURITY_SCHEME}": []}
+                ]
             secured_paths.update({key: value})
     if secured_paths:
         content["paths"] = secured_paths
