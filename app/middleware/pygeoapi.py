@@ -3,6 +3,7 @@ from typing import Any
 from typing import Dict
 from typing import List
 
+from app.config.app import configuration as cfg
 from app.config.logging import create_logger
 from app.pygeoapi.openapi import augment_security
 from openapi_pydantic.v3.v3_0_3 import SecurityScheme
@@ -17,8 +18,8 @@ from starlette.types import Send
 
 logger = create_logger("app.middleware.pygeoapi")
 
-routes_with_middleware = ["/openapi"]
-queryparams_with_middleware = ["f=json"]
+routes_with_openapi = [f"{cfg.FASTGEOAPI_CONTEXT}/openapi"]
+queryparams_with_openapi = ["f=json"]
 
 
 class OpenapiSecurityMiddleware:
@@ -35,10 +36,13 @@ class OpenapiSecurityMiddleware:
             return await self.app(scope, receive, send)
         pygeoapi_path = scope["path"]
         pygeoapi_query_params = scope["query_string"].decode()
-        if pygeoapi_path not in routes_with_middleware:
+        if (
+            pygeoapi_path not in routes_with_openapi
+            or pygeoapi_query_params == "f=html"
+        ):
             return await self.app(scope, receive, send)
         else:
-            if pygeoapi_query_params in queryparams_with_middleware:
+            if pygeoapi_query_params in queryparams_with_openapi:
                 openapi_responder = OpenAPIResponder(self.app, self.security_schemes)
                 await openapi_responder(scope, receive, send)
                 return
@@ -74,8 +78,8 @@ class OpenAPIResponder:
             self.initial_message = message
             headers = Headers(raw=self.initial_message["headers"])
             headers_dict = dict(headers.items())
-            content_type = headers_dict.get("content-type")
-            if "application/vnd.oai.openapi+json" not in str(content_type):
+            content_type = str(headers_dict.get("content-type"))
+            if "application/vnd.oai.openapi+json" not in content_type:
                 logger.error(f"Incosistent content-type: {content_type}")
                 raise ValueError(f"Wrong content-type: {content_type} for openapi path")
             self.headers.update(headers_dict)
