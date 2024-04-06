@@ -166,7 +166,9 @@ def create_app():  # noqa: C901
         os.environ["PYGEOAPI_KEY_GLOBAL"] = cfg.PYGEOAPI_KEY_GLOBAL
 
         PYGEOAPI_APP.add_middleware(
-            AuthorizerMiddleware, public_paths=["/openapi"], key_pattern="PYGEOAPI_KEY_"
+            AuthorizerMiddleware,
+            public_paths=[f"{cfg.FASTGEOAPI_CONTEXT}/openapi"],
+            key_pattern="PYGEOAPI_KEY_",
         )
 
         security_schemes = [
