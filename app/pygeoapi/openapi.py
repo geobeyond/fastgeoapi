@@ -1,6 +1,7 @@
 """Override vanilla openapi module."""
 from typing import List
 
+from app.auth.models import unauthorized
 from app.config.app import configuration as cfg
 from app.config.logging import create_logger
 from openapi_pydantic.v3.v3_0_3 import OpenAPI
@@ -47,17 +48,26 @@ def augment_security(doc: str, security_schemes: List[SecurityScheme]) -> OpenAP
         for key, value in paths.items():
             if value.get:
                 value.get.security = [{f"pygeoapi {cfg.PYGEOAPI_SECURITY_SCHEME}": []}]
+                if value.get.responses:
+                    value.get.responses.update(unauthorized)
             if value.post:
                 value.post.security = [{f"pygeoapi {cfg.PYGEOAPI_SECURITY_SCHEME}": []}]
+                if value.post.responses:
+                    value.post.responses.update(unauthorized)
             if value.options:
                 value.options.security = [
                     {f"pygeoapi {cfg.PYGEOAPI_SECURITY_SCHEME}": []}
                 ]
+                if value.options.responses:
+                    value.options.responses.update(unauthorized)
             if value.delete:
                 value.delete.security = [
                     {f"pygeoapi {cfg.PYGEOAPI_SECURITY_SCHEME}": []}
                 ]
+                if value.delete.responses:
+                    value.delete.responses.update(unauthorized)
             secured_paths.update({key: value})
+
     if secured_paths:
         content["paths"] = secured_paths
     return OpenAPI(**content)
