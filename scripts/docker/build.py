@@ -1,4 +1,5 @@
 """Build the Dockerfile."""
+
 import logging
 import shlex
 import shutil
@@ -7,7 +8,6 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-
 
 logger = logging.getLogger(__name__)
 

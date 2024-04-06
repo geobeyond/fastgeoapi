@@ -1,12 +1,14 @@
 """OAuth2 provider module."""
+
 import re
 from abc import ABC
 from abc import abstractmethod
 from typing import List
 from typing import Optional
 
-from app.auth.auth_interface import AuthInterface
 from starlette.requests import Request
+
+from app.auth.auth_interface import AuthInterface
 
 
 class Injectable(ABC):

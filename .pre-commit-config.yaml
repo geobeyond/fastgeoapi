@@ -40,12 +40,6 @@ repos:
         language: system
         types: [python]
         args: [--py37-plus]
-      - id: reorder-python-imports
-        name: Reorder python imports
-        entry: reorder-python-imports
-        language: system
-        types: [python]
-        args: [--application-directories=app]
       - id: trailing-whitespace
         name: Trim Trailing Whitespace
         entry: trailing-whitespace-fixer
@@ -56,3 +50,9 @@ repos:
     rev: v2.4.1
     hooks:
       - id: prettier
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        name: isort
+        args: ["--force-single-line", "--line-length=100", "--profile=black"]

@@ -1,21 +1,21 @@
 """Command-line interface."""
+
 import os
 from pathlib import Path
 
 import typer
+from openapi_pydantic.v3.v3_0_3 import OAuthFlow
+from openapi_pydantic.v3.v3_0_3 import OAuthFlows
+from openapi_pydantic.v3.v3_0_3 import SecurityScheme
+from pygeoapi.l10n import LocaleError
+from pygeoapi.openapi import generate_openapi_document
+from pygeoapi.provider.base import ProviderConnectionError
+from rich.console import Console
+
 from app.config.app import configuration as cfg
 from app.pygeoapi.openapi import augment_security
 from app.utils.pygeoapi_exceptions import PygeoapiEnvError
 from app.utils.pygeoapi_exceptions import PygeoapiLanguageError
-from openapi_pydantic.v3.v3_0_3 import OAuthFlow
-from openapi_pydantic.v3.v3_0_3 import OAuthFlows
-from openapi_pydantic.v3.v3_0_3 import SecurityScheme
-from rich.console import Console
-
-from pygeoapi.l10n import LocaleError
-from pygeoapi.openapi import generate_openapi_document
-from pygeoapi.provider.base import ProviderConnectionError
-
 
 log_console = Console()
 err_console = Console(stderr=True, style="bold red")

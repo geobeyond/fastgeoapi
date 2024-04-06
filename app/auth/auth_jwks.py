@@ -1,19 +1,21 @@
 """Auth JWKS module."""
+
 import typing
 from dataclasses import dataclass
 from dataclasses import field
 
 import httpx
-from app.auth.auth_interface import AuthInterface
-from app.auth.exceptions import Oauth2Error
-from app.config.logging import create_logger
-from authlib.jose import errors
 from authlib.jose import JsonWebKey
 from authlib.jose import JsonWebToken
 from authlib.jose import JWTClaims
 from authlib.jose import KeySet
+from authlib.jose import errors
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
+
+from app.auth.auth_interface import AuthInterface
+from app.auth.exceptions import Oauth2Error
+from app.config.logging import create_logger
 
 # from cachetools import cached
 # from cachetools import TTLCache

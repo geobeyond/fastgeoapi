@@ -1,13 +1,10 @@
 """OAuth2 middleware module."""
+
 import asyncio
 import re
 from typing import List
 from typing import Optional
 
-from app.auth.exceptions import Oauth2Error
-from app.auth.oauth2 import Oauth2Provider
-from app.config.app import configuration as cfg
-from app.config.logging import create_logger
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
@@ -16,6 +13,10 @@ from starlette.types import Receive
 from starlette.types import Scope
 from starlette.types import Send
 
+from app.auth.exceptions import Oauth2Error
+from app.auth.oauth2 import Oauth2Provider
+from app.config.app import configuration as cfg
+from app.config.logging import create_logger
 
 logger = create_logger("app.middleware.oauth2")
 
