@@ -36,7 +36,6 @@ class OpenapiSecurityMiddleware:
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
         pygeoapi_path = scope["path"]
-        pygeoapi_query_params = scope["query_string"].decode()
         if pygeoapi_path not in routes_with_openapi:
             return await self.app(scope, receive, send)
         else:
@@ -81,7 +80,7 @@ class OpenAPIResponder:
             self.headers.update(headers_dict)
         if message_type == "http.response.body":
             initial_body = message.get("body", b"").decode()
-            if not "<!-- HTML" in initial_body:
+            if "<!-- HTML" not in initial_body:
                 openapi_body = augment_security(
                     doc=initial_body, security_schemes=self.security_schemes
                 )
