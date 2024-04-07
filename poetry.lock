@@ -458,17 +458,6 @@ files = [
 ]
 
 [[package]]
-name = "classify-imports"
-version = "4.2.0"
-description = "Utilities for refactoring imports in python-like syntax."
-optional = false
-python-versions = ">=3.7"
-files = [
-    {file = "classify_imports-4.2.0-py2.py3-none-any.whl", hash = "sha256:dbbc264b70a470ed8c6c95976a11dfb8b7f63df44ed1af87328bbed2663f5161"},
-    {file = "classify_imports-4.2.0.tar.gz", hash = "sha256:7abfb7ea92149b29d046bd34573d247ba6e68cc28100c801eba4af17964fc40e"},
-]
-
-[[package]]
 name = "click"
 version = "8.1.7"
 description = "Composable command line interface toolkit"
@@ -1637,13 +1626,13 @@ dev = ["Sphinx (==7.2.5)", "colorama (==0.4.5)", "colorama (==0.4.6)", "exceptio
 
 [[package]]
 name = "mangum"
-version = "0.14.1"
+version = "0.17.0"
 description = "AWS Lambda support for ASGI applications"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "mangum-0.14.1-py3-none-any.whl", hash = "sha256:cf941325c8dbbde861f7e71e456d581004283fada0c499df5a21eb71c7ff37dd"},
-    {file = "mangum-0.14.1.tar.gz", hash = "sha256:0909390363266d2d3c3794cd564901991b0ae23235b5a363c4265efd965a0af4"},
+    {file = "mangum-0.17.0-py3-none-any.whl", hash = "sha256:f00be705605bc4793958df62e4d249abf58d254c39d90bb410d069570206f4a2"},
+    {file = "mangum-0.17.0.tar.gz", hash = "sha256:5b4e26375e12eed051687670466d17968f8b74beecaca432edd4eb4127f78509"},
 ]
 
 [package.dependencies]
@@ -2370,13 +2359,13 @@ virtualenv = ">=20.10.0"
 
 [[package]]
 name = "pre-commit-hooks"
-version = "4.5.0"
+version = "4.6.0"
 description = "Some out-of-the-box hooks for pre-commit."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pre_commit_hooks-4.5.0-py2.py3-none-any.whl", hash = "sha256:b779d5c44ede9b1fda48e2d96b08e9aa5b1d2fdb8903ca09f0dbaca22d529edb"},
-    {file = "pre_commit_hooks-4.5.0.tar.gz", hash = "sha256:ffbe2af1c85ac9a7695866955680b4dee98822638b748a6f3debefad79748c8a"},
+    {file = "pre_commit_hooks-4.6.0-py2.py3-none-any.whl", hash = "sha256:a69199e6a2d45ec59c1020a81ca1549abddc2afb798276d9a0d951752d6abbfe"},
+    {file = "pre_commit_hooks-4.6.0.tar.gz", hash = "sha256:eb1f43ee67869cd41b4c59017fad4a0f9d4d61201d163f2135535aaf65035a2b"},
 ]
 
 [package.dependencies]
@@ -2831,17 +2820,17 @@ certifi = "*"
 
 [[package]]
 name = "pyrate-limiter"
-version = "2.10.0"
+version = "3.6.0"
 description = "Python Rate-Limiter using Leaky-Bucket Algorithm"
 optional = false
-python-versions = ">=3.7,<4.0"
+python-versions = ">=3.8,<4.0"
 files = [
-    {file = "pyrate_limiter-2.10.0-py3-none-any.whl", hash = "sha256:a99e52159f5ed5eb58118bed8c645e30818e7c0e0d127a0585c8277c776b0f7f"},
-    {file = "pyrate_limiter-2.10.0.tar.gz", hash = "sha256:98cc52cdbe058458e945ae87d4fd5a73186497ffa545ee6e98372f8599a5bd34"},
+    {file = "pyrate_limiter-3.6.0-py3-none-any.whl", hash = "sha256:715e9f08c6fe2a00d0cae5b1a6647d68ffeb2a54dc0cc2cff4e046b067ce6da4"},
+    {file = "pyrate_limiter-3.6.0.tar.gz", hash = "sha256:390f97066b322732e498c9e921fbdfd31d9ec0070a14e06da9af0efc62e091e4"},
 ]
 
 [package.extras]
-all = ["filelock (>=3.0)", "redis (>=3.3,<4.0)", "redis-py-cluster (>=2.1.3,<3.0.0)"]
+all = ["filelock (>=3.0)", "psycopg[pool] (>=3.1.18,<4.0.0)", "redis (>=5.0.0,<6.0.0)"]
 docs = ["furo (>=2022.3.4,<2023.0.0)", "myst-parser (>=0.17)", "sphinx (>=4.3.0,<5.0.0)", "sphinx-autodoc-typehints (>=1.17,<2.0)", "sphinx-copybutton (>=0.5)", "sphinxcontrib-apidoc (>=0.3,<0.4)"]
 
 [[package]]
@@ -3191,20 +3180,6 @@ files = [
 ]
 
 [[package]]
-name = "reorder-python-imports"
-version = "3.12.0"
-description = "Tool for reordering python imports"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "reorder_python_imports-3.12.0-py2.py3-none-any.whl", hash = "sha256:930c23a42192b365e20e191a4d304d93e645bd44c242d8bc64accc4a3b2b0f3d"},
-    {file = "reorder_python_imports-3.12.0.tar.gz", hash = "sha256:f93106a662b0c034ca81c91fd1c2f21a1e94ece47c9f192672e2a13c8ec1856c"},
-]
-
-[package.dependencies]
-classify-imports = ">=4.1"
-
-[[package]]
 name = "requests"
 version = "2.31.0"
 description = "Python HTTP for Humans."
@@ -3452,13 +3427,13 @@ setuptools = "*"
 
 [[package]]
 name = "schemathesis"
-version = "3.26.1"
+version = "3.26.2"
 description = "Property-based testing framework for Open API and GraphQL based apps"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "schemathesis-3.26.1-py3-none-any.whl", hash = "sha256:13261e4c22f41159ccdb432028f877e7fea5f601134ae6e7fbf4d6aaaadc00ec"},
-    {file = "schemathesis-3.26.1.tar.gz", hash = "sha256:352f4b05f8648d12e9819eb31e96c999293ce5be3de6184c4d7a8687f395321d"},
+    {file = "schemathesis-3.26.2-py3-none-any.whl", hash = "sha256:86fd348ee28ffaf0bb2c0c0ded96ef7717cea067f85df353afd7b5d185996510"},
+    {file = "schemathesis-3.26.2.tar.gz", hash = "sha256:4b9e5da29167ec9e02e61b8839a36d1b020e14780d9d3c645b2f9f8346f321c1"},
 ]
 
 [package.dependencies]
@@ -3472,7 +3447,7 @@ hypothesis-graphql = ">=0.11.0,<1"
 hypothesis-jsonschema = ">=0.23.1,<0.24"
 jsonschema = ">=4.18.0,<5.0"
 junit-xml = ">=1.9,<2.0"
-pyrate-limiter = ">=2.10,<3.0"
+pyrate-limiter = ">=2.10,<4.0"
 pytest = ">=4.6.4,<9"
 pytest-subtests = ">=0.2.1,<0.8.0"
 pyyaml = ">=5.1,<7.0"
@@ -4669,4 +4644,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "4d2fe8bfb569d7f04f28a030fd8fb0327089728b04b18ac71970a64a89e8e02c"
+content-hash = "808519f69d6bd0f74d07262c10c5efa95b91a53d5e4184aef559c20dc4128458"

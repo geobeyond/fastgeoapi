@@ -45,6 +45,10 @@ plugins:
   - termynal:
       prompt_literal_start:
         - "$"
+  - swagger-ui-tag:
+      docExpansion: none
+      filter: ""
+      syntaxHighlightTheme: monokai
 extra:
   social:
     - icon: fontawesome/brands/github-alt
