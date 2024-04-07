@@ -37,16 +37,12 @@ class OpenapiSecurityMiddleware:
             return await self.app(scope, receive, send)
         pygeoapi_path = scope["path"]
         pygeoapi_query_params = scope["query_string"].decode()
-        if (
-            pygeoapi_path not in routes_with_openapi
-            or pygeoapi_query_params == "f=html"
-        ):
+        if pygeoapi_path not in routes_with_openapi:
             return await self.app(scope, receive, send)
         else:
-            if pygeoapi_query_params in queryparams_with_openapi:
-                openapi_responder = OpenAPIResponder(self.app, self.security_schemes)
-                await openapi_responder(scope, receive, send)
-                return
+            openapi_responder = OpenAPIResponder(self.app, self.security_schemes)
+            await openapi_responder(scope, receive, send)
+            return
             await self.app(scope, receive, send)
 
 
@@ -79,21 +75,21 @@ class OpenAPIResponder:
             self.initial_message = message
             headers = Headers(raw=self.initial_message["headers"])
             headers_dict = dict(headers.items())
+            logger.debug(f"pygeoapi headers: {headers}")
             content_type = str(headers_dict.get("content-type"))
-            if "application/vnd.oai.openapi+json" not in content_type:
-                logger.error(f"Incosistent content-type: {content_type}")
-                raise ValueError(f"Wrong content-type: {content_type} for openapi path")
+            logger.info(f"Content-Type: {content_type}")
             self.headers.update(headers_dict)
         if message_type == "http.response.body":
             initial_body = message.get("body", b"").decode()
-            openapi_body = augment_security(
-                doc=initial_body, security_schemes=self.security_schemes
-            )
-            binary_body = openapi_body.model_dump_json(
-                by_alias=True, exclude_none=True, indent=2
-            ).encode()
-            headers = MutableHeaders(raw=self.initial_message["headers"])
-            headers["Content-Length"] = str(len(binary_body))
-            message["body"] = binary_body
+            if not "<!-- HTML" in initial_body:
+                openapi_body = augment_security(
+                    doc=initial_body, security_schemes=self.security_schemes
+                )
+                binary_body = openapi_body.model_dump_json(
+                    by_alias=True, exclude_none=True, indent=2
+                ).encode()
+                headers = MutableHeaders(raw=self.initial_message["headers"])
+                headers["Content-Length"] = str(len(binary_body))
+                message["body"] = binary_body
             await self.send(self.initial_message)
             await self.send(message)
