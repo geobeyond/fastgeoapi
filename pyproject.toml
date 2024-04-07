@@ -75,6 +75,7 @@ commitizen = "^3.6.0"
 fencer = { git = "https://github.com/francbartoli/fencer.git", branch = "feature/support-remote-schema" }
 openapi-resolver = "^0.0.6"
 schemathesis = "^3.25.6"
+mkdocs-typer = "^0.0.3"
 
 [tool.coverage.paths]
 source = [".", "*/site-packages"]

@@ -14,11 +14,7 @@
       "url": "https://creativecommons.org/licenses/by/4.0/"
     },
     "version": "0.16.dev0",
-    "x-keywords": [
-      "geospatial",
-      "data",
-      "api"
-    ]
+    "x-keywords": ["geospatial", "data", "api"]
   },
   "servers": [
     {
@@ -29,9 +25,7 @@
   "paths": {
     "/": {
       "get": {
-        "tags": [
-          "server"
-        ],
+        "tags": ["server"],
         "summary": "Landing page",
         "description": "Landing page",
         "operationId": "getLandingPage",
@@ -68,9 +62,7 @@
     },
     "/openapi": {
       "get": {
-        "tags": [
-          "server"
-        ],
+        "tags": ["server"],
         "summary": "This document",
         "description": "This document",
         "operationId": "getOpenapi",
@@ -88,10 +80,7 @@
             "style": "form",
             "explode": false,
             "schema": {
-              "enum": [
-                "swagger",
-                "redoc"
-              ],
+              "enum": ["swagger", "redoc"],
               "type": "string",
               "default": "swagger"
             },
@@ -126,9 +115,7 @@
     },
     "/conformance": {
       "get": {
-        "tags": [
-          "server"
-        ],
+        "tags": ["server"],
         "summary": "API conformance definition",
         "description": "API conformance definition",
         "operationId": "getConformanceDeclaration",
@@ -165,9 +152,7 @@
     },
     "/collections": {
       "get": {
-        "tags": [
-          "server"
-        ],
+        "tags": ["server"],
         "summary": "Collections",
         "description": "Collections",
         "operationId": "getCollections",
@@ -204,9 +189,7 @@
     },
     "/collections/obs": {
       "get": {
-        "tags": [
-          "obs"
-        ],
+        "tags": ["obs"],
         "summary": "Get Observations metadata",
         "description": "My cool observations",
         "operationId": "describeObsCollection",
@@ -246,9 +229,7 @@
     },
     "/collections/obs/items": {
       "get": {
-        "tags": [
-          "obs"
-        ],
+        "tags": ["obs"],
         "summary": "Get Observations items",
         "description": "My cool observations",
         "operationId": "getObsFeatures",
@@ -260,12 +241,7 @@
             "style": "form",
             "explode": false,
             "schema": {
-              "enum": [
-                "json",
-                "html",
-                "jsonld",
-                "csv"
-              ],
+              "enum": ["json", "html", "jsonld", "csv"],
               "type": "string",
               "default": "json"
             },
@@ -280,10 +256,7 @@
             "deprecated": false,
             "explode": false,
             "schema": {
-              "enum": [
-                "en-US",
-                "fr-CA"
-              ],
+              "enum": ["en-US", "fr-CA"],
               "type": "string",
               "default": "en-US"
             },
@@ -313,12 +286,7 @@
             "schema": {
               "type": "array",
               "items": {
-                "enum": [
-                  "id",
-                  "stn_id",
-                  "datetime",
-                  "value"
-                ],
+                "enum": ["id", "stn_id", "datetime", "value"],
                 "type": "string"
               }
             },
@@ -418,9 +386,7 @@
         ]
       },
       "options": {
-        "tags": [
-          "obs"
-        ],
+        "tags": ["obs"],
         "summary": "Options for Observations items",
         "description": "My cool observations",
         "operationId": "optionsObsFeatures",
@@ -446,9 +412,7 @@
     },
     "/collections/obs/schema": {
       "get": {
-        "tags": [
-          "obs"
-        ],
+        "tags": ["obs"],
         "summary": "Get Observations schema",
         "description": "My cool observations",
         "operationId": "getObsQueryables",
@@ -460,12 +424,7 @@
             "style": "form",
             "explode": false,
             "schema": {
-              "enum": [
-                "json",
-                "html",
-                "jsonld",
-                "csv"
-              ],
+              "enum": ["json", "html", "jsonld", "csv"],
               "type": "string",
               "default": "json"
             },
@@ -480,10 +439,7 @@
             "deprecated": false,
             "explode": false,
             "schema": {
-              "enum": [
-                "en-US",
-                "fr-CA"
-              ],
+              "enum": ["en-US", "fr-CA"],
               "type": "string",
               "default": "en-US"
             },
@@ -521,9 +477,7 @@
     },
     "/collections/obs/queryables": {
       "get": {
-        "tags": [
-          "obs"
-        ],
+        "tags": ["obs"],
         "summary": "Get Observations queryables",
         "description": "My cool observations",
         "operationId": "getObsQueryables",
@@ -535,12 +489,7 @@
             "style": "form",
             "explode": false,
             "schema": {
-              "enum": [
-                "json",
-                "html",
-                "jsonld",
-                "csv"
-              ],
+              "enum": ["json", "html", "jsonld", "csv"],
               "type": "string",
               "default": "json"
             },
@@ -555,10 +504,7 @@
             "deprecated": false,
             "explode": false,
             "schema": {
-              "enum": [
-                "en-US",
-                "fr-CA"
-              ],
+              "enum": ["en-US", "fr-CA"],
               "type": "string",
               "default": "en-US"
             },
@@ -596,9 +542,7 @@
     },
     "/collections/obs/items/{featureId}": {
       "get": {
-        "tags": [
-          "obs"
-        ],
+        "tags": ["obs"],
         "summary": "Get Observations item by id",
         "description": "My cool observations",
         "operationId": "getObsFeature",
@@ -642,9 +586,7 @@
         ]
       },
       "options": {
-        "tags": [
-          "obs"
-        ],
+        "tags": ["obs"],
         "summary": "Options for Observations item by id",
         "description": "My cool observations",
         "operationId": "optionsObsFeature",
@@ -675,9 +617,7 @@
     },
     "/collections/lakes": {
       "get": {
-        "tags": [
-          "lakes"
-        ],
+        "tags": ["lakes"],
         "summary": "Get Large Lakes metadata",
         "description": "lakes of the world, public domain",
         "operationId": "describeLakesCollection",
@@ -717,9 +657,7 @@
     },
     "/collections/lakes/items": {
       "get": {
-        "tags": [
-          "lakes"
-        ],
+        "tags": ["lakes"],
         "summary": "Get Large Lakes items",
         "description": "lakes of the world, public domain",
         "operationId": "getLakesFeatures",
@@ -731,12 +669,7 @@
             "style": "form",
             "explode": false,
             "schema": {
-              "enum": [
-                "json",
-                "html",
-                "jsonld",
-                "csv"
-              ],
+              "enum": ["json", "html", "jsonld", "csv"],
               "type": "string",
               "default": "json"
             },
@@ -751,10 +684,7 @@
             "deprecated": false,
             "explode": false,
             "schema": {
-              "enum": [
-                "en-US",
-                "fr-CA"
-              ],
+              "enum": ["en-US", "fr-CA"],
               "type": "string",
               "default": "en-US"
             },
@@ -917,9 +847,7 @@
         ]
       },
       "options": {
-        "tags": [
-          "lakes"
-        ],
+        "tags": ["lakes"],
         "summary": "Options for Large Lakes items",
         "description": "lakes of the world, public domain",
         "operationId": "optionsLakesFeatures",
@@ -945,9 +873,7 @@
     },
     "/collections/lakes/schema": {
       "get": {
-        "tags": [
-          "lakes"
-        ],
+        "tags": ["lakes"],
         "summary": "Get Large Lakes schema",
         "description": "lakes of the world, public domain",
         "operationId": "getLakesQueryables",
@@ -959,12 +885,7 @@
             "style": "form",
             "explode": false,
             "schema": {
-              "enum": [
-                "json",
-                "html",
-                "jsonld",
-                "csv"
-              ],
+              "enum": ["json", "html", "jsonld", "csv"],
               "type": "string",
               "default": "json"
             },
@@ -979,10 +900,7 @@
             "deprecated": false,
             "explode": false,
             "schema": {
-              "enum": [
-                "en-US",
-                "fr-CA"
-              ],
+              "enum": ["en-US", "fr-CA"],
               "type": "string",
               "default": "en-US"
             },
@@ -1020,9 +938,7 @@
     },
     "/collections/lakes/queryables": {
       "get": {
-        "tags": [
-          "lakes"
-        ],
+        "tags": ["lakes"],
         "summary": "Get Large Lakes queryables",
         "description": "lakes of the world, public domain",
         "operationId": "getLakesQueryables",
@@ -1034,12 +950,7 @@
             "style": "form",
             "explode": false,
             "schema": {
-              "enum": [
-                "json",
-                "html",
-                "jsonld",
-                "csv"
-              ],
+              "enum": ["json", "html", "jsonld", "csv"],
               "type": "string",
               "default": "json"
             },
@@ -1054,10 +965,7 @@
             "deprecated": false,
             "explode": false,
             "schema": {
-              "enum": [
-                "en-US",
-                "fr-CA"
-              ],
+              "enum": ["en-US", "fr-CA"],
               "type": "string",
               "default": "en-US"
             },
@@ -1095,9 +1003,7 @@
     },
     "/collections/lakes/items/{featureId}": {
       "get": {
-        "tags": [
-          "lakes"
-        ],
+        "tags": ["lakes"],
         "summary": "Get Large Lakes item by id",
         "description": "lakes of the world, public domain",
         "operationId": "getLakesFeature",
@@ -1141,9 +1047,7 @@
         ]
       },
       "options": {
-        "tags": [
-          "lakes"
-        ],
+        "tags": ["lakes"],
         "summary": "Options for Large Lakes item by id",
         "description": "lakes of the world, public domain",
         "operationId": "optionsLakesFeature",
@@ -1174,9 +1078,7 @@
     },
     "/processes": {
       "get": {
-        "tags": [
-          "server"
-        ],
+        "tags": ["server"],
         "summary": "Processes",
         "description": "Processes",
         "operationId": "getProcesses",
@@ -1207,9 +1109,7 @@
     },
     "/processes/hello-world": {
       "get": {
-        "tags": [
-          "hello-world"
-        ],
+        "tags": ["hello-world"],
         "summary": "Get process metadata",
         "description": "An example process that takes a name as input, and echoes it back as output. Intended to demonstrate a simple process with a single literal input.",
         "operationId": "describeHello-worldProcess",
@@ -1240,9 +1140,7 @@
     },
     "/processes/hello-world/execution": {
       "post": {
-        "tags": [
-          "hello-world"
-        ],
+        "tags": ["hello-world"],
         "summary": "Process Hello World execution",
         "description": "An example process that takes a name as input, and echoes it back as output. Intended to demonstrate a simple process with a single literal input.",
         "operationId": "executeHello-worldJob",
@@ -1294,9 +1192,7 @@
     },
     "/jobs": {
       "get": {
-        "tags": [
-          "jobs"
-        ],
+        "tags": ["jobs"],
         "summary": "Retrieve jobs list",
         "description": "Retrieve a list of jobs",
         "operationId": "getJobs",
@@ -1325,9 +1221,7 @@
     },
     "/jobs/{jobId}": {
       "get": {
-        "tags": [
-          "jobs"
-        ],
+        "tags": ["jobs"],
         "summary": "Retrieve job details",
         "description": "Retrieve job details",
         "operationId": "getJob",
@@ -1372,9 +1266,7 @@
         ]
       },
       "delete": {
-        "tags": [
-          "jobs"
-        ],
+        "tags": ["jobs"],
         "summary": "Cancel / delete job",
         "description": "Cancel / delete job",
         "operationId": "deleteJob",
@@ -1418,9 +1310,7 @@
     },
     "/jobs/{jobId}/results": {
       "get": {
-        "tags": [
-          "jobs"
-        ],
+        "tags": ["jobs"],
         "summary": "Retrieve job results",
         "description": "Retrive job resiults",
         "operationId": "getJobResults",
@@ -1469,10 +1359,7 @@
   "components": {
     "schemas": {
       "queryable": {
-        "required": [
-          "queryable",
-          "type"
-        ],
+        "required": ["queryable", "type"],
         "type": "object",
         "properties": {
           "queryable": {
@@ -1490,9 +1377,7 @@
           "language": {
             "type": "string",
             "description": "the language used for the title and description",
-            "default": [
-              "en"
-            ]
+            "default": ["en"]
           },
           "type": {
             "type": "string",
@@ -1506,9 +1391,7 @@
         }
       },
       "queryables": {
-        "required": [
-          "queryables"
-        ],
+        "required": ["queryables"],
         "type": "object",
         "properties": {
           "queryables": {
@@ -1556,11 +1439,7 @@
         "style": "form",
         "explode": false,
         "schema": {
-          "enum": [
-            "json",
-            "html",
-            "jsonld"
-          ],
+          "enum": ["json", "html", "jsonld"],
           "type": "string",
           "default": "json"
         },
@@ -1575,10 +1454,7 @@
         "deprecated": false,
         "explode": false,
         "schema": {
-          "enum": [
-            "en-US",
-            "fr-CA"
-          ],
+          "enum": ["en-US", "fr-CA"],
           "type": "string",
           "default": "en-US"
         },

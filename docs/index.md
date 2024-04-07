@@ -20,6 +20,10 @@ $ pip install fastgeoapi
 
 Please see the [Command-line Reference](usage.md) for details.
 
+## CLI interface
+
+This section provides documentation for our command line tools.
+
 ## Contributing
 
 Contributions are very welcome. To learn more, see the [Contributor
