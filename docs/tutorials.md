@@ -3,6 +3,7 @@
 ## Authentication and Authorization
 
 !!! tip "Familiarize with the topic"
+
     If you don't have prior experience with the topic, we recommend reading [Authentication and Authorization in Applications](https://www.permit.io/blog/authentication-vs-authorization), which is a really good introduction on the difference between Authentication and Authorization that helps you understand how they focus on two different purposes.
 
 This tutorial aims to guide the user to configure **fastgeoapi** with a mechanism that fits with your security requirements.
@@ -15,6 +16,7 @@ Supported security schemes are:
 - **OpenID Connect**: It looks like very similar to OAuth2 and in fact it is built on top of that. It allows to identify and authenticate a user in mobile and Single-Page Application (SPA).
 
 !!! note "OAuth2 vs OpenID Connect"
+
     It is beneficial to clarify that they serve two different purposes. [OAuth2](https://en.wikipedia.org/wiki/OAuth) is a framework for _Authorization_ while [OpenID Connect](https://openid.net/developers/how-connect-works/) is a protocol for _Authentication_. If you would like to develop further the concepts then [this]() is an appropriate read.
 
 ## Configure and protect pygeoapi
@@ -263,6 +265,7 @@ DEV_JWKS_ENABLED=true
 And configure a valid JWKS and Token endpoint for the authorization server:
 
 !!! Tip "Use OAuth2 playground"
+
     There are some playgrounds available which can be used for the sake of testing the workflow. Let's use the one from [Auth0 by Okta](https://openidconnect.net/).
 
 ```yml
