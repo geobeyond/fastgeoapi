@@ -74,6 +74,7 @@ markdown_extensions:
   - pymdownx.mark
   - attr_list
   - pymdownx.emoji
+  - mkdocs-typer
 
 copyright: |
   &copy; Copyright 2024 <a href="https://github.com/geobeyond">Geobeyond team</a>.
