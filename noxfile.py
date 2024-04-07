@@ -213,6 +213,8 @@ def docs_build(session: NoxPoetrySession) -> None:
         "mkdocs-material",
         "mkdocs-material-extras",
         "mkdocs-material-extensions",
+        "mkdocs-swagger-ui-tag",
+        "mkdocs-typer",
         "termynal",
     )
 
@@ -233,6 +235,8 @@ def docs(session: NoxPoetrySession) -> None:
         "mkdocs-material",
         "mkdocs-material-extras",
         "mkdocs-material-extensions",
+        "mkdocs-swagger-ui-tag",
+        "mkdocs-typer",
         "termynal",
     )
 

@@ -1896,6 +1896,21 @@ files = [
 beautifulsoup4 = ">=4.11.1"
 
 [[package]]
+name = "mkdocs-typer"
+version = "0.0.3"
+description = "An MkDocs extension to generate documentation for Typer command line applications"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "mkdocs_typer-0.0.3-py3-none-any.whl", hash = "sha256:b2a9a44da590a7100114fde4de9123fedfea692d229379984db20ee3b3f12d7c"},
+    {file = "mkdocs_typer-0.0.3.tar.gz", hash = "sha256:4dd37f024190a82aaf0f6c984faafb15167d34eab7e29a6a85e61362423a4eb7"},
+]
+
+[package.dependencies]
+markdown = "==3.*"
+typer = "==0.*"
+
+[[package]]
 name = "multidict"
 version = "6.0.5"
 description = "multidict implementation"
@@ -4644,4 +4659,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "808519f69d6bd0f74d07262c10c5efa95b91a53d5e4184aef559c20dc4128458"
+content-hash = "79ce145ae5aff2645da0d4b65f732237aee729b57294f14fb9df5da1a76d7aa5"
