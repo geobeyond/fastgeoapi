@@ -88,8 +88,30 @@ def create_app():  # noqa: C901
             os.environ["HOST"] = cfg.HOST
             os.environ["PORT"] = cfg.PORT
 
-            # import starlette application once env vars are set
+            # import pygeoapi starlette application once env vars are set
+            # and prepare the objects to override some core behavior
             from pygeoapi.starlette_app import APP as PYGEOAPI_APP
+            from pygeoapi.starlette_app import url_prefix
+            from starlette.applications import Starlette
+            from starlette.routing import Mount
+
+            from app.utils.pygeoapi_utils import patch_route
+
+            static_route = PYGEOAPI_APP.routes[0]
+            api_app = PYGEOAPI_APP.routes[1].app
+            api_routes = api_app.routes
+
+            patched_routes = ()
+            for api_route in api_routes:
+                api_route_ = patch_route(api_route)
+                patched_routes += (api_route_,)
+
+            patched_app = Starlette(
+                routes=[
+                    static_route,
+                    Mount(url_prefix or "/", routes=list(patched_routes)),
+                ]
+            )
 
             pygeoapi_conf = Path.cwd() / os.environ["PYGEOAPI_CONFIG"]
             pygeoapi_oapi = Path.cwd() / os.environ["PYGEOAPI_OPENAPI"]
@@ -125,7 +147,7 @@ def create_app():  # noqa: C901
             )
         from app.config.auth import auth_config
 
-        PYGEOAPI_APP.add_middleware(OPAMiddleware, config=auth_config)
+        patched_app.add_middleware(OPAMiddleware, config=auth_config)
 
         security_schemes = [
             SecurityScheme(
@@ -133,6 +155,7 @@ def create_app():  # noqa: C901
                 openIdConnectUrl=cfg.OIDC_WELL_KNOWN_ENDPOINT,
             )
         ]
+    # Add Oauth2Middleware to the pygeoapi app
     elif cfg.JWKS_ENABLED:
         if cfg.API_KEY_ENABLED or cfg.OPA_ENABLED:
             raise ValueError(
@@ -140,7 +163,7 @@ def create_app():  # noqa: C901
             )
         from app.config.auth import auth_config
 
-        PYGEOAPI_APP.add_middleware(Oauth2Middleware, config=auth_config)
+        patched_app.add_middleware(Oauth2Middleware, config=auth_config)
 
         security_schemes = [
             SecurityScheme(
@@ -156,6 +179,7 @@ def create_app():  # noqa: C901
                 type="http", name="pygeoapi", scheme="bearer", bearerFormat="JWT"
             ),
         ]
+    # Add AuthorizerMiddleware to the pygeoapi app
     elif cfg.API_KEY_ENABLED:
         if cfg.OPA_ENABLED:
             raise ValueError("OPA_ENABLED and API_KEY_ENABLED are mutually exclusive")
@@ -165,7 +189,7 @@ def create_app():  # noqa: C901
 
         os.environ["PYGEOAPI_KEY_GLOBAL"] = cfg.PYGEOAPI_KEY_GLOBAL
 
-        PYGEOAPI_APP.add_middleware(
+        patched_app.add_middleware(
             AuthorizerMiddleware,
             public_paths=[f"{cfg.FASTGEOAPI_CONTEXT}/openapi"],
             key_pattern="PYGEOAPI_KEY_",
@@ -176,11 +200,11 @@ def create_app():  # noqa: C901
         ]
 
     if security_schemes:
-        PYGEOAPI_APP.add_middleware(
+        patched_app.add_middleware(
             OpenapiSecurityMiddleware, security_schemes=security_schemes
         )
 
-    app.mount(path=cfg.FASTGEOAPI_CONTEXT, app=PYGEOAPI_APP)
+    app.mount(path=cfg.FASTGEOAPI_CONTEXT, app=patched_app)
 
     app.logger = create_logger(name="app.main")
 
