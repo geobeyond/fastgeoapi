@@ -9,5 +9,5 @@ schema = schemathesis.from_pytest_fixture("protected_apikey_schema")
 def test_api(case):
     """Test the API with API-KEY protection."""
     case.headers = {"X-API-KEY": "pygeoapi"}
-    response = case.call_asgi()
+    response = case.call()
     case.validate_response(response)
