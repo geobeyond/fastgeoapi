@@ -1,8 +1,8 @@
 """Starlette application override module."""
 
 import asyncio
+from typing import Any
 from typing import Callable
-from typing import Union
 
 from pygeoapi.starlette_app import api_ as geoapi
 from starlette.requests import Request
@@ -31,7 +31,7 @@ def call_api_threadsafe(
 async def get_response(
     api_call,
     *args,
-) -> Union[Response, JSONResponse, HTMLResponse]:
+) -> Any:
     """Creates a Starlette Response object and updates matching headers.
 
     Runs the core api handler in a separate thread in order to avoid
@@ -49,7 +49,7 @@ async def get_response(
 
     headers, status, content = result
     if headers["Content-Type"] == "text/html":
-        response = HTMLResponse(content=content, status_code=status)
+        response: Any = HTMLResponse(content=content, status_code=status)
     else:
         if isinstance(content, dict):
             response = JSONResponse(content, status_code=status)
