@@ -43,6 +43,6 @@ jobs:
           restore-keys: |
             mkdocs-material-
       - name: Install dependencies
-        run: pip install mkdocs mkdocs-material termynal
+        run: pip install mkdocs mkdocs-material mkdocs-typer termynal
       - name: Deploy and publish to GitHub Pages
         run: mkdocs gh-deploy --force
