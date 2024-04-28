@@ -20,3 +20,11 @@ class OAuth2Claim(pydantic.BaseModel):
     iss: str = pydantic.Field(...)
     aud: str = pydantic.Field(...)
     client_id: typing.Optional[str] = pydantic.Field(None)
+
+
+class TokenPayload(pydantic.BaseModel):
+    """Parse payload to token endpoint."""
+
+    grant_type: str = pydantic.Field(...)
+    resource: str = pydantic.Field(...)
+    scope: str = pydantic.Field(...)
