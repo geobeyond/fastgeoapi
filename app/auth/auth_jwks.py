@@ -15,6 +15,7 @@ from starlette.responses import RedirectResponse
 
 from app.auth.auth_interface import AuthInterface
 from app.auth.exceptions import Oauth2Error
+from app.auth.models import OAuth2Claim
 from app.config.logging import create_logger
 
 # from cachetools import cached
@@ -54,7 +55,9 @@ class JWKSAuthentication(AuthInterface):
         """Validate and decode JWT."""
         try:
             jwks = await self.get_jwks()
-            claims = JsonWebToken(["RS256"]).decode(
+            logger.debug(f"JSON Key Set: {jwks.as_json()}")
+            alg = jwks.as_dict()["keys"][0]["alg"]
+            claims = JsonWebToken([alg]).decode(
                 s=token,
                 key=jwks,
                 # claim_options={
@@ -62,6 +65,7 @@ class JWKSAuthentication(AuthInterface):
                 #     # "aud": {"essential": True, "values": [APP_CLIENT_ID]}
                 # }
             )
+            logger.debug(f"Decoded claims: {OAuth2Claim(**claims)}")
             if "client_id" in claims:
                 # Insert Cognito's `client_id` into `aud` claim if `aud` claim is unset
                 claims.setdefault("aud", claims["client_id"])
