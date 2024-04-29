@@ -103,9 +103,7 @@ class Oauth2Middleware:
         successful = False
         for auth in self.config.authentication:
             try:
-                user_info_or_auth_redirect = auth.authenticate(
-                    request, self.config.accepted_methods
-                )
+                user_info_or_auth_redirect = auth.authenticate(request)
                 if asyncio.iscoroutine(user_info_or_auth_redirect):
                     user_info_or_auth_redirect = await user_info_or_auth_redirect
                 logger.debug(
