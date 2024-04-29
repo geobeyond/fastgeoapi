@@ -82,13 +82,13 @@ class JWKSAuthentication(AuthInterface):
     async def authenticate(
         self,
         request: Request,
-        accepted_methods: typing.Optional[typing.List[str]] = ["access_token"],  # noqa
+        accepted_methods: typing.List[str] = ["access_token"],  # noqa
     ) -> typing.Union[RedirectResponse, typing.Dict]:
         """Authenticate the caller with the incoming request."""
         bearer = request.headers.get("Authorization")
         if not bearer:
             logger.exception("Unable to get a token")
-            raise Oauth2Error("Auth token not found")
+            raise Oauth2Error("Auth token not found in the incoming request")
         access_token = bearer.replace("Bearer ", "")
         try:
             claims = await self.decode_token(access_token)
