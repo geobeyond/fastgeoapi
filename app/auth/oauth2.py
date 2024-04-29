@@ -5,6 +5,7 @@ from abc import ABC
 from abc import abstractmethod
 from typing import List
 from typing import Optional
+from typing import Union
 
 from starlette.requests import Request
 
@@ -34,9 +35,9 @@ class Oauth2Provider:
 
     def __init__(
         self,
-        authentication: [AuthInterface, List[AuthInterface]],  # type:ignore
+        authentication: Union[AuthInterface, List[AuthInterface]],
         injectables: Optional[List[Injectable]] = None,
-        accepted_methods: Optional[List[str]] = [  # noqa B006
+        accepted_methods: List[str] = [  # noqa B006
             "id_token",
             "access_token",
         ],
@@ -46,7 +47,7 @@ class Oauth2Provider:
         PARAMETERS
         ----------
         authentication: [AuthInterface, List[AuthInterface]]
-            Authentication Implementations to be used for the
+            Authentication implementations to be used for the
             request authentication.
         injectables: List[Injectable], default=None
             List of injectables to be used to add information to the
