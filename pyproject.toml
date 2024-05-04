@@ -27,8 +27,8 @@ fastapi-opa = "^2.0.0"
 rasterio = "1.3.9"
 # pin pygeoapi before reverting pydantic to v1
 pygeoapi = { git = "https://github.com/francbartoli/pygeoapi.git", branch = "pydantic-v2" }
-uvicorn = { extras = ["standard"], version = "^0.25.0" }
-fastapi = { extras = ["all"], version = "^0.110" }
+uvicorn = { extras = ["standard"], version = "^0.29.0" }
+fastapi = { extras = ["all"], version = "^0.111" }
 typer = { extras = ["all"], version = "^0.12.0" }
 fastapi-key-auth = "^0.12.0"
 sqlalchemy = "^1.4.50"
