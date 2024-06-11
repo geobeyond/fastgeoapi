@@ -2630,13 +2630,13 @@ python-ulid = ["python-ulid (>=1,<2)", "python-ulid (>=1,<3)"]
 
 [[package]]
 name = "pydantic-settings"
-version = "2.3.1"
+version = "2.3.2"
 description = "Settings management using Pydantic"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pydantic_settings-2.3.1-py3-none-any.whl", hash = "sha256:acb2c213140dfff9669f4fe9f8180d43914f51626db28ab2db7308a576cce51a"},
-    {file = "pydantic_settings-2.3.1.tar.gz", hash = "sha256:e34bbd649803a6bb3e2f0f58fb0edff1f0c7f556849fda106cc21bcce12c30ab"},
+    {file = "pydantic_settings-2.3.2-py3-none-any.whl", hash = "sha256:ae06e44349e4c7bff8d57aff415dfd397ae75c217a098d54e9e6990ad7594ac7"},
+    {file = "pydantic_settings-2.3.2.tar.gz", hash = "sha256:05d33003c74c2cd585de97b59eb17b6ed67181bc8a3ce594d74b5d24e4df7323"},
 ]
 
 [package.dependencies]
@@ -2709,7 +2709,7 @@ unicodecsv = "*"
 type = "git"
 url = "https://github.com/francbartoli/pygeoapi.git"
 reference = "pydantic-v2"
-resolved_reference = "db8361337365a2ea32aa923bd6ce7fac6ae1e984"
+resolved_reference = "c37884a8090edc00a5bfd4beb9af7d61319cec1b"
 
 [[package]]
 name = "pygeofilter"
@@ -2729,7 +2729,7 @@ pygeoif = ">=1.0.0"
 backend-django = ["django"]
 backend-elasticsearch = ["elasticsearch", "elasticsearch-dsl"]
 backend-native = ["shapely"]
-backend-sqlalchemy = ["geoalchemy2", "sqlalchemy (<2.0.0)"]
+backend-sqlalchemy = ["geoalchemy2", "sqlalchemy"]
 fes = ["pygml (>=0.2)"]
 
 [package.source]
