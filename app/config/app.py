@@ -144,6 +144,9 @@ class ProdConfig(GlobalConfig):
     API_KEY_ENABLED: Optional[bool] = pydantic.Field(
         None, env="PROD_API_KEY_ENABLED"  # type: ignore
     )
+    JWKS_ENABLED: Optional[bool] = pydantic.Field(
+        None, env="PROD_JWKS_ENABLED"  # type: ignore
+    )
     OAUTH2_JWKS_ENDPOINT: Optional[str] = pydantic.Field(
         None, env="PROD_OAUTH2_JWKS_ENDPOINT"  # type: ignore
     )
