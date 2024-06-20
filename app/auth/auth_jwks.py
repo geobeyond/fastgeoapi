@@ -56,7 +56,20 @@ class JWKSAuthentication(AuthInterface):
         try:
             jwks = await self.get_jwks()
             logger.debug(f"JSON Key Set: {jwks.as_json()}")
-            alg = jwks.as_dict()["keys"][0]["alg"]
+            keys = jwks.as_dict()["keys"]
+            # Extract algs and remove None
+            algs = [
+                item for item in tuple(
+                    set([key.get("alg") for key in keys])
+                ) if item is not None
+            ]
+            if len(algs) > 1:
+                logger.error("Multiple algorithms are not supported")
+                raise Oauth2Error("Unable to decode the token with multiple algorithms")  # noqa
+            alg = algs[0]
+            if not alg:
+                raise Oauth2Error("Unable to decode the token with a missing algorithm")  # noqa
+            logger.debug(f"Algorithm used for decoding the token: {alg}")
             claims = JsonWebToken([alg]).decode(
                 s=token,
                 key=jwks,
@@ -70,12 +83,18 @@ class JWKSAuthentication(AuthInterface):
                 # Insert Cognito's `client_id` into `aud` claim if `aud` claim is unset
                 claims.setdefault("aud", claims["client_id"])
             claims.validate()
+        except KeyError:
+            logger.error("Unable to find an algorithm in the key")
+            raise Oauth2Error("Unable to decode the token with a missing algorithm")  # noqa
         except errors.ExpiredTokenError:
             logger.error("Unable to validate an expired token")
             raise Oauth2Error("Unable to validate an expired token")  # noqa
         except errors.JoseError:
             logger.error("Unable to decode token")
             raise Oauth2Error("Unable to decode token")  # noqa
+        except Exception as e:
+            logger.error(f"Generic decode exception: f{e}")
+            raise e
 
         return claims
 
