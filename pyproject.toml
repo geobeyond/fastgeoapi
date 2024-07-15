@@ -22,7 +22,7 @@ Changelog = "https://github.com/geobeyond/fastgeoapi/releases"
 python = ">=3.9,<4.0"
 mangum = "^0.17.0"
 loguru = "^0.7.2"
-fastapi-opa = "^1.4.8"
+fastapi-opa = "^2.0.1"
 # fix https://github.com/rasterio/rasterio/issues/2333
 rasterio = "1.3.9"
 # pin pygeoapi before reverting pydantic to v1
