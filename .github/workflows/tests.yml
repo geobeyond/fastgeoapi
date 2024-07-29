@@ -16,9 +16,7 @@ jobs:
           - { python: "3.10", os: "ubuntu-20.04", session: "safety" }
           - { python: "3.10", os: "ubuntu-20.04", session: "bandit" }
           - { python: "3.10", os: "ubuntu-20.04", session: "mypy" }
-          - { python: "3.9", os: "ubuntu-20.04", session: "mypy" }
           - { python: "3.10", os: "ubuntu-20.04", session: "tests" }
-          - { python: "3.9", os: "ubuntu-20.04", session: "tests" }
           # - { python: "3.10", os: "windows-latest", session: "tests" }
           # - { python: "3.10", os: "macos-latest", session: "tests" }
           - { python: "3.10", os: "ubuntu-20.04", session: "typeguard" }

@@ -35,7 +35,7 @@ Tracker](https://github.com/geobeyond/fastgeoapi/issues).
 
 ## How to set up your development environment
 
-You need Python 3.9+ and the following tools:
+You need Python 3.10+ and the following tools:
 
 - [Poetry](https://python-poetry.org/)
 - [Nox](https://nox.thea.codes/)

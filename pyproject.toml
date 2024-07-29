@@ -19,7 +19,7 @@ packages = [
 Changelog = "https://github.com/geobeyond/fastgeoapi/releases"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<4.0"
+python = ">=3.10,<4.0"
 mangum = "^0.17.0"
 loguru = "^0.7.2"
 fastapi-opa = "^2.0.0"
