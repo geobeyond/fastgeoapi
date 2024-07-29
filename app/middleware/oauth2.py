@@ -105,7 +105,7 @@ class Oauth2Middleware:
             try:
                 user_info_or_auth_redirect = auth.authenticate(request)
                 if asyncio.iscoroutine(user_info_or_auth_redirect):
-                    user_info_or_auth_redirect = await user_info_or_auth_redirect
+                    user_info_or_auth_redirect = await user_info_or_auth_redirect   # type:ignore
                 logger.debug(
                     f"user info taken from jwt is: {user_info_or_auth_redirect}"
                 )
