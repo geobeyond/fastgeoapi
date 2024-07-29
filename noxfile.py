@@ -128,6 +128,8 @@ def safety(session: NoxPoetrySession) -> None:
         "51668",
         "-i",
         "61493",
+        "-i",
+        "70612",
         "--full-report",
         f"--file={requirements}",
     )
