@@ -28,7 +28,7 @@ jobs:
           pipx install --pip-args=--constraint=$GITHUB_WORKSPACE/.github/workflows/constraints.txt poetry
           poetry --version
 
-      - name: Install fastgeoapi CLI
+      - name: Create OpenAPI with fastgeoapi CLI
         run: |
           poetry install
           poetry run fastgeoapi openapi
@@ -67,7 +67,7 @@ jobs:
           pipx install --pip-args=--constraint=$GITHUB_WORKSPACE/.github/workflows/constraints.txt poetry
           poetry --version
 
-      - name: Install fastgeoapi CLI
+      - name: Create OpenAPI with fastgeoapi CLI
         run: |
           poetry install
           poetry run fastgeoapi openapi
