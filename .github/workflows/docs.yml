@@ -32,7 +32,7 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
       - name: Setup Python
-        uses: actions/setup-python@v5.1.1
+        uses: actions/setup-python@v5.2.0
         with:
           python-version: 3.*
       - run: echo "cache_id=$(date --utc '+%V')" >> $GITHUB_ENV
