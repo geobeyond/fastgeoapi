@@ -20,7 +20,7 @@ Changelog = "https://github.com/geobeyond/fastgeoapi/releases"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
-mangum = "^0.17.0"
+mangum = "^0.18.0"
 loguru = "^0.7.2"
 fastapi-opa = "^1.4.8"
 # fix https://github.com/rasterio/rasterio/issues/2333
