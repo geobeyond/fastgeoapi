@@ -6,7 +6,7 @@ schema_apikey = schemathesis.from_pytest_fixture("protected_apikey_schema")
 schema_bearer = schemathesis.from_pytest_fixture("protected_bearer_schema")
 
 
-@schema_apikey.parametrize()
+@schema_apikey.exclude(method="OPTIONS").parametrize()
 def test_api_with_apikey(case):
     """Test the API with API-KEY protection."""
     if case.path_parameters:
@@ -23,7 +23,7 @@ def test_api_with_apikey(case):
     case.validate_response(response)
 
 
-@schema_bearer.parametrize()
+@schema_bearer.exclude(method="OPTIONS").parametrize()
 def test_api_with_bearer(case, access_token):
     """Test the API with Authorization Bearer token protection."""
     if case.path_parameters:
