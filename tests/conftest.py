@@ -95,7 +95,10 @@ def protected_bearer_schema(create_protected_with_bearer_app):
 
 def get_access_token():
     """Fetch an access token."""
-    with Client(base_url=cfg.OAUTH2_TOKEN_ENDPOINT) as client:
+    with Client(
+        base_url=cfg.OAUTH2_TOKEN_ENDPOINT,
+        timeout=30,
+    ) as client:
         response = client.post(
             "/",
             headers={
