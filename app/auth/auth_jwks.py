@@ -44,7 +44,7 @@ class JWKSAuthentication(AuthInterface):
         """Get cached or new JWKS."""
         url = self.config.jwks_uri
         logger.info(f"Fetching JSON Web Key Set from {url}")
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30) as client:
             response = await client.get(url)
             return JsonWebKey.import_key_set(response.json())
 
