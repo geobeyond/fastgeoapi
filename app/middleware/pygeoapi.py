@@ -90,5 +90,6 @@ class OpenAPIResponder:
                 headers = MutableHeaders(raw=self.initial_message["headers"])
                 headers["Content-Length"] = str(len(binary_body))
                 message["body"] = binary_body
+                self.initial_message["body"] = binary_body
             await self.send(self.initial_message)
             await self.send(message)
