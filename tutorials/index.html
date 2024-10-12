@@ -1,0 +1,432 @@
+
+<!DOCTYPE html>
+
+<html class="no-js" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<link href="../openapi/" rel="prev"/>
+<link href="../assets/images/favicon.png" rel="icon"/>
+<meta content="mkdocs-1.6.1, mkdocs-material-9.5.40" name="generator"/>
+<title>Tutorials - fastgeoapi</title>
+<link href="../assets/stylesheets/main.8c3ca2c6.min.css" rel="stylesheet"/>
+<link href="../assets/stylesheets/palette.06af60db.min.css" rel="stylesheet"/>
+<style>:root{--md-admonition-icon--note:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M1 7.775V2.75C1 1.784 1.784 1 2.75 1h5.025c.464 0 .91.184 1.238.513l6.25 6.25a1.75 1.75 0 0 1 0 2.474l-5.026 5.026a1.75 1.75 0 0 1-2.474 0l-6.25-6.25A1.75 1.75 0 0 1 1 7.775m1.5 0c0 .066.026.13.073.177l6.25 6.25a.25.25 0 0 0 .354 0l5.025-5.025a.25.25 0 0 0 0-.354l-6.25-6.25a.25.25 0 0 0-.177-.073H2.75a.25.25 0 0 0-.25.25ZM6 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/></svg>');--md-admonition-icon--abstract:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M2.5 1.75v11.5c0 .138.112.25.25.25h3.17a.75.75 0 0 1 0 1.5H2.75A1.75 1.75 0 0 1 1 13.25V1.75C1 .784 1.784 0 2.75 0h8.5C12.216 0 13 .784 13 1.75v7.736a.75.75 0 0 1-1.5 0V1.75a.25.25 0 0 0-.25-.25h-8.5a.25.25 0 0 0-.25.25m13.274 9.537zl-4.557 4.45a.75.75 0 0 1-1.055-.008l-1.943-1.95a.75.75 0 0 1 1.062-1.058l1.419 1.425 4.026-3.932a.75.75 0 1 1 1.048 1.074M4.75 4h4.5a.75.75 0 0 1 0 1.5h-4.5a.75.75 0 0 1 0-1.5M4 7.75A.75.75 0 0 1 4.75 7h2a.75.75 0 0 1 0 1.5h-2A.75.75 0 0 1 4 7.75"/></svg>');--md-admonition-icon--info:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13M6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75M8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2"/></svg>');--md-admonition-icon--tip:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M3.499.75a.75.75 0 0 1 1.5 0v.996C5.9 2.903 6.793 3.65 7.662 4.376l.24.202c-.036-.694.055-1.422.426-2.163C9.1.873 10.794-.045 12.622.26 14.408.558 16 1.94 16 4.25c0 1.278-.954 2.575-2.44 2.734l.146.508.065.22c.203.701.412 1.455.476 2.226.142 1.707-.4 3.03-1.487 3.898C11.714 14.671 10.27 15 8.75 15h-6a.75.75 0 0 1 0-1.5h1.376a4.5 4.5 0 0 1-.563-1.191 3.84 3.84 0 0 1-.05-2.063 4.65 4.65 0 0 1-2.025-.293.75.75 0 0 1 .525-1.406c1.357.507 2.376-.006 2.698-.318l.009-.01a.747.747 0 0 1 1.06 0 .75.75 0 0 1-.012 1.074c-.912.92-.992 1.835-.768 2.586.221.74.745 1.337 1.196 1.621H8.75c1.343 0 2.398-.296 3.074-.836.635-.507 1.036-1.31.928-2.602-.05-.603-.216-1.224-.422-1.93l-.064-.221c-.12-.407-.246-.84-.353-1.29a2.4 2.4 0 0 1-.507-.441 3.1 3.1 0 0 1-.633-1.248.75.75 0 0 1 1.455-.364c.046.185.144.436.31.627.146.168.353.305.712.305.738 0 1.25-.615 1.25-1.25 0-1.47-.95-2.315-2.123-2.51-1.172-.196-2.227.387-2.706 1.345-.46.92-.27 1.774.019 3.062l.042.19.01.05c.348.443.666.949.94 1.553a.75.75 0 1 1-1.365.62c-.553-1.217-1.32-1.94-2.3-2.768L6.7 5.527c-.814-.68-1.75-1.462-2.692-2.619a3.7 3.7 0 0 0-1.023.88c-.406.495-.663 1.036-.722 1.508.116.122.306.21.591.239.388.038.797-.06 1.032-.19a.75.75 0 0 1 .728 1.31c-.515.287-1.23.439-1.906.373-.682-.067-1.473-.38-1.879-1.193L.75 5.677V5.5c0-.984.48-1.94 1.077-2.664.46-.559 1.05-1.055 1.673-1.353z"/></svg>');--md-admonition-icon--success:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 .018-1.042.75.75 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0"/></svg>');--md-admonition-icon--question:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13M6.92 6.085h.001a.749.749 0 1 1-1.342-.67c.169-.339.436-.701.849-.977C6.845 4.16 7.369 4 8 4a2.76 2.76 0 0 1 1.637.525c.503.377.863.965.863 1.725 0 .448-.115.83-.329 1.15-.205.307-.47.513-.692.662-.109.072-.22.138-.313.195l-.006.004a6 6 0 0 0-.26.16 1 1 0 0 0-.276.245.75.75 0 0 1-1.248-.832c.184-.264.42-.489.692-.661q.154-.1.313-.195l.007-.004c.1-.061.182-.11.258-.161a1 1 0 0 0 .277-.245C8.96 6.514 9 6.427 9 6.25a.61.61 0 0 0-.262-.525A1.27 1.27 0 0 0 8 5.5c-.369 0-.595.09-.74.187a1 1 0 0 0-.34.398M9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/></svg>');--md-admonition-icon--warning:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0M9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/></svg>');--md-admonition-icon--failure:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M2.344 2.343za8 8 0 0 1 11.314 11.314A8.002 8.002 0 0 1 .234 10.089a8 8 0 0 1 2.11-7.746m1.06 10.253a6.5 6.5 0 1 0 9.108-9.275 6.5 6.5 0 0 0-9.108 9.275M6.03 4.97 8 6.94l1.97-1.97a.749.749 0 0 1 1.275.326.75.75 0 0 1-.215.734L9.06 8l1.97 1.97a.749.749 0 0 1-.326 1.275.75.75 0 0 1-.734-.215L8 9.06l-1.97 1.97a.749.749 0 0 1-1.275-.326.75.75 0 0 1 .215-.734L6.94 8 4.97 6.03a.75.75 0 0 1 .018-1.042.75.75 0 0 1 1.042-.018"/></svg>');--md-admonition-icon--danger:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M9.504.43a1.516 1.516 0 0 1 2.437 1.713L10.415 5.5h2.123c1.57 0 2.346 1.909 1.22 3.004l-7.34 7.142a1.25 1.25 0 0 1-.871.354h-.302a1.25 1.25 0 0 1-1.157-1.723L5.633 10.5H3.462c-1.57 0-2.346-1.909-1.22-3.004zm1.047 1.074L3.286 8.571A.25.25 0 0 0 3.462 9H6.75a.75.75 0 0 1 .694 1.034l-1.713 4.188 6.982-6.793A.25.25 0 0 0 12.538 7H9.25a.75.75 0 0 1-.683-1.06l2.008-4.418.003-.006-.004-.009-.006-.006-.008-.001q-.005 0-.009.004"/></svg>');--md-admonition-icon--bug:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M4.72.22a.75.75 0 0 1 1.06 0l1 .999a3.5 3.5 0 0 1 2.441 0l.999-1a.748.748 0 0 1 1.265.332.75.75 0 0 1-.205.729l-.775.776c.616.63.995 1.493.995 2.444v.327q0 .15-.025.292c.408.14.764.392 1.029.722l1.968-.787a.75.75 0 0 1 .556 1.392L13 7.258V9h2.25a.75.75 0 0 1 0 1.5H13v.5q-.002.615-.141 1.186l2.17.868a.75.75 0 0 1-.557 1.392l-2.184-.873A5 5 0 0 1 8 16a5 5 0 0 1-4.288-2.427l-2.183.873a.75.75 0 0 1-.558-1.392l2.17-.868A5 5 0 0 1 3 11v-.5H.75a.75.75 0 0 1 0-1.5H3V7.258L.971 6.446a.75.75 0 0 1 .558-1.392l1.967.787c.265-.33.62-.583 1.03-.722a1.7 1.7 0 0 1-.026-.292V4.5c0-.951.38-1.814.995-2.444L4.72 1.28a.75.75 0 0 1 0-1.06m.53 6.28a.75.75 0 0 0-.75.75V11a3.5 3.5 0 1 0 7 0V7.25a.75.75 0 0 0-.75-.75ZM6.173 5h3.654A.17.17 0 0 0 10 4.827V4.5a2 2 0 1 0-4 0v.327c0 .096.077.173.173.173"/></svg>');--md-admonition-icon--example:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M5 5.782V2.5h-.25a.75.75 0 0 1 0-1.5h6.5a.75.75 0 0 1 0 1.5H11v3.282l3.666 5.76C15.619 13.04 14.543 15 12.767 15H3.233c-1.776 0-2.852-1.96-1.899-3.458Zm-2.4 6.565a.75.75 0 0 0 .633 1.153h9.534a.75.75 0 0 0 .633-1.153L12.225 10.5h-8.45ZM9.5 2.5h-3V6c0 .143-.04.283-.117.403L4.73 9h6.54L9.617 6.403A.75.75 0 0 1 9.5 6Z"/></svg>');--md-admonition-icon--quote:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M1.75 2.5h10.5a.75.75 0 0 1 0 1.5H1.75a.75.75 0 0 1 0-1.5m4 5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5m0 5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5M2.5 7.75v6a.75.75 0 0 1-1.5 0v-6a.75.75 0 0 1 1.5 0"/></svg>');}</style>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&amp;display=fallback" rel="stylesheet"/>
+<style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+<link href="../termynal.css" rel="stylesheet"/>
+<script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+</head>
+<body data-md-color-accent="red" data-md-color-primary="green" data-md-color-scheme="default" dir="ltr">
+<input autocomplete="off" class="md-toggle" data-md-toggle="drawer" id="__drawer" type="checkbox"/>
+<input autocomplete="off" class="md-toggle" data-md-toggle="search" id="__search" type="checkbox"/>
+<label class="md-overlay" for="__drawer"></label>
+<div data-md-component="skip">
+<a class="md-skip" href="#tutorials">
+          Skip to content
+        </a>
+</div>
+<div data-md-component="announce">
+</div>
+<header class="md-header" data-md-component="header">
+<nav aria-label="Header" class="md-header__inner md-grid">
+<a aria-label="fastgeoapi" class="md-header__button md-logo" data-md-component="logo" href=".." title="fastgeoapi">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"></path></svg>
+</a>
+<label class="md-header__button md-icon" for="__drawer">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg>
+</label>
+<div class="md-header__title" data-md-component="header-title">
+<div class="md-header__ellipsis">
+<div class="md-header__topic">
+<span class="md-ellipsis">
+            fastgeoapi
+          </span>
+</div>
+<div class="md-header__topic" data-md-component="header-topic">
+<span class="md-ellipsis">
+            
+              Tutorials
+            
+          </span>
+</div>
+</div>
+</div>
+<form class="md-header__option" data-md-component="palette">
+<input aria-label="Switch to Dark Mode" class="md-option" data-md-color-accent="red" data-md-color-media="" data-md-color-primary="green" data-md-color-scheme="default" id="__palette_0" name="__palette" type="radio"/>
+<label class="md-header__button md-icon" for="__palette_1" hidden="" title="Switch to Dark Mode">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"></path></svg>
+</label>
+<input aria-label="Switch to Light Mode" class="md-option" data-md-color-accent="blue-grey" data-md-color-media="" data-md-color-primary="green" data-md-color-scheme="slate" id="__palette_1" name="__palette" type="radio"/>
+<label class="md-header__button md-icon" for="__palette_0" hidden="" title="Switch to Light Mode">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"></path></svg>
+</label>
+</form>
+<script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+</nav>
+</header>
+<div class="md-container" data-md-component="container">
+<nav aria-label="Tabs" class="md-tabs" data-md-component="tabs">
+<div class="md-grid">
+<ul class="md-tabs__list">
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="..">
+        
+  
+    
+  
+  fastgeoapi
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../getting-started/">
+        
+  
+    
+  
+  Getting started
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../howto-guides/">
+        
+  
+    
+  
+  How-to Guides
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../openapi/">
+        
+  
+    
+  
+  Openapi
+
+      </a>
+</li>
+<li class="md-tabs__item md-tabs__item--active">
+<a class="md-tabs__link" href="./">
+        
+  
+    
+  
+  Tutorials
+
+      </a>
+</li>
+</ul>
+</div>
+</nav>
+<main class="md-main" data-md-component="main">
+<div class="md-main__inner md-grid">
+<div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Navigation" class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" data-md-level="0">
+<label class="md-nav__title" for="__drawer">
+<a aria-label="fastgeoapi" class="md-nav__button md-logo" data-md-component="logo" href=".." title="fastgeoapi">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"></path></svg>
+</a>
+    fastgeoapi
+  </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="..">
+<span class="md-ellipsis">
+    fastgeoapi
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../getting-started/">
+<span class="md-ellipsis">
+    Getting started
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../howto-guides/">
+<span class="md-ellipsis">
+    How-to Guides
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../openapi/">
+<span class="md-ellipsis">
+    Openapi
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--active">
+<input class="md-nav__toggle md-toggle" id="__toc" type="checkbox"/>
+<label class="md-nav__link md-nav__link--active" for="__toc">
+<span class="md-ellipsis">
+    Tutorials
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<a class="md-nav__link md-nav__link--active" href="./">
+<span class="md-ellipsis">
+    Tutorials
+  </span>
+</a>
+<nav aria-label="Table of contents" class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">
+<span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#authentication-and-authorization">
+<span class="md-ellipsis">
+      Authentication and Authorization
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#configure-and-protect-pygeoapi">
+<span class="md-ellipsis">
+      Configure and protect pygeoapi
+    </span>
+</a>
+<nav aria-label="Configure and protect pygeoapi" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#api-key">
+<span class="md-ellipsis">
+      API KEY
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#oauth2">
+<span class="md-ellipsis">
+      OAuth2
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#openid-connect">
+<span class="md-ellipsis">
+      OpenID Connect
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#configure-a-coarse-or-fine-grained-authorization">
+<span class="md-ellipsis">
+      Configure a coarse or fine-grained authorization
+    </span>
+</a>
+<nav aria-label="Configure a coarse or fine-grained authorization" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#policies-as-code">
+<span class="md-ellipsis">
+      Policies as code
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-content" data-md-component="content">
+<article class="md-content__inner md-typeset">
+<h1 id="tutorials">Tutorials</h1>
+<h2 id="authentication-and-authorization">Authentication and Authorization</h2>
+<div class="admonition tip">
+<p class="admonition-title">Familiarize with the topic</p>
+<p>If you don't have prior experience with the topic, we recommend reading <a href="https://www.permit.io/blog/authentication-vs-authorization">Authentication and Authorization in Applications</a>, which is a really good introduction on the difference between Authentication and Authorization that helps you understand how they focus on two different purposes.</p>
+</div>
+<p>This tutorial aims to guide the user to configure <strong>fastgeoapi</strong> with a mechanism that fits with your security requirements.
+The tool supports different security schemes for <a href="https://ogcapi.ogc.org/">OGC APIs</a> served by <a href="https://pygeoapi.io">pygeoapi</a> and allows optionally to enable a coarse or fine-grade authorization for a <em>collection</em> and the endpoints based on user needs and use cases.</p>
+<p>Supported security schemes are:</p>
+<ul>
+<li><strong>API KEY</strong>: mostly used for machine to machine communication where a static shared secret can be kept secured or for internal interactions among microservices;</li>
+<li><strong>OAuth2</strong>: commonly used for authorization to accessing resources between two systems and also for stronger machine to machine communication with external parties when a secret needs to be rotated;</li>
+<li><strong>OpenID Connect</strong>: It looks like very similar to OAuth2 and in fact it is built on top of that. It allows to identify and authenticate a user in mobile and Single-Page Application (SPA).</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">OAuth2 vs OpenID Connect</p>
+<p>It is beneficial to clarify that they serve two different purposes. <a href="https://en.wikipedia.org/wiki/OAuth">OAuth2</a> is a framework for <em>Authorization</em> while <a href="https://openid.net/developers/how-connect-works/">OpenID Connect</a> is a protocol for <em>Authentication</em>. If you would like to develop further the concepts then <a href="">this</a> is an appropriate read.</p>
+</div>
+<h2 id="configure-and-protect-pygeoapi">Configure and protect pygeoapi</h2>
+<p>The protection mechanisms introduced above are mutually exclusive and they apply to the whole <code>pygeoapi</code> application that is wrapped by <em>fastgeoapi</em>.
+The configuration happens in the <code>.env</code> file where the environment variables for development and production are defined. As explained in the <a href="../getting-started/">getting-started</a> section their prefix identifies the target environment (i.e. <code>DEV_</code> vs <code>PROD_</code>). Let's go through the different mechanisms.</p>
+<p>Please make sure to have cloned the <a href="https://github.com/geobeyond/fastgeoapi">repo</a> before starting the following sections.
+Also, it is supposed to having set the environment for development with <code>ENV_STATE=dev</code> in the <code>.env</code> file.</p>
+<h3 id="api-key">API KEY</h3>
+<p>The security configuration, in this case, can be enabled with these two additional settings:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a># api-keys
+</span><span id="__span-0-2"><a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>DEV_API_KEY_ENABLED=false
+</span><span id="__span-0-3"><a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>DEV_PYGEOAPI_KEY_GLOBAL=pygeoapi
+</span></code></pre></div>
+<p>Setting <code>DEV_API_KEY_ENABLE</code> to <code>true</code> is the way to enable a flat protection to the whole <code>pygeoapi</code> sub-application. The value sets in the <code>DEV_PYGEOAPI_KEY_GLOBAL</code> is the secret key that must be used in the Header <code>X-API-KEY</code> to consume the API.</p>
+<p>Start the server with the usual command:</p>
+<div class="termy" data-termynal="" data-ty-macos="" data-ty-title="bash"><span data-ty="input" data-ty-prompt="$">uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload --loop asyncio</span><span data-ty="">...<br/>File "&lt;frozen importlib._bootstrap&gt;", line 1204, in _gcd_import<br/>File "&lt;frozen importlib._bootstrap&gt;", line 1176, in _find_and_load<br/>File "&lt;frozen importlib._bootstrap&gt;", line 1147, in _find_and_load_unlocked<br/>File "&lt;frozen importlib._bootstrap&gt;", line 690, in _load_unlocked<br/>File "&lt;frozen importlib._bootstrap_external&gt;", line 940, in exec_module<br/>File "&lt;frozen importlib._bootstrap&gt;", line 241, in _call_with_frames_removed<br/>File "/Users/francbartoli/code/fastgeoapi/app/main.py", line 188, in &lt;module&gt;<br/>  app = create_app()<br/>        ^^^^^^^^^^^^<br/>File "/Users/francbartoli/code/fastgeoapi/app/main.py", line 138, in create_app<br/>  raise ValueError(<br/>ValueError: OPA_ENABLED, JWKS_ENABLED and API_KEY_ENABLED are mutually exclusive<br/></span></div>
+<p>This error is expected since more security schemes at the same time are enabled. Change their value accordingly:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a href="#__codelineno-1-1" id="__codelineno-1-1" name="__codelineno-1-1"></a>DEV_API_KEY_ENABLED=true
+</span><span id="__span-1-2"><a href="#__codelineno-1-2" id="__codelineno-1-2" name="__codelineno-1-2"></a>DEV_OPA_ENABLED=false
+</span><span id="__span-1-3"><a href="#__codelineno-1-3" id="__codelineno-1-3" name="__codelineno-1-3"></a>DEV_JWKS_ENABLED=false
+</span></code></pre></div>
+<p>and then start again the server:</p>
+<div class="termy" data-termynal="" data-ty-macos="" data-ty-title="bash"><span data-ty="input" data-ty-prompt="$">uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload --loop asyncio</span><span data-ty="">...<br/>2024-02-26 12:46:25.447 | DEBUG    | app.main:&lt;module&gt;:190 [id:None] - Global config: DevConfig(ENV_STATE='dev', HOST='0.0.0.0', PORT='5000', ROOT_PATH='', AWS_LAMBDA_DEPLOY=False, LOG_PATH='/tmp', LOG_FILENAME='fastgeoapi.log', LOG_LEVEL='debug', LOG_ENQUEUE=True, LOG_ROTATION='1 days', LOG_RETENTION='1 months', LOG_FORMAT='&lt;green&gt;{time:YYYY-MM-DD HH:mm:ss.SSS}&lt;/green&gt; | &lt;level&gt;{level: &lt;8}&lt;/level&gt; | &lt;cyan&gt;{name}&lt;/cyan&gt;:&lt;cyan&gt;{function}&lt;/cyan&gt;:&lt;cyan&gt;{line}&lt;/cyan&gt; [id:{extra[request_id]}] - &lt;level&gt;{message}&lt;/level&gt;', OPA_ENABLED=False, OPA_URL='http://localhost:8383', APP_URI='http://localhost:5000', OIDC_WELL_KNOWN_ENDPOINT='http://localhost:8282/realms/pygeoapi/.well-known/openid-configuration', OIDC_CLIENT_ID='pygeoapi-client', OIDC_CLIENT_SECRET='2yholx8r3mqyUJaOoJiZhcqvQDQwmgyD', API_KEY_ENABLED=True, JWKS_ENABLED=False, OAUTH2_JWKS_ENDPOINT='https://uat.interop.pagopa.it/.well-known/jwks.json', OAUTH2_TOKEN_ENDPOINT='https://auth.uat.interop.pagopa.it/token.oauth2', PYGEOAPI_KEY_GLOBAL='pygeoapi', PYGEOAPI_BASEURL='http://localhost:5000', PYGEOAPI_CONFIG='pygeoapi-config.yml', PYGEOAPI_OPENAPI='pygeoapi-openapi.yml', PYGEOAPI_SECURITY_SCHEME='http', FASTGEOAPI_CONTEXT='/geoapi')<br/>2024-02-26 12:46:25.448 | INFO     | logging:callHandlers:1706 [id:app] - Started server process [171]<br/>2024-02-26 12:46:25.448 | INFO     | logging:callHandlers:1706 [id:app] - Started server process [171]<br/>2024-02-26 12:46:25.448 | INFO     | logging:callHandlers:1706 [id:app] - Waiting for application startup.<br/>2024-02-26 12:46:25.448 | INFO     | logging:callHandlers:1706 [id:app] - Waiting for application startup.<br/>2024-02-26 12:46:25.449 | INFO     | logging:callHandlers:1706 [id:app] - Application startup complete.<br/>2024-02-26 12:46:25.449 | INFO     | logging:callHandlers:1706 [id:app] - Application startup complete.<br/></span></div>
+<p>Let's get testing one of the collection available in the <code>pygeoapi-config.yml</code> (i.e. <code>obs</code>) without or with the API-KEY:</p>
+<div class="termy" data-termynal="" data-ty-macos="" data-ty-title="bash"><span data-ty="input" data-ty-prompt="$">curl http://localhost:5000/geoapi/collections/obs -vv</span><span data-ty=""><br/>*   Trying [::1]:5000...<br/>* connect to ::1 port 5000 failed: Connection refused<br/>*   Trying 127.0.0.1:5000...<br/>* Connected to localhost (127.0.0.1) port 5000<br/>&gt; GET /geoapi/collections/obs HTTP/1.1<br/>&gt; Host: localhost:5000<br/>&gt; User-Agent: curl/8.4.0<br/>&gt; Accept: */*<br/>&gt;<br/>&lt; HTTP/1.1 401 Unauthorized<br/>&lt; date: Mon, 26 Feb 2024 14:22:28 GMT<br/>&lt; server: uvicorn<br/>&lt; content-length: 23<br/>&lt; content-type: application/json<br/>&lt;<br/>* Connection #0 to host localhost left intact<br/>{"detail":"no api key"}<br/></span></div>
+<p>Using the API-KEY we are overcoming the unauthorized error and getting the expected response:</p>
+<div class="termy" data-termynal="" data-ty-macos="" data-ty-title="bash"><span class="termynal-comment" data-ty=""># This time we are passing the correct security scheme with the secret</span><span data-ty="input" data-ty-prompt="$">curl -H "X-API-KEY: pygeoapi" http://localhost:5000/geoapi/collections/obs -vv</span><span data-ty=""><br/>*   Trying [::1]:5000...<br/>* connect to ::1 port 5000 failed: Connection refused<br/>*   Trying 127.0.0.1:5000...<br/>* Connected to localhost (127.0.0.1) port 5000<br/>&gt; GET /geoapi/collections/obs HTTP/1.1<br/>&gt; Host: localhost:5000<br/>&gt; User-Agent: curl/8.4.0<br/>&gt; Accept: */*<br/>&gt; X-API-KEY: pygeoapi<br/>&gt;<br/>&lt; HTTP/1.1 200 OK<br/>&lt; date: Mon, 26 Feb 2024 14:25:14 GMT<br/>&lt; server: uvicorn<br/>&lt; content-length: 3552<br/>&lt; content-type: application/json<br/>&lt; x-powered-by: pygeoapi 0.16.dev0<br/>&lt; content-language: en-US<br/>&lt;<br/>{<br/>    "id":"obs",<br/>    "title":"Observations",<br/>    "description":"My cool observations",<br/>    "keywords":[<br/>        "observations",<br/>        "monitoring"<br/>    ],<br/>    "links":[<br/>        {<br/>            "type":"text/csv",<br/>            "rel":"canonical",<br/>            "title":"data",<br/>            "href":"https://github.com/mapserver/mapserver/blob/branch-7-0/msautotest/wxs/data/obs.csv",<br/>            "hreflang":"en-US"<br/>        },<br/>        {<br/>            "type":"text/csv",<br/>            "rel":"alternate",<br/>            "title":"data",<br/>            "href":"https://raw.githubusercontent.com/mapserver/mapserver/branch-7-0/msautotest/wxs/data/obs.csv",<br/>            "hreflang":"en-US"<br/>        },<br/>        {<br/>            "type":"application/json",<br/>            "rel":"root",<br/>            "title":"The landing page of this server as JSON",<br/>            "href":"http://localhost:5000/geoapi?f=json"<br/>        },<br/>        {<br/>            "type":"text/html",<br/>            "rel":"root",<br/>            "title":"The landing page of this server as HTML",<br/>            "href":"http://localhost:5000/geoapi?f=html"<br/>        },<br/>        {<br/>            "type":"application/json",<br/>            "rel":"self",<br/>            "title":"This document as JSON",<br/>            "href":"http://localhost:5000/geoapi/collections/obs?f=json"<br/>        },<br/>        {<br/>            "type":"application/ld+json",<br/>            "rel":"alternate",<br/>            "title":"This document as RDF (JSON-LD)",<br/>            "href":"http://localhost:5000/geoapi/collections/obs?f=jsonld"<br/>        },<br/>        {<br/>            "type":"text/html",<br/>            "rel":"alternate",<br/>            "title":"This document as HTML",<br/>            "href":"http://localhost:5000/geoapi/collections/obs?f=html"<br/>        },<br/>        {<br/>            "type":"application/schema+json",<br/>            "rel":"http://www.opengis.net/def/rel/ogc/1.0/queryables",<br/>            "title":"Queryables for this collection as JSON",<br/>            "href":"http://localhost:5000/geoapi/collections/obs/queryables?f=json"<br/>        },<br/>        {<br/>            "type":"text/html",<br/>            "rel":"http://www.opengis.net/def/rel/ogc/1.0/queryables",<br/>            "title":"Queryables for this collection as HTML",<br/>            "href":"http://localhost:5000/geoapi/collections/obs/queryables?f=html"<br/>        },<br/>        {<br/>            "type":"application/geo+json",<br/>            "rel":"items",<br/>            "title":"items as GeoJSON",<br/>            "href":"http://localhost:5000/geoapi/collections/obs/items?f=json"<br/>        },<br/>        {<br/>            "type":"application/ld+json",<br/>            "rel":"items",<br/>            "title":"items as RDF (GeoJSON-LD)",<br/>            "href":"http://localhost:5000/geoapi/collections/obs/items?f=jsonld"<br/>        },<br/>        {<br/>            "type":"text/html",<br/>            "rel":"items",<br/>            "title":"Items as HTML",<br/>            "href":"http://localhost:5000/geoapi/collections/obs/items?f=html"<br/>        }<br/>    ],<br/>    "extent":{<br/>        "spatial":{<br/>            "bbox":[<br/>                [<br/>                    -180,<br/>                    -90,<br/>                    180,<br/>                    90<br/>                ]<br/>            ],<br/>            "crs":"http://www.opengis.net/def/crs/OGC/1.3/CRS84"<br/>        },<br/>        "temporal":{<br/>            "interval":[<br/>                [<br/>                    "2000-10-30T18:24:39+00:00",<br/>                    "2007-10-30T08:57:29+00:00"<br/>                ]<br/>            ]<br/>        }<br/>    },<br/>    "itemType":"feature",<br/>    "crs":[<br/>        "http://www.opengis.net/def/crs/OGC/1.3/CRS84"<br/>    ],<br/>    "storageCRS":"http://www.opengis.net/def/crs/OGC/1.3/CRS84"<br/>* Connection #0 to host localhost left intact<br/>}<br/></span></div>
+<h3 id="oauth2">OAuth2</h3>
+<p>In this case we are challenging the client to present valid JSON Web Tokens (JWTs) and getting to verify the token’s signature against the public key with the JSON Web Key Set (JWKS) endpoint of the authorization server.</p>
+<p>Change the <code>.env</code> file with these settings:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a href="#__codelineno-2-1" id="__codelineno-2-1" name="__codelineno-2-1"></a>DEV_API_KEY_ENABLED=false
+</span><span id="__span-2-2"><a href="#__codelineno-2-2" id="__codelineno-2-2" name="__codelineno-2-2"></a>DEV_OPA_ENABLED=false
+</span><span id="__span-2-3"><a href="#__codelineno-2-3" id="__codelineno-2-3" name="__codelineno-2-3"></a>DEV_JWKS_ENABLED=true
+</span></code></pre></div>
+<p>And configure a valid JWKS and Token endpoint for the authorization server:</p>
+<div class="admonition tip">
+<p class="admonition-title">Use OAuth2 playground</p>
+<p>There are some playgrounds available which can be used for the sake of testing the workflow. Let's use the one from <a href="https://openidconnect.net/">Auth0 by Okta</a>.</p>
+</div>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a href="#__codelineno-3-1" id="__codelineno-3-1" name="__codelineno-3-1"></a># oidc-jwks-only
+</span><span id="__span-3-2"><a href="#__codelineno-3-2" id="__codelineno-3-2" name="__codelineno-3-2"></a>DEV_JWKS_ENABLED=true
+</span><span id="__span-3-3"><a href="#__codelineno-3-3" id="__codelineno-3-3" name="__codelineno-3-3"></a>DEV_OAUTH2_JWKS_ENDPOINT=https://samples.auth0.com/.well-known/jwks.json
+</span><span id="__span-3-4"><a href="#__codelineno-3-4" id="__codelineno-3-4" name="__codelineno-3-4"></a>DEV_OAUTH2_TOKEN_ENDPOINT=https://samples.auth0.com/oauth/token
+</span></code></pre></div>
+<p>Use the OAuth2 server infrastructure to get the <code>access token</code> and then use that to consume the protected resource from the <strong>fastgeoapi</strong> server.</p>
+<p>Let's get testing the collection again:</p>
+<div class="termy" data-termynal="" data-ty-macos="" data-ty-title="bash"><span class="termynal-comment" data-ty=""># This time we are passing the OAuth2 security scheme with the retrieved token</span><span data-ty="input" data-ty-prompt="$">curl -H "Authorization: Bearer &lt;access_token&gt;" http://localhost:5000/geoapi/collections/obs -vv</span><span data-ty=""><br/>*   Trying [::1]:5000...<br/>* connect to ::1 port 5000 failed: Connection refused<br/>*   Trying 127.0.0.1:5000...<br/>* Connected to localhost (127.0.0.1) port 5000<br/>&gt; GET /geoapi/collections/obs HTTP/1.1<br/>&gt; Host: localhost:5000<br/>&gt; User-Agent: curl/8.4.0<br/>&gt; Accept: */*<br/>&gt; X-API-KEY: pygeoapi<br/>&gt;<br/>&lt; HTTP/1.1 200 OK<br/>&lt; date: Mon, 26 Feb 2024 14:25:14 GMT<br/>&lt; server: uvicorn<br/>&lt; content-length: 3552<br/>&lt; content-type: application/json<br/>&lt; x-powered-by: pygeoapi 0.16.dev0<br/>&lt; content-language: en-US<br/>&lt;<br/>{<br/>    "id":"obs",<br/>    "title":"Observations",<br/>    "description":"My cool observations",<br/>    "keywords":[<br/>        "observations",<br/>        "monitoring"<br/>    ],<br/>    "links":[<br/>        {<br/>            "type":"text/csv",<br/>            "rel":"canonical",<br/>            "title":"data",<br/>            "href":"https://github.com/mapserver/mapserver/blob/branch-7-0/msautotest/wxs/data/obs.csv",<br/>            "hreflang":"en-US"<br/>        },<br/>        {<br/>            "type":"text/csv",<br/>            "rel":"alternate",<br/>            "title":"data",<br/>            "href":"https://raw.githubusercontent.com/mapserver/mapserver/branch-7-0/msautotest/wxs/data/obs.csv",<br/>            "hreflang":"en-US"<br/>        },<br/>        {<br/>            "type":"application/json",<br/>            "rel":"root",<br/>            "title":"The landing page of this server as JSON",<br/>            "href":"http://localhost:5000/geoapi?f=json"<br/>        },<br/>        {<br/>            "type":"text/html",<br/>            "rel":"root",<br/>            "title":"The landing page of this server as HTML",<br/>            "href":"http://localhost:5000/geoapi?f=html"<br/>        },<br/>        {<br/>            "type":"application/json",<br/>            "rel":"self",<br/>            "title":"This document as JSON",<br/>            "href":"http://localhost:5000/geoapi/collections/obs?f=json"<br/>        },<br/>        {<br/>            "type":"application/ld+json",<br/>            "rel":"alternate",<br/>            "title":"This document as RDF (JSON-LD)",<br/>            "href":"http://localhost:5000/geoapi/collections/obs?f=jsonld"<br/>        },<br/>        {<br/>            "type":"text/html",<br/>            "rel":"alternate",<br/>            "title":"This document as HTML",<br/>            "href":"http://localhost:5000/geoapi/collections/obs?f=html"<br/>        },<br/>        {<br/>            "type":"application/schema+json",<br/>            "rel":"http://www.opengis.net/def/rel/ogc/1.0/queryables",<br/>            "title":"Queryables for this collection as JSON",<br/>            "href":"http://localhost:5000/geoapi/collections/obs/queryables?f=json"<br/>        },<br/>        {<br/>            "type":"text/html",<br/>            "rel":"http://www.opengis.net/def/rel/ogc/1.0/queryables",<br/>            "title":"Queryables for this collection as HTML",<br/>            "href":"http://localhost:5000/geoapi/collections/obs/queryables?f=html"<br/>        },<br/>        {<br/>            "type":"application/geo+json",<br/>            "rel":"items",<br/>            "title":"items as GeoJSON",<br/>            "href":"http://localhost:5000/geoapi/collections/obs/items?f=json"<br/>        },<br/>        {<br/>            "type":"application/ld+json",<br/>            "rel":"items",<br/>            "title":"items as RDF (GeoJSON-LD)",<br/>            "href":"http://localhost:5000/geoapi/collections/obs/items?f=jsonld"<br/>        },<br/>        {<br/>            "type":"text/html",<br/>            "rel":"items",<br/>            "title":"Items as HTML",<br/>            "href":"http://localhost:5000/geoapi/collections/obs/items?f=html"<br/>        }<br/>    ],<br/>    "extent":{<br/>        "spatial":{<br/>            "bbox":[<br/>                [<br/>                    -180,<br/>                    -90,<br/>                    180,<br/>                    90<br/>                ]<br/>            ],<br/>            "crs":"http://www.opengis.net/def/crs/OGC/1.3/CRS84"<br/>        },<br/>        "temporal":{<br/>            "interval":[<br/>                [<br/>                    "2000-10-30T18:24:39+00:00",<br/>                    "2007-10-30T08:57:29+00:00"<br/>                ]<br/>            ]<br/>        }<br/>    },<br/>    "itemType":"feature",<br/>    "crs":[<br/>        "http://www.opengis.net/def/crs/OGC/1.3/CRS84"<br/>    ],<br/>    "storageCRS":"http://www.opengis.net/def/crs/OGC/1.3/CRS84"<br/>* Connection #0 to host localhost left intact<br/>}<br/></span></div>
+<h3 id="openid-connect">OpenID Connect</h3>
+<p>TBD</p>
+<h2 id="configure-a-coarse-or-fine-grained-authorization">Configure a coarse or fine-grained authorization</h2>
+<h3 id="policies-as-code">Policies as code</h3>
+<p>TBD</p>
+</article>
+</div>
+<script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+</div>
+<button class="md-top md-icon" data-md-component="top" hidden="" type="button">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"></path></svg>
+  Back to top
+</button>
+</main>
+<footer class="md-footer">
+<div class="md-footer-meta md-typeset">
+<div class="md-footer-meta__inner md-grid">
+<div class="md-copyright">
+<div class="md-copyright__highlight">
+      © Copyright 2024 <a href="https://github.com/geobeyond">Geobeyond team</a>.
+
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" rel="noopener" target="_blank">
+      Material for MkDocs
+    </a>
+</div>
+<div class="md-social">
+<a class="md-social__link" href="https://github.com/geobeyond" rel="noopener" target="_blank" title="github.com">
+<svg viewbox="0 0 480 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M186.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1M480 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2m-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3m-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1"></path></svg>
+</a>
+<a class="md-social__link" href="https://twitter.com/geobeyond" rel="noopener" target="_blank" title="twitter.com">
+<svg viewbox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253"></path></svg>
+</a>
+<a class="md-social__link" href="https://www.linkedin.com/company/geobeyond" rel="noopener" target="_blank" title="www.linkedin.com">
+<svg viewbox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3M135.4 416H69V202.2h66.5V416zm-33.2-243c-21.3 0-38.5-17.3-38.5-38.5S80.9 96 102.2 96c21.2 0 38.5 17.3 38.5 38.5 0 21.3-17.2 38.5-38.5 38.5m282.1 243h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9z"></path></svg>
+</a>
+</div>
+</div>
+</div>
+</footer>
+</div>
+<div class="md-dialog" data-md-component="dialog">
+<div class="md-dialog__inner md-typeset"></div>
+</div>
+<script id="__config" type="application/json">{"base": "..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "navigation.top", "search.suggest", "search.highlight", "content.tabs.link", "content.code.annotation", "content.code.copy"], "search": "../assets/javascripts/workers/search.6ce7567c.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+<script src="../assets/javascripts/bundle.525ec568.min.js"></script>
+<script src="../termynal.js"></script>
+<script>document$.subscribe(() => {
+            window.update_swagger_ui_iframe_height = function (id) {
+                var iFrameID = document.getElementById(id);
+                if (iFrameID) {
+                    full_height = (iFrameID.contentWindow.document.body.scrollHeight + 80) + "px";
+                    iFrameID.height = full_height;
+                    iFrameID.style.height = full_height;
+                }
+            }
+        
+            let iframe_id_list = []
+            var iframes = document.getElementsByClassName("swagger-ui-iframe");
+            for (var i = 0; i < iframes.length; i++) { 
+                iframe_id_list.push(iframes[i].getAttribute("id"))
+            }
+        
+            let ticking = true;
+            
+            document.addEventListener('scroll', function(e) {
+                if (!ticking) {
+                    window.requestAnimationFrame(()=> {
+                        let half_vh = window.innerHeight/2;
+                        for(var i = 0; i < iframe_id_list.length; i++) {
+                            let element = document.getElementById(iframe_id_list[i])
+                            if(element==null){
+                                return
+                            }
+                            let diff = element.getBoundingClientRect().top
+                            if(element.contentWindow.update_top_val){
+                                element.contentWindow.update_top_val(half_vh - diff)
+                            }
+                        }
+                        ticking = false;
+                    });
+                    ticking = true;
+                }
+            });
+        
+            const dark_scheme_name = "slate"
+            
+            window.scheme = document.body.getAttribute("data-md-color-scheme")
+            const options = {
+                attributeFilter: ['data-md-color-scheme'],
+            };
+            function color_scheme_callback(mutations) {
+                for (let mutation of mutations) {
+                    if (mutation.attributeName === "data-md-color-scheme") {
+                        scheme = document.body.getAttribute("data-md-color-scheme")
+                        var iframe_list = document.getElementsByClassName("swagger-ui-iframe")
+                        for(var i = 0; i < iframe_list.length; i++) {
+                            var ele = iframe_list.item(i);
+                            if (ele) {
+                                if (scheme === dark_scheme_name) {
+                                    ele.contentWindow.enable_dark_mode();
+                                } else {
+                                    ele.contentWindow.disable_dark_mode();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            observer = new MutationObserver(color_scheme_callback);
+            observer.observe(document.body, options);
+            })</script></body>
+</html>
