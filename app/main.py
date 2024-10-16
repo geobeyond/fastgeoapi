@@ -88,8 +88,21 @@ def create_app():  # noqa: C901
             os.environ["HOST"] = cfg.HOST
             os.environ["PORT"] = cfg.PORT
 
-            # import pygeoapi starlette application once env vars are set
-            # and prepare the objects to override some core behavior
+            # prepare pygeoapi openapi file if it doesn't exist
+            pygeoapi_conf = Path.cwd() / os.environ["PYGEOAPI_CONFIG"]
+            pygeoapi_oapi = Path.cwd() / os.environ["PYGEOAPI_OPENAPI"]
+            if not pygeoapi_oapi.exists():
+                pygeoapi_oapi.write_text(data="")
+                with pygeoapi_oapi.open(mode="w") as oapi_file:
+                    oapi_content = generate_openapi_document(
+                        pygeoapi_conf,
+                        output_format="yaml",
+                    )
+                    logger.debug(f"OpenAPI content: \n{oapi_content}")
+                    oapi_file.write(oapi_content)
+
+            # import pygeoapi starlette application once pygeoapi configuration
+            #  are set and prepare the objects to override some core behavior
             from pygeoapi.starlette_app import APP as PYGEOAPI_APP
             from pygeoapi.starlette_app import url_prefix
             from starlette.applications import Starlette
@@ -112,16 +125,6 @@ def create_app():  # noqa: C901
                     Mount(url_prefix or "/", routes=list(patched_routes)),
                 ]
             )
-
-            pygeoapi_conf = Path.cwd() / os.environ["PYGEOAPI_CONFIG"]
-            pygeoapi_oapi = Path.cwd() / os.environ["PYGEOAPI_OPENAPI"]
-            with pygeoapi_oapi.open(mode="w") as oapi_file:
-                oapi_content = generate_openapi_document(
-                    pygeoapi_conf,
-                    output_format="yaml",
-                )
-                logger.debug(f"OpenAPI content: \n{oapi_content}")
-                oapi_file.write(oapi_content)
 
     except FileNotFoundError:
         logger.error("Please configure pygeoapi settings in .env properly")
