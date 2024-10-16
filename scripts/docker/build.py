@@ -18,7 +18,7 @@ app = typer.Typer(pretty_exceptions_show_locals=False)
 @app.command(name="build")
 def main(
     base_image_name: str = typer.Option(  # noqa: B008
-        default="registry.gitlab.com/geobeyond/georoma-fastgeoapi"
+        default="geobeyond/fastgeoapi"
     ),
     build_context_path: str = typer.Option(  # noqa: B008
         default=str(Path(__file__).parent.parent.parent)  # noqa: B008
