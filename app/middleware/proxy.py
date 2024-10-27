@@ -10,7 +10,10 @@ logger = create_logger("app.middleware.proxy")
 
 
 class ForwardedLinksMiddleware(BaseHTTPMiddleware):
+    """Pygeoapi links behind a proxy middleware."""
+
     async def dispatch(self, request, call_next):
+        """Dispatch response with reverse proxied links."""
         response_ = await call_next(request)
         logger.debug(f"Response headers: {response_.raw_headers}")
         response_body = b""
@@ -20,10 +23,11 @@ class ForwardedLinksMiddleware(BaseHTTPMiddleware):
             content=response_body,
             status_code=response_.status_code,
             headers=dict(response_.headers),
-            media_type=response_.media_type
+            media_type=response_.media_type,
         )
-        if request.headers.get("x-forwarded-proto") \
-            and request.headers.get("x-forwarded-host"):
+        if request.headers.get("x-forwarded-proto") and request.headers.get(
+            "x-forwarded-host"
+        ):
             logger.info(f"Forwarded protocol: {request.headers['x-forwarded-proto']}")
             logger.info(f"Forwarded host: {request.headers['x-forwarded-host']}")
             if response_.headers["content-type"] in [
@@ -31,20 +35,19 @@ class ForwardedLinksMiddleware(BaseHTTPMiddleware):
                 "application/json",
                 "application/ld+json",
                 "application/schema+json",
-                "application/vnd.oai.openapi+json;version=3.0"
+                "application/vnd.oai.openapi+json;version=3.0",
             ]:
                 body_ = response_body.decode("utf-8")
-                proxied_base_url = \
-                f"{request.headers['x-forwarded-proto']}://{request.headers['x-forwarded-host']}"
+                proxied_base_url = f"{request.headers['x-forwarded-proto']}://{request.headers['x-forwarded-host']}"  # noqa B950
                 logger.info(
-                    f"Replacing pygeoapi urls: {cfg.PYGEOAPI_BASEURL} --> {proxied_base_url}"
+                    f"Replacing pygeoapi urls: {cfg.PYGEOAPI_BASEURL} --> {proxied_base_url}"  # noqa B950
                 )
                 body = body_.replace(cfg.PYGEOAPI_BASEURL, proxied_base_url)
                 response = Response(
                     content=body,
                     status_code=response_.status_code,
                     headers=dict(response_.headers),
-                    media_type=response_.media_type
+                    media_type=response_.media_type,
                 )
                 response.headers["x-pygeoapi-forwarded-url"] = f"{proxied_base_url}"
         response.headers["content-length"] = str(len(response.body))

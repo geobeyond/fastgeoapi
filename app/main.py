@@ -25,8 +25,8 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from app.config.app import configuration as cfg
 from app.config.logging import create_logger
 from app.middleware.oauth2 import Oauth2Middleware
-from app.middleware.pygeoapi import OpenapiSecurityMiddleware
 from app.middleware.proxy import ForwardedLinksMiddleware
+from app.middleware.pygeoapi import OpenapiSecurityMiddleware
 from app.utils.app_exceptions import AppExceptionError
 from app.utils.app_exceptions import app_exception_handler
 from app.utils.pygeoapi_exceptions import PygeoapiEnvError
@@ -130,7 +130,6 @@ def create_app():  # noqa: C901
             if cfg.FASTGEOAPI_REVERSE_PROXY:
                 patched_app.add_middleware(ProxyHeadersMiddleware)
                 patched_app.add_middleware(ForwardedLinksMiddleware)
-
 
     except FileNotFoundError:
         logger.error("Please configure pygeoapi settings in .env properly")
