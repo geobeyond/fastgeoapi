@@ -20,11 +20,13 @@ from pygeoapi.openapi import generate_openapi_document
 from pygeoapi.provider.base import ProviderConnectionError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.config.app import configuration as cfg
 from app.config.logging import create_logger
 from app.middleware.oauth2 import Oauth2Middleware
 from app.middleware.pygeoapi import OpenapiSecurityMiddleware
+from app.middleware.proxy import ForwardedLinksMiddleware
 from app.utils.app_exceptions import AppExceptionError
 from app.utils.app_exceptions import app_exception_handler
 from app.utils.pygeoapi_exceptions import PygeoapiEnvError
@@ -102,7 +104,7 @@ def create_app():  # noqa: C901
                     oapi_file.write(oapi_content)
 
             # import pygeoapi starlette application once pygeoapi configuration
-            #  are set and prepare the objects to override some core behavior
+            # are set and prepare the objects to override some core behavior
             from pygeoapi.starlette_app import APP as PYGEOAPI_APP
             from pygeoapi.starlette_app import url_prefix
             from starlette.applications import Starlette
@@ -123,8 +125,12 @@ def create_app():  # noqa: C901
                 routes=[
                     static_route,
                     Mount(url_prefix or "/", routes=list(patched_routes)),
-                ]
+                ],
             )
+            if cfg.FASTGEOAPI_REVERSE_PROXY:
+                patched_app.add_middleware(ProxyHeadersMiddleware)
+                patched_app.add_middleware(ForwardedLinksMiddleware)
+
 
     except FileNotFoundError:
         logger.error("Please configure pygeoapi settings in .env properly")

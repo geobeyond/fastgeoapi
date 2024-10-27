@@ -95,6 +95,9 @@ class DevConfig(GlobalConfig):
     FASTGEOAPI_CONTEXT: Optional[str] = pydantic.Field(
         None, env="DEV_FASTGEOAPI_CONTEXT"  # type: ignore
     )
+    FASTGEOAPI_REVERSE_PROXY: Optional[bool] = pydantic.Field(
+        None, env="DEV_FASTGEOAPI_REVERSE_PROXY"  # type: ignore
+    )
 
     model_config = SettingsConfigDict(env_prefix="DEV_")
 
@@ -170,6 +173,9 @@ class ProdConfig(GlobalConfig):
     )
     FASTGEOAPI_CONTEXT: Optional[str] = pydantic.Field(
         None, env="PROD_FASTGEOAPI_CONTEXT"  # type: ignore
+    )
+    FASTGEOAPI_REVERSE_PROXY: Optional[bool] = pydantic.Field(
+        None, env="PROD_FASTGEOAPI_REVERSE_PROXY"  # type: ignore
     )
 
     model_config = SettingsConfigDict(env_prefix="PROD_")
