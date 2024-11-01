@@ -1,19 +1,17 @@
 """Test middlewares."""
 
 import pytest
+from httpx import ASGITransport
 from httpx import AsyncClient
 
 from app.config.app import configuration as cfg
 
 
 @pytest.mark.asyncio
-async def test_pygeoapi_links_behind_proxy(
-    create_app_with_reverse_proxy_enabled,
-) -> None:
+async def test_pygeoapi_links_behind_proxy(reverse_proxy_enabled) -> None:
     """Test presence of reverse proxy base urls in links."""
-    app = create_app_with_reverse_proxy_enabled()
-
-    async with AsyncClient(app=app, timeout=30) as client:
+    transport = ASGITransport(app=reverse_proxy_enabled)
+    async with AsyncClient(transport=transport, timeout=30) as client:
         _proto = "https"
         _host = "proxy.example.com"
         response = await client.get(
