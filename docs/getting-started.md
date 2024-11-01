@@ -23,22 +23,22 @@ in a transparent way:
 # snippet example of a kubernetes ingress with multiple hosts
 spec:
   rules:
-  - host: public.pygeoapi.io
-    http:
-      paths:
-      - backend:
-          serviceName: fastgeoapi-svc
-          servicePort: 5000
-        path: /geoapi
-        pathType: ImplementationSpecific
-  - host: private.pygeoapi.io
-    http:
-      paths:
-      - backend:
-          serviceName: fastgeoapi-svc
-          servicePort: 5000
-        path: /geoapi
-        pathType: ImplementationSpecific
+    - host: public.pygeoapi.io
+      http:
+        paths:
+          - backend:
+              serviceName: fastgeoapi-svc
+              servicePort: 5000
+            path: /geoapi
+            pathType: ImplementationSpecific
+    - host: private.pygeoapi.io
+      http:
+        paths:
+          - backend:
+              serviceName: fastgeoapi-svc
+              servicePort: 5000
+            path: /geoapi
+            pathType: ImplementationSpecific
 ```
 
 If the user calls the public url `http://public.pygeoapi.io` the response contains the links which respect this base url without the need to have it hard-coded in the pygeoapi configuration `pygeoapi-config.yml`.
