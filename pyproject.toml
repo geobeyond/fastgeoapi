@@ -49,7 +49,7 @@ scalar-fastapi = "^1.0.3"
 fastgeoapi = "cli:app"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.4.0"
+pytest = "^8.2.0"
 coverage = { extras = ["toml"], version = "^6.5.0" }
 typeguard = "^4.0.0"
 xdoctest = { extras = ["colors"], version = "^0.15.10" }
@@ -78,6 +78,7 @@ commitizen = "^3.24.0"
 openapi-resolver = "^0.0.6"
 schemathesis = "^3.37.0"
 mkdocs-typer = "^0.0.3"
+pytest-asyncio = "^0.24.0"
 
 [tool.coverage.paths]
 source = [".", "*/site-packages"]
