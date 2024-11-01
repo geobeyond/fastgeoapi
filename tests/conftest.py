@@ -44,11 +44,13 @@ def create_protected_with_apikey_app(create_app):
         with mock.patch.dict(
             os.environ,
             {
-                "API_KEY_ENABLED": "true",
-                "PYGEOAPI_KEY_GLOBAL": "pygeoapi",
-                "JWKS_ENABLED": "false",
-                "OPA_ENABLED": "false",
+                "ENV_STATE": "dev",
+                "DEV_API_KEY_ENABLED": "true",
+                "DEV_PYGEOAPI_KEY_GLOBAL": "pygeoapi",
+                "DEV_JWKS_ENABLED": "false",
+                "DEV_OPA_ENABLED": "false",
             },
+            clear=True,
         ):
             app = create_app()
         return app
@@ -64,11 +66,13 @@ def create_app_with_reverse_proxy_enabled(create_app):
         with mock.patch.dict(
             os.environ,
             {
-                "API_KEY_ENABLED": "false",
-                "JWKS_ENABLED": "false",
-                "OPA_ENABLED": "false",
-                "FASTGEOAPI_REVERSE_PROXY": "true",
+                "ENV_STATE": "dev",
+                "DEV_API_KEY_ENABLED": "false",
+                "DEV_JWKS_ENABLED": "false",
+                "DEV_OPA_ENABLED": "false",
+                "DEV_FASTGEOAPI_REVERSE_PROXY": "true",
             },
+            clear=True,
         ):
             app = create_app()
         return app
@@ -84,12 +88,14 @@ def create_protected_with_bearer_app(create_app):
         with mock.patch.dict(
             os.environ,
             {
-                "API_KEY_ENABLED": "false",
-                "OAUTH2_JWKS_ENDPOINT": "https://76hxgq.logto.app/oidc/jwks",
-                "OAUTH2_TOKEN_ENDPOINT": "https://76hxgq.logto.app/oidc/token",
-                "JWKS_ENABLED": "true",
-                "OPA_ENABLED": "false",
+                "ENV_STATE": "dev",
+                "DEV_API_KEY_ENABLED": "false",
+                "DEV_OAUTH2_JWKS_ENDPOINT": "https://76hxgq.logto.app/oidc/jwks",
+                "DEV_OAUTH2_TOKEN_ENDPOINT": "https://76hxgq.logto.app/oidc/token",
+                "DEV_JWKS_ENABLED": "true",
+                "DEV_OPA_ENABLED": "false",
             },
+            clear=True,
         ):
             app = create_app()
         return app
@@ -111,6 +117,14 @@ def protected_bearer_schema(create_protected_with_bearer_app):
     app = create_protected_with_bearer_app()
 
     return schemathesis.from_asgi("/geoapi/openapi?f=json", app=app)
+
+
+@pytest.fixture
+def reverse_proxy_enabled(create_app_with_reverse_proxy_enabled):
+    """Create a protected API key schema."""
+    app = create_app_with_reverse_proxy_enabled()
+
+    return app
 
 
 def get_access_token():
