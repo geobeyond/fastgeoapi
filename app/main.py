@@ -20,7 +20,6 @@ from pygeoapi.openapi import generate_openapi_document
 from pygeoapi.provider.base import ProviderConnectionError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
-from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.config.app import configuration as cfg
 from app.config.logging import create_logger
@@ -128,7 +127,6 @@ def create_app():  # noqa: C901
                 ],
             )
             if cfg.FASTGEOAPI_REVERSE_PROXY:
-                patched_app.add_middleware(ProxyHeadersMiddleware)
                 patched_app.add_middleware(ForwardedLinksMiddleware)
 
     except FileNotFoundError:

@@ -57,6 +57,26 @@ def create_protected_with_apikey_app(create_app):
 
 
 @pytest.fixture
+def create_app_with_reverse_proxy_enabled(create_app):
+    """Return a pygeoapi app behind a reverse proxy."""
+
+    def _reverse_proxy_app():
+        with mock.patch.dict(
+            os.environ,
+            {
+                "API_KEY_ENABLED": "false",
+                "JWKS_ENABLED": "false",
+                "OPA_ENABLED": "false",
+                "FASTGEOAPI_REVERSE_PROXY": "true",
+            },
+        ):
+            app = create_app()
+        return app
+
+    yield _reverse_proxy_app
+
+
+@pytest.fixture
 def create_protected_with_bearer_app(create_app):
     """Return a protected app with a Bearer Token."""
 
