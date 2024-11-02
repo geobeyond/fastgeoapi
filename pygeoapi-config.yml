@@ -31,7 +31,7 @@ server:
   bind:
     host: ${HOST}
     port: ${PORT}
-  url: ${PYGEOAPI_BASEURL}/geoapi
+  url: ${PYGEOAPI_BASEURL}${FASTGEOAPI_CONTEXT}
   mimetype: application/json; charset=UTF-8
   encoding: utf-8
   gzip: false

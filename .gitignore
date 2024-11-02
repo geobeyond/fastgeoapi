@@ -133,4 +133,6 @@ dmypy.json
 .DS_Store
 .aider*
 
+# fastgeoapi
 /pygeoapi-openapi.json
+pygeoapi-openapi.yml
