@@ -1,0 +1,59 @@
+name: ZAP Scan
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  contract-tests:
+    name: Scan security vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.10"
+
+      - name: Upgrade pip
+        run: |
+          pip install --constraint=$GITHUB_WORKSPACE/.github/workflows/constraints.txt pip
+          pip --version
+
+      - name: Upgrade pip in virtual environments
+        shell: python
+        run: |
+          import os
+          import pip
+
+          with open(os.environ["GITHUB_ENV"], mode="a") as io:
+              print(f"VIRTUALENV_PIP={pip.__version__}", file=io)
+
+      - name: Install Poetry
+        run: |
+          pipx install --pip-args=--constraint=$GITHUB_WORKSPACE/.github/workflows/constraints.txt poetry
+          poetry --version
+      - name: Install GDAL
+        run: |
+          sudo apt-add-repository ppa:ubuntugis/ubuntugis-unstable
+          sudo apt-get update
+          sudo apt-get install gdal-bin libgdal-dev
+      - name: Install fastgeoapi and run the server with API-KEY protection
+        env:
+          ENV_STATE: dev
+          OPA_ENABLED: false
+          API_KEY_ENABLED: true
+          JWKS_ENABLED: false
+        run: |
+          poetry install
+          ENV_STATE=$ENV_STATE
+          OPA_ENABLED=$OPA_ENABLED
+          API_KEY_ENABLED=$API_KEY_ENABLED
+          JWKS_ENABLED=$JWKS_ENABLED
+          poetry run uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload --loop asyncio &
+      - name: ZAP Scan
+        uses: zaproxy/action-full-scan@v0.12.0
+        with:
+          target: "http://127.0.0.1:5000/geoapi/"
