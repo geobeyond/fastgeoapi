@@ -37,7 +37,7 @@ This diagram gives an overview of the basic architecture:
 You can install _fastgeoapi_ via [pip](https://pip.pypa.io/) from
 [PyPI](https://pypi.org/):
 
-```console
+```shell
 pip install fastgeoapi
 ```
 
@@ -63,7 +63,7 @@ export PYGEOAPI_OPENAPI=example-openapi.yml
 Finally, you can start fastgeoapi in development mode:
 
 ```shell
-uvicorn app.main:app --port 5000 --loop asyncio --reload
+fastapi dev app/main.py --app app --host 0.0.0.0 --port 5000 --reload
 ```
 
 ## Usage
