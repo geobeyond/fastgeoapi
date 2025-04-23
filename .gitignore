@@ -117,6 +117,9 @@ venv.bak/
 # Rope project settings
 .ropeproject
 
+# Zed project settings
+.zed
+
 # mkdocs documentation
 /site
 /docs_build
