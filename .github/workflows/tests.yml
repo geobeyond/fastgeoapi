@@ -12,16 +12,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { python: "3.10", os: "ubuntu-20.04", session: "pre-commit" }
-          - { python: "3.10", os: "ubuntu-20.04", session: "safety" }
-          - { python: "3.10", os: "ubuntu-20.04", session: "bandit" }
-          - { python: "3.10", os: "ubuntu-20.04", session: "mypy" }
-          - { python: "3.10", os: "ubuntu-20.04", session: "tests" }
+          - { python: "3.10", os: "ubuntu-22.04", session: "pre-commit" }
+          - { python: "3.10", os: "ubuntu-22.04", session: "safety" }
+          - { python: "3.10", os: "ubuntu-22.04", session: "bandit" }
+          - { python: "3.10", os: "ubuntu-22.04", session: "mypy" }
+          - { python: "3.10", os: "ubuntu-22.04", session: "tests" }
           # - { python: "3.10", os: "windows-latest", session: "tests" }
           # - { python: "3.10", os: "macos-latest", session: "tests" }
-          - { python: "3.10", os: "ubuntu-20.04", session: "typeguard" }
-          - { python: "3.10", os: "ubuntu-20.04", session: "xdoctest" }
-          - { python: "3.10", os: "ubuntu-20.04", session: "docs-build" }
+          - { python: "3.10", os: "ubuntu-22.04", session: "typeguard" }
+          - { python: "3.10", os: "ubuntu-22.04", session: "xdoctest" }
+          - { python: "3.10", os: "ubuntu-22.04", session: "docs-build" }
 
     env:
       NOXSESSION: ${{ matrix.session }}
