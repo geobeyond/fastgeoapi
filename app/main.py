@@ -80,14 +80,15 @@ def create_app():  # noqa: C901
         # override pygeoapi os variables
         os.environ["PYGEOAPI_CONFIG"] = cfg.PYGEOAPI_CONFIG
         os.environ["PYGEOAPI_OPENAPI"] = cfg.PYGEOAPI_OPENAPI
-        os.environ["PYGEOAPI_BASEURL"] = cfg.PYGEOAPI_BASEURL
         if not (os.environ["PYGEOAPI_CONFIG"] and os.environ["PYGEOAPI_OPENAPI"]):
             logger.error("pygeoapi variables are not configured")
             raise PygeoapiEnvError("PYGEOAPI_CONFIG and PYGEOAPI_OPENAPI are not set")
         else:
-            # fill pygeoapi configuration with fastapi host and port
+            # fill pygeoapi configuration with host, port, base url and context
             os.environ["HOST"] = cfg.HOST
             os.environ["PORT"] = cfg.PORT
+            os.environ["PYGEOAPI_BASEURL"] = cfg.PYGEOAPI_BASEURL
+            os.environ["FASTGEOAPI_CONTEXT"] = cfg.FASTGEOAPI_CONTEXT
 
             # prepare pygeoapi openapi file if it doesn't exist
             pygeoapi_conf = Path.cwd() / os.environ["PYGEOAPI_CONFIG"]
