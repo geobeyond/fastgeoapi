@@ -36,6 +36,7 @@ def openapi(ctx: typer.Context) -> None:
         os.environ["PYGEOAPI_CONFIG"] = cfg.PYGEOAPI_CONFIG
         os.environ["PYGEOAPI_OPENAPI"] = cfg.PYGEOAPI_OPENAPI
         os.environ["PYGEOAPI_BASEURL"] = cfg.PYGEOAPI_BASEURL
+        os.environ["FASTGEOAPI_CONTEXT"] = cfg.FASTGEOAPI_CONTEXT
         if not (os.environ["PYGEOAPI_CONFIG"] and os.environ["PYGEOAPI_OPENAPI"]):
             err_console.log("pygeoapi variables are not configured")
             raise PygeoapiEnvError("PYGEOAPI_CONFIG and PYGEOAPI_OPENAPI are not set")
