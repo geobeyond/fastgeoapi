@@ -4,7 +4,7 @@ from typing import Any
 from typing import Dict
 from typing import List
 
-from openapi_pydantic.v3.v3_0_3 import SecurityScheme
+from openapi_pydantic.v3.v3_0 import SecurityScheme
 from starlette.datastructures import Headers
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp
