@@ -159,7 +159,7 @@ def tests(session: Session) -> None:
             session.notify("coverage", posargs=[])
 
 
-@nox_session
+@session
 def coverage(session: Session) -> None:
     """Produce the coverage report."""
     args = session.posargs or ["report"]
