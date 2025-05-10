@@ -14,7 +14,7 @@ dependencies = [
     "fastapi-opa>=2.0.3,<3",
     "rasterio>=1.4.3,<2",
     "pygeoapi",
-    "fastapi[all]>=0.115,<0.116",
+    "fastapi[standard]>=0.115.12,<0.116",
     "typer>=0.15.3,<0.16",
     "fastapi-key-auth>=0.15.4,<0.16.0",
     "sqlalchemy>=2.0.40,<2.1",
