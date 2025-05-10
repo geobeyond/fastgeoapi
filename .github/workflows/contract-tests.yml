@@ -51,7 +51,7 @@ jobs:
           UV_SYSTEM_PYTHON: 1
           UV_BREAK_SYSTEM_PACKAGES: 1
         run: |
-          uv pip install -r pyproject.toml --break-system-packages
+          uv pip install -e . --break-system-packages
           ENV_STATE=$ENV_STATE
           OPA_ENABLED=$OPA_ENABLED
           API_KEY_ENABLED=$API_KEY_ENABLED

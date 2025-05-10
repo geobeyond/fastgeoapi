@@ -124,7 +124,6 @@ def safety(session: Session) -> None:
         "-i",
         "70612",
         "--full-report",
-        f"--file={requirements}",
     )
 
 

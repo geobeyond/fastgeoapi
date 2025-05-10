@@ -32,8 +32,8 @@ jobs:
 
       - name: Create OpenAPI with fastgeoapi CLI
         run: |
-          uv pip install -r pyproject.toml --break-system-packages
-          fastgeoapi openapi
+          uv pip install -e . --break-system-packages
+          uv run fastgeoapi openapi
         env:
           UV_SYSTEM_PYTHON: 1
           UV_BREAK_SYSTEM_PACKAGES: 1
@@ -76,8 +76,8 @@ jobs:
 
       - name: Create OpenAPI with fastgeoapi CLI
         run: |
-          uv pip install -r pyproject.toml --break-system-packages
-          fastgeoapi openapi
+          uv pip install -e . --break-system-packages
+          python -m fastgeoapi openapi
         env:
           UV_SYSTEM_PYTHON: 1
           UV_BREAK_SYSTEM_PACKAGES: 1
