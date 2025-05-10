@@ -1,82 +1,106 @@
-[tool.poetry]
+[project]
 name = "fastgeoapi"
 version = "0.0.1"
 description = "fastgeoapi"
-authors = ["Francesco Bartoli <francesco.bartoli@geobeyond.it>"]
-license = "MIT"
+authors = [{ name = "Francesco Bartoli", email = "francesco.bartoli@geobeyond.it" }]
+maintainers = [{ name = "Youssef Harby", email = "youssef.harby@geobeyond.it" }]
+requires-python = ">=3.10,<3.12"
 readme = "README.md"
-homepage = "https://github.com/geobeyond/fastgeoapi"
-repository = "https://github.com/geobeyond/fastgeoapi"
-documentation = "https://fastgeoapi.readthedocs.io"
+license = "MIT"
 classifiers = ["Development Status :: 1 - Planning"]
-packages = [
-    { include = "cli.py", from = "." },
-    { include = "app" },
-    { include = "app/**/*.py" },
+dependencies = [
+    "mangum>=0.17.0,<0.18",
+    "loguru>=0.7.3,<0.8",
+    "fastapi-opa>=2.0.0,<3",
+    "rasterio>=1.4.3,<2",
+    "pygeoapi",
+    "fastapi[all]>=0.115,<0.116",
+    "typer[all]>=0.12.0,<0.13",
+    "fastapi-key-auth>=0.12.0,<0.13",
+    "sqlalchemy>=1.4.50,<2",
+    "geoalchemy2>=0.14.4,<0.15",
+    "shapely<2.0",
+    "psycopg2>=2.9.7,<3",
+    "openapi-pydantic>=0.4.1,<0.5",
+    "pygeofilter",
+    "pydantic-settings>=2.5.0,<3",
+    "authlib>=1.4.1,<2",
+    "cachetools>=5.3.2,<6",
+    "fencer",
+    "json-ref-dict>=0.7.2,<0.8",
+    "pyyaml>=6.0.1,<7",
+    "scalar-fastapi>=1.0.3,<2",
 ]
 
-[tool.poetry.urls]
+[project.urls]
+Homepage = "https://github.com/geobeyond/fastgeoapi"
+Repository = "https://github.com/geobeyond/fastgeoapi"
+Documentation = "https://fastgeoapi.readthedocs.io"
 Changelog = "https://github.com/geobeyond/fastgeoapi/releases"
 
-[tool.poetry.dependencies]
-python = ">=3.10,<4.0"
-mangum = "^0.17.0"
-loguru = "^0.7.3"
-fastapi-opa = "^2.0.0"
-rasterio = "^1.4.3"
-# pin pygeoapi before reverting pydantic to v1
-pygeoapi = { git = "https://github.com/francbartoli/pygeoapi.git", branch = "pydantic-v2" }
-fastapi = { extras = ["all"], version = "^0.115" }
-typer = { extras = ["all"], version = "^0.12.0" }
-fastapi-key-auth = "^0.12.0"
-sqlalchemy = "^1.4.50"
-geoalchemy2 = "^0.14.4"
-shapely = "<2.0"
-psycopg2 = "^2.9.7"
-openapi-pydantic = "^0.4.1"
-pygeofilter = { git = "https://github.com/geopython/pygeofilter.git", tag = "v0.2.3" }
-pydantic-settings = "^2.5.0"
-authlib = "^1.4.1"
-cachetools = "^5.3.2"
-fencer = { git = "https://github.com/abunuwas/fencer.git", branch = "main" }
-json-ref-dict = "^0.7.2"
-pyyaml = "^6.0.1"
-scalar-fastapi = "^1.0.3"
-
-[tool.poetry.scripts]
+[project.scripts]
 fastgeoapi = "cli:app"
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.2.0"
-coverage = { extras = ["toml"], version = "^6.5.0" }
-typeguard = "^4.0.0"
-xdoctest = { extras = ["colors"], version = "^0.15.10" }
-# datamodel-code-generator = {extras = ["http"], version = "^0.22.1"}
-pre-commit = "^2.21.0"
-black = "^24.4.2"
-flake8-bandit = "^4.1.1"
-flake8-bugbear = "^21.11.29"
-flake8-docstrings = "^1.7.0"
-flake8-rst-docstrings = "^0.2.7"
-pep8-naming = "^0.12.1"
-darglint = "^1.8.1"
-pre-commit-hooks = "^4.0.1"
-pyupgrade = "^3.3.1"
-termynal = "^0.12.0"
-mkdocs = "^1.6.0"
-mkdocs-material = "^9.6.2"
-mkdocs-material-extras = "^0.0.8"
-mkdocs-material-extensions = "^1.1.1"
-mkdocs-swagger-ui-tag = "^0.6.8"
-bandit = "^1.7.5"
-ipython = "<8.12"
-safety = "<2.0"
-mypy = "^1.10.0"
-commitizen = "^3.24.0"
-openapi-resolver = "^0.0.6"
-schemathesis = "^3.39.0"
-mkdocs-typer = "^0.0.3"
-pytest-asyncio = "^0.24.0"
+[dependency-groups]
+dev = [
+    "pytest>=8.2.0,<9",
+    "coverage[toml]>=6.5.0,<7",
+    "typeguard>=4.0.0,<5",
+    "xdoctest[colors]>=0.15.10,<0.16",
+    "pre-commit>=2.21.0,<3",
+    "black>=24.4.2,<25",
+    "flake8-bandit>=4.1.1,<5",
+    "flake8-bugbear>=21.11.29,<22",
+    "flake8-docstrings>=1.7.0,<2",
+    "flake8-rst-docstrings>=0.2.7,<0.3",
+    "pep8-naming>=0.12.1,<0.13",
+    "darglint>=1.8.1,<2",
+    "pre-commit-hooks>=4.0.1,<5",
+    "pyupgrade>=3.3.1,<4",
+    "termynal>=0.12.0,<0.13",
+    "mkdocs>=1.6.0,<2",
+    "mkdocs-material>=9.6.2,<10",
+    "mkdocs-material-extras>=0.0.8,<0.0.9",
+    "mkdocs-material-extensions>=1.1.1,<2",
+    "mkdocs-swagger-ui-tag>=0.6.8,<0.7",
+    "bandit>=1.7.5,<2",
+    "ipython<8.12",
+    "safety<2.0",
+    "mypy>=1.10.0,<2",
+    "commitizen>=3.24.0,<4",
+    "openapi-resolver>=0.0.6,<0.0.7",
+    "schemathesis>=3.39.0,<4",
+    "mkdocs-typer>=0.0.3,<0.0.4",
+    "pytest-asyncio>=0.24.0,<0.25",
+]
+
+[tool.uv]
+
+[tool.uv.sources]
+pygeoapi = { git = "https://github.com/francbartoli/pygeoapi.git", branch = "pydantic-v2" }
+pygeofilter = { git = "https://github.com/geopython/pygeofilter.git", tag = "v0.2.3" }
+fencer = { git = "https://github.com/abunuwas/fencer.git", branch = "main" }
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "./cli.py",
+    "app",
+    "app/**/*.py",
+]
+
+[tool.hatch.build.targets.wheel]
+include = [
+    "./cli.py",
+    "app",
+    "app/**/*.py",
+]
+
+[tool.hatch.build.targets.wheel.sources]
+"./cli.py" = "cli.py"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.coverage.paths]
 source = [".", "*/site-packages"]
@@ -106,7 +130,3 @@ version_scheme = "semver"
 version_provider = "poetry"
 update_changelog_on_bump = true
 major_version_zero = true
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
