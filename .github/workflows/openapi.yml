@@ -13,25 +13,30 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@v4.1.1
 
-      - name: Set up Python 3.10
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5.3.0
         with:
-          python-version: "3.10"
+          python-version: "3.12"
 
       - name: Upgrade pip
         run: |
-          pip install --constraint=$GITHUB_WORKSPACE/.github/workflows/constraints.txt pip
+          python -m pip install pip==25.1.1
           pip --version
 
-      - name: Install Poetry
-        run: |
-          pipx install --pip-args=--constraint=$GITHUB_WORKSPACE/.github/workflows/constraints.txt poetry
-          poetry --version
+      - name: Install UV
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+          version: "0.7.3"
 
       - name: Create OpenAPI with fastgeoapi CLI
         run: |
-          poetry install
-          poetry run fastgeoapi openapi
+          uv pip install -r pyproject.toml --break-system-packages
+          fastgeoapi openapi
+        env:
+          UV_SYSTEM_PYTHON: 1
+          UV_BREAK_SYSTEM_PACKAGES: 1
       # Create OAS3 ruleset
       - name: Create OAS 3
         run: |
@@ -52,25 +57,30 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@v4.1.1
 
-      - name: Set up Python 3.10
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5.3.0
         with:
-          python-version: "3.10"
+          python-version: "3.12"
 
       - name: Upgrade pip
         run: |
-          pip install --constraint=$GITHUB_WORKSPACE/.github/workflows/constraints.txt pip
+          python -m pip install pip==25.1.1
           pip --version
 
-      - name: Install Poetry
-        run: |
-          pipx install --pip-args=--constraint=$GITHUB_WORKSPACE/.github/workflows/constraints.txt poetry
-          poetry --version
+      - name: Install UV
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+          version: "0.7.3"
 
       - name: Create OpenAPI with fastgeoapi CLI
         run: |
-          poetry install
-          poetry run fastgeoapi openapi
+          uv pip install -r pyproject.toml --break-system-packages
+          fastgeoapi openapi
+        env:
+          UV_SYSTEM_PYTHON: 1
+          UV_BREAK_SYSTEM_PACKAGES: 1
       # Create OWASP API Security 10 ruleset
       - name: Create OWASP API Security 10
         run: |
