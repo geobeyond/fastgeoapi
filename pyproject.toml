@@ -13,7 +13,7 @@ dependencies = [
     "loguru>=0.7.3,<0.8",
     "fastapi-opa>=2.0.3,<3",
     "rasterio>=1.4.3,<2",
-    "pygeoapi",
+    "pygeoapi @ git+https://github.com/geopython/pygeoapi.git@master",
     "fastapi[standard]>=0.115.12,<0.116",
     "typer>=0.15.3,<0.16",
     "fastapi-key-auth>=0.15.4,<0.16.0",
@@ -37,6 +37,9 @@ Homepage = "https://github.com/geobeyond/fastgeoapi"
 Repository = "https://github.com/geobeyond/fastgeoapi"
 Documentation = "https://fastgeoapi.readthedocs.io"
 Changelog = "https://github.com/geobeyond/fastgeoapi/releases"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [project.scripts]
 fastgeoapi = "cli:app"
@@ -127,6 +130,6 @@ show_error_context = true
 name = "cz_conventional_commits"
 tag_format = "$version"
 version_scheme = "semver"
-version_provider = "poetry"
+version_provider = "pep621"
 update_changelog_on_bump = true
 major_version_zero = true

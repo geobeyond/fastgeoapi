@@ -4,9 +4,9 @@ import os
 from pathlib import Path
 
 import typer
-from openapi_pydantic.v3.v3_0_3 import OAuthFlow
-from openapi_pydantic.v3.v3_0_3 import OAuthFlows
-from openapi_pydantic.v3.v3_0_3 import SecurityScheme
+from openapi_pydantic.v3.v3_0 import OAuthFlow
+from openapi_pydantic.v3.v3_0 import OAuthFlows
+from openapi_pydantic.v3.v3_0 import SecurityScheme
 from pygeoapi.l10n import LocaleError
 from pygeoapi.openapi import generate_openapi_document
 from pygeoapi.provider.base import ProviderConnectionError
