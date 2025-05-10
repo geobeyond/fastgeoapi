@@ -1,6 +1,6 @@
 """pygeoapi models module."""
 
-from openapi_pydantic.v3.v3_0_3 import Reference
+from openapi_pydantic.v3.v3_0 import Reference
 
 not_found = {
     "404": Reference(
