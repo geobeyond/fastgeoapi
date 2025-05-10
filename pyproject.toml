@@ -23,24 +23,16 @@ python = ">=3.10,<4.0"
 mangum = "^0.17.0"
 loguru = "^0.7.3"
 fastapi-opa = "^2.0.0"
-rasterio = "^1.4.3"
-# pin pygeoapi before reverting pydantic to v1
-pygeoapi = { git = "https://github.com/francbartoli/pygeoapi.git", branch = "pydantic-v2" }
-fastapi = { extras = ["all"], version = "^0.115" }
-typer = { extras = ["all"], version = "^0.12.0" }
+pygeoapi = { git = "https://github.com/geobeyond/pygeoapi.git", tag = "0.21.master.20250510" }
+fastapi = { extras = ["all"], version = "^0.115.0" }
 fastapi-key-auth = "^0.12.0"
-sqlalchemy = "^1.4.50"
-geoalchemy2 = "^0.14.4"
-shapely = "<2.0"
-psycopg2 = "^2.9.7"
 openapi-pydantic = "^0.4.1"
-pygeofilter = { git = "https://github.com/geopython/pygeofilter.git", tag = "v0.2.3" }
-pydantic-settings = "^2.5.0"
+# pygeofilter = { git = "https://github.com/geopython/pygeofilter.git", tag = "v0.2.3" }
+pydantic-settings = "*"
 authlib = "^1.4.1"
 cachetools = "^5.3.2"
 fencer = { git = "https://github.com/abunuwas/fencer.git", branch = "main" }
 json-ref-dict = "^0.7.2"
-pyyaml = "^6.0.1"
 scalar-fastapi = "^1.0.3"
 
 [tool.poetry.scripts]
@@ -74,7 +66,7 @@ safety = "<2.0"
 mypy = "^1.10.0"
 commitizen = "^3.24.0"
 openapi-resolver = "^0.0.6"
-schemathesis = "^3.39.0"
+schemathesis = "*"
 mkdocs-typer = "^0.0.3"
 pytest-asyncio = "^0.24.0"
 
