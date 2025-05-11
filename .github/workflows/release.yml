@@ -46,13 +46,13 @@ jobs:
         uses: salsify/action-detect-and-tag-new-version@v2.0.3
         with:
           version-command: |
-            bash -o pipefail -c "python -c 'import tomli; print(tomli.load(open("pyproject.toml", "rb"))["project"]["version"])'"  
+            bash -o pipefail -c "python -c \"import tomli; print(tomli.load(open('pyproject.toml', 'rb'))['project']['version'])\""
 
       - name: Bump version for developmental release
         if: ${{ !steps.check-version.outputs.tag }}
         run: |
           # Get current version from pyproject.toml
-          current_version=$(python -c 'import tomli; print(tomli.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          current_version=$(python -c "import tomli; print(tomli.load(open('pyproject.toml', 'rb'))['project']['version'])")
           # Bump patch version
           IFS='.' read -r -a version_parts <<< "$current_version"
           new_patch=$((version_parts[2] + 1))
