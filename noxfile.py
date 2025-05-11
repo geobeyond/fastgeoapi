@@ -10,6 +10,7 @@ import nox
 
 # Using standard nox with UV instead of nox-poetry
 from nox import Session
+
 session = nox.session
 
 

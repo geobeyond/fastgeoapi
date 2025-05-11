@@ -12,7 +12,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get --yes clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install UV 
+# Install UV
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Set working directory for dependency installation

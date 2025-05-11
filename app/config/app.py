@@ -188,13 +188,18 @@ class FactoryConfig:
         """Initialize factory configuration."""
         self.env_state = env_state
 
-    @lru_cache()
     def __call__(self):
         """Handle runtime configuration."""
-        if self.env_state == "dev":
+        return self.get_config(self.env_state)
+
+    @classmethod
+    @lru_cache()
+    def get_config(cls, env_state: str):
+        """Get configuration based on environment state with caching."""
+        if env_state == "dev":
             return DevConfig(**GlobalConfig().model_dump())
 
-        elif self.env_state == "prod":
+        elif env_state == "prod":
             return ProdConfig(**GlobalConfig().model_dump())
 
 
