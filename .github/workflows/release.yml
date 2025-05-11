@@ -11,9 +11,12 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    # Use GitHub environment features for secret management
     permissions:
       contents: write
       id-token: write
+      # Add explicit permission for secrets
+      packages: write
     steps:
       - name: Check out the repository
         uses: actions/checkout@v4.2.2
@@ -42,7 +45,7 @@ jobs:
       - name: Check if there is a parent commit
         id: check-parent-commit
         run: |
-          echo "::set-output name=sha::$(git rev-parse --verify --quiet HEAD^)"
+          echo "sha=$(git rev-parse --verify --quiet HEAD^)" >> $GITHUB_OUTPUT
 
       - name: Detect and tag new version
         id: check-version
