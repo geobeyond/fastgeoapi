@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - uv-pydantic-2
 
 jobs:
   release:
@@ -12,24 +13,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v4.2.2
         with:
           fetch-depth: 2
 
       - name: Set up Python
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v5.6.0
         with:
-          python-version: "3.10"
+          python-version: "3.12"
 
-      - name: Upgrade pip
+      - name: Install UV
         run: |
-          pip install --constraint=$GITHUB_WORKSPACE/.github/workflows/constraints.txt pip
-          pip --version
-
-      - name: Install Poetry
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv --version
+      
+      - name: Install dependencies
+        env:
+          UV_SYSTEM_PYTHON: 1
+          UV_BREAK_SYSTEM_PACKAGES: 1
         run: |
-          pip install --constraint=$GITHUB_WORKSPACE/.github/workflows/constraints.txt poetry
-          poetry --version
+          uv pip install pip==25.1.1
+          uv pip install hatch tomli tomli-w --system --break-system-packages
 
       - name: Check if there is a parent commit
         id: check-parent-commit
@@ -42,36 +46,42 @@ jobs:
         uses: salsify/action-detect-and-tag-new-version@v2.0.3
         with:
           version-command: |
-            bash -o pipefail -c "poetry version | awk '{ print \$2 }'"
+            bash -o pipefail -c "python -c 'import tomli; print(tomli.load(open("pyproject.toml", "rb"))["project"]["version"])'"  
 
       - name: Bump version for developmental release
-        if: "! steps.check-version.outputs.tag"
+        if: ${{ !steps.check-version.outputs.tag }}
         run: |
-          poetry version patch &&
-          version=$(poetry version | awk '{ print $2 }') &&
-          poetry version $version.dev.$(date +%s)
+          # Get current version from pyproject.toml
+          current_version=$(python -c 'import tomli; print(tomli.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          # Bump patch version
+          IFS='.' read -r -a version_parts <<< "$current_version"
+          new_patch=$((version_parts[2] + 1))
+          new_version="${version_parts[0]}.${version_parts[1]}.$new_patch.dev.$(date +%s)"
+          # Update pyproject.toml with new version
+          python -c "import tomli, tomli_w; data = tomli.load(open('pyproject.toml', 'rb')); data['project']['version'] = '$new_version'; tomli_w.dump(data, open('pyproject.toml', 'wb'))"
 
       - name: Build package
         run: |
-          poetry build --ansi
+          uv pip install build --system --break-system-packages
+          uv run python -m build
 
-      - name: Publish package on PyPI
-        if: steps.check-version.outputs.tag
-        uses: pypa/gh-action-pypi-publish@v1.11.0
-        with:
-          user: __token__
-          password: ${{ secrets.PYPI_TOKEN }}
+      # - name: Publish package on PyPI
+      #   if: steps.check-version.outputs.tag
+      #   uses: pypa/gh-action-pypi-publish@v1.12.4
+      #   with:
+      #     user: __token__
+      #     password: ${{ secrets.PYPI_TOKEN }}
 
       - name: Publish package on TestPyPI
-        if: "! steps.check-version.outputs.tag"
-        uses: pypa/gh-action-pypi-publish@v1.11.0
+        if: ${{ !steps.check-version.outputs.tag }}
+        uses: pypa/gh-action-pypi-publish@v1.12.4
         with:
           user: __token__
           password: ${{ secrets.TEST_PYPI_TOKEN }}
-          repository_url: https://test.pypi.org/legacy/
+          repository-url: https://test.pypi.org/legacy/
 
       - name: Publish the release notes
-        uses: release-drafter/release-drafter@v6.0.0
+        uses: release-drafter/release-drafter@v6.1.0
         with:
           publish: ${{ steps.check-version.outputs.tag != '' }}
           tag: ${{ steps.check-version.outputs.tag }}
