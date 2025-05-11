@@ -26,10 +26,11 @@ jobs:
           python-version: "3.12"
 
       - name: Install UV
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv --version
-      
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+          version: "0.7.3"
       - name: Install dependencies
         env:
           UV_SYSTEM_PYTHON: 1
@@ -83,6 +84,9 @@ jobs:
           user: __token__
           password: ${{ secrets.TEST_PYPI_TOKEN }}
           repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+          verbose: true
+          print-hash: true
 
       - name: Publish the release notes
         uses: release-drafter/release-drafter@v6.1.0
