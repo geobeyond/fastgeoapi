@@ -37,10 +37,9 @@ jobs:
         env:
           UV_SYSTEM_PYTHON: 1
           UV_BREAK_SYSTEM_PACKAGES: 1
-      # Create OAS3 ruleset
-      - name: Create OAS 3
+      # Display the OAS3 ruleset (already in repo)
+      - name: Show OAS3 ruleset
         run: |
-          echo 'extends: ["spectral:oas"]' > .spectral.oas3.yaml
           cat .spectral.oas3.yaml
 
       # Run Spectral for OAS3
