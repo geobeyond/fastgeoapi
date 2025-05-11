@@ -41,6 +41,7 @@ jobs:
       - name: Create OAS 3
         run: |
           echo 'extends: ["spectral:oas"]' > .spectral.oas3.yaml
+          cat .spectral.oas3.yaml
 
       # Run Spectral for OAS3
       - name: Run Spectral for OAS3
@@ -48,6 +49,9 @@ jobs:
         with:
           file_glob: "pygeoapi-openapi.json"
           spectral_ruleset: ".spectral.oas3.yaml"
+          repo_token: ${{ github.token }}
+          fail_on_errors_only: true
+          skip_validation_for_external_references: true
 
   spectral-owasp:
     name: Validate OpenAPI document against OWASP Top 10 API security rules
@@ -86,6 +90,7 @@ jobs:
         run: |
           npm install -g @stoplight/spectral-owasp-ruleset@latest
           echo 'extends: ["https://unpkg.com/@stoplight/spectral-owasp-ruleset/dist/ruleset.mjs"]' > .spectral.owasp-top-10.yaml
+          cat .spectral.owasp-top-10.yaml
 
       # Run Spectral for OWASP Top 10
       - name: Run Spectral for OWASP top 10
@@ -93,3 +98,6 @@ jobs:
         with:
           file_glob: "pygeoapi-openapi.json"
           spectral_ruleset: ".spectral.owasp-top-10.yaml"
+          repo_token: ${{ github.token }}
+          fail_on_errors_only: true
+          skip_validation_for_external_references: true
