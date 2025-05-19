@@ -36,6 +36,7 @@ uv sync
 ```
 
 This automatically:
+
 - Creates a virtual environment in `.venv`
 - Installs all required dependencies
 - Sets up FastGeoAPI in development mode
@@ -45,16 +46,19 @@ This automatically:
 After running `uv sync`, you'll need to activate the virtual environment to use FastGeoAPI:
 
 **macOS / Linux:**
+
 ```bash
 source .venv/bin/activate
 ```
 
 **Windows (Command Prompt):**
+
 ```cmd
 .venv\Scripts\activate.bat
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 .venv\Scripts\Activate.ps1
 ```
@@ -111,7 +115,7 @@ export FASTGEOAPI_CONTEXT='/geoapi'
 Finally, you can start FastGeoAPI in development mode:
 
 ```shell
-uv run fastapi run app/main.py --app app --host 0.0.0.0 --port 5002 --reload
+uv run fastapi run app/main.py --app app --host 0.0.0.0 --port 5000 --reload
 ```
 
 ### Common UV Commands
