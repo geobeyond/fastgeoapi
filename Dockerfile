@@ -7,8 +7,11 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     # these are our own dependencies and utilities
     # if you need to add more, please sort them in alphabetical order
     apt-get install --yes --no-install-recommends \
+        python3-dev \
+        build-essential \
         tini \
         git && \
+    # Clean up
     apt-get --yes clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -23,6 +26,7 @@ COPY pyproject.toml .env pygeoapi-config.yml ./
 
 # Install dependencies as root (with system-wide access)
 RUN --mount=type=cache,target=/root/.cache/uv \
+    # Install dependencies with system Python
     uv pip install --system --break-system-packages -r pyproject.toml
 
 # Create a normal non-root user to run the app
