@@ -5,8 +5,6 @@ on:
     branches:
       - main
       - master
-      - uv-pydantic-2
-
 jobs:
   release:
     name: Release
@@ -73,12 +71,12 @@ jobs:
           uv pip install build --system --break-system-packages
           python -m build
 
-      # - name: Publish package on PyPI
-      #   if: steps.check-version.outputs.tag
-      #   uses: pypa/gh-action-pypi-publish@v1.12.4
-      #   with:
-      #     user: __token__
-      #     password: ${{ secrets.PYPI_TOKEN }}
+      - name: Publish package on PyPI
+        if: steps.check-version.outputs.tag
+        uses: pypa/gh-action-pypi-publish@v1.12.4
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_TOKEN }}
 
       - name: Publish package on TestPyPI
         if: ${{ !steps.check-version.outputs.tag }}
