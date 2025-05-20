@@ -20,7 +20,7 @@ dependencies = [
     "sqlalchemy>=1.4.50,<2",
     "geoalchemy2>=0.14.4,<0.15",
     "shapely<2.0",
-    "psycopg2>=2.9.7,<3",
+    "psycopg2-binary>=2.9.10,<3",
     "openapi-pydantic>=0.4.1,<0.5",
     "pygeofilter",
     "pydantic-settings>=2.5.0,<3",
