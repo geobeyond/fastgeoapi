@@ -27,7 +27,7 @@ class ServiceResult:
         """Handle class identity."""
         if self.success:
             return "[Success]"
-        return f'[Exception] "{self.exception_case}"'
+        return f"[Exception] {self.exception_case!r}"
 
     def __repr__(self):
         """Handle class representation."""

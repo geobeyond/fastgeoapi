@@ -12,14 +12,14 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@v4.1.1
 
-      - name: Set up Python 3.10
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5.3.0
         with:
-          python-version: "3.10"
+          python-version: "3.12"
 
       - name: Upgrade pip
         run: |
-          pip install --constraint=$GITHUB_WORKSPACE/.github/workflows/constraints.txt pip
+          python -m pip install pip==25.1.1
           pip --version
 
       - name: Upgrade pip in virtual environments
@@ -31,10 +31,12 @@ jobs:
           with open(os.environ["GITHUB_ENV"], mode="a") as io:
               print(f"VIRTUALENV_PIP={pip.__version__}", file=io)
 
-      - name: Install Poetry
-        run: |
-          pipx install --pip-args=--constraint=$GITHUB_WORKSPACE/.github/workflows/constraints.txt poetry
-          poetry --version
+      - name: Install UV
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+          version: "0.7.3"
       - name: Install GDAL
         run: |
           sudo apt-add-repository ppa:ubuntugis/ubuntugis-unstable
@@ -46,13 +48,18 @@ jobs:
           OPA_ENABLED: false
           API_KEY_ENABLED: true
           JWKS_ENABLED: false
+          UV_SYSTEM_PYTHON: 1
+          UV_BREAK_SYSTEM_PACKAGES: 1
         run: |
-          poetry install
+          uv pip install -e . --break-system-packages
           ENV_STATE=$ENV_STATE
           OPA_ENABLED=$OPA_ENABLED
           API_KEY_ENABLED=$API_KEY_ENABLED
           JWKS_ENABLED=$JWKS_ENABLED
-          poetry run uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload --loop asyncio &
+          uvicorn app.main:app --host 0.0.0.0 --port 5002 --reload --loop asyncio &
       - name: Run schemathesis command and tests
         run: |
-          poetry run py.test tests/test_openapi_contract.py -vv
+          uv run pytest tests/test_openapi_contract.py -vv
+        env:
+          UV_SYSTEM_PYTHON: 1
+          UV_BREAK_SYSTEM_PACKAGES: 1

@@ -2,8 +2,8 @@
 
 from typing import List
 
-from openapi_pydantic.v3.v3_0_3 import OpenAPI
-from openapi_pydantic.v3.v3_0_3 import SecurityScheme
+from openapi_pydantic.v3.v3_0 import OpenAPI
+from openapi_pydantic.v3.v3_0 import SecurityScheme
 from pydantic_core import ValidationError
 
 from app.auth.models import unauthorized
