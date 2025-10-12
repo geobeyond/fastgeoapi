@@ -52,6 +52,7 @@ jobs:
           UV_BREAK_SYSTEM_PACKAGES: 1
         run: |
           uv pip install -e . --break-system-packages
+          uv pip install --group dev --break-system-packages
           ENV_STATE=$ENV_STATE
           OPA_ENABLED=$OPA_ENABLED
           API_KEY_ENABLED=$API_KEY_ENABLED
