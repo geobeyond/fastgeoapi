@@ -1,4 +1,127 @@
-"""OpenAPI contract tests module."""
+"""OpenAPI contract tests module.
+
+POST /items Endpoint Exclusion
+===============================
+
+These tests explicitly exclude POST /collections/{collectionId}/items
+endpoints from contract testing due to inconsistencies in the OpenAPI
+specification advertised by pygeoapi.
+
+Background
+----------
+pygeoapi is designed to support transactions (create, update, delete
+operations) on feature collections through OGC API - Features Part 4:
+Create, Replace, Update and Delete. However, these transaction
+capabilities must be explicitly configured in the pygeoapi configuration
+file.
+
+The Problem
+-----------
+pygeoapi advertises POST /collections/{collectionId}/items endpoints in
+its OpenAPI specification regardless of whether transactions are actually
+configured and enabled for those collections. This creates a mismatch
+between:
+
+1. Advertised API: The OpenAPI document includes POST endpoints with
+   request body schemas
+2. Actual Configuration: The server is not configured to handle these
+   POST requests (no transaction provider configured)
+
+Technical Details
+-----------------
+When transactions are not configured, pygeoapi's OpenAPI schema
+generation includes POST endpoint definitions with invalid JSON Schema
+references:
+
+- Invalid reference: /$defs/propertyRef
+- Location: Request body schema for POST /collections/{id}/items
+- Impact: The referenced schema definition does not exist in the
+  OpenAPI document
+
+Example from the problematic schema::
+
+    {
+        'paths': {
+            '/collections/lakes/items': {
+                'post': {
+                    'requestBody': {
+                        'content': {
+                            'application/geo+json': {
+                                'schema': {'$ref': '#/$defs/propertyRef'}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+Error Manifestation
+-------------------
+When schemathesis attempts to generate test cases for these endpoints,
+it fails with::
+
+    schemathesis.exceptions.SchemaError: Unresolvable JSON pointer
+    in the schema: /$defs/propertyRef
+
+This error occurs during test case generation (before the test even
+runs), making it impossible to test these endpoints using property-based
+testing.
+
+The Solution
+------------
+The test fixtures in conftest.py use schemathesis's exclude() method to
+filter out POST endpoints matching the pattern /collections/.../items::
+
+    schema.exclude(method='POST', path_regex=r'.*/items$')
+
+This filtering:
+
+1. Happens at schema load time: Before test case generation begins
+2. Is specific: Only excludes POST /items endpoints, allowing all other
+   operations (GET, OPTIONS, DELETE, etc.) to be tested
+3. Is necessary: Without this exclusion, the entire test suite would
+   fail during test discovery
+
+Affected Collections
+--------------------
+In this fastgeoapi instance, the following collections advertise invalid
+POST endpoints:
+
+- /collections/fabbricati/items
+- /collections/georoma_civici/items
+- /collections/lakes/items
+- /collections/obs/items
+- /collections/particelle/items
+
+Verified Working Endpoints
+---------------------------
+The following POST endpoints are correctly defined and tested:
+
+- POST /geoapi/processes/{processId}/execution (OGC API - Processes)
+
+Future Resolution
+-----------------
+This workaround can be removed when one of the following occurs:
+
+1. pygeoapi fixes schema generation: pygeoapi is updated to only
+   advertise POST endpoints when transactions are actually configured
+2. Configuration is added: Transaction providers are configured for the
+   collections, making the POST endpoints functional
+3. Schema is corrected: The propertyRef definition is added to the
+   schema or the reference is removed from POST endpoint definitions
+
+References
+----------
+- OGC API - Features Part 4: https://docs.ogc.org/DRAFTS/20-002.html
+- pygeoapi transactions: https://docs.pygeoapi.io/en/latest/transactions.html
+- Schemathesis filtering: https://schemathesis.readthedocs.io/en/stable/
+
+See Also
+--------
+- tests/conftest.py: Schema fixture definitions with exclusion filters
+- .github/workflows/contract-tests.yml: CI workflow for contract testing
+"""
 
 import os
 
