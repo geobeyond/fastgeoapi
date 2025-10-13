@@ -117,6 +117,7 @@ jobs:
   coverage:
     runs-on: ubuntu-22.04
     needs: tests
+    if: success() || failure()
     steps:
       - name: Check out the repository
         uses: actions/checkout@v4.1.1
@@ -144,17 +145,22 @@ jobs:
           nox --version
 
       - name: Download coverage data
+        id: download-coverage
         uses: actions/download-artifact@v4.1.8
+        continue-on-error: true
         with:
           name: coverage-data
 
       - name: Combine coverage data and display human readable report
+        if: steps.download-coverage.outcome == 'success'
         run: |
           nox --force-color --session=coverage
 
       - name: Create coverage report
+        if: steps.download-coverage.outcome == 'success'
         run: |
           nox --force-color --session=coverage -- xml
 
       - name: Upload coverage report
+        if: steps.download-coverage.outcome == 'success'
         uses: codecov/codecov-action@v4.6.0
