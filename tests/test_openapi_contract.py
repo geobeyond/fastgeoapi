@@ -1,5 +1,8 @@
 """OpenAPI contract tests module."""
 
+import os
+
+import pytest
 import schemathesis
 
 schema_apikey = schemathesis.from_pytest_fixture("protected_apikey_schema")
@@ -23,6 +26,10 @@ def test_api_with_apikey(case):
     case.validate_response(response)
 
 
+@pytest.mark.skipif(
+    os.environ.get("JWKS_ENABLED", "").lower() not in ("true", "1"),
+    reason="Skipping bearer token tests when JWKS is not enabled",
+)
 @schema_bearer.parametrize()
 def test_api_with_bearer(case, access_token):
     """Test the API with Authorization Bearer token protection."""
