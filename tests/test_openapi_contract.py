@@ -132,6 +132,10 @@ schema_apikey = schemathesis.from_pytest_fixture("protected_apikey_schema")
 schema_bearer = schemathesis.from_pytest_fixture("protected_bearer_schema")
 
 
+@pytest.mark.skipif(
+    os.environ.get("API_KEY_ENABLED", "").lower() not in ("true", "1"),
+    reason="Skipping API key tests when API_KEY is not enabled",
+)
 @schema_apikey.parametrize()
 def test_api_with_apikey(case):
     """Test the API with API-KEY protection."""
