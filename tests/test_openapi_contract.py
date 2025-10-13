@@ -41,14 +41,8 @@ import schemathesis
 schema_apikey = schemathesis.from_pytest_fixture("protected_apikey_schema")
 schema_bearer = schemathesis.from_pytest_fixture("protected_bearer_schema")
 
-# Filter out POST /items endpoints that have unresolvable schema references
-# See module docstring for detailed explanation
-schema_apikey.include(
-    lambda op: not (op.method.upper() == "POST" and "/items" in op.path)
-)
-schema_bearer.include(
-    lambda op: not (op.method.upper() == "POST" and "/items" in op.path)
-)
+# Note: POST /items endpoints are filtered in conftest.py where the schemas are created
+# See module docstring above for detailed explanation of why this filtering is needed
 
 
 @schema_apikey.parametrize()
