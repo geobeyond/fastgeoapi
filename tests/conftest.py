@@ -105,36 +105,16 @@ def create_protected_with_bearer_app(create_app):
 
 @pytest.fixture
 def protected_apikey_schema(create_protected_with_apikey_app):
-    """Create a protected API key schema.
-
-    Excludes POST /items endpoints due to pygeoapi schema issues.
-    See tests/test_openapi_contract.py module docstring for details.
-    """
+    """Create a protected API key schema."""
     app = create_protected_with_apikey_app()
-    schema = schemathesis.from_asgi("/geoapi/openapi?f=json", app=app)
-
-    # Filter out POST /items endpoints that have unresolvable schema references
-    # Note: include() returns a new schema object, it doesn't modify in place
-    return schema.include(
-        lambda op: not (op.method.upper() == "POST" and "/items" in op.path)
-    )
+    return schemathesis.from_asgi("/geoapi/openapi?f=json", app=app)
 
 
 @pytest.fixture
 def protected_bearer_schema(create_protected_with_bearer_app):
-    """Create a protected bearer token schema.
-
-    Excludes POST /items endpoints due to pygeoapi schema issues.
-    See tests/test_openapi_contract.py module docstring for details.
-    """
+    """Create a protected bearer token schema."""
     app = create_protected_with_bearer_app()
-    schema = schemathesis.from_asgi("/geoapi/openapi?f=json", app=app)
-
-    # Filter out POST /items endpoints that have unresolvable schema references
-    # Note: include() returns a new schema object, it doesn't modify in place
-    return schema.include(
-        lambda op: not (op.method.upper() == "POST" and "/items" in op.path)
-    )
+    return schemathesis.from_asgi("/geoapi/openapi?f=json", app=app)
 
 
 @pytest.fixture
