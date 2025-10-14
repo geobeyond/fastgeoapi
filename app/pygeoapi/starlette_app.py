@@ -4,6 +4,7 @@ import asyncio
 from typing import Any
 from typing import Callable
 
+import pygeoapi.api.processes as processes_api
 from pygeoapi.starlette_app import api_ as geoapi
 from starlette.requests import Request
 from starlette.responses import HTMLResponse
@@ -72,7 +73,7 @@ async def patched_get_job_result(request: Request, job_id=None):
     if "job_id" in request.path_params:
         job_id = request.path_params["job_id"]
 
-    response = await get_response(geoapi.get_job_result, request, job_id)
+    response = await get_response(processes_api.get_job_result, geoapi, request, job_id)
 
     from app.pygeoapi.api.processes import patch_response
 
