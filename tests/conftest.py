@@ -21,10 +21,11 @@ def runner() -> CliRunner:
 
 def reload_app():
     """Reload the app with the test environment variables."""
-    if "app.main" in sys.modules:
-        del sys.modules["app.main"]
-    if "app.config.app" in sys.modules:
-        del sys.modules["app.config.app"]
+    # Remove all app modules to ensure clean reload with new environment
+    modules_to_remove = [key for key in sys.modules.keys() if key.startswith("app.")]
+    for module in modules_to_remove:
+        del sys.modules[module]
+
     from app.main import app
 
     return app
@@ -45,12 +46,14 @@ def create_protected_with_apikey_app(create_app):
             os.environ,
             {
                 "ENV_STATE": "dev",
+                "HOST": "0.0.0.0",  # noqa: S104
+                "PORT": "5000",
                 "DEV_API_KEY_ENABLED": "true",
                 "DEV_PYGEOAPI_KEY_GLOBAL": "pygeoapi",
                 "DEV_JWKS_ENABLED": "false",
                 "DEV_OPA_ENABLED": "false",
             },
-            clear=True,
+            clear=False,
         ):
             app = create_app()
         return app
@@ -67,12 +70,14 @@ def create_app_with_reverse_proxy_enabled(create_app):
             os.environ,
             {
                 "ENV_STATE": "dev",
+                "HOST": "0.0.0.0",  # noqa: S104
+                "PORT": "5000",
                 "DEV_API_KEY_ENABLED": "false",
                 "DEV_JWKS_ENABLED": "false",
                 "DEV_OPA_ENABLED": "false",
                 "DEV_FASTGEOAPI_REVERSE_PROXY": "true",
             },
-            clear=True,
+            clear=False,
         ):
             app = create_app()
         return app
@@ -89,13 +94,15 @@ def create_protected_with_bearer_app(create_app):
             os.environ,
             {
                 "ENV_STATE": "dev",
+                "HOST": "0.0.0.0",  # noqa: S104
+                "PORT": "5000",
                 "DEV_API_KEY_ENABLED": "false",
                 "DEV_OAUTH2_JWKS_ENDPOINT": "https://76hxgq.logto.app/oidc/jwks",
                 "DEV_OAUTH2_TOKEN_ENDPOINT": "https://76hxgq.logto.app/oidc/token",
                 "DEV_JWKS_ENABLED": "true",
                 "DEV_OPA_ENABLED": "false",
             },
-            clear=True,
+            clear=False,
         ):
             app = create_app()
         return app
@@ -117,7 +124,7 @@ def protected_apikey_schema(create_protected_with_apikey_app):
     See test_openapi_contract.py module docstring for detailed explanation.
     """
     app = create_protected_with_apikey_app()
-    schema = schemathesis.from_asgi("/geoapi/openapi?f=json", app=app)
+    schema = schemathesis.openapi.from_asgi("/geoapi/openapi?f=json", app=app)
     # Exclude POST /items endpoints with invalid schema references (/$defs/propertyRef)
     schema = schema.exclude(method="POST", path_regex=r".*/items$")
     # Exclude OPTIONS methods for all endpoints
@@ -139,7 +146,7 @@ def protected_bearer_schema(create_protected_with_bearer_app):
     See test_openapi_contract.py module docstring for detailed explanation.
     """
     app = create_protected_with_bearer_app()
-    schema = schemathesis.from_asgi("/geoapi/openapi?f=json", app=app)
+    schema = schemathesis.openapi.from_asgi("/geoapi/openapi?f=json", app=app)
     # Exclude POST /items endpoints with invalid schema references (/$defs/propertyRef)
     schema = schema.exclude(method="POST", path_regex=r".*/items$")
     # Exclude OPTIONS methods for all endpoints

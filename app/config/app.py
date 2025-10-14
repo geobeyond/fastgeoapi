@@ -3,6 +3,7 @@
 from functools import lru_cache
 from typing import Optional
 
+from pydantic import Field
 from pydantic_settings import BaseSettings
 from pydantic_settings import SettingsConfigDict
 
@@ -14,8 +15,8 @@ class GlobalConfig(BaseSettings):
     # shell environment variable having the same name, that will take precedence.
 
     ENV_STATE: Optional[str] = None
-    HOST: Optional[str] = None
-    PORT: Optional[str] = None
+    HOST: str
+    PORT: str
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -30,6 +31,10 @@ class GlobalConfig(BaseSettings):
 class DevConfig(GlobalConfig):
     """Development configurations."""
 
+    # Override inherited fields to use unprefixed env vars
+    HOST: str = Field(validation_alias="HOST")
+    PORT: str = Field(validation_alias="PORT")
+
     ROOT_PATH: Optional[str] = None
     AWS_LAMBDA_DEPLOY: Optional[bool] = None
     LOG_PATH: Optional[str] = None
@@ -50,11 +55,11 @@ class DevConfig(GlobalConfig):
     OAUTH2_JWKS_ENDPOINT: Optional[str] = None
     OAUTH2_TOKEN_ENDPOINT: Optional[str] = None
     PYGEOAPI_KEY_GLOBAL: Optional[str] = None
-    PYGEOAPI_BASEURL: Optional[str] = None
-    PYGEOAPI_CONFIG: Optional[str] = None
-    PYGEOAPI_OPENAPI: Optional[str] = None
+    PYGEOAPI_BASEURL: str
+    PYGEOAPI_CONFIG: str
+    PYGEOAPI_OPENAPI: str
     PYGEOAPI_SECURITY_SCHEME: Optional[str] = None
-    FASTGEOAPI_CONTEXT: Optional[str] = None
+    FASTGEOAPI_CONTEXT: str
     FASTGEOAPI_REVERSE_PROXY: Optional[bool] = None
 
     model_config = SettingsConfigDict(
@@ -67,6 +72,10 @@ class DevConfig(GlobalConfig):
 class ProdConfig(GlobalConfig):
     """Production configurations."""
 
+    # Override inherited fields to use unprefixed env vars
+    HOST: str = Field(validation_alias="HOST")
+    PORT: str = Field(validation_alias="PORT")
+
     ROOT_PATH: Optional[str] = None
     AWS_LAMBDA_DEPLOY: Optional[bool] = None
     LOG_PATH: Optional[str] = None
@@ -87,11 +96,11 @@ class ProdConfig(GlobalConfig):
     OAUTH2_JWKS_ENDPOINT: Optional[str] = None
     OAUTH2_TOKEN_ENDPOINT: Optional[str] = None
     PYGEOAPI_KEY_GLOBAL: Optional[str] = None
-    PYGEOAPI_BASEURL: Optional[str] = None
-    PYGEOAPI_CONFIG: Optional[str] = None
-    PYGEOAPI_OPENAPI: Optional[str] = None
+    PYGEOAPI_BASEURL: str
+    PYGEOAPI_CONFIG: str
+    PYGEOAPI_OPENAPI: str
     PYGEOAPI_SECURITY_SCHEME: Optional[str] = None
-    FASTGEOAPI_CONTEXT: Optional[str] = None
+    FASTGEOAPI_CONTEXT: str
     FASTGEOAPI_REVERSE_PROXY: Optional[bool] = None
 
     model_config = SettingsConfigDict(

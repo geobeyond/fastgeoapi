@@ -129,8 +129,8 @@ import pytest
 import schemathesis
 from schemathesis.checks import not_a_server_error
 
-schema_apikey = schemathesis.from_pytest_fixture("protected_apikey_schema")
-schema_bearer = schemathesis.from_pytest_fixture("protected_bearer_schema")
+schema_apikey = schemathesis.pytest.from_fixture("protected_apikey_schema")
+schema_bearer = schemathesis.pytest.from_fixture("protected_bearer_schema")
 
 
 @pytest.mark.skipif(
