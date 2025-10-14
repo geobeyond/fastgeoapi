@@ -116,7 +116,8 @@ def protected_apikey_schema(create_protected_with_apikey_app):
     app = create_protected_with_apikey_app()
     schema = schemathesis.from_asgi("/geoapi/openapi?f=json", app=app)
     # Exclude POST /items endpoints with invalid schema references (/$defs/propertyRef)
-    return schema.exclude(method="POST", path_regex=r".*/items$")
+    schema = schema.exclude(method="POST", path_regex=r".*/items$")
+    return schema
 
 
 @pytest.fixture
@@ -132,7 +133,8 @@ def protected_bearer_schema(create_protected_with_bearer_app):
     app = create_protected_with_bearer_app()
     schema = schemathesis.from_asgi("/geoapi/openapi?f=json", app=app)
     # Exclude POST /items endpoints with invalid schema references (/$defs/propertyRef)
-    return schema.exclude(method="POST", path_regex=r".*/items$")
+    schema = schema.exclude(method="POST", path_regex=r".*/items$")
+    return schema
 
 
 @pytest.fixture

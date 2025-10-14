@@ -139,15 +139,9 @@ schema_bearer = schemathesis.from_pytest_fixture("protected_bearer_schema")
 @schema_apikey.parametrize()
 def test_api_with_apikey(case):
     """Test the API with API-KEY protection."""
-    # Skip process execution tests with invalid body (missing name field)
-    if case.method.upper() == "POST" and "/execution" in case.path and case.body:
-        # Check if body has the required 'inputs' with 'name' field
-        if isinstance(case.body, dict):
-            inputs = case.body.get("inputs", {})
-            if not inputs or "name" not in inputs:
-                pytest.skip(
-                    "Skipping process execution with invalid body (missing name)"
-                )
+    # Provide valid data for process execution endpoints
+    if case.method.upper() == "POST" and "/execution" in case.path:
+        case.body = {"inputs": {"name": "test-user"}}
 
     if case.path_parameters:
         if case.path_parameters.get("jobId"):
@@ -170,15 +164,9 @@ def test_api_with_apikey(case):
 @schema_bearer.parametrize()
 def test_api_with_bearer(case, access_token):
     """Test the API with Authorization Bearer token protection."""
-    # Skip process execution tests with invalid body (missing name field)
-    if case.method.upper() == "POST" and "/execution" in case.path and case.body:
-        # Check if body has the required 'inputs' with 'name' field
-        if isinstance(case.body, dict):
-            inputs = case.body.get("inputs", {})
-            if not inputs or "name" not in inputs:
-                pytest.skip(
-                    "Skipping process execution with invalid body (missing name)"
-                )
+    # Provide valid data for process execution endpoints
+    if case.method.upper() == "POST" and "/execution" in case.path:
+        case.body = {"inputs": {"name": "test-user"}}
 
     if case.path_parameters:
         if case.path_parameters.get("jobId"):
