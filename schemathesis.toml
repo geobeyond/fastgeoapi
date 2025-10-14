@@ -1,0 +1,18 @@
+# Schemathesis configuration for contract tests
+# See: https://schemathesis.readthedocs.io/en/stable/reference/configuration/
+
+[generation]
+# Limit the number of test cases per API operation to speed up tests
+# Default is 100, reducing to 10 for faster CI/CD
+max-examples = 50
+
+# Generate only positive (valid) test cases to speed up tests
+# Options: "positive", "negative", "all"
+mode = "positive"
+
+# Disable test case shrinking to improve performance
+# This makes failures slightly harder to debug but speeds up tests
+no-shrink = true
+
+# Enable deterministic mode for reproducible test runs
+deterministic = true
