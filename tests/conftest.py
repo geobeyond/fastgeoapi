@@ -105,11 +105,14 @@ def create_protected_with_bearer_app(create_app):
 
 @pytest.fixture
 def protected_apikey_schema(create_protected_with_apikey_app):
-    """Create a protected API key schema, excluding POST /items endpoints.
+    """Create a protected API key schema, excluding POST /items and OPTIONS endpoints.
 
     Excludes POST /collections/{collectionId}/items endpoints due to pygeoapi
     advertising these endpoints with invalid JSON Schema references even when
     transactions are not configured.
+
+    Excludes OPTIONS methods for all endpoints as they are not needed for contract
+    testing.
 
     See test_openapi_contract.py module docstring for detailed explanation.
     """
@@ -117,16 +120,21 @@ def protected_apikey_schema(create_protected_with_apikey_app):
     schema = schemathesis.from_asgi("/geoapi/openapi?f=json", app=app)
     # Exclude POST /items endpoints with invalid schema references (/$defs/propertyRef)
     schema = schema.exclude(method="POST", path_regex=r".*/items$")
+    # Exclude OPTIONS methods for all endpoints
+    schema = schema.exclude(method="OPTIONS")
     return schema
 
 
 @pytest.fixture
 def protected_bearer_schema(create_protected_with_bearer_app):
-    """Create a protected bearer token schema, excluding POST /items endpoints.
+    """Create a protected bearer token schema, excluding POST /items and OPTIONS.
 
     Excludes POST /collections/{collectionId}/items endpoints due to pygeoapi
     advertising these endpoints with invalid JSON Schema references even when
     transactions are not configured.
+
+    Excludes OPTIONS methods for all endpoints as they are not needed for contract
+    testing.
 
     See test_openapi_contract.py module docstring for detailed explanation.
     """
@@ -134,6 +142,8 @@ def protected_bearer_schema(create_protected_with_bearer_app):
     schema = schemathesis.from_asgi("/geoapi/openapi?f=json", app=app)
     # Exclude POST /items endpoints with invalid schema references (/$defs/propertyRef)
     schema = schema.exclude(method="POST", path_regex=r".*/items$")
+    # Exclude OPTIONS methods for all endpoints
+    schema = schema.exclude(method="OPTIONS")
     return schema
 
 
