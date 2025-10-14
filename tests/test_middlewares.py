@@ -1,21 +1,25 @@
 """Test middlewares."""
 
+import os
+
 import pytest
 from httpx import ASGITransport
 from httpx import AsyncClient
-
-from app.config.app import configuration as cfg
 
 
 @pytest.mark.asyncio
 async def test_pygeoapi_links_behind_proxy(reverse_proxy_enabled) -> None:
     """Test presence of reverse proxy base urls in links."""
     transport = ASGITransport(app=reverse_proxy_enabled)
-    async with AsyncClient(transport=transport, timeout=30) as client:
+    async with AsyncClient(
+        transport=transport, base_url="http://testserver", timeout=30
+    ) as client:
         _proto = "https"
         _host = "proxy.example.com"
+        # Get FASTGEOAPI_CONTEXT from environment (set by create_app)
+        context = os.environ.get("FASTGEOAPI_CONTEXT", "/geoapi")
         response = await client.get(
-            f"{cfg.APP_URI}{cfg.FASTGEOAPI_CONTEXT}/collections",
+            f"{context}/collections",
             headers={
                 "X-Forwarded-Proto": _proto,
                 "X-Forwarded-Host": _host,

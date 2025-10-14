@@ -5,6 +5,21 @@ import os
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def clean_env_after_test():
+    """Clean up environment variables after each test."""
+    # Save original environment
+    original_env = os.environ.copy()
+    yield
+    # Restore original environment, removing any keys that were added
+    keys_to_remove = set(os.environ.keys()) - set(original_env.keys())
+    for key in keys_to_remove:
+        del os.environ[key]
+    # Restore original values for keys that were modified
+    for key, value in original_env.items():
+        os.environ[key] = value
+
+
 def test_dev_config_loads_env_variables():
     """Test that DevConfig properly loads environment variables."""
     # Set test environment variables

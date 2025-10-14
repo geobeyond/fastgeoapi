@@ -91,15 +91,28 @@ def create_app():  # noqa: C901
         # prepare pygeoapi openapi file if it doesn't exist
         pygeoapi_conf = Path.cwd() / os.environ["PYGEOAPI_CONFIG"]
         pygeoapi_oapi = Path.cwd() / os.environ["PYGEOAPI_OPENAPI"]
-        if not pygeoapi_oapi.exists():
-            pygeoapi_oapi.write_text(data="")
-            with pygeoapi_oapi.open(mode="w") as oapi_file:
-                oapi_content = generate_openapi_document(
-                    pygeoapi_conf,
-                    output_format="yaml",
-                )
-                logger.debug(f"OpenAPI content: \n{oapi_content}")
-                oapi_file.write(oapi_content)
+        if not (os.environ["PYGEOAPI_CONFIG"] and os.environ["PYGEOAPI_OPENAPI"]):
+            logger.error("pygeoapi variables are not configured")
+            raise PygeoapiEnvError("PYGEOAPI_CONFIG and PYGEOAPI_OPENAPI are not set")
+        else:
+            # fill pygeoapi configuration with host, port, base url and context
+            os.environ["HOST"] = cfg.HOST
+            os.environ["PORT"] = cfg.PORT
+            os.environ["PYGEOAPI_BASEURL"] = cfg.PYGEOAPI_BASEURL
+            os.environ["FASTGEOAPI_CONTEXT"] = cfg.FASTGEOAPI_CONTEXT
+
+            # prepare pygeoapi openapi file if it doesn't exist
+            pygeoapi_conf = Path.cwd() / os.environ["PYGEOAPI_CONFIG"]
+            pygeoapi_oapi = Path.cwd() / os.environ["PYGEOAPI_OPENAPI"]
+            if not pygeoapi_oapi.exists():
+                pygeoapi_oapi.write_text(data="")
+                with pygeoapi_oapi.open(mode="w") as oapi_file:
+                    oapi_content = generate_openapi_document(
+                        pygeoapi_conf,
+                        output_format="yaml",
+                    )
+                    logger.debug(f"OpenAPI content: \n{oapi_content}")
+                    oapi_file.write(oapi_content)
 
             # import pygeoapi starlette application once pygeoapi configuration
             # are set and prepare the objects to override some core behavior

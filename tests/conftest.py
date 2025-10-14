@@ -26,6 +26,11 @@ def reload_app():
     for module in modules_to_remove:
         del sys.modules[module]
 
+    # Clear the configuration cache
+    from app.config.app import FactoryConfig
+
+    FactoryConfig.get_config.cache_clear()
+
     from app.main import app
 
     return app
