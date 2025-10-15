@@ -12,6 +12,11 @@ from typer.testing import CliRunner
 from app.auth.models import TokenPayload
 from app.config.app import configuration as cfg
 
+# Set environment variables at module level for skipif decorators
+# These need to be set before test collection happens
+os.environ["API_KEY_ENABLED"] = "true"
+os.environ["JWKS_ENABLED"] = "true"
+
 
 @pytest.fixture
 def runner() -> CliRunner:
@@ -53,6 +58,7 @@ def create_protected_with_apikey_app(create_app):
                 "ENV_STATE": "dev",
                 "HOST": "0.0.0.0",  # noqa: S104
                 "PORT": "5000",
+                "API_KEY_ENABLED": "true",
                 "DEV_API_KEY_ENABLED": "true",
                 "DEV_PYGEOAPI_KEY_GLOBAL": "pygeoapi",
                 "DEV_JWKS_ENABLED": "false",
@@ -101,6 +107,7 @@ def create_protected_with_bearer_app(create_app):
                 "ENV_STATE": "dev",
                 "HOST": "0.0.0.0",  # noqa: S104
                 "PORT": "5000",
+                "JWKS_ENABLED": "true",
                 "DEV_API_KEY_ENABLED": "false",
                 "DEV_OAUTH2_JWKS_ENDPOINT": "https://76hxgq.logto.app/oidc/jwks",
                 "DEV_OAUTH2_TOKEN_ENDPOINT": "https://76hxgq.logto.app/oidc/token",
