@@ -140,9 +140,10 @@ def protected_apikey_schema(create_protected_with_apikey_app):
     # Configure generation to only use positive (valid) test cases for speed
     schema.config.generation.modes = [schemathesis.GenerationMode.POSITIVE]
     # Exclude POST /items endpoints with invalid schema references (/$defs/propertyRef)
-    schema = schema.exclude(method="POST", path_regex=r".*/items$")
-    # Exclude OPTIONS methods for all endpoints
-    schema = schema.exclude(method="OPTIONS")
+    # Also exclude OPTIONS methods as they're not needed for contract testing
+    schema = schema.exclude(method="POST", path_regex=r".*/items$").exclude(
+        method="OPTIONS"
+    )
     return schema
 
 
@@ -164,9 +165,10 @@ def protected_bearer_schema(create_protected_with_bearer_app):
     # Configure generation to only use positive (valid) test cases for speed
     schema.config.generation.modes = [schemathesis.GenerationMode.POSITIVE]
     # Exclude POST /items endpoints with invalid schema references (/$defs/propertyRef)
-    schema = schema.exclude(method="POST", path_regex=r".*/items$")
-    # Exclude OPTIONS methods for all endpoints
-    schema = schema.exclude(method="OPTIONS")
+    # Also exclude OPTIONS methods as they're not needed for contract testing
+    schema = schema.exclude(method="POST", path_regex=r".*/items$").exclude(
+        method="OPTIONS"
+    )
     return schema
 
 
