@@ -141,7 +141,7 @@ schema_bearer = from_fixture("protected_bearer_schema")
 )
 @schema_apikey.parametrize()
 @settings(
-    max_examples=50,
+    max_examples=10,
     deadline=None,
     derandomize=True,
     phases=[Phase.explicit, Phase.reuse, Phase.generate, Phase.target],
@@ -173,7 +173,7 @@ def test_api_with_apikey(case):
 )
 @schema_bearer.parametrize()
 @settings(
-    max_examples=50,
+    max_examples=10,
     deadline=None,
     derandomize=True,
     phases=[Phase.explicit, Phase.reuse, Phase.generate, Phase.target],

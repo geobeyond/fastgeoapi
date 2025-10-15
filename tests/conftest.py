@@ -131,7 +131,7 @@ def protected_apikey_schema(create_protected_with_apikey_app):
     app = create_protected_with_apikey_app()
     schema = schemathesis.openapi.from_asgi("/geoapi/openapi?f=json", app=app)
     # Configure generation to only use positive (valid) test cases for speed
-    schema.config.generation.mode = schemathesis.GenerationMode.POSITIVE
+    schema.config.generation.modes = [schemathesis.GenerationMode.POSITIVE]
     # Exclude POST /items endpoints with invalid schema references (/$defs/propertyRef)
     schema = schema.exclude(method="POST", path_regex=r".*/items$")
     # Exclude OPTIONS methods for all endpoints
@@ -155,7 +155,7 @@ def protected_bearer_schema(create_protected_with_bearer_app):
     app = create_protected_with_bearer_app()
     schema = schemathesis.openapi.from_asgi("/geoapi/openapi?f=json", app=app)
     # Configure generation to only use positive (valid) test cases for speed
-    schema.config.generation.mode = schemathesis.GenerationMode.POSITIVE
+    schema.config.generation.modes = [schemathesis.GenerationMode.POSITIVE]
     # Exclude POST /items endpoints with invalid schema references (/$defs/propertyRef)
     schema = schema.exclude(method="POST", path_regex=r".*/items$")
     # Exclude OPTIONS methods for all endpoints
