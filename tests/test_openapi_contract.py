@@ -130,7 +130,6 @@ from hypothesis import Phase
 from hypothesis import settings
 from schemathesis.checks import not_a_server_error
 from schemathesis.pytest import from_fixture
-from starlette.testclient import TestClient
 
 schema_apikey = from_fixture("protected_apikey_schema")
 schema_bearer = from_fixture("protected_bearer_schema")
@@ -168,7 +167,8 @@ def test_api_with_apikey(case, protected_apikey_app):
             if "%0D" in job_id:
                 case.path_parameters["jobId"] = job_id.replace("%0D", "")
     case.headers = {"X-API-KEY": "pygeoapi"}
-    response = case.call()
+    # Use call_asgi for ASGI app testing to avoid verify parameter issues
+    response = case.call_asgi(app=protected_apikey_app)
     # Only check for server errors, skip schema validation due to pygeoapi issues
     case.validate_response(response, checks=(not_a_server_error,))
 
@@ -205,8 +205,7 @@ def test_api_with_bearer(case, access_token, protected_bearer_app):
             if "%0D" in job_id:
                 case.path_parameters["jobId"] = job_id.replace("%0D", "")
     case.headers = {"Authorization": f"Bearer {access_token}"}
-    # Use TestClient as session for ASGI app testing
-    with TestClient(protected_bearer_app) as client:
-        response = case.call(session=client)
+    # Use call_asgi for ASGI app testing to avoid verify parameter issues
+    response = case.call_asgi(app=protected_bearer_app)
     # Only check for server errors, skip schema validation due to pygeoapi issues
     case.validate_response(response, checks=(not_a_server_error,))
