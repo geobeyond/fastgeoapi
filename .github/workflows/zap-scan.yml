@@ -64,22 +64,8 @@ jobs:
           timeout 30 bash -c 'until curl -s http://127.0.0.1:5002/geoapi/ > /dev/null 2>&1; do sleep 1; done'
           echo "Server is ready"
 
-      - name: Create ZAP context file with multiple targets
-        run: |
-          cat > zap-targets.txt << 'EOF'
-          http://127.0.0.1:5002/geoapi/
-          http://127.0.0.1:5002/geoapi/openapi
-          http://127.0.0.1:5002/geoapi/conformance
-          http://127.0.0.1:5002/geoapi/collections
-          http://127.0.0.1:5002/geoapi/collections/lakes
-          http://127.0.0.1:5002/geoapi/collections/lakes/items
-          http://127.0.0.1:5002/geoapi/collections/obs
-          http://127.0.0.1:5002/geoapi/collections/obs/items
-          http://127.0.0.1:5002/geoapi/processes
-          EOF
-
-      - name: ZAP Scan
+      - name: ZAP Scan with API-KEY authentication
         uses: zaproxy/action-full-scan@v0.12.0
         with:
           target: "http://127.0.0.1:5002/geoapi/"
-          cmd_options: "-a -j -t zap-targets.txt"
+          cmd_options: "-a -z '-config replacer.full_list(0).description=API-KEY -config replacer.full_list(0).enabled=true -config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstring=X-API-KEY -config replacer.full_list(0).replacement=pygeoapi'"
