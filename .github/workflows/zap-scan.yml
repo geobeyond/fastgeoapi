@@ -68,4 +68,4 @@ jobs:
         uses: zaproxy/action-full-scan@v0.12.0
         with:
           target: "http://127.0.0.1:5002/geoapi/"
-          cmd_options: "-a -z '-config replacer.full_list(0).description=API-KEY -config replacer.full_list(0).enabled=true -config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstring=X-API-KEY -config replacer.full_list(0).replacement=pygeoapi'"
+          cmd_options: '-a -z "-config replacer.full_list(0).description=API-KEY -config replacer.full_list(0).enabled=true -config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstring=X-API-KEY -config replacer.full_list(0).replacement=pygeoapi"'
