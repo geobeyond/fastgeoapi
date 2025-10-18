@@ -26,7 +26,7 @@ repos:
         entry: end-of-file-fixer
         language: system
         types: [text]
-        stages: [pre-commit, pre-push, manual]
+        stages: [commit, push, manual]
       - id: flake8
         name: flake8
         entry: flake8
@@ -45,7 +45,7 @@ repos:
         entry: trailing-whitespace-fixer
         language: system
         types: [text]
-        stages: [pre-commit, pre-push, manual]
+        stages: [commit, push, manual]
   - repo: https://github.com/pre-commit/mirrors-prettier
     rev: v2.4.1
     hooks:
