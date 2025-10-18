@@ -1,0 +1,94 @@
+name: ZAP Scan
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  contract-tests:
+    name: Scan security vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Upgrade pip
+        run: |
+          python -m pip install pip==25.1.1
+          pip --version
+
+      - name: Upgrade pip in virtual environments
+        shell: python
+        run: |
+          import os
+          import pip
+
+          with open(os.environ["GITHUB_ENV"], mode="a") as io:
+              print(f"VIRTUALENV_PIP={pip.__version__}", file=io)
+
+      - name: Install UV
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+          version: "0.7.3"
+
+      - name: Install GDAL
+        run: |
+          sudo apt-get update
+          sudo apt-get install python3-gdal libgdal-dev
+
+      - name: Install fastgeoapi and run the server with API-KEY protection
+        env:
+          ENV_STATE: dev
+          OPA_ENABLED: false
+          API_KEY_ENABLED: true
+          JWKS_ENABLED: false
+          UV_SYSTEM_PYTHON: 1
+          UV_BREAK_SYSTEM_PACKAGES: 1
+        run: |
+          uv sync
+          ENV_STATE=$ENV_STATE
+          OPA_ENABLED=$OPA_ENABLED
+          API_KEY_ENABLED=$API_KEY_ENABLED
+          JWKS_ENABLED=$JWKS_ENABLED
+          uv run uvicorn app.main:app --host 0.0.0.0 --port 5002 --reload --loop asyncio &
+
+      - name: Wait for server to be ready
+        run: |
+          timeout 30 bash -c 'until curl -s http://127.0.0.1:5002/geoapi/ > /dev/null 2>&1; do sleep 1; done'
+          echo "Server is ready"
+
+      - name: ZAP API Scan with API-KEY authentication and OpenAPI spec
+        uses: zaproxy/action-api-scan@v0.9.0
+        with:
+          target: "http://127.0.0.1:5002/geoapi/openapi?f=json"
+          format: openapi
+          docker_name: "ghcr.io/zaproxy/zaproxy:stable"
+          cmd_options: '-a -z "-config replacer.full_list(0).description=API-KEY -config replacer.full_list(0).enabled=true -config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstring=X-API-KEY -config replacer.full_list(0).replacement=pygeoapi"'
+
+      - name: Display ZAP Scan Results Summary
+        if: always()
+        run: |
+          echo "## ZAP Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f report_md.md ]; then
+            cat report_md.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ No report generated" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload ZAP Scan Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-scan-reports
+          path: |
+            report_html.html
+            report_json.json
+            report_md.md

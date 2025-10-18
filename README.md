@@ -2,18 +2,18 @@
 
 A FastAPI application leveraged by pygeoapi
 
-[![PyPI](https://img.shields.io/pypi/v/fastgeoapi.svg)](https://pypi.org/project/fastgeoapi/)
-[![Status](https://img.shields.io/pypi/status/fastgeoapi.svg)](https://pypi.org/project/fastgeoapi/)
-[![Python Version](https://img.shields.io/pypi/pyversions/fastgeoapi)](https://pypi.org/project/fastgeoapi)
-[![License](https://img.shields.io/pypi/l/fastgeoapi)](https://opensource.org/licenses/MIT)
+[![PyPI](https://img.shields.io/pypi/v/fastgeoapi?logo=pypi&logoColor=white&style=flat-square)](https://pypi.org/project/fastgeoapi/)
+[![Python Version](https://img.shields.io/pypi/pyversions/fastgeoapi?logo=python&logoColor=white&style=flat-square)](https://pypi.org/project/fastgeoapi)
+[![License](https://img.shields.io/pypi/l/fastgeoapi?style=flat-square)](https://opensource.org/licenses/MIT)
 
-[![Read the documentation at https://fastgeoapi.readthedocs.io/](https://img.shields.io/readthedocs/fastgeoapi/latest.svg?label=Read%20the%20Docs)](https://fastgeoapi.readthedocs.io/)
-[![Tests](https://github.com/geobeyond/fastgeoapi/workflows/Tests/badge.svg)](https://github.com/geobeyond/fastgeoapi/actions?workflow=Tests)
-[![Codecov](https://codecov.io/gh/geobeyond/fastgeoapi/branch/main/graph/badge.svg)](https://codecov.io/gh/geobeyond/fastgeoapi)
+[![Documentation](https://img.shields.io/readthedocs/fastgeoapi/latest?logo=readthedocs&logoColor=white&style=flat-square)](https://fastgeoapi.readthedocs.io/)
+[![Tests](https://img.shields.io/github/actions/workflow/status/geobeyond/fastgeoapi/tests.yml?branch=main&logo=github&logoColor=white&style=flat-square&label=tests)](https://github.com/geobeyond/fastgeoapi/actions?workflow=Tests)
+[![ZAP Scan](https://img.shields.io/github/actions/workflow/status/geobeyond/fastgeoapi/zap-scan.yml?branch=main&logo=owasp&logoColor=white&style=flat-square&label=security)](https://github.com/geobeyond/fastgeoapi/actions/workflows/zap-scan.yml)
+[![Codecov](https://img.shields.io/codecov/c/github/geobeyond/fastgeoapi?logo=codecov&logoColor=white&style=flat-square)](https://codecov.io/gh/geobeyond/fastgeoapi)
 
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
-[![Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Poetry](https://img.shields.io/endpoint?url=https://python-poetry.org/badge/v0.json)](https://python-poetry.org/)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 
 ## Architecture
 
