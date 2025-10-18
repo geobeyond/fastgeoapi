@@ -64,7 +64,22 @@ jobs:
           timeout 30 bash -c 'until curl -s http://127.0.0.1:5002/geoapi/ > /dev/null 2>&1; do sleep 1; done'
           echo "Server is ready"
 
+      - name: Create ZAP context file with multiple targets
+        run: |
+          cat > zap-targets.txt << 'EOF'
+          http://127.0.0.1:5002/geoapi/
+          http://127.0.0.1:5002/geoapi/openapi
+          http://127.0.0.1:5002/geoapi/conformance
+          http://127.0.0.1:5002/geoapi/collections
+          http://127.0.0.1:5002/geoapi/collections/lakes
+          http://127.0.0.1:5002/geoapi/collections/lakes/items
+          http://127.0.0.1:5002/geoapi/collections/obs
+          http://127.0.0.1:5002/geoapi/collections/obs/items
+          http://127.0.0.1:5002/geoapi/processes
+          EOF
+
       - name: ZAP Scan
         uses: zaproxy/action-full-scan@v0.12.0
         with:
           target: "http://127.0.0.1:5002/geoapi/"
+          cmd_options: "-a -j -t zap-targets.txt"
