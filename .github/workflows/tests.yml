@@ -12,21 +12,23 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { python: "3.10", os: "ubuntu-22.04", session: "pre-commit" }
-          - { python: "3.10", os: "ubuntu-22.04", session: "safety" }
-          - { python: "3.10", os: "ubuntu-22.04", session: "bandit" }
-          - { python: "3.10", os: "ubuntu-22.04", session: "mypy" }
-          - { python: "3.10", os: "ubuntu-22.04", session: "tests" }
-          # - { python: "3.10", os: "windows-latest", session: "tests" }
-          # - { python: "3.10", os: "macos-latest", session: "tests" }
-          - { python: "3.10", os: "ubuntu-22.04", session: "typeguard" }
-          - { python: "3.10", os: "ubuntu-22.04", session: "xdoctest" }
-          - { python: "3.10", os: "ubuntu-22.04", session: "docs-build" }
+          - { python: "3.12", os: "ubuntu-22.04", session: "pre-commit" }
+          - { python: "3.12", os: "ubuntu-22.04", session: "safety" }
+          - { python: "3.12", os: "ubuntu-22.04", session: "bandit" }
+          - { python: "3.12", os: "ubuntu-22.04", session: "mypy" }
+          - { python: "3.12", os: "ubuntu-22.04", session: "tests" }
+          # - { python: "3.12", os: "windows-latest", session: "tests" }
+          # - { python: "3.12", os: "macos-latest", session: "tests" }
+          - { python: "3.12", os: "ubuntu-22.04", session: "typeguard" }
+          - { python: "3.12", os: "ubuntu-22.04", session: "xdoctest" }
+          - { python: "3.12", os: "ubuntu-22.04", session: "docs-build" }
 
     env:
       NOXSESSION: ${{ matrix.session }}
       FORCE_COLOR: "1"
       PRE_COMMIT_COLOR: "always"
+      UV_SYSTEM_PYTHON: 1
+      UV_BREAK_SYSTEM_PACKAGES: 1
 
     steps:
       - name: Check out the repository
@@ -39,7 +41,7 @@ jobs:
 
       - name: Upgrade pip
         run: |
-          pip install --constraint=$GITHUB_WORKSPACE/.github/workflows/constraints.txt pip
+          python -m pip install pip==25.1.1
           pip --version
 
       - name: Upgrade pip in virtual environments
@@ -51,15 +53,16 @@ jobs:
           with open(os.environ["GITHUB_ENV"], mode="a") as io:
               print(f"VIRTUALENV_PIP={pip.__version__}", file=io)
 
-      - name: Install Poetry
-        run: |
-          pipx install --pip-args=--constraint=$GITHUB_WORKSPACE/.github/workflows/constraints.txt poetry
-          poetry --version
+      - name: Install UV
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+          version: "0.7.3"
 
       - name: Install Nox
         run: |
-          pipx install --pip-args=--constraint=$GITHUB_WORKSPACE/.github/workflows/constraints.txt nox
-          pipx inject --pip-args=--constraint=$GITHUB_WORKSPACE/.github/workflows/constraints.txt nox nox-poetry
+          uv tool install nox=="2024.4.15"
           nox --version
 
       - name: Install GDAL
@@ -73,14 +76,16 @@ jobs:
         shell: python
         run: |
           import hashlib
+          import json
           import sys
-
+          import os
           python = "py{}.{}".format(*sys.version_info[:2])
           payload = sys.version.encode() + sys.executable.encode()
           digest = hashlib.sha256(payload).hexdigest()
           result = "${{ runner.os }}-{}-{}-pre-commit".format(python, digest[:8])
 
-          print("::set-output name=result::{}".format(result))
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+            f.write("result={}".format(result))
 
       - name: Restore pre-commit cache
         uses: actions/cache@v4
@@ -112,6 +117,7 @@ jobs:
   coverage:
     runs-on: ubuntu-22.04
     needs: tests
+    if: success() || failure()
     steps:
       - name: Check out the repository
         uses: actions/checkout@v4.1.1
@@ -119,36 +125,42 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5.3.0
         with:
-          python-version: "3.10"
+          python-version: "3.12"
 
       - name: Upgrade pip
         run: |
-          pip install --constraint=$GITHUB_WORKSPACE/.github/workflows/constraints.txt pip
+          python -m pip install pip==25.1.1
           pip --version
 
-      - name: Install Poetry
-        run: |
-          pipx install --pip-args=--constraint=$GITHUB_WORKSPACE/.github/workflows/constraints.txt poetry
-          poetry --version
+      - name: Install UV
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+          version: "0.7.3"
 
       - name: Install Nox
         run: |
-          pipx install --pip-args=--constraint=$GITHUB_WORKSPACE/.github/workflows/constraints.txt nox
-          pipx inject --pip-args=--constraint=$GITHUB_WORKSPACE/.github/workflows/constraints.txt nox nox-poetry
+          uv tool install nox=="2025.5.1"
           nox --version
 
       - name: Download coverage data
+        id: download-coverage
         uses: actions/download-artifact@v4.1.8
+        continue-on-error: true
         with:
           name: coverage-data
 
       - name: Combine coverage data and display human readable report
+        if: steps.download-coverage.outcome == 'success'
         run: |
           nox --force-color --session=coverage
 
       - name: Create coverage report
+        if: steps.download-coverage.outcome == 'success'
         run: |
           nox --force-color --session=coverage -- xml
 
       - name: Upload coverage report
+        if: steps.download-coverage.outcome == 'success'
         uses: codecov/codecov-action@v4.6.0

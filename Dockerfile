@@ -1,4 +1,4 @@
-FROM python:3.10-slim-bullseye
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.11.0 AS builder
 
 # Install security updates and system dependencies, then clean up
 RUN export DEBIAN_FRONTEND=noninteractive && \
@@ -7,59 +7,58 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     # these are our own dependencies and utilities
     # if you need to add more, please sort them in alphabetical order
     apt-get install --yes --no-install-recommends \
-        cmake \
-        curl \
-        g++ \
-        gdal-bin \
-        libcurl4-openssl-dev \
-        libgdal-dev \
-        libpq-dev \
-        make \
-        net-tools \
-        procps \
+        python3-dev \
+        build-essential \
         tini \
-        unzip \
-        vim && \
+        git && \
+    # Clean up
     apt-get --yes clean && \
     rm -rf /var/lib/apt/lists/*
 
-# download poetry
-RUN curl --silent --show-error --location \
-    https://install.python-poetry.org > /opt/install-poetry.py
+# Install UV
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Create a normal non-root user so that we can use it to run
+# Set working directory for dependency installation
+WORKDIR /app
+
+# Copy dependency files
+COPY pyproject.toml .env pygeoapi-config.yml ./
+
+# Install dependencies as root (with system-wide access)
+RUN --mount=type=cache,target=/root/.cache/uv \
+    # Install dependencies with system Python
+    uv pip install --system --break-system-packages -r pyproject.toml
+
+# Create a normal non-root user to run the app
 RUN useradd --create-home appuser
+RUN mkdir -p /home/appuser/app /home/appuser/data && \
+    chown -R appuser:appuser /home/appuser
 
+# Copy the app to the user directory
+COPY --chown=appuser:appuser . /home/appuser/app/
+
+# Set working directory to user app directory
+WORKDIR /home/appuser/app
+
+# Switch to non-root user for remaining operations
 USER appuser
 
-RUN mkdir /home/appuser/app && \
-    mkdir /home/appuser/data && \
-    python opt/install-poetry.py --yes --version 1.3.1
-
 ENV PATH="$PATH:/home/appuser/.local/bin" \
-    # This allows us to get traces whenever some C code segfaults
-    PYTHONFAULTHANDLER=1
-
-# Only copy the dependencies for now and install them
-WORKDIR /home/appuser/app
-COPY --chown=appuser:appuser pyproject.toml poetry.lock .env pygeoapi-config.yml /home/appuser/app/
-RUN poetry install --no-root --only main
-
-EXPOSE 5000
-
-# Now install our code
-COPY --chown=appuser:appuser . .
-RUN poetry install --no-root --only main
+    PYTHONFAULTHANDLER=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_SYSTEM_PYTHON=1 \
+    UV_BREAK_SYSTEM_PACKAGES=1
 
 # Write git commit identifier into the image
 ARG GIT_COMMIT
 ENV GIT_COMMIT=$GIT_COMMIT
 RUN echo $GIT_COMMIT > /home/appuser/git-commit.txt
 
-# Compile python stuff to bytecode to improve startup times
-RUN poetry run python -c "import compileall; compileall.compile_path(maxlevels=10)"
+# Compile python bytecode for faster startup times
+RUN python -c "import compileall; compileall.compile_path(maxlevels=10)"
 
-# use tini as the init process
+# Use tini as the init process
 ENTRYPOINT ["tini", "-g", "--"]
 
-CMD ["poetry", "run", "fastapi", "run", "app/main", "--app", "app", "--host", "0.0.0.0", "--port", "5000"]
+# Run using fastapi CLI directly
+CMD ["fastapi", "run", "app/main.py", "--app", "app", "--host", "0.0.0.0", "--port", "5000"]

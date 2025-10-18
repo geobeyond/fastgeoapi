@@ -5,7 +5,6 @@ import shlex
 import shutil
 import subprocess  # noqa: S404
 from pathlib import Path
-from typing import Optional
 
 import typer
 
@@ -102,9 +101,9 @@ def main(
 def _run_external_command(
     command: str,
     *,
-    capture_output: Optional[bool] = True,
-    raise_on_error: Optional[bool] = True,
-) -> Optional[str]:
+    capture_output: bool = True,
+    raise_on_error: bool = True,
+) -> str | None:
     """Run an external command using subprocess.
 
     Captures the external process' stdout and stderr too.
@@ -122,7 +121,9 @@ def _run_external_command(
     return result
 
 
-def _sanitize_git_branch_name(original: str) -> str:
+def _sanitize_git_branch_name(original: str | None) -> str:
+    if original is None:
+        raise ValueError("Branch name cannot be None")
     return original.replace("/", "-")
 
 

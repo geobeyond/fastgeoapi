@@ -12,9 +12,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi_opa import OPAMiddleware
 from loguru import logger
 from mangum import Mangum
-from openapi_pydantic.v3.v3_0_3 import OAuthFlow
-from openapi_pydantic.v3.v3_0_3 import OAuthFlows
-from openapi_pydantic.v3.v3_0_3 import SecurityScheme
+from openapi_pydantic.v3.v3_0 import OAuthFlow
+from openapi_pydantic.v3.v3_0 import OAuthFlows
+from openapi_pydantic.v3.v3_0 import SecurityScheme
 from pygeoapi.l10n import LocaleError
 from pygeoapi.openapi import generate_openapi_document
 from pygeoapi.provider.base import ProviderConnectionError
@@ -78,8 +78,19 @@ def create_app():  # noqa: C901
 
     try:
         # override pygeoapi os variables
+        # Pydantic will validate these are set at config instantiation time
         os.environ["PYGEOAPI_CONFIG"] = cfg.PYGEOAPI_CONFIG
         os.environ["PYGEOAPI_OPENAPI"] = cfg.PYGEOAPI_OPENAPI
+
+        # fill pygeoapi configuration with host, port, base url and context
+        os.environ["HOST"] = cfg.HOST
+        os.environ["PORT"] = cfg.PORT
+        os.environ["PYGEOAPI_BASEURL"] = cfg.PYGEOAPI_BASEURL
+        os.environ["FASTGEOAPI_CONTEXT"] = cfg.FASTGEOAPI_CONTEXT
+
+        # prepare pygeoapi openapi file if it doesn't exist
+        pygeoapi_conf = Path.cwd() / os.environ["PYGEOAPI_CONFIG"]
+        pygeoapi_oapi = Path.cwd() / os.environ["PYGEOAPI_OPENAPI"]
         if not (os.environ["PYGEOAPI_CONFIG"] and os.environ["PYGEOAPI_OPENAPI"]):
             logger.error("pygeoapi variables are not configured")
             raise PygeoapiEnvError("PYGEOAPI_CONFIG and PYGEOAPI_OPENAPI are not set")
@@ -183,7 +194,10 @@ def create_app():  # noqa: C901
                 ),
             ),
             SecurityScheme(
-                type="http", name="pygeoapi", scheme="bearer", bearerFormat="JWT"
+                type="http",
+                name="pygeoapi",
+                scheme="bearer",
+                bearerFormat="JWT",
             ),
         ]
     # Add AuthorizerMiddleware to the pygeoapi app

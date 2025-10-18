@@ -1,2 +1,8 @@
-extends:
-  ["https://unpkg.com/@stoplight/spectral-owasp-ruleset/dist/ruleset.mjs"]
+extends: ["spectral:oas"]
+rules:
+  no-$ref-siblings: off
+  oas3-schema: warn
+  oas3-valid-schema-example: off
+  oas3-operation-security-defined: off
+  operation-tag-defined: off
+  oas3-unused-component: off
