@@ -88,11 +88,8 @@ Affected Collections
 In this fastgeoapi instance, the following collections advertise invalid
 POST endpoints:
 
-- /collections/fabbricati/items
-- /collections/georoma_civici/items
 - /collections/lakes/items
 - /collections/obs/items
-- /collections/particelle/items
 
 Verified Working Endpoints
 ---------------------------
@@ -126,13 +123,13 @@ See Also
 import os
 
 import pytest
+import schemathesis
 from hypothesis import Phase
 from hypothesis import settings
 from schemathesis.checks import not_a_server_error
-from schemathesis.pytest import from_fixture
 
-schema_apikey = from_fixture("protected_apikey_schema")
-schema_bearer = from_fixture("protected_bearer_schema")
+schema_apikey = schemathesis.pytest.from_fixture("protected_apikey_schema")
+schema_bearer = schemathesis.pytest.from_fixture("protected_bearer_schema")
 
 
 @pytest.mark.skipif(
@@ -140,19 +137,9 @@ schema_bearer = from_fixture("protected_bearer_schema")
     reason="Skipping API key tests when API_KEY is not enabled",
 )
 @schema_apikey.parametrize()
-@settings(
-    max_examples=5,
-    deadline=30000,
-    derandomize=True,
-    phases=[Phase.explicit, Phase.reuse, Phase.generate, Phase.target],
-)
-def test_api_with_apikey(case, protected_apikey_app):
+@settings(max_examples=10, deadline=10000, phases=[Phase.generate])
+def test_api_with_apikey(case):
     """Test the API with API-KEY protection."""
-    # Skip POST /items endpoints - invalid schema references (cql2expression)
-    # This is a pygeoapi OpenAPI schema issue in schemathesis 4.x
-    if case.method.upper() == "POST" and case.path.endswith("/items"):
-        pytest.skip("POST /items invalid schema - pygeoapi issue")
-
     # Provide valid data for process execution endpoints
     if case.method.upper() == "POST" and "/execution" in case.path:
         case.body = {"inputs": {"name": "test-user"}}
@@ -167,10 +154,9 @@ def test_api_with_apikey(case, protected_apikey_app):
             if "%0D" in job_id:
                 case.path_parameters["jobId"] = job_id.replace("%0D", "")
     case.headers = {"X-API-KEY": "pygeoapi"}
-    # Use call_asgi for ASGI app testing to avoid verify parameter issues
-    response = case.call_asgi(app=protected_apikey_app)
+    # response = case.call()
     # Only check for server errors, skip schema validation due to pygeoapi issues
-    case.validate_response(response, checks=(not_a_server_error,))
+    case.call_and_validate(checks=(not_a_server_error,))
 
 
 @pytest.mark.skipif(
@@ -178,19 +164,9 @@ def test_api_with_apikey(case, protected_apikey_app):
     reason="Skipping bearer token tests when JWKS is not enabled",
 )
 @schema_bearer.parametrize()
-@settings(
-    max_examples=10,
-    deadline=None,
-    derandomize=True,
-    phases=[Phase.explicit, Phase.reuse, Phase.generate, Phase.target],
-)
-def test_api_with_bearer(case, access_token, protected_bearer_app):
+@settings(max_examples=10, deadline=10000, phases=[Phase.generate])
+def test_api_with_bearer(case, access_token):
     """Test the API with Authorization Bearer token protection."""
-    # Skip POST /items endpoints - invalid schema references (cql2expression)
-    # This is a pygeoapi OpenAPI schema issue in schemathesis 4.x
-    if case.method.upper() == "POST" and case.path.endswith("/items"):
-        pytest.skip("POST /items has invalid schema references - pygeoapi issue")
-
     # Provide valid data for process execution endpoints
     if case.method.upper() == "POST" and "/execution" in case.path:
         case.body = {"inputs": {"name": "test-user"}}
@@ -205,7 +181,6 @@ def test_api_with_bearer(case, access_token, protected_bearer_app):
             if "%0D" in job_id:
                 case.path_parameters["jobId"] = job_id.replace("%0D", "")
     case.headers = {"Authorization": f"Bearer {access_token}"}
-    # Use call_asgi for ASGI app testing to avoid verify parameter issues
-    response = case.call_asgi(app=protected_bearer_app)
+    # response = case.call()
     # Only check for server errors, skip schema validation due to pygeoapi issues
-    case.validate_response(response, checks=(not_a_server_error,))
+    case.call_and_validate(checks=(not_a_server_error,))

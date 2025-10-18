@@ -7,7 +7,6 @@ from unittest import mock
 import pytest
 import schemathesis
 from httpx import Client
-from starlette.testclient import TestClient
 from typer.testing import CliRunner
 
 from app.auth.models import TokenPayload
@@ -130,7 +129,7 @@ def protected_apikey_app(create_protected_with_apikey_app):
 
 
 @pytest.fixture
-def protected_apikey_schema(protected_apikey_app):
+def protected_apikey_schema(create_protected_with_apikey_app):
     """Create a protected API key schema, excluding POST /items and OPTIONS endpoints.
 
     Excludes POST /collections/{collectionId}/items endpoints due to pygeoapi
@@ -142,20 +141,12 @@ def protected_apikey_schema(protected_apikey_app):
 
     See test_openapi_contract.py module docstring for detailed explanation.
     """
-    # Get the OpenAPI schema from the app using TestClient
-    with TestClient(protected_apikey_app) as client:
-        response = client.get("/geoapi/openapi?f=json")
-        schema_dict = response.json()
-
-    # Load the schema into schemathesis
-    schema = schemathesis.openapi.from_dict(schema_dict)
-    # Configure generation to only use positive (valid) test cases for speed
-    schema.config.generation.modes = [schemathesis.GenerationMode.POSITIVE]
+    app = create_protected_with_apikey_app()
+    schema = schemathesis.openapi.from_asgi("/geoapi/openapi?f=json", app=app)
     # Exclude POST /items endpoints with invalid schema references (/$defs/propertyRef)
-    # Also exclude OPTIONS methods as they're not needed for contract testing
-    schema = schema.exclude(method="POST", path_regex=r".*/items$").exclude(
-        method="OPTIONS"
-    )
+    schema = schema.exclude(method="POST", path_regex=r".*/items$")
+    # Exclude OPTIONS methods for all endpoints
+    schema = schema.exclude(method="OPTIONS")
     return schema
 
 
@@ -166,7 +157,7 @@ def protected_bearer_app(create_protected_with_bearer_app):
 
 
 @pytest.fixture
-def protected_bearer_schema(protected_bearer_app):
+def protected_bearer_schema(create_protected_with_bearer_app):
     """Create a protected bearer token schema, excluding POST /items and OPTIONS.
 
     Excludes POST /collections/{collectionId}/items endpoints due to pygeoapi
@@ -178,20 +169,12 @@ def protected_bearer_schema(protected_bearer_app):
 
     See test_openapi_contract.py module docstring for detailed explanation.
     """
-    # Get the OpenAPI schema from the app using TestClient
-    with TestClient(protected_bearer_app) as client:
-        response = client.get("/geoapi/openapi?f=json")
-        schema_dict = response.json()
-
-    # Load the schema into schemathesis
-    schema = schemathesis.openapi.from_dict(schema_dict)
-    # Configure generation to only use positive (valid) test cases for speed
-    schema.config.generation.modes = [schemathesis.GenerationMode.POSITIVE]
+    app = create_protected_with_bearer_app()
+    schema = schemathesis.openapi.from_asgi("/geoapi/openapi?f=json", app=app)
     # Exclude POST /items endpoints with invalid schema references (/$defs/propertyRef)
-    # Also exclude OPTIONS methods as they're not needed for contract testing
-    schema = schema.exclude(method="POST", path_regex=r".*/items$").exclude(
-        method="OPTIONS"
-    )
+    schema = schema.exclude(method="POST", path_regex=r".*/items$")
+    # Exclude OPTIONS methods for all endpoints
+    schema = schema.exclude(method="OPTIONS")
     return schema
 
 
