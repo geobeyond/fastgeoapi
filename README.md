@@ -34,7 +34,29 @@ This diagram gives an overview of the basic architecture:
 
 ## Features
 
-- Provide authentication and authorization for vanilla [pygeoapi](https://github.com/geopython/pygeoapi/)
+### 🔐 Security & Authentication
+- **OpenID Connect (OIDC) Integration** - OAuth2/JWT Bearer token authentication with JWKS support
+- **API Key Authentication** - Flexible API key-based authentication for programmatic access
+- **Open Policy Agent (OPA)** - Policy-based authorization with fine-grained access control
+- **Multi-scheme Support** - Seamlessly switch between authentication methods based on your needs
+
+### 🚀 Performance & Modern Stack
+- **FastAPI Framework** - High-performance async API built on Starlette and Pydantic
+- **Async I/O** - Non-blocking operations for better scalability
+- **Modern Python** - Python 3.12+ with type hints and modern language features
+- **Fast Dependency Management** - UV-based tooling for lightning-fast installations
+
+### 🗺️ Geospatial API Standards
+- **OGC API Compliance** - Full support for OGC API - Features, Processes, and more
+- **OpenAPI Integration** - Auto-generated, security-enhanced OpenAPI specifications
+- **Geospatial Data Access** - Seamless access to vector and raster geospatial data
+- **pygeoapi Extension** - Extends vanilla pygeoapi with enterprise-ready security
+
+### 🛡️ Security Testing & Quality
+- **Contract Testing** - Automated OpenAPI contract validation with Schemathesis
+- **Security Scanning** - OWASP ZAP integration for continuous security testing
+- **Pre-commit Hooks** - Code quality checks with Ruff formatting and linting
+- **Comprehensive Test Coverage** - Full test suite with pytest and coverage reporting
 
 ## Requirements
 
