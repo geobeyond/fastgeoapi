@@ -71,3 +71,13 @@ jobs:
           format: openapi
           docker_name: "ghcr.io/zaproxy/zaproxy:stable"
           cmd_options: '-a -z "-config replacer.full_list(0).description=API-KEY -config replacer.full_list(0).enabled=true -config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstring=X-API-KEY -config replacer.full_list(0).replacement=pygeoapi"'
+
+      - name: Upload ZAP Scan Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-scan-reports
+          path: |
+            report_html.html
+            report_json.json
+            report_md.md
