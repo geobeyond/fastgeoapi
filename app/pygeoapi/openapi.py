@@ -1,6 +1,5 @@
 """Override vanilla openapi module."""
 
-import json
 from typing import List
 
 from openapi_pydantic.v3.v3_0 import OpenAPI
@@ -15,89 +14,10 @@ from app.pygeoapi.models import not_found
 logger = create_logger("app.pygeoapi.openapi")
 
 
-def remove_external_refs(schema_dict):
-    """Remove external HTTP/HTTPS $refs, keeping internal refs intact.
-
-    This function removes external references (e.g., to schemas.opengis.net) and
-    replaces them with simple placeholder schemas. This prevents network calls
-    that would hang during schema resolution.
-
-    Args:
-        schema_dict: The OpenAPI schema as a dictionary
-
-    Returns:
-        Schema dict with external refs removed, internal refs preserved
-    """
-
-    def process(obj, path=""):
-        """Recursively remove only external refs."""
-        if isinstance(obj, dict):
-            # Check if this is a pure $ref object
-            if "$ref" in obj and len(obj) == 1:
-                ref_value = obj["$ref"]
-                if ref_value.startswith(("http://", "https://")):
-                    # External ref - replace with context-appropriate placeholder
-                    logger.debug(
-                        f"Removing external ref at {path}: {ref_value[:60]}..."
-                    )
-
-                    # Determine what kind of placeholder to use based on path context
-                    if "/parameters" in path or ".parameters" in path:
-                        # Parameter reference - needs name field
-                        return {
-                            "name": "removed_param",
-                            "in": "query",
-                            "required": False,
-                            "schema": {"type": "string"},
-                            "description": "External parameter reference removed",
-                        }
-                    elif "/responses" in path or ".responses." in path:
-                        # Response reference
-                        return {
-                            "description": "External response reference removed",
-                            "content": {
-                                "application/json": {"schema": {"type": "object"}}
-                            },
-                        }
-                    else:
-                        # Schema or other reference
-                        return {
-                            "type": "object",
-                            "description": "External reference removed",
-                        }
-                else:
-                    # Internal ref - keep as-is
-                    return obj
-            else:
-                # Regular dict - recurse into it
-                return {
-                    key: process(value, f"{path}.{key}") for key, value in obj.items()
-                }
-        elif isinstance(obj, list):
-            return [process(item, f"{path}[{i}]") for i, item in enumerate(obj)]
-        else:
-            return obj
-
-    return process(schema_dict)
-
-
 def augment_security(doc: str, security_schemes: List[SecurityScheme]) -> OpenAPI:
-    """Augment openapi document with security sections.
-
-    Removes external $ref URLs that would cause Schemathesis to hang during
-    network fetches. Internal refs are kept for native handling.
-    """
-    logger.info("Processing OpenAPI schema...")
-    doc_dict = json.loads(doc)
-
-    # Remove external refs only (prevents hanging on network calls)
-    logger.debug("Removing external references...")
-    resolved_doc = remove_external_refs(doc_dict)
-    logger.info("External references removed successfully")
-
-    # Now validate and process the resolved schema
+    """Augment openapi document with security sections."""
     try:
-        openapi = OpenAPI.model_validate(resolved_doc)
+        openapi = OpenAPI.model_validate_json(doc)
     except ValidationError as e:
         logger.error(e)
         raise

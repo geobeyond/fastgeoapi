@@ -128,8 +128,8 @@ from hypothesis import Phase
 from hypothesis import settings
 from schemathesis.checks import not_a_server_error
 
-schema_apikey = schemathesis.pytest.from_fixture("protected_apikey_schema")
-schema_bearer = schemathesis.pytest.from_fixture("protected_bearer_schema")
+schema_apikey = schemathesis.from_pytest_fixture("protected_apikey_schema")
+schema_bearer = schemathesis.from_pytest_fixture("protected_bearer_schema")
 
 
 @pytest.mark.skipif(
@@ -137,7 +137,7 @@ schema_bearer = schemathesis.pytest.from_fixture("protected_bearer_schema")
     reason="Skipping API key tests when API_KEY is not enabled",
 )
 @schema_apikey.parametrize()
-@settings(max_examples=10, deadline=10000, phases=[Phase.generate])
+@settings(max_examples=50, deadline=10000, phases=[Phase.generate])
 def test_api_with_apikey(case):
     """Test the API with API-KEY protection."""
     # Provide valid data for process execution endpoints
@@ -164,7 +164,7 @@ def test_api_with_apikey(case):
     reason="Skipping bearer token tests when JWKS is not enabled",
 )
 @schema_bearer.parametrize()
-@settings(max_examples=10, deadline=10000, phases=[Phase.generate])
+@settings(max_examples=50, deadline=10000, phases=[Phase.generate])
 def test_api_with_bearer(case, access_token):
     """Test the API with Authorization Bearer token protection."""
     # Provide valid data for process execution endpoints

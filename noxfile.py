@@ -155,7 +155,7 @@ def tests(session: Session) -> None:
         "coverage[toml]",
         "pytest",
         "pygments",
-        "schemathesis>=4.0.0,<5.0",
+        "schemathesis>=3.19.0,<4.0",
         "pytest-asyncio",
     )
     try:
@@ -186,7 +186,7 @@ def typeguard(session: Session) -> None:
         "pytest",
         "typeguard",
         "pygments",
-        "schemathesis>=4.0.0,<5.0",
+        "schemathesis>=3.19.0,<4.0",
         "pytest-asyncio",
     )
     session.run("pytest", f"--typeguard-packages={package}", *session.posargs)
