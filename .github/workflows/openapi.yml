@@ -50,8 +50,6 @@ jobs:
           file_glob: "pygeoapi-openapi.json"
           spectral_ruleset: ".spectral.oas3.yaml"
           repo_token: ${{ github.token }}
-          fail_on_errors_only: true
-          skip_validation_for_external_references: true
 
   spectral-owasp:
     name: Validate OpenAPI document against OWASP Top 10 API security rules
