@@ -35,24 +35,28 @@ This diagram gives an overview of the basic architecture:
 ## Features
 
 ### 🔐 Security & Authentication
+
 - **OpenID Connect (OIDC) Integration** - OAuth2/JWT Bearer token authentication with JWKS support
 - **API Key Authentication** - Flexible API key-based authentication for programmatic access
 - **Open Policy Agent (OPA)** - Policy-based authorization with fine-grained access control
 - **Multi-scheme Support** - Seamlessly switch between authentication methods based on your needs
 
 ### 🚀 Performance & Modern Stack
+
 - **FastAPI Framework** - High-performance async API built on Starlette and Pydantic
 - **Async I/O** - Non-blocking operations for better scalability
 - **Modern Python** - Python 3.12+ with type hints and modern language features
 - **Fast Dependency Management** - UV-based tooling for lightning-fast installations
 
 ### 🗺️ Geospatial API Standards
+
 - **OGC API Compliance** - Full support for OGC API - Features, Processes, and more
 - **OpenAPI Integration** - Auto-generated, security-enhanced OpenAPI specifications
 - **Geospatial Data Access** - Seamless access to vector and raster geospatial data
 - **pygeoapi Extension** - Extends vanilla pygeoapi with enterprise-ready security
 
 ### 🛡️ Security Testing & Quality
+
 - **Contract Testing** - Automated OpenAPI contract validation with Schemathesis
 - **Security Scanning** - OWASP ZAP integration for continuous security testing
 - **Pre-commit Hooks** - Code quality checks with Ruff formatting and linting
@@ -80,11 +84,13 @@ pip install fastgeoapi
 Install [UV](https://github.com/astral-sh/uv) - a fast Python package installer and resolver:
 
 **macOS / Linux:**
+
 ```bash
 curl -sSf https://install.ultraviolet.dev | sh
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
@@ -100,6 +106,7 @@ uv sync
 ```
 
 This automatically:
+
 - Creates a virtual environment in `.venv`
 - Installs all required dependencies including git-based packages (pygeoapi, pygeofilter, fencer)
 - Sets up fastgeoapi in development mode
@@ -107,11 +114,13 @@ This automatically:
 ### Activate the Virtual Environment
 
 **macOS / Linux:**
+
 ```bash
 source .venv/bin/activate
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 .venv\Scripts\Activate.ps1
 ```
