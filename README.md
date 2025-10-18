@@ -2,9 +2,9 @@
 
 A FastAPI application leveraged by pygeoapi
 
-[![PyPI](https://img.shields.io/pypi/v/fastgeoapi?logo=pypi&logoColor=white&style=flat-square)](https://pypi.org/project/fastgeoapi/)
-[![Python Version](https://img.shields.io/pypi/pyversions/fastgeoapi?logo=python&logoColor=white&style=flat-square)](https://pypi.org/project/fastgeoapi)
-[![License](https://img.shields.io/pypi/l/fastgeoapi?style=flat-square)](https://opensource.org/licenses/MIT)
+[![PyPI](https://img.shields.io/pypi/v/fastgeoapi?logo=pypi&logoColor=white&style=flat-square&label=pypi%20package)](https://pypi.org/project/fastgeoapi/)
+[![Python](https://img.shields.io/badge/python-3.12%20|%203.13-blue?logo=python&logoColor=white&style=flat-square)](https://www.python.org)
+[![License](https://img.shields.io/github/license/geobeyond/fastgeoapi?style=flat-square&label=license)](https://github.com/geobeyond/fastgeoapi/blob/main/LICENSE)
 
 [![Documentation](https://img.shields.io/badge/docs-github%20pages-blue?logo=github&logoColor=white&style=flat-square)](https://geobeyond.github.io/fastgeoapi/)
 [![Tests](https://img.shields.io/github/actions/workflow/status/geobeyond/fastgeoapi/tests.yml?branch=main&logo=github&logoColor=white&style=flat-square&label=tests)](https://github.com/geobeyond/fastgeoapi/actions?workflow=Tests)
@@ -35,8 +35,7 @@ This diagram gives an overview of the basic architecture:
 
 ## Installation
 
-You can install _fastgeoapi_ via [pip](https://pip.pypa.io/) from
-[PyPI](https://pypi.org/):
+You can install _fastgeoapi_ via [pip](https://pip.pypa.io/) from [PyPI](https://pypi.org/):
 
 ```shell
 pip install fastgeoapi
@@ -44,28 +43,80 @@ pip install fastgeoapi
 
 ## Development
 
-After cloning the repository, you should use `poetry` to create the virtual environment and install the dependencies:
+### Prerequisites
 
-```shell
-poetry shell
+Install [UV](https://github.com/astral-sh/uv) - a fast Python package installer and resolver:
+
+**macOS / Linux:**
+```bash
+curl -sSf https://install.ultraviolet.dev | sh
 ```
 
-```shell
-poetry install
+**Windows (PowerShell):**
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-Once Keycloak and OPA have been started then you have to configure the required variables for the pygeoapi configuration:
+### Setup
+
+After cloning the repository, use UV to install dependencies:
 
 ```shell
-export PYGEOAPI_CONFIG=example-config.yml
-export PYGEOAPI_OPENAPI=example-openapi.yml
+git clone https://github.com/geobeyond/fastgeoapi.git
+cd fastgeoapi
+uv sync
 ```
 
-Finally, you can start fastgeoapi in development mode:
+This automatically:
+- Creates a virtual environment in `.venv`
+- Installs all required dependencies including git-based packages (pygeoapi, pygeofilter, fencer)
+- Sets up fastgeoapi in development mode
+
+### Activate the Virtual Environment
+
+**macOS / Linux:**
+```bash
+source .venv/bin/activate
+```
+
+**Windows (PowerShell):**
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+### Running fastgeoapi
+
+Once Keycloak and OPA have been started, configure the required environment variables:
 
 ```shell
-fastapi dev app/main.py --app app --host 0.0.0.0 --port 5000 --reload
+export PYGEOAPI_CONFIG=pygeoapi-config.yml
+export PYGEOAPI_OPENAPI=pygeoapi-openapi.yml
+export FASTGEOAPI_CONTEXT='/geoapi'
 ```
+
+Start fastgeoapi in development mode:
+
+```shell
+uv run fastapi run app/main.py --app app --host 0.0.0.0 --port 5000 --reload
+```
+
+### Common UV Commands
+
+```bash
+# Update dependencies
+uv sync --upgrade
+
+# View installed packages
+uv pip list
+
+# Install a new package
+uv pip install package-name
+
+# Install dev dependencies
+uv pip install --group dev
+```
+
+For more details, see [uv.md](uv.md).
 
 ## Usage
 
