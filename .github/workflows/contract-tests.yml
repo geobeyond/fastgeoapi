@@ -52,14 +52,48 @@ jobs:
           UV_BREAK_SYSTEM_PACKAGES: 1
         run: |
           uv pip install -e . --break-system-packages
+          uv pip install --group dev --break-system-packages
           ENV_STATE=$ENV_STATE
           OPA_ENABLED=$OPA_ENABLED
           API_KEY_ENABLED=$API_KEY_ENABLED
           JWKS_ENABLED=$JWKS_ENABLED
           uvicorn app.main:app --host 0.0.0.0 --port 5002 --reload --loop asyncio &
-      - name: Run schemathesis command and tests
+
+      - name: Run API-KEY contract tests
         run: |
           uv run pytest tests/test_openapi_contract.py -vv
         env:
+          API_KEY_ENABLED: true
+          JWKS_ENABLED: false
+          UV_SYSTEM_PYTHON: 1
+          UV_BREAK_SYSTEM_PACKAGES: 1
+
+      - name: Stop the API-KEY server
+        run: |
+          pkill -f "uvicorn app.main:app"
+          sleep 2
+
+      - name: Run the server with OAuth2/JWKS protection
+        env:
+          ENV_STATE: dev
+          OPA_ENABLED: false
+          API_KEY_ENABLED: false
+          JWKS_ENABLED: true
+          UV_SYSTEM_PYTHON: 1
+          UV_BREAK_SYSTEM_PACKAGES: 1
+        run: |
+          ENV_STATE=$ENV_STATE
+          OPA_ENABLED=$OPA_ENABLED
+          API_KEY_ENABLED=$API_KEY_ENABLED
+          JWKS_ENABLED=$JWKS_ENABLED
+          uvicorn app.main:app --host 0.0.0.0 --port 5002 --reload --loop asyncio &
+          sleep 5
+
+      - name: Run OAuth2/JWKS contract tests
+        run: |
+          uv run pytest tests/test_openapi_contract.py -vv
+        env:
+          API_KEY_ENABLED: false
+          JWKS_ENABLED: true
           UV_SYSTEM_PYTHON: 1
           UV_BREAK_SYSTEM_PACKAGES: 1

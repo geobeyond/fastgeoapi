@@ -27,8 +27,8 @@ class InterceptHandler(logging.Handler):
         """Emits a logging record."""
         try:
             level = logger.level(record.levelname).name
-        except AttributeError:
-            level = self.loglevel_mapping[record.levelno]
+        except (AttributeError, ValueError):
+            level = self.loglevel_mapping.get(record.levelno, "INFO")
 
         frame, depth = logging.currentframe(), 2
         while frame.f_code.co_filename == logging.__file__:
