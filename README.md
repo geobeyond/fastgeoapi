@@ -1,19 +1,30 @@
 # fastgeoapi
 
-A FastAPI application leveraged by pygeoapi
+A modern, high-performance geospatial API framework that extends [pygeoapi](https://github.com/geopython/pygeoapi) with authentication, authorization, and security features using FastAPI, OpenID Connect, and Open Policy Agent (OPA) 🗺️🔒.
 
-[![PyPI](https://img.shields.io/pypi/v/fastgeoapi.svg)](https://pypi.org/project/fastgeoapi/)
-[![Status](https://img.shields.io/pypi/status/fastgeoapi.svg)](https://pypi.org/project/fastgeoapi/)
-[![Python Version](https://img.shields.io/pypi/pyversions/fastgeoapi)](https://pypi.org/project/fastgeoapi)
-[![License](https://img.shields.io/pypi/l/fastgeoapi)](https://opensource.org/licenses/MIT)
+<div align="center">
+  <a href="https://pygeoapi.io">
+    <img src="https://pygeoapi.io/img/pygeoapi-logo.png" alt="pygeoapi logo" width="150"/>
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://www.openpolicyagent.org">
+    <img src="https://www.openpolicyagent.org/img/logos/opa-horizontal-color.png" alt="Open Policy Agent logo" width="150"/>
+  </a>
+</div>
 
-[![Read the documentation at https://fastgeoapi.readthedocs.io/](https://img.shields.io/readthedocs/fastgeoapi/latest.svg?label=Read%20the%20Docs)](https://fastgeoapi.readthedocs.io/)
-[![Tests](https://github.com/geobeyond/fastgeoapi/workflows/Tests/badge.svg)](https://github.com/geobeyond/fastgeoapi/actions?workflow=Tests)
-[![Codecov](https://codecov.io/gh/geobeyond/fastgeoapi/branch/main/graph/badge.svg)](https://codecov.io/gh/geobeyond/fastgeoapi)
+[![PyPI](https://img.shields.io/pypi/v/fastgeoapi?logo=pypi&logoColor=white&style=flat-square&label=pypi%20package)](https://pypi.org/project/fastgeoapi/)
+[![Python](https://img.shields.io/badge/python-3.12%20|%203.13-blue?logo=python&logoColor=white&style=flat-square)](https://www.python.org)
+[![License](https://img.shields.io/github/license/geobeyond/fastgeoapi?style=flat-square&label=license)](https://github.com/geobeyond/fastgeoapi/blob/main/LICENSE)
 
-[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
-[![Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Poetry](https://img.shields.io/endpoint?url=https://python-poetry.org/badge/v0.json)](https://python-poetry.org/)
+[![Documentation](https://img.shields.io/badge/docs-github%20pages-blue?logo=github&logoColor=white&style=flat-square)](https://geobeyond.github.io/fastgeoapi/)
+[![Tests](https://img.shields.io/github/actions/workflow/status/geobeyond/fastgeoapi/tests.yml?branch=main&logo=github&logoColor=white&style=flat-square&label=tests)](https://github.com/geobeyond/fastgeoapi/actions?workflow=Tests)
+[![Contract Tests](https://img.shields.io/github/actions/workflow/status/geobeyond/fastgeoapi/contract-tests.yml?branch=main&logo=openapi-initiative&logoColor=white&style=flat-square&label=contract%20tests)](https://github.com/geobeyond/fastgeoapi/actions/workflows/contract-tests.yml)
+[![ZAP Scan](https://img.shields.io/github/actions/workflow/status/geobeyond/fastgeoapi/zap-scan.yml?branch=main&logo=owasp&logoColor=white&style=flat-square&label=security)](https://github.com/geobeyond/fastgeoapi/actions/workflows/zap-scan.yml)
+[![Codecov](https://img.shields.io/codecov/c/github/geobeyond/fastgeoapi?logo=codecov&logoColor=white&style=flat-square)](https://codecov.io/gh/geobeyond/fastgeoapi)
+
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white&style=flat-square)](https://github.com/pre-commit/pre-commit)
+[![Ruff](https://img.shields.io/badge/code%20style-ruff-000000?logo=ruff&logoColor=white&style=flat-square)](https://github.com/astral-sh/ruff)
+[![uv](https://img.shields.io/badge/package%20manager-uv-6366f1?logo=uv&logoColor=white&style=flat-square)](https://github.com/astral-sh/uv)
 
 ## Architecture
 
@@ -23,7 +34,33 @@ This diagram gives an overview of the basic architecture:
 
 ## Features
 
-- Provide authentication and authorization for vanilla [pygeoapi](https://github.com/geopython/pygeoapi/)
+### 🔐 Security & Authentication
+
+- **OpenID Connect (OIDC) Integration** - OAuth2/JWT Bearer token authentication with JWKS support
+- **API Key Authentication** - Flexible API key-based authentication for programmatic access
+- **Open Policy Agent (OPA)** - Policy-based authorization with fine-grained access control
+- **Multi-scheme Support** - Seamlessly switch between authentication methods based on your needs
+
+### 🚀 Performance & Modern Stack
+
+- **FastAPI Framework** - High-performance async API built on Starlette and Pydantic
+- **Async I/O** - Non-blocking operations for better scalability
+- **Modern Python** - Python 3.12+ with type hints and modern language features
+- **Fast Dependency Management** - UV-based tooling for lightning-fast installations
+
+### 🗺️ Geospatial API Standards
+
+- **OGC API Compliance** - Full support for OGC API - Features, Processes, and more
+- **OpenAPI Integration** - Auto-generated, security-enhanced OpenAPI specifications
+- **Geospatial Data Access** - Seamless access to vector and raster geospatial data
+- **pygeoapi Extension** - Extends vanilla pygeoapi with enterprise-ready security
+
+### 🛡️ Security Testing & Quality
+
+- **Contract Testing** - Automated OpenAPI contract validation with Schemathesis
+- **Security Scanning** - OWASP ZAP integration for continuous security testing
+- **Pre-commit Hooks** - Code quality checks with Ruff formatting and linting
+- **Comprehensive Test Coverage** - Full test suite with pytest and coverage reporting
 
 ## Requirements
 
@@ -34,8 +71,7 @@ This diagram gives an overview of the basic architecture:
 
 ## Installation
 
-You can install _fastgeoapi_ via [pip](https://pip.pypa.io/) from
-[PyPI](https://pypi.org/):
+You can install _fastgeoapi_ via [pip](https://pip.pypa.io/) from [PyPI](https://pypi.org/):
 
 ```shell
 pip install fastgeoapi
@@ -43,28 +79,85 @@ pip install fastgeoapi
 
 ## Development
 
-After cloning the repository, you should use `poetry` to create the virtual environment and install the dependencies:
+### Prerequisites
 
-```shell
-poetry shell
+Install [UV](https://github.com/astral-sh/uv) - a fast Python package installer and resolver:
+
+**macOS / Linux:**
+
+```bash
+curl -sSf https://install.ultraviolet.dev | sh
 ```
 
-```shell
-poetry install
+**Windows (PowerShell):**
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-Once Keycloak and OPA have been started then you have to configure the required variables for the pygeoapi configuration:
+### Setup
+
+After cloning the repository, use UV to install dependencies:
 
 ```shell
-export PYGEOAPI_CONFIG=example-config.yml
-export PYGEOAPI_OPENAPI=example-openapi.yml
+git clone https://github.com/geobeyond/fastgeoapi.git
+cd fastgeoapi
+uv sync
 ```
 
-Finally, you can start fastgeoapi in development mode:
+This automatically:
+
+- Creates a virtual environment in `.venv`
+- Installs all required dependencies including git-based packages (pygeoapi, pygeofilter, fencer)
+- Sets up fastgeoapi in development mode
+
+### Activate the Virtual Environment
+
+**macOS / Linux:**
+
+```bash
+source .venv/bin/activate
+```
+
+**Windows (PowerShell):**
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+### Running fastgeoapi
+
+Once Keycloak and OPA have been started, configure the required environment variables:
 
 ```shell
-fastapi dev app/main.py --app app --host 0.0.0.0 --port 5000 --reload
+export PYGEOAPI_CONFIG=pygeoapi-config.yml
+export PYGEOAPI_OPENAPI=pygeoapi-openapi.yml
+export FASTGEOAPI_CONTEXT='/geoapi'
 ```
+
+Start fastgeoapi in development mode:
+
+```shell
+uv run fastapi run app/main.py --app app --host 0.0.0.0 --port 5000 --reload
+```
+
+### Common UV Commands
+
+```bash
+# Update dependencies
+uv sync --upgrade
+
+# View installed packages
+uv pip list
+
+# Install a new package
+uv pip install package-name
+
+# Install dev dependencies
+uv pip install --group dev
+```
+
+For more details, see [uv.md](uv.md).
 
 ## Usage
 
