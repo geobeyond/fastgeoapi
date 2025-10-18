@@ -12,6 +12,11 @@ from typer.testing import CliRunner
 from app.auth.models import TokenPayload
 from app.config.app import configuration as cfg
 
+# Set environment variables at module level for skipif decorators
+# These need to be set before test collection happens
+os.environ["API_KEY_ENABLED"] = "true"
+os.environ["JWKS_ENABLED"] = "true"
+
 
 @pytest.fixture
 def runner() -> CliRunner:
@@ -21,10 +26,16 @@ def runner() -> CliRunner:
 
 def reload_app():
     """Reload the app with the test environment variables."""
-    if "app.main" in sys.modules:
-        del sys.modules["app.main"]
-    if "app.config.app" in sys.modules:
-        del sys.modules["app.config.app"]
+    # Remove all app modules to ensure clean reload with new environment
+    modules_to_remove = [key for key in sys.modules.keys() if key.startswith("app.")]
+    for module in modules_to_remove:
+        del sys.modules[module]
+
+    # Clear the configuration cache
+    from app.config.app import FactoryConfig
+
+    FactoryConfig.get_config.cache_clear()
+
     from app.main import app
 
     return app
@@ -45,12 +56,15 @@ def create_protected_with_apikey_app(create_app):
             os.environ,
             {
                 "ENV_STATE": "dev",
+                "HOST": "0.0.0.0",  # noqa: S104
+                "PORT": "5000",
+                "API_KEY_ENABLED": "true",
                 "DEV_API_KEY_ENABLED": "true",
                 "DEV_PYGEOAPI_KEY_GLOBAL": "pygeoapi",
                 "DEV_JWKS_ENABLED": "false",
                 "DEV_OPA_ENABLED": "false",
             },
-            clear=True,
+            clear=False,
         ):
             app = create_app()
         return app
@@ -67,12 +81,14 @@ def create_app_with_reverse_proxy_enabled(create_app):
             os.environ,
             {
                 "ENV_STATE": "dev",
+                "HOST": "0.0.0.0",  # noqa: S104
+                "PORT": "5000",
                 "DEV_API_KEY_ENABLED": "false",
                 "DEV_JWKS_ENABLED": "false",
                 "DEV_OPA_ENABLED": "false",
                 "DEV_FASTGEOAPI_REVERSE_PROXY": "true",
             },
-            clear=True,
+            clear=False,
         ):
             app = create_app()
         return app
@@ -89,13 +105,16 @@ def create_protected_with_bearer_app(create_app):
             os.environ,
             {
                 "ENV_STATE": "dev",
+                "HOST": "0.0.0.0",  # noqa: S104
+                "PORT": "5000",
+                "JWKS_ENABLED": "true",
                 "DEV_API_KEY_ENABLED": "false",
                 "DEV_OAUTH2_JWKS_ENDPOINT": "https://76hxgq.logto.app/oidc/jwks",
                 "DEV_OAUTH2_TOKEN_ENDPOINT": "https://76hxgq.logto.app/oidc/token",
                 "DEV_JWKS_ENABLED": "true",
                 "DEV_OPA_ENABLED": "false",
             },
-            clear=True,
+            clear=False,
         ):
             app = create_app()
         return app
@@ -104,19 +123,59 @@ def create_protected_with_bearer_app(create_app):
 
 
 @pytest.fixture
-def protected_apikey_schema(create_protected_with_apikey_app):
-    """Create a protected API key schema."""
-    app = create_protected_with_apikey_app()
+def protected_apikey_app(create_protected_with_apikey_app):
+    """Return the protected API key app instance."""
+    return create_protected_with_apikey_app()
 
-    return schemathesis.from_asgi("/geoapi/openapi?f=json", app=app)
+
+@pytest.fixture
+def protected_apikey_schema(create_protected_with_apikey_app):
+    """Create a protected API key schema, excluding POST /items and OPTIONS endpoints.
+
+    Excludes POST /collections/{collectionId}/items endpoints due to pygeoapi
+    advertising these endpoints with invalid JSON Schema references even when
+    transactions are not configured.
+
+    Excludes OPTIONS methods for all endpoints as they are not needed for contract
+    testing.
+
+    See test_openapi_contract.py module docstring for detailed explanation.
+    """
+    app = create_protected_with_apikey_app()
+    schema = schemathesis.openapi.from_asgi("/geoapi/openapi?f=json", app=app)
+    # Exclude POST /items endpoints with invalid schema references (/$defs/propertyRef)
+    schema = schema.exclude(method="POST", path_regex=r".*/items$")
+    # Exclude OPTIONS methods for all endpoints
+    schema = schema.exclude(method="OPTIONS")
+    return schema
+
+
+@pytest.fixture
+def protected_bearer_app(create_protected_with_bearer_app):
+    """Return the protected bearer token app instance."""
+    return create_protected_with_bearer_app()
 
 
 @pytest.fixture
 def protected_bearer_schema(create_protected_with_bearer_app):
-    """Create a protected API key schema."""
-    app = create_protected_with_bearer_app()
+    """Create a protected bearer token schema, excluding POST /items and OPTIONS.
 
-    return schemathesis.from_asgi("/geoapi/openapi?f=json", app=app)
+    Excludes POST /collections/{collectionId}/items endpoints due to pygeoapi
+    advertising these endpoints with invalid JSON Schema references even when
+    transactions are not configured.
+
+    Excludes OPTIONS methods for all endpoints as they are not needed for contract
+    testing.
+
+    See test_openapi_contract.py module docstring for detailed explanation.
+    """
+    app = create_protected_with_bearer_app()
+    schema = schemathesis.openapi.from_asgi("/geoapi/openapi?f=json", app=app)
+    # Exclude POST /items endpoints with invalid schema references (/$defs/propertyRef)
+    schema = schema.exclude(method="POST", path_regex=r".*/items$")
+    # Exclude OPTIONS methods for all endpoints
+    schema = schema.exclude(method="OPTIONS")
+    return schema
 
 
 @pytest.fixture

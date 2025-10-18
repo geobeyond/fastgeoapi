@@ -8,21 +8,14 @@ from textwrap import dedent
 
 import nox
 
-try:
-    from nox_poetry import Session as NoxPoetrySession
-    from nox_poetry import session as nox_session
-except ImportError:
-    message = f"""\
-    Nox failed to import the 'nox-poetry' package.
+# Using standard nox with UV instead of nox-poetry
+from nox import Session
 
-    Please install it using the following command:
-
-    {sys.executable} -m pip install nox-poetry"""
-    raise SystemExit(dedent(message)) from None
+session = nox.session
 
 
 package = "app"
-python_versions = ["3.10"]
+python_versions = ["3.12"]
 nox.needs_version = ">= 2022.11.21"
 nox.options.sessions = (
     "pre-commit",
@@ -36,7 +29,7 @@ nox.options.sessions = (
 )
 
 
-def activate_virtualenv_in_precommit_hooks(session: NoxPoetrySession) -> None:
+def activate_virtualenv_in_precommit_hooks(session: Session) -> None:
     """Activate virtualenv in hooks installed by pre-commit.
 
     This function patches git hooks installed by pre-commit to activate the
@@ -86,8 +79,8 @@ def activate_virtualenv_in_precommit_hooks(session: NoxPoetrySession) -> None:
         hook.write_text("\n".join(lines))
 
 
-@nox_session(name="pre-commit", python="3.10")
-def precommit(session: NoxPoetrySession) -> None:
+@session(name="pre-commit", python="3.12")
+def precommit(session: Session) -> None:
     """Lint using pre-commit."""
     args = session.posargs or ["run", "--all-files", "--show-diff-on-failure"]
     session.install(
@@ -110,10 +103,11 @@ def precommit(session: NoxPoetrySession) -> None:
         activate_virtualenv_in_precommit_hooks(session)
 
 
-@nox_session(python="3.10")
-def safety(session: NoxPoetrySession) -> None:
+@session(python="3.12")
+def safety(session: Session) -> None:
     """Scan dependencies for insecure packages."""
-    requirements = session.poetry.export_requirements()
+    # With UV we'll install safety directly into the session
+    session.install(".")
     session.install("safety")
     session.run(
         "safety",
@@ -131,20 +125,19 @@ def safety(session: NoxPoetrySession) -> None:
         "-i",
         "70612",
         "--full-report",
-        f"--file={requirements}",
     )
 
 
-@nox_session(python=python_versions)
-def bandit(session: NoxPoetrySession) -> None:
+@session(python=python_versions)
+def bandit(session: Session) -> None:
     """Scan code for vulnerabilities."""
     args = session.posargs or ["-r", "app", "-v"]
     session.install("bandit")
     session.run("bandit", *args)
 
 
-@nox_session(python=python_versions)
-def mypy(session: NoxPoetrySession) -> None:
+@session(python=python_versions)
+def mypy(session: Session) -> None:
     """Type-check using mypy."""
     args = session.posargs or ["app", "tests", "--namespace-packages"]
     session.install(".")
@@ -154,11 +147,17 @@ def mypy(session: NoxPoetrySession) -> None:
         session.run("mypy", f"--python-executable={sys.executable}", "noxfile.py")
 
 
-@nox_session(python=python_versions)
-def tests(session: NoxPoetrySession) -> None:
+@session(python=python_versions)
+def tests(session: Session) -> None:
     """Run the test suite."""
     session.install(".")
-    session.install("coverage[toml]", "pytest", "pygments", "schemathesis")
+    session.install(
+        "coverage[toml]",
+        "pytest",
+        "pygments",
+        "schemathesis>=3.19.0,<4.0",
+        "pytest-asyncio",
+    )
     try:
         session.run("coverage", "run", "--parallel", "-m", "pytest", *session.posargs)
     finally:
@@ -166,8 +165,8 @@ def tests(session: NoxPoetrySession) -> None:
             session.notify("coverage", posargs=[])
 
 
-@nox_session
-def coverage(session: NoxPoetrySession) -> None:
+@session
+def coverage(session: Session) -> None:
     """Produce the coverage report."""
     args = session.posargs or ["report"]
 
@@ -179,16 +178,22 @@ def coverage(session: NoxPoetrySession) -> None:
     session.run("coverage", *args)
 
 
-@nox_session(python=python_versions)
-def typeguard(session: NoxPoetrySession) -> None:
+@session(python=python_versions)
+def typeguard(session: Session) -> None:
     """Runtime type checking using Typeguard."""
     session.install(".")
-    session.install("pytest", "typeguard", "pygments", "schemathesis")
+    session.install(
+        "pytest",
+        "typeguard",
+        "pygments",
+        "schemathesis>=3.19.0,<4.0",
+        "pytest-asyncio",
+    )
     session.run("pytest", f"--typeguard-packages={package}", *session.posargs)
 
 
-@nox_session(python=python_versions)
-def xdoctest(session: NoxPoetrySession) -> None:
+@session(python=python_versions)
+def xdoctest(session: Session) -> None:
     """Run examples with xdoctest."""
     if session.posargs:
         args = [package, *session.posargs]
@@ -202,8 +207,8 @@ def xdoctest(session: NoxPoetrySession) -> None:
     session.run("python", "-m", "xdoctest", *args)
 
 
-@nox_session(name="docs-build", python="3.10")
-def docs_build(session: NoxPoetrySession) -> None:
+@session(name="docs-build", python="3.12")
+def docs_build(session: Session) -> None:
     """Build the documentation."""
     args = session.posargs or ["--config-file", "mkdocs.yml"]
     # if not session.posargs and "FORCE_COLOR" in os.environ:
@@ -227,8 +232,8 @@ def docs_build(session: NoxPoetrySession) -> None:
     session.run("python", "-m", "mkdocs", "build", *args)
 
 
-@nox_session(python="3.10")
-def docs(session: NoxPoetrySession) -> None:
+@session(python="3.12")
+def docs(session: Session) -> None:
     """Build and serve the documentation with live reloading on file changes."""
     args = session.posargs
     session.install(".")

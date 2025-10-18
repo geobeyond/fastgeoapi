@@ -14,8 +14,7 @@ Here is a list of important resources for contributors:
 
 ## How to report a bug
 
-Report bugs on the [Issue
-Tracker](https://github.com/geobeyond/fastgeoapi/issues).
+Report bugs on the [Issue Tracker](https://github.com/geobeyond/fastgeoapi/issues).
 
 When filing an issue, make sure to answer these questions:
 
@@ -30,29 +29,28 @@ steps to reproduce the issue.
 
 ## How to request a feature
 
-Request features on the [Issue
-Tracker](https://github.com/geobeyond/fastgeoapi/issues).
+Request features on the [Issue Tracker](https://github.com/geobeyond/fastgeoapi/issues).
 
 ## How to set up your development environment
 
 You need Python 3.10+ and the following tools:
 
-- [Poetry](https://python-poetry.org/)
-- [Nox](https://nox.thea.codes/)
-- [nox-poetry](https://nox-poetry.readthedocs.io/)
+- [uv](https://astral.sh/uv)
+- [nox](https://nox.thea.codes/)
 
 Install the package with development requirements:
 
 ```console
-$ poetry install
+$ uv sync
+& source .venv/bin/activate
 ```
 
 You can now run an interactive Python session, or the command-line
 interface:
 
 ```console
-$ poetry run python
-$ poetry run fastgeoapi
+$ uv run python
+$ uv run fastgeoapi
 ```
 
 ## How to test the project

@@ -4,9 +4,9 @@ import os
 from pathlib import Path
 
 import typer
-from openapi_pydantic.v3.v3_0_3 import OAuthFlow
-from openapi_pydantic.v3.v3_0_3 import OAuthFlows
-from openapi_pydantic.v3.v3_0_3 import SecurityScheme
+from openapi_pydantic.v3.v3_0 import OAuthFlow
+from openapi_pydantic.v3.v3_0 import OAuthFlows
+from openapi_pydantic.v3.v3_0 import SecurityScheme
 from pygeoapi.l10n import LocaleError
 from pygeoapi.openapi import generate_openapi_document
 from pygeoapi.provider.base import ProviderConnectionError
@@ -36,6 +36,7 @@ def openapi(ctx: typer.Context) -> None:
         os.environ["PYGEOAPI_CONFIG"] = cfg.PYGEOAPI_CONFIG
         os.environ["PYGEOAPI_OPENAPI"] = cfg.PYGEOAPI_OPENAPI
         os.environ["PYGEOAPI_BASEURL"] = cfg.PYGEOAPI_BASEURL
+        os.environ["FASTGEOAPI_CONTEXT"] = cfg.FASTGEOAPI_CONTEXT
         if not (os.environ["PYGEOAPI_CONFIG"] and os.environ["PYGEOAPI_OPENAPI"]):
             err_console.log("pygeoapi variables are not configured")
             raise PygeoapiEnvError("PYGEOAPI_CONFIG and PYGEOAPI_OPENAPI are not set")
