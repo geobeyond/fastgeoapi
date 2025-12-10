@@ -112,16 +112,12 @@ def safety(session: Session) -> None:
     """
     session.install(".")
     session.install("safety")
-    # Pass SAFETY_API_KEY from environment to the safety command
-    env = {}
+    # Build command with API key if available
+    cmd = ["safety"]
     if "SAFETY_API_KEY" in os.environ:
-        env["SAFETY_API_KEY"] = os.environ["SAFETY_API_KEY"]
-    session.run(
-        "safety",
-        "scan",
-        "--detailed-output",
-        env=env,
-    )
+        cmd.extend(["--key", os.environ["SAFETY_API_KEY"]])
+    cmd.extend(["scan", "--detailed-output"])
+    session.run(*cmd)
 
 
 @session(python=python_versions)
