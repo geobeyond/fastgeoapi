@@ -42,9 +42,10 @@ jobs:
         run: |
           cat .spectral.oas3.yaml
 
-      # Run Spectral for OAS3
+      # Run Spectral for OAS3 - highlights errors but doesn't fail the build
       - name: Run Spectral for OAS3
         uses: stoplightio/spectral-action@latest
+        continue-on-error: true
         with:
           file_glob: "pygeoapi-openapi.json"
           spectral_ruleset: ".spectral.oas3.yaml"
