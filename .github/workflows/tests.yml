@@ -29,6 +29,7 @@ jobs:
       PRE_COMMIT_COLOR: "always"
       UV_SYSTEM_PYTHON: 1
       UV_BREAK_SYSTEM_PACKAGES: 1
+      SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
 
     steps:
       - name: Check out the repository

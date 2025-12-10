@@ -105,26 +105,18 @@ def precommit(session: Session) -> None:
 
 @session(python="3.12")
 def safety(session: Session) -> None:
-    """Scan dependencies for insecure packages."""
-    # With UV we'll install safety directly into the session
+    """Scan dependencies for insecure packages.
+
+    Requires SAFETY_API_KEY environment variable to be set.
+    Get a free API key at https://safetycli.com
+    """
     session.install(".")
     session.install("safety")
+    # Use safety scan with API key from environment variable SAFETY_API_KEY
     session.run(
         "safety",
-        "check",
-        "-i",
-        "51457",
-        "-i",
-        "51358",
-        # 51668: https://github.com/sqlalchemy/sqlalchemy/pull/8563,
-        # still in beta + major version change sqlalchemy 2.0.0b1
-        "-i",
-        "51668",
-        "-i",
-        "61493",
-        "-i",
-        "70612",
-        "--full-report",
+        "scan",
+        "--detailed-output",
     )
 
 

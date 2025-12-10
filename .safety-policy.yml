@@ -1,0 +1,31 @@
+version: "3.0"
+scanning-settings:
+  max-depth: 6
+  exclude:
+    - ".nox"
+    - ".venv"
+    - "node_modules"
+report:
+  dependency-vulnerabilities:
+    enabled: true
+    auto-ignore-in-report:
+      cvss-severity: []
+      vulnerabilities:
+        51457:
+          reason: Legacy ignore from safety check migration
+        51358:
+          reason: Legacy ignore from safety check migration
+        51668:
+          reason: "SQLAlchemy issue - see https://github.com/sqlalchemy/sqlalchemy/pull/8563"
+        61493:
+          reason: Legacy ignore from safety check migration
+        70612:
+          reason: Legacy ignore from safety check migration
+  fail-scan-with-exit-code:
+    dependency-vulnerabilities:
+      enabled: true
+      fail-on-any-of:
+        cvss-severity:
+          - critical
+          - high
+          - medium
