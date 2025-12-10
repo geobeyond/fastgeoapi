@@ -162,7 +162,7 @@ For more details, see [uv.md](uv.md).
 ## Usage
 
 Please see the [Command-line
-Reference](https://fastgeoapi.readthedocs.io/en/latest/usage.html) for
+Reference](https://geobeyond.github.io/fastgeoapi/reference/) for
 details.
 
 Please have a look at the `docker-compose.yml` file under `scripts/iam` to start the stack with **Keycloak** and **Open Policy Agent** locally. There is a `README.md` file that explains how to use it.
