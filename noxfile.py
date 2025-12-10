@@ -112,11 +112,15 @@ def safety(session: Session) -> None:
     """
     session.install(".")
     session.install("safety")
-    # Use safety scan with API key from environment variable SAFETY_API_KEY
+    # Pass SAFETY_API_KEY from environment to the safety command
+    env = {}
+    if "SAFETY_API_KEY" in os.environ:
+        env["SAFETY_API_KEY"] = os.environ["SAFETY_API_KEY"]
     session.run(
         "safety",
         "scan",
         "--detailed-output",
+        env=env,
     )
 
 
