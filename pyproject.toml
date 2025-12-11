@@ -145,6 +145,7 @@ ignore = [
     "D104",   # Missing docstring in public package
     "D107",   # Missing docstring in __init__
     "S101",   # Use of assert detected (needed for tests)
+    "DOC501", # Raised exception missing from docstring (tracked in #315)
 ]
 
 [tool.ruff.lint.pydocstyle]
