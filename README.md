@@ -108,8 +108,10 @@ uv sync
 This automatically:
 
 - Creates a virtual environment in `.venv`
-- Installs all required dependencies including git-based packages (pygeoapi, pygeofilter, fencer)
+- Installs all required dependencies including git-based packages from `[tool.uv.sources]` (pygeoapi master, pygeofilter, fencer)
 - Sets up fastgeoapi in development mode
+
+> **Note:** For development, UV uses git-based dependencies defined in `[tool.uv.sources]` to get the latest features from upstream projects. The PyPI release uses stable published versions. See [uv.md](uv.md) for more details.
 
 ### Activate the Virtual Environment
 

@@ -13,7 +13,7 @@ dependencies = [
     "loguru>=0.7.3,<1.0",
     "fastapi-opa>=2.0.3,<3",
     "rasterio>=1.4.3,<2",
-    "pygeoapi @ git+https://github.com/geopython/pygeoapi.git@master",
+    "pygeoapi>=0.22.0",
     "fastapi[standard]>=0.115.12,<1.0",
     "typer>=0.15.3,<0.16",
     "fastapi-key-auth>=0.15.4,<0.16.0",
