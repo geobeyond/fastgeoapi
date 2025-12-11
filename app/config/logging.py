@@ -7,8 +7,7 @@ from pathlib import Path
 from loguru import logger
 
 from app.config.app import configuration as cfg
-from app.schemas.logging import LoggerModel
-from app.schemas.logging import LoggingBase
+from app.schemas.logging import LoggerModel, LoggingBase
 
 
 class InterceptHandler(logging.Handler):

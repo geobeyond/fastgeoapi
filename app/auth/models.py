@@ -1,7 +1,5 @@
 """Authentication models module."""
 
-import typing
-
 import pydantic
 from openapi_pydantic.v3.v3_0 import Response
 
@@ -17,7 +15,7 @@ class OAuth2Claim(pydantic.BaseModel):
     exp: int = pydantic.Field(...)
     iss: str = pydantic.Field(...)
     aud: str = pydantic.Field(...)
-    client_id: typing.Optional[str] = pydantic.Field(None)
+    client_id: str | None = pydantic.Field(None)
 
 
 class TokenPayload(pydantic.BaseModel):

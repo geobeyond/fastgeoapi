@@ -1,17 +1,10 @@
 """Openapi middleware module."""
 
 from typing import Any
-from typing import Dict
-from typing import List
 
 from openapi_pydantic.v3.v3_0 import SecurityScheme
-from starlette.datastructures import Headers
-from starlette.datastructures import MutableHeaders
-from starlette.types import ASGIApp
-from starlette.types import Message
-from starlette.types import Receive
-from starlette.types import Scope
-from starlette.types import Send
+from starlette.datastructures import Headers, MutableHeaders
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.config.app import configuration as cfg
 from app.config.logging import create_logger
@@ -26,7 +19,7 @@ queryparams_with_openapi = ["f=json"]
 class OpenapiSecurityMiddleware:
     """Openapi security middleware."""
 
-    def __init__(self, app: ASGIApp, security_schemes: List[SecurityScheme]):
+    def __init__(self, app: ASGIApp, security_schemes: list[SecurityScheme]):
         """Initialize the Openapi security middleware."""
         self.app = app
         self.security_schemes = security_schemes
@@ -51,8 +44,8 @@ class OpenAPIResponder:
     def __init__(
         self,
         app: ASGIApp,
-        security_schemes: List[SecurityScheme],
-        headers: Dict[Any, Any] = {},  # noqa: B006
+        security_schemes: list[SecurityScheme],
+        headers: dict[Any, Any] = {},  # noqa: B006
     ):
         """Initialize the OpenAPI responder class."""
         self.app = app
@@ -65,7 +58,7 @@ class OpenAPIResponder:
         self.send = send
         await self.app(scope, receive, self.send_with_security)
 
-    async def send_with_security(self, message: Message) -> None:  # noqa: C901
+    async def send_with_security(self, message: Message) -> None:
         """Apply security using supported schemes."""
         message_type = message["type"]
         if message_type == "http.response.start":

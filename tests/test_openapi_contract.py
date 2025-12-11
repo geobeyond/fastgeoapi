@@ -41,15 +41,11 @@ references:
 Example from the problematic schema::
 
     {
-        'paths': {
-            '/collections/lakes/items': {
-                'post': {
-                    'requestBody': {
-                        'content': {
-                            'application/geo+json': {
-                                'schema': {'$ref': '#/$defs/propertyRef'}
-                            }
-                        }
+        "paths": {
+            "/collections/lakes/items": {
+                "post": {
+                    "requestBody": {
+                        "content": {"application/geo+json": {"schema": {"$ref": "#/$defs/propertyRef"}}}
                     }
                 }
             }
@@ -73,7 +69,7 @@ The Solution
 The test fixtures in conftest.py use schemathesis's exclude() method to
 filter out POST endpoints matching the pattern /collections/.../items::
 
-    schema.exclude(method='POST', path_regex=r'.*/items$')
+    schema.exclude(method="POST", path_regex=r".*/items$")
 
 This filtering:
 
@@ -124,8 +120,7 @@ import os
 
 import pytest
 import schemathesis
-from hypothesis import Phase
-from hypothesis import settings
+from hypothesis import Phase, settings
 from schemathesis.checks import not_a_server_error
 
 schema_apikey = schemathesis.from_pytest_fixture("protected_apikey_schema")

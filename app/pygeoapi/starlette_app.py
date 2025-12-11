@@ -1,21 +1,17 @@
 """Starlette application override module."""
 
 import asyncio
+from collections.abc import Callable
 from typing import Any
-from typing import Callable
 
 import pygeoapi.api.processes as processes_api
 from pygeoapi.api import APIRequest
 from pygeoapi.starlette_app import api_ as geoapi
 from starlette.requests import Request
-from starlette.responses import HTMLResponse
-from starlette.responses import JSONResponse
-from starlette.responses import Response
+from starlette.responses import HTMLResponse, JSONResponse, Response
 
 
-def call_api_threadsafe(
-    loop: asyncio.AbstractEventLoop, api_call: Callable, *args
-) -> tuple:
+def call_api_threadsafe(loop: asyncio.AbstractEventLoop, api_call: Callable, *args) -> tuple:
     """Call api in a safe thread.
 
     The api call needs a running loop. This method is meant to be called
@@ -45,9 +41,7 @@ async def get_response(
     :returns: A Response instance.
     """
     loop = asyncio.get_running_loop()
-    result = await loop.run_in_executor(
-        None, call_api_threadsafe, loop, api_call, *args
-    )
+    result = await loop.run_in_executor(None, call_api_threadsafe, loop, api_call, *args)
 
     headers, status, content = result
     if headers["Content-Type"] == "text/html":
@@ -77,9 +71,7 @@ async def patched_get_job_result(request: Request, job_id=None):
     # Convert Starlette Request to APIRequest
     api_request = await APIRequest.from_starlette(request, geoapi.locales)
 
-    response = await get_response(
-        processes_api.get_job_result, geoapi, api_request, job_id
-    )
+    response = await get_response(processes_api.get_job_result, geoapi, api_request, job_id)
 
     from app.pygeoapi.api.processes import patch_response
 

@@ -1,15 +1,10 @@
 """Auth JWKS module."""
 
 import typing
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 
 import httpx
-from authlib.jose import JsonWebKey
-from authlib.jose import JsonWebToken
-from authlib.jose import JWTClaims
-from authlib.jose import KeySet
-from authlib.jose import errors
+from authlib.jose import JsonWebKey, JsonWebToken, JWTClaims, KeySet, errors
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
@@ -58,21 +53,13 @@ class JWKSAuthentication(AuthInterface):
             logger.debug(f"JSON Key Set: {jwks.as_json()}")
             keys = jwks.as_dict()["keys"]
             # Extract algs and remove None
-            algs = [
-                item
-                for item in tuple({key.get("alg") for key in keys})
-                if item is not None
-            ]
+            algs = [item for item in tuple({key.get("alg") for key in keys}) if item is not None]
             if len(algs) > 1:
                 logger.error("Multiple algorithms are not supported")
-                raise Oauth2Error(
-                    "Unable to decode the token with multiple algorithms"
-                )  # noqa
+                raise Oauth2Error("Unable to decode the token with multiple algorithms")
             alg = algs[0]
             if not alg:
-                raise Oauth2Error(
-                    "Unable to decode the token with a missing algorithm"
-                )  # noqa
+                raise Oauth2Error("Unable to decode the token with a missing algorithm")
             logger.debug(f"Algorithm used for decoding the token: {alg}")
             claims = JsonWebToken([alg]).decode(
                 s=token,
@@ -108,7 +95,7 @@ class JWKSAuthentication(AuthInterface):
         self,
         request: Request,
         accepted_methods: typing.List[str] = ["access_token"],  # noqa
-    ) -> typing.Union[RedirectResponse, typing.Dict]:
+    ) -> RedirectResponse | dict:
         """Authenticate the caller with the incoming request."""
         bearer = request.headers.get("Authorization")
         if not bearer:

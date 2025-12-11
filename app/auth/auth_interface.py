@@ -1,9 +1,6 @@
 """Auth interface module."""
 
-from abc import ABC
-from abc import abstractmethod
-from typing import Dict
-from typing import Union
+from abc import ABC, abstractmethod
 
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
@@ -17,7 +14,7 @@ class AuthInterface(ABC):
     """
 
     @abstractmethod
-    async def authenticate(self, request: Request) -> Union[RedirectResponse, Dict]:
+    async def authenticate(self, request: Request) -> RedirectResponse | dict:
         """Authenticate the incoming request.
 
         The method returns a dictionary containing the valid and authorized

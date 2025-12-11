@@ -3,17 +3,14 @@
 import os
 
 import pytest
-from httpx import ASGITransport
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
 
 @pytest.mark.asyncio
 async def test_pygeoapi_links_behind_proxy(reverse_proxy_enabled) -> None:
     """Test presence of reverse proxy base urls in links."""
     transport = ASGITransport(app=reverse_proxy_enabled)
-    async with AsyncClient(
-        transport=transport, base_url="http://testserver", timeout=30
-    ) as client:
+    async with AsyncClient(transport=transport, base_url="http://testserver", timeout=30) as client:
         _proto = "https"
         _host = "proxy.example.com"
         # Get FASTGEOAPI_CONTEXT from environment (set by create_app)
