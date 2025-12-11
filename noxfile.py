@@ -2,7 +2,6 @@
 
 import os
 import shutil
-import sys
 from pathlib import Path
 from textwrap import dedent
 
@@ -21,7 +20,7 @@ nox.options.sessions = (
     "pre-commit",
     "safety",
     "bandit",
-    "mypy",
+    "ty",
     "tests",
     "typeguard",
     "xdoctest",
@@ -118,14 +117,12 @@ def bandit(session: Session) -> None:
 
 
 @session(python=python_versions)
-def mypy(session: Session) -> None:
-    """Type-check using mypy."""
-    args = session.posargs or ["app", "tests", "--namespace-packages"]
+def ty(session: Session) -> None:
+    """Type-check using ty (Astral's type checker)."""
+    args = session.posargs or ["check", "app", "tests"]
     session.install(".")
-    session.install("mypy", "pytest")
-    session.run("mypy", *args)
-    if not session.posargs:
-        session.run("mypy", f"--python-executable={sys.executable}", "noxfile.py")
+    session.install("ty")
+    session.run("ty", *args)
 
 
 @session(python=python_versions)
