@@ -2,7 +2,6 @@
 
 import re
 from abc import ABC, abstractmethod
-from typing import List, Optional
 
 from starlette.requests import Request
 
@@ -15,14 +14,11 @@ class Injectable(ABC):
     def __init__(
         self,
         key: str,
-        skip_endpoints: Optional[List[str]] = [],  # noqa B006
+        skip_endpoints: list[str] | None = None,
     ) -> None:
         """Set properties initialization for injectables."""
         self.key = key
-        self.skip_endpoints = [
-            re.compile(skip)
-            for skip in skip_endpoints  # type:ignore
-        ]
+        self.skip_endpoints = [re.compile(skip) for skip in (skip_endpoints or [])]
 
     @abstractmethod
     async def extract(self, request: Request) -> list:
@@ -37,10 +33,7 @@ class Oauth2Provider:
         self,
         authentication: AuthInterface | list[AuthInterface],
         injectables: list[Injectable] | None = None,
-        accepted_methods: List[str] = [  # noqa B006
-            "id_token",
-            "access_token",
-        ],
+        accepted_methods: list[str] | None = None,
     ) -> None:
         """Handle configuration container for the OAuth2 middleware.  # noqa D405
 
@@ -59,4 +52,4 @@ class Oauth2Provider:
             authentication = [authentication]
         self.authentication = authentication
         self.injectables = injectables
-        self.accepted_methods = accepted_methods
+        self.accepted_methods = accepted_methods or ["id_token", "access_token"]
