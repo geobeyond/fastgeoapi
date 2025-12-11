@@ -121,7 +121,12 @@ def ty(session: Session) -> None:
     """Type-check using ty (Astral's type checker)."""
     args = session.posargs or ["check", "app", "tests"]
     session.install(".")
-    session.install("ty")
+    session.install(
+        "ty",
+        "pytest",
+        "schemathesis>=3.19.0,<4.0",
+        "pytest-asyncio",
+    )
     session.run("ty", *args)
 
 
