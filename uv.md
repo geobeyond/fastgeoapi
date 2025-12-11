@@ -86,6 +86,7 @@ uv sync
 The main `[project.dependencies]` section uses stable PyPI versions (e.g., `pygeoapi>=0.22.0`). This is required because PyPI does not allow packages with direct git URL dependencies.
 
 **Why this matters:**
+
 - `uv sync` = Uses git sources for development (latest features)
 - `pip install fastgeoapi` = Uses PyPI versions (stable releases)
 
