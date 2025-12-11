@@ -1,4 +1,4 @@
-# fastgeoapi 
+# fastgeoapi
 
 <img width="30" height="30" alt="g2" src="https://github.com/user-attachments/assets/a9af9c8d-9264-4473-b4d9-3ee4921b965b" /> A modern, high-performance geospatial API framework that extends [pygeoapi](https://github.com/geopython/pygeoapi) with authentication, authorization, and security features using FastAPI, OpenID Connect, and Open Policy Agent (OPA) 🗺️🔒.
 
