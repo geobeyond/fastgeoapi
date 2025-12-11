@@ -41,11 +41,4 @@ detailed description.
 
 ## Credits
 
-This project was generated from [\@cjolowicz]()\'s [Hypermodern Python
-Cookiecutter]() template.
-
-::: {.toctree hidden="" maxdepth="1"}
-usage reference contributing Code of Conduct \<codeofconduct> License
-\<license> Changelog
-\<<https://github.com/francbartoli/fastgeoapi/releases>\>
-:::
+This project was generated from [@cjolowicz](https://github.com/cjolowicz)'s [Hypermodern Python Cookiecutter](https://github.com/cjolowicz/cookiecutter-hypermodern-python) template.
