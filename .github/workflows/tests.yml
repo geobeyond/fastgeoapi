@@ -63,7 +63,7 @@ jobs:
 
       - name: Install Nox
         run: |
-          uv tool install nox=="2024.4.15"
+          uv tool install nox=="2025.11.12"
           nox --version
 
       - name: Install GDAL
@@ -142,7 +142,7 @@ jobs:
 
       - name: Install Nox
         run: |
-          uv tool install nox=="2025.5.1"
+          uv tool install nox=="2025.11.12"
           nox --version
 
       - name: Download coverage data
