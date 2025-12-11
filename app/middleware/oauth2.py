@@ -2,7 +2,6 @@
 
 import asyncio
 import re
-from typing import List, Optional
 
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
@@ -57,26 +56,19 @@ class Oauth2Middleware:
         self,
         app: ASGIApp,
         config: Oauth2Provider,
-        skip_endpoints: Optional[List[str]] = [  # noqa B006
-            "/openapi",
-            "/openapi.json",
-            "/docs",
-            "/redoc",
-        ],
+        skip_endpoints: list[str] | None = None,
     ) -> None:
         """Initialize OAuth2 authentication middleware."""
         self.config = config
         self.app = app
-        if cfg.FASTGEOAPI_CONTEXT not in skip_endpoints:  # type:ignore
+        default_skip = ["/openapi", "/openapi.json", "/docs", "/redoc"]
+        endpoints = skip_endpoints or default_skip
+        if cfg.FASTGEOAPI_CONTEXT not in endpoints:
             self.skip_endpoints = [
-                re.compile(f"{cfg.FASTGEOAPI_CONTEXT}{skip}")  # type:ignore
-                for skip in skip_endpoints  # type:ignore
+                re.compile(f"{cfg.FASTGEOAPI_CONTEXT}{skip}") for skip in endpoints
             ]
         else:
-            self.skip_endpoints = [
-                re.compile(skip)
-                for skip in skip_endpoints  # type:ignore
-            ]
+            self.skip_endpoints = [re.compile(skip) for skip in endpoints]
         logger.debug(f"Compiled skippable endpoints: {self.skip_endpoints}")
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:

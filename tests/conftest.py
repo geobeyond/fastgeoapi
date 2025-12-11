@@ -43,7 +43,7 @@ def reload_app():
 
 @pytest.fixture
 def create_app():
-    """Return a new app that is being reloaded with any environment variable has being set."""  # noqa
+    """Return a new app that is being reloaded with any environment variable has being set."""
     yield reload_app
 
 
@@ -195,7 +195,7 @@ def get_access_token():
         response = client.post(
             "/",
             headers={
-                "Authorization": "Basic czRyZjIzbnlucmNvdGM4NnhuaWVxOlc2RHJhQWJ1MTZnb29yR0xWSE02WFlSUnI4aWpObUww",  # noqa
+                "Authorization": "Basic czRyZjIzbnlucmNvdGM4NnhuaWVxOlc2RHJhQWJ1MTZnb29yR0xWSE02WFlSUnI4aWpObUww",
                 "Content-Type": "application/x-www-form-urlencoded",
             },
             data=TokenPayload(
