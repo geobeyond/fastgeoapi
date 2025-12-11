@@ -145,7 +145,11 @@ ignore = [
     "D104",   # Missing docstring in public package
     "D107",   # Missing docstring in __init__
     "S101",   # Use of assert detected (needed for tests)
+    "DOC201", # Return not documented in docstring (tracked in #315)
     "DOC501", # Raised exception missing from docstring (tracked in #315)
+    "D404",   # First word of docstring should not be "This" (tracked in #315)
+    "RUF029", # Async function without await (tracked in #315)
+    "RUF052", # Local variable with leading underscore shadowing (tracked in #315)
 ]
 
 [tool.ruff.lint.pydocstyle]
