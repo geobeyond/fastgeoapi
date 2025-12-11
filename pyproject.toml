@@ -1,13 +1,13 @@
 [project]
 name = "fastgeoapi"
-version = "0.0.3"
+version = "0.0.4"
 description = "fastgeoapi"
 authors = [{ name = "Francesco Bartoli", email = "francesco.bartoli@geobeyond.it" }]
 maintainers = [{ name = "Youssef Harby", email = "youssef.harby@geobeyond.it" }]
 requires-python = ">=3.12,<3.14"
 readme = "README.md"
 license = "MIT"
-classifiers = ["Development Status :: 1 - Planning"]
+classifiers = ["Development Status :: 4 - Beta"]
 dependencies = [
     "mangum>=0.19,<1.0",
     "loguru>=0.7.3,<1.0",
@@ -35,7 +35,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/geobeyond/fastgeoapi"
 Repository = "https://github.com/geobeyond/fastgeoapi"
-Documentation = "https://fastgeoapi.readthedocs.io"
+Documentation = "https://geobeyond.github.io/fastgeoapi/"
 Changelog = "https://github.com/geobeyond/fastgeoapi/releases"
 
 [tool.hatch.metadata]

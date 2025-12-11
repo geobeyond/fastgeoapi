@@ -13,6 +13,7 @@ A modern, high-performance geospatial API framework that extends [pygeoapi](http
 </div>
 
 [![PyPI](https://img.shields.io/pypi/v/fastgeoapi?logo=pypi&logoColor=white&style=flat-square&label=pypi%20package)](https://pypi.org/project/fastgeoapi/)
+[![Status](https://img.shields.io/pypi/status/fastgeoapi?style=flat-square)](https://pypi.org/project/fastgeoapi/)
 [![Python](https://img.shields.io/badge/python-3.12%20|%203.13-blue?logo=python&logoColor=white&style=flat-square)](https://www.python.org)
 [![License](https://img.shields.io/github/license/geobeyond/fastgeoapi?style=flat-square&label=license)](https://github.com/geobeyond/fastgeoapi/blob/main/LICENSE)
 
@@ -160,6 +161,45 @@ uv pip install --group dev
 ```
 
 For more details, see [uv.md](uv.md).
+
+## Release Workflow
+
+This project uses a branching strategy with automated releases:
+
+| Branch | Target | Description |
+|--------|--------|-------------|
+| `develop` | TestPyPI | Development releases with `.dev` suffix |
+| `main` | PyPI | Production releases when version is bumped |
+
+### Development Releases
+
+Push to `develop` branch triggers automatic publishing to [TestPyPI](https://test.pypi.org/project/fastgeoapi/):
+
+```bash
+git checkout develop
+# Make changes
+git commit -m "feat: add new feature"
+git push origin develop
+```
+
+The workflow automatically creates a dev version (e.g., `0.0.4.dev.1733912345`) and publishes to TestPyPI.
+
+### Production Releases
+
+To create a production release on [PyPI](https://pypi.org/project/fastgeoapi/):
+
+1. Update the version in `pyproject.toml`
+2. Merge to `main` branch
+3. The workflow detects the version change, creates a git tag, and publishes to PyPI
+
+```bash
+# Update version in pyproject.toml to e.g., 0.0.4
+git checkout main
+git merge develop
+git push origin main
+```
+
+Both workflows use [Trusted Publisher](https://docs.pypi.org/trusted-publishers/) (OIDC) for secure, tokenless authentication with PyPI/TestPyPI.
 
 ## Usage
 
