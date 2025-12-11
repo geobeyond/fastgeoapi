@@ -85,10 +85,10 @@ This project uses a branching strategy with automated releases via GitHub Action
 
 ### Branches and Targets
 
-| Branch | Target | Description |
-|--------|--------|-------------|
-| `develop` | [TestPyPI](https://test.pypi.org/project/fastgeoapi/) | Development releases with `.dev` suffix |
-| `main` | [PyPI](https://pypi.org/project/fastgeoapi/) | Production releases when version is bumped |
+| Branch    | Target                                                | Description                                |
+| --------- | ----------------------------------------------------- | ------------------------------------------ |
+| `develop` | [TestPyPI](https://test.pypi.org/project/fastgeoapi/) | Development releases with `.dev` suffix    |
+| `main`    | [PyPI](https://pypi.org/project/fastgeoapi/)          | Production releases when version is bumped |
 
 ### Development Releases (TestPyPI)
 

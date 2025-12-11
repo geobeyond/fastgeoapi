@@ -166,10 +166,10 @@ For more details, see [uv.md](uv.md).
 
 This project uses a branching strategy with automated releases:
 
-| Branch | Target | Description |
-|--------|--------|-------------|
-| `develop` | TestPyPI | Development releases with `.dev` suffix |
-| `main` | PyPI | Production releases when version is bumped |
+| Branch    | Target   | Description                                |
+| --------- | -------- | ------------------------------------------ |
+| `develop` | TestPyPI | Development releases with `.dev` suffix    |
+| `main`    | PyPI     | Production releases when version is bumped |
 
 ### Development Releases
 
