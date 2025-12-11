@@ -16,19 +16,17 @@ app = typer.Typer(pretty_exceptions_show_locals=False)
 
 @app.command(name="build")
 def main(
-    base_image_name: str = typer.Option(default="geobeyond/fastgeoapi"),  # noqa: B008
-    build_context_path: str = typer.Option(  # noqa: B008
-        default=str(Path(__file__).parent.parent.parent)  # noqa: B008
-    ),
-    default_git_branch: str = typer.Option(  # noqa: B008
+    base_image_name: str = typer.Option(default="geobeyond/fastgeoapi"),
+    build_context_path: str = typer.Option(default=str(Path(__file__).parent.parent.parent)),
+    default_git_branch: str = typer.Option(
         default=None,
         help="Name of the git branch to use as the base for the docker cache",
     ),
-    docker_platform: str = typer.Option(  # noqa: B008
+    docker_platform: str = typer.Option(
         default="linux/amd64",
         help="Docker architecture to use as the target platform for the build",
     ),
-    use_cache: bool = typer.Option(  # noqa: B008
+    use_cache: bool = typer.Option(
         default=True,
         help="Use Docker cache for the build",
     ),
@@ -47,20 +45,14 @@ def main(
         default_branch = (
             default_git_branch
             if default_git_branch is not None
-            else _run_external_command(
-                f"{git_command} rev-parse --abbrev-ref origin/HEAD"
-            )
+            else _run_external_command(f"{git_command} rev-parse --abbrev-ref origin/HEAD")
         )
-        current_git_branch = _run_external_command(
-            f"{git_command} rev-parse --abbrev-ref HEAD"
-        )
-        current_git_commit = _run_external_command(
-            f"{git_command} rev-parse --short HEAD"
-        )
+        current_git_branch = _run_external_command(f"{git_command} rev-parse --abbrev-ref HEAD")
+        current_git_commit = _run_external_command(f"{git_command} rev-parse --short HEAD")
         possible_docker_caches = []
         for possible_cache_base in (current_git_branch, default_branch):
             if possible_cache_base is not None:
-                docker_tag_name = _sanitize_git_branch_name(possible_cache_base)  # noqa
+                docker_tag_name = _sanitize_git_branch_name(possible_cache_base)
                 cache_image = f"{base_image_name}:{docker_tag_name}"
                 # try to pull previous versions of the image,
                 # in order to leverage docker build cache and speed up builds
@@ -77,7 +69,7 @@ def main(
         build_command = (
             f"{docker_command} buildx build "
             f"--platform {docker_platform} "
-            f"--tag '{base_image_name}:{_sanitize_git_branch_name(current_git_branch)}' "  # noqa B950
+            f"--tag '{base_image_name}:{_sanitize_git_branch_name(current_git_branch)}' "
             f"--tag '{base_image_name}:{current_git_commit}' "
             f"--file {Path(__file__).parent.parent.parent / 'Dockerfile'} "
             f"--label git-commit={current_git_commit} "
@@ -85,12 +77,8 @@ def main(
         )
         if use_cache:
             for cache_image in possible_docker_caches:
-                build_command = " ".join(
-                    (build_command, "--build-arg 'BUILDKIT_INLINE_CACHE=1'")
-                )  # noqa
-                build_command = " ".join(
-                    (build_command, f"--cache-from {cache_image}")
-                )  # noqa
+                build_command = " ".join((build_command, "--build-arg 'BUILDKIT_INLINE_CACHE=1'"))
+                build_command = " ".join((build_command, f"--cache-from {cache_image}"))
         else:
             build_command = " ".join((build_command, f"--no-cache"))  # noqa
         build_command = " ".join((build_command, build_context_path))

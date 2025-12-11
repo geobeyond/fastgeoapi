@@ -51,21 +51,15 @@ dev = [
     "typeguard>=4.0.0,<5",
     "xdoctest[colors]>=0.15.10,<0.16",
     "pre-commit>=2.21.0,<3",
-    "black>=24.4.2,<25",
-    "flake8-bandit>=4.1.1,<5",
-    "flake8-bugbear>=21.11.29,<22",
-    "flake8-docstrings>=1.7.0,<2",
-    "flake8-rst-docstrings>=0.2.7,<0.3",
-    "pep8-naming>=0.12.1,<0.13",
-    "darglint>=1.8.1,<2",
+    "ruff>=0.8.3",
     "pre-commit-hooks>=4.0.1,<5",
-    "pyupgrade>=3.3.1,<4",
     "termynal>=0.12.0,<0.13",
     "mkdocs>=1.6.0,<2",
     "mkdocs-material>=9.6.2,<10",
     "mkdocs-material-extras>=0.0.8,<0.0.9",
     "mkdocs-material-extensions>=1.1.1,<2",
     "mkdocs-swagger-ui-tag>=0.6.8,<0.7",
+    "mkdocstrings[python]>=0.27.0",
     "bandit>=1.7.5,<2",
     "ipython<8.12",
     "safety<2.0",
@@ -125,6 +119,44 @@ pretty = true
 show_column_numbers = true
 show_error_codes = true
 show_error_context = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+preview = true
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "S",      # flake8-bandit
+    "C4",     # flake8-comprehensions
+    "D",      # pydocstyle
+    "DOC",    # pydoclint (requires preview)
+    "N",      # pep8-naming
+    "RUF",    # ruff-specific rules
+]
+ignore = [
+    "D100",   # Missing docstring in public module
+    "D104",   # Missing docstring in public package
+    "D107",   # Missing docstring in __init__
+    "S101",   # Use of assert detected (needed for tests)
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "D"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
 
 [tool.commitizen]
 name = "cz_conventional_commits"

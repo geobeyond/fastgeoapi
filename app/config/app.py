@@ -1,11 +1,9 @@
 """App configuration module."""
 
 from functools import lru_cache
-from typing import Optional
 
 from pydantic import Field
-from pydantic_settings import BaseSettings
-from pydantic_settings import SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class GlobalConfig(BaseSettings):
@@ -14,7 +12,7 @@ class GlobalConfig(BaseSettings):
     # This variable will be loaded from the .env file. However, if there is a
     # shell environment variable having the same name, that will take precedence.
 
-    ENV_STATE: Optional[str] = None
+    ENV_STATE: str | None = None
     HOST: str
     PORT: str
 
@@ -35,32 +33,32 @@ class DevConfig(GlobalConfig):
     HOST: str = Field(validation_alias="HOST")
     PORT: str = Field(validation_alias="PORT")
 
-    ROOT_PATH: Optional[str] = None
-    AWS_LAMBDA_DEPLOY: Optional[bool] = None
-    LOG_PATH: Optional[str] = None
-    LOG_FILENAME: Optional[str] = None
-    LOG_LEVEL: Optional[str] = None
-    LOG_ENQUEUE: Optional[bool] = None
-    LOG_ROTATION: Optional[str] = None
-    LOG_RETENTION: Optional[str] = None
-    LOG_FORMAT: Optional[str] = None
-    OPA_ENABLED: Optional[bool] = None
-    OPA_URL: Optional[str] = None
-    APP_URI: Optional[str] = None
-    OIDC_WELL_KNOWN_ENDPOINT: Optional[str] = None
-    OIDC_CLIENT_ID: Optional[str] = None
-    OIDC_CLIENT_SECRET: Optional[str] = None
-    API_KEY_ENABLED: Optional[bool] = None
-    JWKS_ENABLED: Optional[bool] = None
-    OAUTH2_JWKS_ENDPOINT: Optional[str] = None
-    OAUTH2_TOKEN_ENDPOINT: Optional[str] = None
-    PYGEOAPI_KEY_GLOBAL: Optional[str] = None
+    ROOT_PATH: str | None = None
+    AWS_LAMBDA_DEPLOY: bool | None = None
+    LOG_PATH: str | None = None
+    LOG_FILENAME: str | None = None
+    LOG_LEVEL: str | None = None
+    LOG_ENQUEUE: bool | None = None
+    LOG_ROTATION: str | None = None
+    LOG_RETENTION: str | None = None
+    LOG_FORMAT: str | None = None
+    OPA_ENABLED: bool | None = None
+    OPA_URL: str | None = None
+    APP_URI: str | None = None
+    OIDC_WELL_KNOWN_ENDPOINT: str | None = None
+    OIDC_CLIENT_ID: str | None = None
+    OIDC_CLIENT_SECRET: str | None = None
+    API_KEY_ENABLED: bool | None = None
+    JWKS_ENABLED: bool | None = None
+    OAUTH2_JWKS_ENDPOINT: str | None = None
+    OAUTH2_TOKEN_ENDPOINT: str | None = None
+    PYGEOAPI_KEY_GLOBAL: str | None = None
     PYGEOAPI_BASEURL: str
     PYGEOAPI_CONFIG: str
     PYGEOAPI_OPENAPI: str
-    PYGEOAPI_SECURITY_SCHEME: Optional[str] = None
+    PYGEOAPI_SECURITY_SCHEME: str | None = None
     FASTGEOAPI_CONTEXT: str
-    FASTGEOAPI_REVERSE_PROXY: Optional[bool] = None
+    FASTGEOAPI_REVERSE_PROXY: bool | None = None
 
     model_config = SettingsConfigDict(
         env_prefix="DEV_",
@@ -76,32 +74,32 @@ class ProdConfig(GlobalConfig):
     HOST: str = Field(validation_alias="HOST")
     PORT: str = Field(validation_alias="PORT")
 
-    ROOT_PATH: Optional[str] = None
-    AWS_LAMBDA_DEPLOY: Optional[bool] = None
-    LOG_PATH: Optional[str] = None
-    LOG_FILENAME: Optional[str] = None
-    LOG_LEVEL: Optional[str] = None
-    LOG_ENQUEUE: Optional[bool] = None
-    LOG_ROTATION: Optional[str] = None
-    LOG_RETENTION: Optional[str] = None
-    LOG_FORMAT: Optional[str] = None
-    OPA_ENABLED: Optional[bool] = None
-    OPA_URL: Optional[str] = None
-    APP_URI: Optional[str] = None
-    OIDC_WELL_KNOWN_ENDPOINT: Optional[str] = None
-    OIDC_CLIENT_ID: Optional[str] = None
-    OIDC_CLIENT_SECRET: Optional[str] = None
-    API_KEY_ENABLED: Optional[bool] = None
-    JWKS_ENABLED: Optional[bool] = None
-    OAUTH2_JWKS_ENDPOINT: Optional[str] = None
-    OAUTH2_TOKEN_ENDPOINT: Optional[str] = None
-    PYGEOAPI_KEY_GLOBAL: Optional[str] = None
+    ROOT_PATH: str | None = None
+    AWS_LAMBDA_DEPLOY: bool | None = None
+    LOG_PATH: str | None = None
+    LOG_FILENAME: str | None = None
+    LOG_LEVEL: str | None = None
+    LOG_ENQUEUE: bool | None = None
+    LOG_ROTATION: str | None = None
+    LOG_RETENTION: str | None = None
+    LOG_FORMAT: str | None = None
+    OPA_ENABLED: bool | None = None
+    OPA_URL: str | None = None
+    APP_URI: str | None = None
+    OIDC_WELL_KNOWN_ENDPOINT: str | None = None
+    OIDC_CLIENT_ID: str | None = None
+    OIDC_CLIENT_SECRET: str | None = None
+    API_KEY_ENABLED: bool | None = None
+    JWKS_ENABLED: bool | None = None
+    OAUTH2_JWKS_ENDPOINT: str | None = None
+    OAUTH2_TOKEN_ENDPOINT: str | None = None
+    PYGEOAPI_KEY_GLOBAL: str | None = None
     PYGEOAPI_BASEURL: str
     PYGEOAPI_CONFIG: str
     PYGEOAPI_OPENAPI: str
-    PYGEOAPI_SECURITY_SCHEME: Optional[str] = None
+    PYGEOAPI_SECURITY_SCHEME: str | None = None
     FASTGEOAPI_CONTEXT: str
-    FASTGEOAPI_REVERSE_PROXY: Optional[bool] = None
+    FASTGEOAPI_REVERSE_PROXY: bool | None = None
 
     model_config = SettingsConfigDict(
         env_prefix="PROD_",
@@ -113,7 +111,7 @@ class ProdConfig(GlobalConfig):
 class FactoryConfig:
     """Returns a config instance depending on the ENV_STATE variable."""
 
-    def __init__(self, env_state: Optional[str]):
+    def __init__(self, env_state: str | None):
         """Initialize factory configuration."""
         self.env_state = env_state
 
@@ -122,7 +120,7 @@ class FactoryConfig:
         return self.get_config(self.env_state)
 
     @classmethod
-    @lru_cache()
+    @lru_cache
     def get_config(cls, env_state: str):
         """Get configuration based on environment state with caching."""
         if env_state == "dev":

@@ -30,8 +30,7 @@ def test_dev_config_loads_env_variables():
     os.environ["DEV_OPA_ENABLED"] = "false"
     os.environ["DEV_PYGEOAPI_CONFIG"] = "test-config.yml"
 
-    from app.config.app import DevConfig
-    from app.config.app import GlobalConfig
+    from app.config.app import DevConfig, GlobalConfig
 
     # Test GlobalConfig loads ENV_STATE
     global_config = GlobalConfig()
@@ -54,8 +53,7 @@ def test_prod_config_loads_env_variables():
     os.environ["PROD_API_KEY_ENABLED"] = "false"
     os.environ["PROD_JWKS_ENABLED"] = "true"
 
-    from app.config.app import GlobalConfig
-    from app.config.app import ProdConfig
+    from app.config.app import GlobalConfig, ProdConfig
 
     # Test GlobalConfig loads ENV_STATE
     global_config = GlobalConfig()
@@ -117,17 +115,14 @@ def test_no_pydantic_deprecation_warnings():
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
 
-        from app.config.app import DevConfig
-        from app.config.app import GlobalConfig
+        from app.config.app import DevConfig, GlobalConfig
 
         GlobalConfig()
         DevConfig()
 
         # Check for PydanticDeprecatedSince20 warnings
         pydantic_warnings = [
-            warning
-            for warning in w
-            if "PydanticDeprecatedSince20" in str(warning.category)
+            warning for warning in w if "PydanticDeprecatedSince20" in str(warning.category)
         ]
 
         if pydantic_warnings:

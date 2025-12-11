@@ -39,7 +39,7 @@ def activate_virtualenv_in_precommit_hooks(session: Session) -> None:
     Args:
         session: The NoxPoetrySession object.
     """
-    assert session.bin is not None  # noqa: S101
+    assert session.bin is not None
 
     virtualenv = session.env.get("VIRTUAL_ENV")
     if virtualenv is None:
@@ -55,9 +55,7 @@ def activate_virtualenv_in_precommit_hooks(session: Session) -> None:
 
         text = hook.read_text()
         bindir = repr(session.bin)[1:-1]  # strip quotes
-        if not (
-            Path("A") == Path("a") and bindir.lower() in text.lower() or bindir in text
-        ):
+        if not ((Path("A") == Path("a") and bindir.lower() in text.lower()) or bindir in text):
             continue
 
         lines = text.splitlines()
@@ -84,18 +82,9 @@ def precommit(session: Session) -> None:
     """Lint using pre-commit."""
     args = session.posargs or ["run", "--all-files", "--show-diff-on-failure"]
     session.install(
-        "black",
-        "darglint",
-        "flake8",
-        "flake8-bandit",
-        "flake8-bugbear",
-        "flake8-docstrings",
-        "flake8-rst-docstrings",
-        "pep8-naming",
+        "ruff",
         "pre-commit",
         "pre-commit-hooks",
-        "pyupgrade",
-        "isort",
     )
     session.run("pre-commit", "clean")
     session.run("pre-commit", *args)
@@ -214,6 +203,7 @@ def docs_build(session: Session) -> None:
         "mkdocs-material-extensions",
         "mkdocs-swagger-ui-tag",
         "mkdocs-typer",
+        "mkdocstrings[python]",
         "termynal",
     )
 
@@ -236,6 +226,7 @@ def docs(session: Session) -> None:
         "mkdocs-material-extensions",
         "mkdocs-swagger-ui-tag",
         "mkdocs-typer",
+        "mkdocstrings[python]",
         "termynal",
     )
 

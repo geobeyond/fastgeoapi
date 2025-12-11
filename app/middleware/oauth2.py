@@ -2,16 +2,12 @@
 
 import asyncio
 import re
-from typing import List
-from typing import Optional
+from typing import List, Optional
 
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
-from starlette.types import ASGIApp
-from starlette.types import Receive
-from starlette.types import Scope
-from starlette.types import Send
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.auth.exceptions import Oauth2Error
 from app.auth.oauth2 import Oauth2Provider
@@ -21,14 +17,15 @@ from app.config.logging import create_logger
 logger = create_logger("app.middleware.oauth2")
 
 
-def should_skip_endpoint(endpoint: str, skip_endpoints: List[re.Pattern]) -> bool:
+def should_skip_endpoint(endpoint: str, skip_endpoints: list[re.Pattern]) -> bool:
     """Evaluate whether a given endpoint should be skipped.
 
     Args:
         endpoint (str): Endpoint path
         skip_endpoints (List[re.Pattern]): Pattern to skip
 
-    Returns:
+    Returns
+    -------
         bool: Result of the evaluation
     """
     for skip in skip_endpoints:
@@ -77,7 +74,8 @@ class Oauth2Middleware:
             ]
         else:
             self.skip_endpoints = [
-                re.compile(skip) for skip in skip_endpoints  # type:ignore
+                re.compile(skip)
+                for skip in skip_endpoints  # type:ignore
             ]
         logger.debug(f"Compiled skippable endpoints: {self.skip_endpoints}")
 
@@ -108,9 +106,7 @@ class Oauth2Middleware:
                     user_info_or_auth_redirect = (
                         await user_info_or_auth_redirect  # type:ignore
                     )
-                logger.debug(
-                    f"user info taken from jwt is: {user_info_or_auth_redirect}"
-                )
+                logger.debug(f"user info taken from jwt is: {user_info_or_auth_redirect}")
                 if isinstance(user_info_or_auth_redirect, dict):
                     successful = True
                     break
@@ -126,9 +122,7 @@ class Oauth2Middleware:
         await self.app(scope, receive, send)
 
     @staticmethod
-    async def get_unauthorized_response(
-        scope: Scope, receive: Receive, send: Send
-    ) -> None:
+    async def get_unauthorized_response(scope: Scope, receive: Receive, send: Send) -> None:
         """Prepare response for unauthorized access."""
         response = JSONResponse(status_code=401, content={"message": "Unauthenticated"})
         return await response(scope, receive, send)

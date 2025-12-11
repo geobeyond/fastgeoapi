@@ -116,7 +116,7 @@ uv pip install --group dev
 
 Available dependency groups:
 
-- `dev`: Development and testing tools (pytest, black, pre-commit, etc.)
+- `dev`: Development and testing tools (pytest, ruff, pre-commit, mkdocs, etc.)
 
 ## Daily Development Workflow
 

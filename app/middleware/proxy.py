@@ -25,9 +25,7 @@ class ForwardedLinksMiddleware(BaseHTTPMiddleware):
             headers=dict(response_.headers),
             media_type=response_.media_type,
         )
-        if request.headers.get("x-forwarded-proto") and request.headers.get(
-            "x-forwarded-host"
-        ):
+        if request.headers.get("x-forwarded-proto") and request.headers.get("x-forwarded-host"):
             logger.info(f"Forwarded protocol: {request.headers['x-forwarded-proto']}")
             logger.info(f"Forwarded host: {request.headers['x-forwarded-host']}")
             if response_.headers["content-type"] in [
@@ -38,9 +36,9 @@ class ForwardedLinksMiddleware(BaseHTTPMiddleware):
                 "application/vnd.oai.openapi+json;version=3.0",
             ]:
                 body_ = response_body.decode("utf-8")
-                proxied_base_url = f"{request.headers['x-forwarded-proto']}://{request.headers['x-forwarded-host']}"  # noqa B950
+                proxied_base_url = f"{request.headers['x-forwarded-proto']}://{request.headers['x-forwarded-host']}"
                 logger.info(
-                    f"Replacing pygeoapi urls: {cfg.PYGEOAPI_BASEURL} --> {proxied_base_url}"  # noqa B950
+                    f"Replacing pygeoapi urls: {cfg.PYGEOAPI_BASEURL} --> {proxied_base_url}"
                 )
                 body = body_.replace(cfg.PYGEOAPI_BASEURL, proxied_base_url)
                 response = Response(

@@ -12,9 +12,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi_opa import OPAMiddleware
 from loguru import logger
 from mangum import Mangum
-from openapi_pydantic.v3.v3_0 import OAuthFlow
-from openapi_pydantic.v3.v3_0 import OAuthFlows
-from openapi_pydantic.v3.v3_0 import SecurityScheme
+from openapi_pydantic.v3.v3_0 import OAuthFlow, OAuthFlows, SecurityScheme
 from pygeoapi.l10n import LocaleError
 from pygeoapi.openapi import generate_openapi_document
 from pygeoapi.provider.base import ProviderConnectionError
@@ -26,12 +24,15 @@ from app.config.logging import create_logger
 from app.middleware.oauth2 import Oauth2Middleware
 from app.middleware.proxy import ForwardedLinksMiddleware
 from app.middleware.pygeoapi import OpenapiSecurityMiddleware
-from app.utils.app_exceptions import AppExceptionError
-from app.utils.app_exceptions import app_exception_handler
-from app.utils.pygeoapi_exceptions import PygeoapiEnvError
-from app.utils.pygeoapi_exceptions import PygeoapiLanguageError
-from app.utils.request_exceptions import http_exception_handler
-from app.utils.request_exceptions import request_validation_exception_handler
+from app.utils.app_exceptions import AppExceptionError, app_exception_handler
+from app.utils.pygeoapi_exceptions import (
+    PygeoapiEnvError,
+    PygeoapiLanguageError,
+)
+from app.utils.request_exceptions import (
+    http_exception_handler,
+    request_validation_exception_handler,
+)
 
 if cfg.LOG_LEVEL == "debug":
     logger.remove()
@@ -51,7 +52,7 @@ class FastGeoAPI(FastAPI):
         self.logger: loguru.Logger = logger
 
 
-def create_app():  # noqa: C901
+def create_app():
     """Handle application creation."""
     app = FastGeoAPI(title="fastgeoapi", root_path=cfg.ROOT_PATH, debug=True)
 
@@ -160,9 +161,7 @@ def create_app():  # noqa: C901
     security_schemes = []
     if cfg.OPA_ENABLED:
         if cfg.API_KEY_ENABLED or cfg.JWKS_ENABLED:
-            raise ValueError(
-                "OPA_ENABLED, JWKS_ENABLED and API_KEY_ENABLED are mutually exclusive"
-            )
+            raise ValueError("OPA_ENABLED, JWKS_ENABLED and API_KEY_ENABLED are mutually exclusive")
         from app.config.auth import auth_config
 
         patched_app.add_middleware(OPAMiddleware, config=auth_config)
@@ -176,9 +175,7 @@ def create_app():  # noqa: C901
     # Add Oauth2Middleware to the pygeoapi app
     elif cfg.JWKS_ENABLED:
         if cfg.API_KEY_ENABLED or cfg.OPA_ENABLED:
-            raise ValueError(
-                "OPA_ENABLED, JWKS_ENABLED and API_KEY_ENABLED are mutually exclusive"
-            )
+            raise ValueError("OPA_ENABLED, JWKS_ENABLED and API_KEY_ENABLED are mutually exclusive")
         from app.config.auth import auth_config
 
         patched_app.add_middleware(Oauth2Middleware, config=auth_config)
@@ -188,9 +185,7 @@ def create_app():  # noqa: C901
                 type="oauth2",
                 name="pygeoapi",
                 flows=OAuthFlows(
-                    clientCredentials=OAuthFlow(
-                        tokenUrl=cfg.OAUTH2_TOKEN_ENDPOINT, scopes={}
-                    )
+                    clientCredentials=OAuthFlow(tokenUrl=cfg.OAUTH2_TOKEN_ENDPOINT, scopes={})
                 ),
             ),
             SecurityScheme(
@@ -221,9 +216,7 @@ def create_app():  # noqa: C901
         ]
 
     if security_schemes:
-        patched_app.add_middleware(
-            OpenapiSecurityMiddleware, security_schemes=security_schemes
-        )
+        patched_app.add_middleware(OpenapiSecurityMiddleware, security_schemes=security_schemes)
 
     app.mount(path=cfg.FASTGEOAPI_CONTEXT, app=patched_app)
 

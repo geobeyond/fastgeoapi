@@ -4,9 +4,7 @@ import os
 from pathlib import Path
 
 import typer
-from openapi_pydantic.v3.v3_0 import OAuthFlow
-from openapi_pydantic.v3.v3_0 import OAuthFlows
-from openapi_pydantic.v3.v3_0 import SecurityScheme
+from openapi_pydantic.v3.v3_0 import OAuthFlow, OAuthFlows, SecurityScheme
 from pygeoapi.l10n import LocaleError
 from pygeoapi.openapi import generate_openapi_document
 from pygeoapi.provider.base import ProviderConnectionError
@@ -14,8 +12,10 @@ from rich.console import Console
 
 from app.config.app import configuration as cfg
 from app.pygeoapi.openapi import augment_security
-from app.utils.pygeoapi_exceptions import PygeoapiEnvError
-from app.utils.pygeoapi_exceptions import PygeoapiLanguageError
+from app.utils.pygeoapi_exceptions import (
+    PygeoapiEnvError,
+    PygeoapiLanguageError,
+)
 
 log_console = Console()
 err_console = Console(stderr=True, style="bold red")
@@ -57,7 +57,7 @@ def openapi(ctx: typer.Context) -> None:
                 if cfg.OPA_ENABLED:
                     if cfg.API_KEY_ENABLED or cfg.JWKS_ENABLED:
                         raise ValueError(
-                            "OPA_ENABLED, JWKS_ENABLED and API_KEY_ENABLED are mutually exclusive"  # noqa
+                            "OPA_ENABLED, JWKS_ENABLED and API_KEY_ENABLED are mutually exclusive"
                         )
                     security_schemes = [
                         SecurityScheme(
@@ -68,7 +68,7 @@ def openapi(ctx: typer.Context) -> None:
                 elif cfg.JWKS_ENABLED:
                     if cfg.API_KEY_ENABLED or cfg.OPA_ENABLED:
                         raise ValueError(
-                            "OPA_ENABLED, JWKS_ENABLED and API_KEY_ENABLED are mutually exclusive"  # noqa
+                            "OPA_ENABLED, JWKS_ENABLED and API_KEY_ENABLED are mutually exclusive"
                         )
                     security_schemes = [
                         SecurityScheme(
@@ -76,7 +76,8 @@ def openapi(ctx: typer.Context) -> None:
                             name="pygeoapi",
                             flows=OAuthFlows(
                                 clientCredentials=OAuthFlow(
-                                    tokenUrl=cfg.OAUTH2_TOKEN_ENDPOINT, scopes={}
+                                    tokenUrl=cfg.OAUTH2_TOKEN_ENDPOINT,
+                                    scopes={},
                                 )
                             ),
                         ),
@@ -89,15 +90,15 @@ def openapi(ctx: typer.Context) -> None:
                     ]
                 elif cfg.API_KEY_ENABLED:
                     if cfg.OPA_ENABLED:
-                        raise ValueError(
-                            "OPA_ENABLED and API_KEY_ENABLED are mutually exclusive"
-                        )
+                        raise ValueError("OPA_ENABLED and API_KEY_ENABLED are mutually exclusive")
                     if not cfg.PYGEOAPI_KEY_GLOBAL:
                         raise ValueError("pygeoapi API KEY is missing")
                     os.environ["PYGEOAPI_KEY_GLOBAL"] = cfg.PYGEOAPI_KEY_GLOBAL
                     security_schemes = [
                         SecurityScheme(
-                            type="apiKey", name="X-API-KEY", security_scheme_in="header"
+                            type="apiKey",
+                            name="X-API-KEY",
+                            security_scheme_in="header",
                         )
                     ]
                 enriched_openapi = augment_security(
