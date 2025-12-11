@@ -15,7 +15,7 @@ jobs:
           - { python: "3.12", os: "ubuntu-22.04", session: "pre-commit" }
           - { python: "3.12", os: "ubuntu-22.04", session: "safety" }
           - { python: "3.12", os: "ubuntu-22.04", session: "bandit" }
-          - { python: "3.12", os: "ubuntu-22.04", session: "mypy" }
+          - { python: "3.12", os: "ubuntu-22.04", session: "ty" }
           - { python: "3.12", os: "ubuntu-22.04", session: "tests" }
           # - { python: "3.12", os: "windows-latest", session: "tests" }
           # - { python: "3.12", os: "macos-latest", session: "tests" }
