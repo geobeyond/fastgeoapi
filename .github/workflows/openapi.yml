@@ -82,12 +82,15 @@ jobs:
         env:
           UV_SYSTEM_PYTHON: 1
           UV_BREAK_SYSTEM_PACKAGES: 1
-      # Create OWASP API Security 10 ruleset
-      - name: Create OWASP API Security 10
+      # Install Spectral CLI for report generation
+      - name: Install Spectral CLI
         run: |
           npm install -g @stoplight/spectral-cli @stoplight/spectral-owasp-ruleset@latest
-          echo 'extends: ["https://unpkg.com/@stoplight/spectral-owasp-ruleset/dist/ruleset.mjs"]' > .spectral.owasp-top-10.yaml
-          cat .spectral.owasp-top-10.yaml
+
+      # Display the OWASP ruleset (already in repo with warning overrides)
+      - name: Show OWASP ruleset
+        run: |
+          cat .spectral.owasp-top.10.yaml
 
       # Run Spectral action for GitHub annotations
       - name: Run Spectral for OWASP top 10
@@ -95,14 +98,14 @@ jobs:
         continue-on-error: true
         with:
           file_glob: "pygeoapi-openapi.json"
-          spectral_ruleset: ".spectral.owasp-top-10.yaml"
+          spectral_ruleset: ".spectral.owasp-top.10.yaml"
 
       # Generate report for job summary
       - name: Generate OWASP report data
         if: always()
         run: |
           npx spectral lint pygeoapi-openapi.json \
-            --ruleset .spectral.owasp-top-10.yaml \
+            --ruleset .spectral.owasp-top.10.yaml \
             --format text > spectral-owasp-results.txt 2>&1 || true
 
       # Create OWASP Security Report summary

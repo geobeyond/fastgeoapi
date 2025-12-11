@@ -67,13 +67,39 @@ You'll know the environment is activated when you see `(.venv)` at the beginning
 
 ## Working with Git Dependencies
 
-This project uses git-based dependencies. UV automatically handles these based on the `pyproject.toml` configuration. Notable git dependencies include:
+This project uses a dual dependency strategy:
 
-- pygeoapi (from github.com/geopython/pygeoapi.git, branch: master)
-- pygeofilter (from github.com/geopython/pygeofilter.git, tag: v0.3.1)
-- fencer (from github.com/abunuwas/fencer.git, branch: main)
+### For Development (via UV)
 
-These are defined in the `[tool.uv.sources]` section of the pyproject.toml file.
+When you run `uv sync`, UV uses git-based dependencies defined in the `[tool.uv.sources]` section of `pyproject.toml`. This allows developers to work with the latest upstream features:
+
+- **pygeoapi** (from github.com/geopython/pygeoapi.git, branch: master)
+- **pygeofilter** (from github.com/geopython/pygeofilter.git, tag: v0.3.1)
+- **fencer** (from github.com/abunuwas/fencer.git, branch: main)
+
+```bash
+uv sync
+```
+
+### For PyPI Release
+
+The main `[project.dependencies]` section uses stable PyPI versions (e.g., `pygeoapi>=0.22.0`). This is required because PyPI does not allow packages with direct git URL dependencies.
+
+**Why this matters:**
+
+- `uv sync` = Uses git sources for development (latest features)
+- `pip install fastgeoapi` = Uses PyPI versions (stable releases)
+
+### Switching Between Development and Release Dependencies
+
+If you need to test with PyPI versions locally (to match what users will get):
+
+```bash
+# Temporarily ignore uv.sources and use PyPI versions
+uv sync --no-sources
+```
+
+To go back to development mode with git dependencies:
 
 ```bash
 uv sync

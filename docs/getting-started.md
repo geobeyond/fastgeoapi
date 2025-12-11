@@ -2,11 +2,145 @@
 
 ## Development
 
-TBD
+### Prerequisites
+
+Install [UV](https://github.com/astral-sh/uv) - a fast Python package installer and resolver:
+
+**macOS / Linux:**
+
+```bash
+curl -sSf https://install.ultraviolet.dev | sh
+```
+
+**Windows (PowerShell):**
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+### Setup
+
+After cloning the repository, use UV to install dependencies:
+
+```shell
+git clone https://github.com/geobeyond/fastgeoapi.git
+cd fastgeoapi
+uv sync
+```
+
+This automatically:
+
+- Creates a virtual environment in `.venv`
+- Installs all required dependencies including git-based packages from `[tool.uv.sources]`
+- Sets up fastgeoapi in development mode
+
+For development, UV uses git-based dependencies defined in `[tool.uv.sources]` to get the latest features from upstream projects (pygeoapi master, pygeofilter, fencer). The PyPI release uses stable published versions.
+
+### Activate the Virtual Environment
+
+**macOS / Linux:**
+
+```bash
+source .venv/bin/activate
+```
+
+**Windows (PowerShell):**
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+### Running fastgeoapi
+
+Once Keycloak and OPA have been started, configure the required environment variables:
+
+```shell
+export PYGEOAPI_CONFIG=pygeoapi-config.yml
+export PYGEOAPI_OPENAPI=pygeoapi-openapi.yml
+export FASTGEOAPI_CONTEXT='/geoapi'
+```
+
+Start fastgeoapi in development mode:
+
+```shell
+uv run fastapi run app/main.py --app app --host 0.0.0.0 --port 5000 --reload
+```
+
+## Release Workflow
+
+This project uses a branching strategy with automated releases via GitHub Actions:
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   develop   │────▶│    main     │────▶│    PyPI     │
+│             │     │             │     │  (release)  │
+└──────┬──────┘     └─────────────┘     └─────────────┘
+       │
+       ▼
+┌─────────────┐
+│  TestPyPI   │
+│    (dev)    │
+└─────────────┘
+```
+
+### Branches and Targets
+
+| Branch    | Target                                                | Description                                |
+| --------- | ----------------------------------------------------- | ------------------------------------------ |
+| `develop` | [TestPyPI](https://test.pypi.org/project/fastgeoapi/) | Development releases with `.dev` suffix    |
+| `main`    | [PyPI](https://pypi.org/project/fastgeoapi/)          | Production releases when version is bumped |
+
+### Development Releases (TestPyPI)
+
+Every push to the `develop` branch triggers automatic publishing to TestPyPI:
+
+```bash
+git checkout develop
+# Make changes
+git commit -m "feat: add new feature"
+git push origin develop
+```
+
+The workflow automatically:
+
+1. Bumps the version with a `.dev` suffix (e.g., `0.0.4.dev.1733912345`)
+2. Builds the package
+3. Publishes to TestPyPI using trusted publisher
+
+You can install the development version:
+
+```bash
+pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ fastgeoapi
+```
+
+### Production Releases (PyPI)
+
+To create a production release:
+
+1. Update the version in `pyproject.toml` (e.g., `0.0.3` → `0.0.4`)
+2. Merge changes to `main` branch
+3. Push to trigger the release workflow
+
+```bash
+# Update version in pyproject.toml
+git checkout main
+git merge develop
+git push origin main
+```
+
+The workflow automatically:
+
+1. Detects the version change
+2. Creates a git tag (e.g., `v0.0.4`)
+3. Builds the package
+4. Publishes to PyPI using trusted publisher
+5. Creates release notes via Release Drafter
+
+### Trusted Publisher
+
+Both PyPI and TestPyPI publishing use [Trusted Publisher](https://docs.pypi.org/trusted-publishers/) (OIDC) for secure, tokenless authentication. This eliminates the need for API tokens and provides better security through short-lived credentials.
 
 ## Production
-
-TDB
 
 ### Behind a proxy
 

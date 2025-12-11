@@ -5,15 +5,15 @@ on:
     branches:
       - main
       - master
+      - develop
+
 jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    # Use GitHub environment features for secret management
     permissions:
       contents: write
       id-token: write
-      # Add explicit permission for secrets
       packages: write
     steps:
       - name: Check out the repository
@@ -32,6 +32,7 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
           version: "0.7.3"
+
       - name: Install dependencies
         env:
           UV_SYSTEM_PYTHON: 1
@@ -47,49 +48,43 @@ jobs:
 
       - name: Detect and tag new version
         id: check-version
-        if: steps.check-parent-commit.outputs.sha
+        if: steps.check-parent-commit.outputs.sha && github.ref != 'refs/heads/develop'
         uses: salsify/action-detect-and-tag-new-version@v2.0.3
         with:
           version-command: |
             bash -o pipefail -c "python -c \"import tomli; print(tomli.load(open('pyproject.toml', 'rb'))['project']['version'])\""
 
       - name: Bump version for developmental release
-        if: ${{ !steps.check-version.outputs.tag }}
+        if: github.ref == 'refs/heads/develop'
         run: |
-          # Get current version from pyproject.toml
           current_version=$(python -c "import tomli; print(tomli.load(open('pyproject.toml', 'rb'))['project']['version'])")
-          # Bump patch version
           IFS='.' read -r -a version_parts <<< "$current_version"
           new_patch=$((version_parts[2] + 1))
           new_version="${version_parts[0]}.${version_parts[1]}.$new_patch.dev.$(date +%s)"
-          # Update pyproject.toml with new version
           python -c "import tomli, tomli_w; data = tomli.load(open('pyproject.toml', 'rb')); data['project']['version'] = '$new_version'; tomli_w.dump(data, open('pyproject.toml', 'wb'))"
+          echo "Publishing version: $new_version"
 
       - name: Build package
+        if: steps.check-version.outputs.tag || github.ref == 'refs/heads/develop'
         run: |
-          # Install build package and run the build command directly
           uv pip install build --system --break-system-packages
           python -m build
 
       - name: Publish package on PyPI
         if: steps.check-version.outputs.tag
         uses: pypa/gh-action-pypi-publish@v1.12.4
-        with:
-          user: __token__
-          password: ${{ secrets.PYPI_TOKEN }}
 
       - name: Publish package on TestPyPI
-        if: ${{ !steps.check-version.outputs.tag }}
+        if: github.ref == 'refs/heads/develop'
         uses: pypa/gh-action-pypi-publish@v1.12.4
         with:
-          user: __token__
-          password: ${{ secrets.TEST_PYPI_TOKEN }}
           repository-url: https://test.pypi.org/legacy/
           skip-existing: true
           verbose: true
           print-hash: true
 
       - name: Publish the release notes
+        if: github.ref != 'refs/heads/develop'
         uses: release-drafter/release-drafter@v6.1.0
         with:
           publish: ${{ steps.check-version.outputs.tag != '' }}
