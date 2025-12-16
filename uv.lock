@@ -625,7 +625,7 @@ wheels = [
 
 [[package]]
 name = "fastgeoapi"
-version = "0.0.4"
+version = "0.0.5"
 source = { editable = "." }
 dependencies = [
     { name = "authlib" },
@@ -1754,7 +1754,7 @@ wheels = [
 [[package]]
 name = "pygeoapi"
 version = "0.23.dev0"
-source = { git = "https://github.com/geopython/pygeoapi.git?branch=master#31872795a3d7bf9886a53f90d9c81f2b45d6330f" }
+source = { git = "https://github.com/geopython/pygeoapi.git?branch=master#30295985b4be049fbe6c4220939ac97640b38fbd" }
 dependencies = [
     { name = "babel" },
     { name = "click" },
