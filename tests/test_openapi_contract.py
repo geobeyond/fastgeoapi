@@ -45,9 +45,7 @@ Example from the problematic schema::
             "/collections/lakes/items": {
                 "post": {
                     "requestBody": {
-                        "content": {
-                            "application/geo+json": {"schema": {"$ref": "#/$defs/propertyRef"}}
-                        }
+                        "content": {"application/geo+json": {"schema": {"$ref": "#/$defs/propertyRef"}}}
                     }
                 }
             }
