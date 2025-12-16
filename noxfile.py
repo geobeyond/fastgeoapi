@@ -155,6 +155,11 @@ def safety(session: Session) -> None:
     cmd = ["safety"]
     if "SAFETY_API_KEY" in os.environ:
         cmd.extend(["--key", os.environ["SAFETY_API_KEY"]])
+    else:
+        session.warn(
+            "SAFETY_API_KEY not set. Running locally may prompt for confirmation. "
+            "Set the environment variable or run: safety auth login"
+        )
     cmd.extend(["scan", "--detailed-output"])
     session.run(*cmd)
 

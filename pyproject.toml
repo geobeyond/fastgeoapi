@@ -62,7 +62,7 @@ dev = [
     "mkdocstrings[python]>=0.27.0",
     "bandit>=1.7.5,<2",
     "ipython<8.12",
-    "safety<2.0",
+    "safety>=3.0,<4",
     "ty>=0.0.1a0",
     "commitizen>=3.24.0,<4",
     "openapi-resolver>=0.0.6,<0.0.7",
@@ -121,6 +121,7 @@ python-version = "3.12"
 missing-argument = "ignore"       # pydantic-settings gets values from env vars
 invalid-argument-type = "ignore"  # Starlette middleware type inference issues
 unresolved-attribute = "ignore"   # Dynamic attribute access patterns
+unknown-argument = "ignore"       # openapi-pydantic uses aliased fields (security_scheme_in -> in)
 
 [tool.ruff]
 target-version = "py312"
