@@ -1,17 +1,18 @@
 """Test cases for OPA/OIDC integration.
 
 This module tests the fastgeoapi application with OPA (Open Policy Agent)
-enabled for authorization. It uses a mock OPA server that always returns
-`allow: true`, simulating the simple policy from scripts/iam/policy/auth.rego:
-
-    package httpapi.authz
-    import input
-    default allow = true
+enabled for authorization. It uses a mock OPA server that returns configurable
+allow/deny decisions, simulating policies from scripts/iam/policy/auth.rego.
 
 The tests verify that:
 1. The application starts correctly with OPA_ENABLED=true
 2. Requests are authorized when OPA returns allow=true
-3. The OPA middleware correctly integrates with the OIDC authentication flow
+3. Requests are denied when OPA returns allow=false
+4. The OPA middleware correctly integrates with the OIDC authentication flow
+
+Note: OIDC authentication is mocked to isolate OPA authorization testing.
+pytest-iam was evaluated but has compatibility issues with current Pydantic.
+See: https://github.com/pydantic/pydantic/issues/10551
 """
 
 import json
@@ -140,24 +141,6 @@ class MockOPAServer:
         return f"http://{self.host}:{self.port}/v1/data/httpapi/authz"
 
 
-def reload_app_with_env(env_vars: dict):
-    """Reload the app with specific environment variables."""
-    # Remove all app modules to ensure clean reload with new environment
-    modules_to_remove = [key for key in sys.modules.keys() if key.startswith("app.")]
-    for module in modules_to_remove:
-        del sys.modules[module]
-
-    # Clear the configuration cache
-    from app.config.app import FactoryConfig
-
-    FactoryConfig.get_config.cache_clear()
-
-    with mock.patch.dict(os.environ, env_vars, clear=False):
-        from app.main import app
-
-        return app
-
-
 @pytest.fixture
 def mock_opa_server():
     """Fixture that provides a running mock OPA server that allows all requests.
@@ -180,7 +163,12 @@ def mock_opa_deny_server():
 
 @pytest.fixture
 def mock_oidc_authenticate():
-    """Fixture that mocks OIDC authentication to return a valid user."""
+    """Fixture that mocks OIDC authentication to return a valid user.
+
+    This mocks the OIDCAuthentication.authenticate method to bypass
+    the actual OIDC flow and return a test user with attributes that
+    can be used in OPA policy decisions.
+    """
     user_info = {
         "sub": "test-user-id",
         "email": "test@example.com",
@@ -200,11 +188,16 @@ def mock_oidc_authenticate():
 def create_opa_protected_app(mock_opa_server, mock_oidc_authenticate):
     """Create an app with OPA protection enabled.
 
-    Uses Logto as the OIDC provider (from .env configuration) with a mock
-    OPA server for authorization decisions.
+    Uses a mock OPA server for authorization decisions and mocks
+    OIDC authentication to return a valid user.
     """
 
     def _create_app():
+        # Remove all app modules to ensure clean reload with new environment
+        modules_to_remove = [key for key in sys.modules.keys() if key.startswith("app.")]
+        for module in modules_to_remove:
+            del sys.modules[module]
+
         env_vars = {
             "ENV_STATE": "dev",
             "HOST": "0.0.0.0",
@@ -213,14 +206,23 @@ def create_opa_protected_app(mock_opa_server, mock_oidc_authenticate):
             "DEV_OPA_ENABLED": "true",
             "DEV_OPA_URL": mock_opa_server.url,
             "DEV_APP_URI": "http://localhost:5000",
-            # Use Logto OIDC configuration
+            # Use Logto OIDC configuration (real endpoint for app startup)
             "DEV_OIDC_WELL_KNOWN_ENDPOINT": "https://76hxgq.logto.app/oidc/.well-known/openid-configuration",
             "DEV_OIDC_CLIENT_ID": "s4rf23nynrcotc86xnieq",
             "DEV_OIDC_CLIENT_SECRET": "W6DraAbu16goorGLVHM6XYRRr8ijNmL0",
             "DEV_API_KEY_ENABLED": "false",
             "DEV_JWKS_ENABLED": "false",
         }
-        return reload_app_with_env(env_vars)
+
+        with mock.patch.dict(os.environ, env_vars, clear=False):
+            # Clear the configuration cache inside the context
+            from app.config.app import FactoryConfig
+
+            FactoryConfig.get_config.cache_clear()
+
+            from app.main import app
+
+            return app
 
     yield _create_app
 
@@ -260,10 +262,13 @@ schema_opa = (
 @schema_opa.parametrize()
 @settings(max_examples=50, deadline=10000, phases=[Phase.generate])
 def test_api_with_opa(case, mock_opa_server, mock_oidc_authenticate):
-    """Test the API with OPA protection.
+    """Test the API with OPA protection when access is allowed.
 
-    This test uses a mock OPA server that always returns allow=true,
-    simulating the simple auth.rego policy:
+    This test uses:
+    - Mock OPA server: Returns allow=true for all requests
+    - Mock OIDC authentication: Returns a valid user
+
+    Simulates the simple auth.rego policy:
 
         package httpapi.authz
         import input
@@ -295,8 +300,11 @@ def test_api_with_opa(case, mock_opa_server, mock_oidc_authenticate):
 def test_api_with_opa_deny(mock_opa_deny_server, mock_oidc_authenticate):
     """Test that API returns 401 when OPA denies the request.
 
-    This test uses a mock OPA server that always returns allow=false,
-    simulating the policy:
+    This test uses:
+    - Mock OPA server: Returns allow=false for all requests
+    - Mock OIDC authentication: Returns a valid user
+
+    Simulates the policy:
 
         package httpapi.authz
         import input
@@ -317,7 +325,7 @@ def test_api_with_opa_deny(mock_opa_deny_server, mock_oidc_authenticate):
         "DEV_OPA_ENABLED": "true",
         "DEV_OPA_URL": mock_opa_deny_server.url,
         "DEV_APP_URI": "http://localhost:5000",
-        # Use Logto OIDC configuration
+        # Use Logto OIDC configuration (real endpoint for app startup)
         "DEV_OIDC_WELL_KNOWN_ENDPOINT": "https://76hxgq.logto.app/oidc/.well-known/openid-configuration",
         "DEV_OIDC_CLIENT_ID": "s4rf23nynrcotc86xnieq",
         "DEV_OIDC_CLIENT_SECRET": "W6DraAbu16goorGLVHM6XYRRr8ijNmL0",
