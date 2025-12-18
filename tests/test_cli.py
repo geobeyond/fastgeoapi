@@ -2,7 +2,7 @@
 
 from typer.testing import CliRunner
 
-from cli import app
+from app.cli import app
 
 
 def test_openapi_succeeds(runner: CliRunner) -> None:

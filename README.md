@@ -144,6 +144,58 @@ Start fastgeoapi in development mode:
 uv run fastapi run app/main.py --app app --host 0.0.0.0 --port 5000 --reload
 ```
 
+## Quick Start (Package Installation)
+
+Install fastgeoapi:
+
+```shell
+pip install fastgeoapi
+```
+
+Create a `.env` file with the required configuration:
+
+```shell
+# Environment state: 'dev' or 'prod'
+ENV_STATE=dev
+
+# Server configuration
+HOST=0.0.0.0
+PORT=5000
+
+# Logging (required)
+DEV_LOG_PATH=/tmp
+DEV_LOG_FILENAME=fastgeoapi.log
+DEV_LOG_LEVEL=debug
+DEV_LOG_ENQUEUE=true
+DEV_LOG_ROTATION=1 days
+DEV_LOG_RETENTION=1 months
+
+# Pygeoapi configuration
+DEV_PYGEOAPI_BASEURL=http://localhost:5000
+DEV_PYGEOAPI_CONFIG=pygeoapi-config.yml
+DEV_PYGEOAPI_OPENAPI=pygeoapi-openapi.yml
+DEV_FASTGEOAPI_CONTEXT=/geoapi
+
+# Authentication (choose one, all others must be false)
+DEV_API_KEY_ENABLED=false
+DEV_JWKS_ENABLED=false
+DEV_OPA_ENABLED=false
+```
+
+Start the server:
+
+```shell
+fastgeoapi run
+```
+
+With options:
+
+```shell
+fastgeoapi run --host 0.0.0.0 --port 5000 --reload
+```
+
+See the [Getting Started guide](https://geobeyond.github.io/fastgeoapi/getting-started/) for complete setup instructions including authentication options and examples.
+
 ### Common UV Commands
 
 ```bash
