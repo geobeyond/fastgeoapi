@@ -30,9 +30,7 @@ def clean_modules_and_env():
         os.environ[key] = value
 
     # Clean up app modules for fresh imports
-    modules_to_remove = [
-        key for key in sys.modules.keys() if key.startswith("app.")
-    ]
+    modules_to_remove = [key for key in sys.modules.keys() if key.startswith("app.")]
     for module in modules_to_remove:
         if module not in original_modules:
             del sys.modules[module]
@@ -52,9 +50,7 @@ def reload_app_with_env(env_vars: dict):
         The reloaded FastAPI application instance.
     """
     # Clear all app modules to ensure clean reload
-    modules_to_remove = [
-        key for key in sys.modules.keys() if key.startswith("app.")
-    ]
+    modules_to_remove = [key for key in sys.modules.keys() if key.startswith("app.")]
     for module in modules_to_remove:
         del sys.modules[module]
 
@@ -95,9 +91,7 @@ class TestStartupWorkflowEnvState:
 
             # Verify the pygeoapi app is mounted at the correct context
             routes = [route.path for route in app.routes]
-            assert "/geoapi" in routes or any(
-                "/geoapi" in str(r) for r in routes
-            )
+            assert "/geoapi" in routes or any("/geoapi" in str(r) for r in routes)
 
     def test_startup_with_prod_env_state(self):
         """Test that application starts correctly with ENV_STATE=prod."""
@@ -177,9 +171,7 @@ class TestStartupWorkflowAuthentication:
             assert response.status_code == 401
 
             # With API key should work
-            response = client.get(
-                "/geoapi/", headers={"X-API-KEY": "test-api-key"}
-            )
+            response = client.get("/geoapi/", headers={"X-API-KEY": "test-api-key"})
             assert response.status_code == 200
 
     def test_startup_with_jwks_enabled(self):
@@ -280,9 +272,7 @@ class TestStartupWorkflowPygeoapiConfig:
             assert os.environ.get("PYGEOAPI_OPENAPI") == "pygeoapi-openapi.yml"
             assert os.environ.get("HOST") == "127.0.0.1"
             assert os.environ.get("PORT") == "8080"
-            assert (
-                os.environ.get("PYGEOAPI_BASEURL") == "http://example.com:8080"
-            )
+            assert os.environ.get("PYGEOAPI_BASEURL") == "http://example.com:8080"
             assert os.environ.get("FASTGEOAPI_CONTEXT") == "/geoapi"
 
 
@@ -351,10 +341,7 @@ class TestStartupWorkflowMiddleware:
                 "*",
                 "http://example.com",
             ]
-            assert (
-                response.headers.get("access-control-allow-credentials")
-                == "true"
-            )
+            assert response.headers.get("access-control-allow-credentials") == "true"
 
 
 class TestStartupWorkflowAWSLambda:
@@ -382,9 +369,7 @@ class TestStartupWorkflowAWSLambda:
 
             # Verify that the app module doesn't have handler attribute
             # when AWS_LAMBDA_DEPLOY is false
-            modules_to_remove = [
-                key for key in sys.modules.keys() if key.startswith("app.")
-            ]
+            modules_to_remove = [key for key in sys.modules.keys() if key.startswith("app.")]
             for module in modules_to_remove:
                 del sys.modules[module]
 
@@ -537,9 +522,7 @@ class TestStartupWorkflowIntegration:
             assert response.status_code == 401
 
             # Test that protected endpoints work with correct API key
-            response = client.get(
-                "/geoapi/?f=json", headers={"X-API-KEY": "my-secret-key"}
-            )
+            response = client.get("/geoapi/?f=json", headers={"X-API-KEY": "my-secret-key"})
             assert response.status_code == 200
 
             # Verify OpenAPI spec includes security scheme

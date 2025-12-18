@@ -42,7 +42,7 @@ Changelog = "https://github.com/geobeyond/fastgeoapi/releases"
 allow-direct-references = true
 
 [project.scripts]
-fastgeoapi = "cli:app"
+fastgeoapi = "app.cli:app"
 
 [dependency-groups]
 dev = [
@@ -81,20 +81,15 @@ fencer = { git = "https://github.com/abunuwas/fencer.git", branch = "main" }
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "./cli.py",
     "app",
     "app/**/*.py",
 ]
 
 [tool.hatch.build.targets.wheel]
 include = [
-    "./cli.py",
     "app",
     "app/**/*.py",
 ]
-
-[tool.hatch.build.targets.wheel.sources]
-"./cli.py" = "cli.py"
 
 [build-system]
 requires = ["hatchling"]
