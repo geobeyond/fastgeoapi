@@ -42,9 +42,7 @@ def run(
     ] = 5000,
     reload: Annotated[
         bool,
-        typer.Option(
-            "--reload", "-r", help="Enable auto-reload on code changes"
-        ),
+        typer.Option("--reload", "-r", help="Enable auto-reload on code changes"),
     ] = False,
     workers: Annotated[
         int,
@@ -71,9 +69,7 @@ def run(
         host=host,
         port=port,
         reload=reload,
-        workers=workers
-        if not reload
-        else 1,  # reload doesn't work with multiple workers
+        workers=workers if not reload else 1,  # reload doesn't work with multiple workers
     )
 
 
@@ -86,13 +82,9 @@ def openapi(ctx: typer.Context) -> None:
         os.environ["PYGEOAPI_OPENAPI"] = cfg.PYGEOAPI_OPENAPI
         os.environ["PYGEOAPI_BASEURL"] = cfg.PYGEOAPI_BASEURL
         os.environ["FASTGEOAPI_CONTEXT"] = cfg.FASTGEOAPI_CONTEXT
-        if not (
-            os.environ["PYGEOAPI_CONFIG"] and os.environ["PYGEOAPI_OPENAPI"]
-        ):
+        if not (os.environ["PYGEOAPI_CONFIG"] and os.environ["PYGEOAPI_OPENAPI"]):
             err_console.log("pygeoapi variables are not configured")
-            raise PygeoapiEnvError(
-                "PYGEOAPI_CONFIG and PYGEOAPI_OPENAPI are not set"
-            )
+            raise PygeoapiEnvError("PYGEOAPI_CONFIG and PYGEOAPI_OPENAPI are not set")
         else:
             # fill pygeoapi configuration with fastapi host and port
             os.environ["HOST"] = cfg.HOST
@@ -143,9 +135,7 @@ def openapi(ctx: typer.Context) -> None:
                     ]
                 elif cfg.API_KEY_ENABLED:
                     if cfg.OPA_ENABLED:
-                        raise ValueError(
-                            "OPA_ENABLED and API_KEY_ENABLED are mutually exclusive"
-                        )
+                        raise ValueError("OPA_ENABLED and API_KEY_ENABLED are mutually exclusive")
                     if not cfg.PYGEOAPI_KEY_GLOBAL:
                         raise ValueError("pygeoapi API KEY is missing")
                     os.environ["PYGEOAPI_KEY_GLOBAL"] = cfg.PYGEOAPI_KEY_GLOBAL
