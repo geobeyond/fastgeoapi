@@ -161,13 +161,27 @@ def mock_opa_deny_server():
         yield server
 
 
+def mock_set_from_well_known(self):
+    """Mock implementation of set_from_well_known that sets fake endpoints.
+
+    This avoids making HTTP requests to the OIDC provider during tests.
+    """
+    self.issuer = "https://test-issuer.example.com"
+    self.authorization_endpoint = "https://test-issuer.example.com/authorize"
+    self.token_endpoint = "https://test-issuer.example.com/token"
+    self.jwks_uri = "https://test-issuer.example.com/jwks"
+    self.userinfo_endpoint = "https://test-issuer.example.com/userinfo"
+
+
 @pytest.fixture
 def mock_oidc_authenticate():
     """Fixture that mocks OIDC authentication to return a valid user.
 
-    This mocks the OIDCAuthentication.authenticate method to bypass
-    the actual OIDC flow and return a test user with attributes that
-    can be used in OPA policy decisions.
+    This mocks:
+    1. set_from_well_known - to avoid HTTP requests to the OIDC provider
+    2. authenticate - to return a test user without actual authentication
+
+    The test user has attributes that can be used in OPA policy decisions.
     """
     user_info = {
         "sub": "test-user-id",
@@ -177,9 +191,15 @@ def mock_oidc_authenticate():
         "user": "testuser",
     }
 
-    with mock.patch(
-        "fastapi_opa.auth.auth_oidc.OIDCAuthentication.authenticate",
-        return_value=user_info,
+    with (
+        mock.patch(
+            "fastapi_opa.auth.auth_oidc.OIDCAuthentication.set_from_well_known",
+            mock_set_from_well_known,
+        ),
+        mock.patch(
+            "fastapi_opa.auth.auth_oidc.OIDCAuthentication.authenticate",
+            return_value=user_info,
+        ),
     ):
         yield user_info
 
@@ -206,10 +226,10 @@ def create_opa_protected_app(mock_opa_server, mock_oidc_authenticate):
             "DEV_OPA_ENABLED": "true",
             "DEV_OPA_URL": mock_opa_server.url,
             "DEV_APP_URI": "http://localhost:5000",
-            # Use Logto OIDC configuration (real endpoint for app startup)
-            "DEV_OIDC_WELL_KNOWN_ENDPOINT": "https://76hxgq.logto.app/oidc/.well-known/openid-configuration",
-            "DEV_OIDC_CLIENT_ID": "s4rf23nynrcotc86xnieq",
-            "DEV_OIDC_CLIENT_SECRET": "W6DraAbu16goorGLVHM6XYRRr8ijNmL0",
+            # OIDC configuration (mocked - no HTTP requests made)
+            "DEV_OIDC_WELL_KNOWN_ENDPOINT": "https://test-issuer.example.com/.well-known/openid-configuration",
+            "DEV_OIDC_CLIENT_ID": "test-client-id",
+            "DEV_OIDC_CLIENT_SECRET": "test-client-secret",
             "DEV_API_KEY_ENABLED": "false",
             "DEV_JWKS_ENABLED": "false",
         }
@@ -325,10 +345,10 @@ def test_api_with_opa_deny(mock_opa_deny_server, mock_oidc_authenticate):
         "DEV_OPA_ENABLED": "true",
         "DEV_OPA_URL": mock_opa_deny_server.url,
         "DEV_APP_URI": "http://localhost:5000",
-        # Use Logto OIDC configuration (real endpoint for app startup)
-        "DEV_OIDC_WELL_KNOWN_ENDPOINT": "https://76hxgq.logto.app/oidc/.well-known/openid-configuration",
-        "DEV_OIDC_CLIENT_ID": "s4rf23nynrcotc86xnieq",
-        "DEV_OIDC_CLIENT_SECRET": "W6DraAbu16goorGLVHM6XYRRr8ijNmL0",
+        # OIDC configuration (mocked - no HTTP requests made)
+        "DEV_OIDC_WELL_KNOWN_ENDPOINT": "https://test-issuer.example.com/.well-known/openid-configuration",
+        "DEV_OIDC_CLIENT_ID": "test-client-id",
+        "DEV_OIDC_CLIENT_SECRET": "test-client-secret",
         "DEV_API_KEY_ENABLED": "false",
         "DEV_JWKS_ENABLED": "false",
     }
@@ -338,7 +358,17 @@ def test_api_with_opa_deny(mock_opa_deny_server, mock_oidc_authenticate):
     for module in modules_to_remove:
         del sys.modules[module]
 
-    with mock.patch.dict(os.environ, env_vars, clear=False):
+    with (
+        mock.patch.dict(os.environ, env_vars, clear=False),
+        mock.patch(
+            "fastapi_opa.auth.auth_oidc.OIDCAuthentication.set_from_well_known",
+            mock_set_from_well_known,
+        ),
+        mock.patch(
+            "fastapi_opa.auth.auth_oidc.OIDCAuthentication.authenticate",
+            return_value=mock_oidc_authenticate,
+        ),
+    ):
         # Clear the configuration cache inside the context
         from app.config.app import FactoryConfig
 
