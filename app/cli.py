@@ -2,8 +2,10 @@
 
 import os
 from pathlib import Path
+from typing import Annotated
 
 import typer
+import uvicorn
 from openapi_pydantic.v3.v3_0 import OAuthFlow, OAuthFlows, SecurityScheme
 from pygeoapi.l10n import LocaleError
 from pygeoapi.openapi import generate_openapi_document
@@ -24,12 +26,59 @@ app = typer.Typer()
 
 
 @app.callback()
-def main_app_callback(ctx: typer.Context):
-    """Commandline interface for fastgeoapi."""
+def main_app_callback() -> None:
+    """Commandline interface for fastgeoapi.
+
+    Note: typer.Context parameter removed due to typeguard incompatibility.
+    See: https://github.com/agronholm/typeguard/issues/423
+    """
+
+
+@app.command(name="run")
+def run(
+    host: Annotated[
+        str,
+        typer.Option("--host", "-h", help="Host to bind the server to"),
+    ] = "0.0.0.0",  # noqa: S104  # nosec B104
+    port: Annotated[
+        int,
+        typer.Option("--port", "-p", help="Port to bind the server to"),
+    ] = 5000,
+    reload: Annotated[
+        bool,
+        typer.Option("--reload", "-r", help="Enable auto-reload on code changes"),
+    ] = False,
+    workers: Annotated[
+        int,
+        typer.Option("--workers", "-w", help="Number of worker processes"),
+    ] = 1,
+) -> None:
+    """Run the fastgeoapi server.
+
+    This command starts the fastgeoapi server using uvicorn.
+    It works both when fastgeoapi is installed as a package
+    or when running from a cloned repository.
+
+    Examples
+    --------
+        fastgeoapi run
+        fastgeoapi run --host 127.0.0.1 --port 8000
+        fastgeoapi run --reload
+        fastgeoapi run -h 0.0.0.0 -p 5000 -r
+    """
+    log_console.log(f"Starting fastgeoapi server on {host}:{port}")
+
+    uvicorn.run(
+        "app.main:app",
+        host=host,
+        port=port,
+        reload=reload,
+        workers=workers if not reload else 1,  # reload doesn't work with multiple workers
+    )
 
 
 @app.command(name="openapi")
-def openapi(ctx: typer.Context) -> None:
+def openapi() -> None:
     """Generate openapi document enriched with security schemes."""
     try:
         # override pygeoapi os variables
