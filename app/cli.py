@@ -27,7 +27,11 @@ app = typer.Typer()
 
 @app.callback()
 def main_app_callback() -> None:
-    """Commandline interface for fastgeoapi."""
+    """Commandline interface for fastgeoapi.
+
+    Note: typer.Context parameter removed due to typeguard incompatibility.
+    See: https://github.com/agronholm/typeguard/issues/423
+    """
 
 
 @app.command(name="run")
