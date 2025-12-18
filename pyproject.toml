@@ -165,7 +165,7 @@ ignore = [
 convention = "numpy"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101", "S104", "S108", "D", "E501"]
+"tests/*" = ["S101", "S104", "S108", "N802", "D", "E501"]
 "app/pygeoapi/*" = ["D", "DOC"]  # Temporarily ignored, tracked in #315
 "noxfile.py" = ["S404", "S603", "S607"]  # subprocess calls to git are safe
 

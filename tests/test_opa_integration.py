@@ -26,7 +26,7 @@ import schemathesis
 from hypothesis import Phase, settings
 
 
-class MockOPAHandler(BaseHTTPRequestHandler):
+class MockOPAAllowHandler(BaseHTTPRequestHandler):
     """Mock OPA server handler that always allows requests.
 
     Simulates the OPA policy: default allow = true
@@ -57,27 +57,63 @@ class MockOPAHandler(BaseHTTPRequestHandler):
         """Suppress HTTP server logs during tests."""
 
 
+class MockOPADenyHandler(BaseHTTPRequestHandler):
+    """Mock OPA server handler that always denies requests.
+
+    Simulates the OPA policy: default allow = false
+    """
+
+    def do_POST(self):
+        """Handle POST requests to OPA decision endpoint."""
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length)
+
+        # Log the input for debugging
+        try:
+            input_data = json.loads(body)
+            # The input contains user info and request details
+            _ = input_data.get("input", {})
+        except json.JSONDecodeError:
+            pass
+
+        # Always return allow: false (simulating default allow = false)
+        response = {"result": {"allow": False}}
+
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(response).encode())
+
+    def log_message(self, format, *args):
+        """Suppress HTTP server logs during tests."""
+
+
 class MockOPAServer:
     """Context manager for running a mock OPA server."""
 
-    def __init__(self, host: str = "127.0.0.1", port: int = 0):
+    def __init__(
+        self,
+        host: str = "127.0.0.1",
+        port: int = 0,
+        handler: type[BaseHTTPRequestHandler] = MockOPAAllowHandler,
+    ):
         """Initialize the mock OPA server.
 
         Args:
             host: Host to bind to.
             port: Port to bind to. Use 0 for automatic port assignment.
+            handler: The request handler class to use (allow or deny).
         """
         self.host = host
         self.requested_port = port
+        self.handler = handler
         self.server: HTTPServer | None = None
         self.thread: threading.Thread | None = None
         self._actual_port: int = 0
 
     def __enter__(self):
         """Start the mock OPA server."""
-        self.server = HTTPServer(
-            (self.host, self.requested_port), MockOPAHandler
-        )
+        self.server = HTTPServer((self.host, self.requested_port), self.handler)
         self.server.allow_reuse_address = True
         self._actual_port = self.server.server_address[1]
         self.thread = threading.Thread(target=self.server.serve_forever)
@@ -107,9 +143,7 @@ class MockOPAServer:
 def reload_app_with_env(env_vars: dict):
     """Reload the app with specific environment variables."""
     # Remove all app modules to ensure clean reload with new environment
-    modules_to_remove = [
-        key for key in sys.modules.keys() if key.startswith("app.")
-    ]
+    modules_to_remove = [key for key in sys.modules.keys() if key.startswith("app.")]
     for module in modules_to_remove:
         del sys.modules[module]
 
@@ -126,11 +160,21 @@ def reload_app_with_env(env_vars: dict):
 
 @pytest.fixture
 def mock_opa_server():
-    """Fixture that provides a running mock OPA server.
+    """Fixture that provides a running mock OPA server that allows all requests.
 
     Uses port 0 for automatic port assignment to avoid conflicts.
     """
-    with MockOPAServer() as server:
+    with MockOPAServer(handler=MockOPAAllowHandler) as server:
+        yield server
+
+
+@pytest.fixture
+def mock_opa_deny_server():
+    """Fixture that provides a running mock OPA server that denies all requests.
+
+    Uses port 0 for automatic port assignment to avoid conflicts.
+    """
+    with MockOPAServer(handler=MockOPADenyHandler) as server:
         yield server
 
 
@@ -242,3 +286,63 @@ def test_api_with_opa(case, mock_opa_server, mock_oidc_authenticate):
     # The mock OIDC returns a valid user, and mock OPA returns allow=true
     # So all requests should be authorized
     case.call_and_validate(checks=(schemathesis.checks.not_a_server_error,))
+
+
+@pytest.mark.skipif(
+    os.environ.get("OPA_ENABLED", "").lower() not in ("true", "1"),
+    reason="Skipping OPA tests when OPA is not enabled",
+)
+def test_api_with_opa_deny(mock_opa_deny_server, mock_oidc_authenticate):
+    """Test that API returns 401 when OPA denies the request.
+
+    This test uses a mock OPA server that always returns allow=false,
+    simulating the policy:
+
+        package httpapi.authz
+        import input
+        default allow = false
+
+    Note: The fastapi-opa library returns 401 Unauthorized for both
+    authentication failures and authorization denials. Ideally, authorization
+    denials should return 403 Forbidden, but this is a limitation of the
+    upstream library. See: https://github.com/geobeyond/fastgeoapi/issues/321
+    """
+    from starlette.testclient import TestClient
+
+    env_vars = {
+        "ENV_STATE": "dev",
+        "HOST": "0.0.0.0",
+        "PORT": "5000",
+        "OPA_ENABLED": "true",
+        "DEV_OPA_ENABLED": "true",
+        "DEV_OPA_URL": mock_opa_deny_server.url,
+        "DEV_APP_URI": "http://localhost:5000",
+        # Use Logto OIDC configuration
+        "DEV_OIDC_WELL_KNOWN_ENDPOINT": "https://76hxgq.logto.app/oidc/.well-known/openid-configuration",
+        "DEV_OIDC_CLIENT_ID": "s4rf23nynrcotc86xnieq",
+        "DEV_OIDC_CLIENT_SECRET": "W6DraAbu16goorGLVHM6XYRRr8ijNmL0",
+        "DEV_API_KEY_ENABLED": "false",
+        "DEV_JWKS_ENABLED": "false",
+    }
+
+    # Remove all app modules to ensure clean reload with new environment
+    modules_to_remove = [key for key in sys.modules.keys() if key.startswith("app.")]
+    for module in modules_to_remove:
+        del sys.modules[module]
+
+    with mock.patch.dict(os.environ, env_vars, clear=False):
+        # Clear the configuration cache inside the context
+        from app.config.app import FactoryConfig
+
+        FactoryConfig.get_config.cache_clear()
+
+        from app.main import app as opa_deny_app
+
+        with TestClient(opa_deny_app) as client:
+            # Test a protected endpoint - should return 401 (OPA denies access)
+            response = client.get("/geoapi/collections")
+
+            # fastapi-opa returns 401 for authorization denials
+            # (ideally should be 403, but this is the library's behavior)
+            assert response.status_code == 401
+            assert response.json() == {"message": "Unauthorized"}
