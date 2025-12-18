@@ -121,10 +121,19 @@ import os
 import pytest
 import schemathesis
 from hypothesis import Phase, settings
-from schemathesis.checks import not_a_server_error
 
-schema_apikey = schemathesis.from_pytest_fixture("protected_apikey_schema")
-schema_bearer = schemathesis.from_pytest_fixture("protected_bearer_schema")
+# In schemathesis 4.x, filters must be applied on the LazySchema returned by from_fixture
+# not on the schema inside the fixture
+schema_apikey = (
+    schemathesis.pytest.from_fixture("protected_apikey_schema")
+    .exclude(method="POST", path_regex=r".*/items$")
+    .exclude(method="OPTIONS")
+)
+schema_bearer = (
+    schemathesis.pytest.from_fixture("protected_bearer_schema")
+    .exclude(method="POST", path_regex=r".*/items$")
+    .exclude(method="OPTIONS")
+)
 
 
 @pytest.mark.skipif(
@@ -151,7 +160,7 @@ def test_api_with_apikey(case):
     case.headers = {"X-API-KEY": "pygeoapi"}
     # response = case.call()
     # Only check for server errors, skip schema validation due to pygeoapi issues
-    case.call_and_validate(checks=(not_a_server_error,))
+    case.call_and_validate(checks=(schemathesis.checks.not_a_server_error,))
 
 
 @pytest.mark.skipif(
@@ -178,4 +187,4 @@ def test_api_with_bearer(case, access_token):
     case.headers = {"Authorization": f"Bearer {access_token}"}
     # response = case.call()
     # Only check for server errors, skip schema validation due to pygeoapi issues
-    case.call_and_validate(checks=(not_a_server_error,))
+    case.call_and_validate(checks=(schemathesis.checks.not_a_server_error,))

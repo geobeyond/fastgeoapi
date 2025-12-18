@@ -2,6 +2,7 @@
 
 import os
 import shutil
+import subprocess
 from pathlib import Path
 from textwrap import dedent
 
@@ -16,6 +17,56 @@ session = nox.session
 package = "app"
 python_versions = ["3.12"]
 nox.needs_version = ">= 2022.11.21"
+# Use uv as the default venv backend for faster environment creation
+nox.options.default_venv_backend = "uv"
+
+
+def _get_current_branch() -> str:
+    """Get the current git branch name."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        branch = result.stdout.strip()
+        # Handle detached HEAD state (common in CI)
+        if branch == "HEAD":
+            # Check GitHub Actions environment variables
+            github_head_ref = os.environ.get("GITHUB_HEAD_REF", "")
+            github_base_ref = os.environ.get("GITHUB_BASE_REF", "")
+            if github_head_ref == "develop" or github_base_ref == "main":
+                return "develop"
+            return "main"
+        return branch
+    except subprocess.CalledProcessError:
+        return "main"
+
+
+def _is_develop_branch() -> bool:
+    """Check if we're on the develop branch."""
+    return _get_current_branch() == "develop"
+
+
+def _install_project(session: Session) -> None:
+    """Install project respecting branch-specific dependencies.
+
+    On develop branch: uses uv sync to respect uv.lock with git sources
+    On main/other branches: uses pip install for release (PyPI versions)
+    """
+    if _is_develop_branch():
+        # Use uv sync to respect uv.lock with git sources (e.g., pygeoapi from master)
+        session.run_install(
+            "uv",
+            "sync",
+            env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
+        )
+    else:
+        # Use pip install for release (PyPI versions)
+        session.install(".")
+
+
 nox.options.sessions = (
     "pre-commit",
     "safety",
@@ -98,12 +149,17 @@ def safety(session: Session) -> None:
     Requires SAFETY_API_KEY environment variable to be set.
     Get a free API key at https://safetycli.com
     """
-    session.install(".")
+    _install_project(session)
     session.install("safety")
     # Build command with API key if available
     cmd = ["safety"]
     if "SAFETY_API_KEY" in os.environ:
         cmd.extend(["--key", os.environ["SAFETY_API_KEY"]])
+    else:
+        session.warn(
+            "SAFETY_API_KEY not set. Running locally may prompt for confirmation. "
+            "Set the environment variable or run: safety auth login"
+        )
     cmd.extend(["scan", "--detailed-output"])
     session.run(*cmd)
 
@@ -120,11 +176,11 @@ def bandit(session: Session) -> None:
 def ty(session: Session) -> None:
     """Type-check using ty (Astral's type checker)."""
     args = session.posargs or ["check", "app", "tests"]
-    session.install(".")
+    _install_project(session)
     session.install(
         "ty",
         "pytest",
-        "schemathesis>=3.19.0,<4.0",
+        "schemathesis>=4.0",
         "pytest-asyncio",
     )
     session.run("ty", *args)
@@ -133,12 +189,12 @@ def ty(session: Session) -> None:
 @session(python=python_versions)
 def tests(session: Session) -> None:
     """Run the test suite."""
-    session.install(".")
+    _install_project(session)
     session.install(
         "coverage[toml]",
         "pytest",
         "pygments",
-        "schemathesis>=3.19.0,<4.0",
+        "schemathesis>=4.0",
         "pytest-asyncio",
     )
     try:
@@ -164,12 +220,12 @@ def coverage(session: Session) -> None:
 @session(python=python_versions)
 def typeguard(session: Session) -> None:
     """Runtime type checking using Typeguard."""
-    session.install(".")
+    _install_project(session)
     session.install(
         "pytest",
         "typeguard",
         "pygments",
-        "schemathesis>=3.19.0,<4.0",
+        "schemathesis>=4.0",
         "pytest-asyncio",
     )
     session.run("pytest", f"--typeguard-packages={package}", *session.posargs)
@@ -185,7 +241,7 @@ def xdoctest(session: Session) -> None:
         if "FORCE_COLOR" in os.environ:
             args.append("--colored=1")
 
-    session.install(".")
+    _install_project(session)
     session.install("xdoctest[colors]")
     session.run("python", "-m", "xdoctest", *args)
 
@@ -197,7 +253,7 @@ def docs_build(session: Session) -> None:
     # if not session.posargs and "FORCE_COLOR" in os.environ:
     #     args.insert(0, "--color")
 
-    session.install(".")
+    _install_project(session)
     session.install(
         "mkdocs",
         "mkdocs-material",
@@ -220,7 +276,7 @@ def docs_build(session: Session) -> None:
 def docs(session: Session) -> None:
     """Build and serve the documentation with live reloading on file changes."""
     args = session.posargs
-    session.install(".")
+    _install_project(session)
     session.install(
         "mkdocs",
         "mkdocs-material",

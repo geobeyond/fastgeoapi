@@ -1,6 +1,6 @@
 [project]
 name = "fastgeoapi"
-version = "0.0.4"
+version = "0.0.5"
 description = "fastgeoapi"
 authors = [{ name = "Francesco Bartoli", email = "francesco.bartoli@geobeyond.it" }]
 maintainers = [{ name = "Youssef Harby", email = "youssef.harby@geobeyond.it" }]
@@ -62,13 +62,14 @@ dev = [
     "mkdocstrings[python]>=0.27.0",
     "bandit>=1.7.5,<2",
     "ipython<8.12",
-    "safety<2.0",
+    "safety>=3.0,<4",
     "ty>=0.0.1a0",
     "commitizen>=3.24.0,<4",
     "openapi-resolver>=0.0.6,<0.0.7",
-    "schemathesis>=3.19.0,<4.0",
+    "schemathesis>=4.0",
     "mkdocs-typer>=0.0.3,<0.0.4",
     "pytest-asyncio>=0.24.0,<0.25",
+    "nox[uv]>=2025.11.12",
 ]
 
 [tool.uv]
@@ -120,6 +121,7 @@ python-version = "3.12"
 missing-argument = "ignore"       # pydantic-settings gets values from env vars
 invalid-argument-type = "ignore"  # Starlette middleware type inference issues
 unresolved-attribute = "ignore"   # Dynamic attribute access patterns
+unknown-argument = "ignore"       # openapi-pydantic uses aliased fields (security_scheme_in -> in)
 
 [tool.ruff]
 target-version = "py312"
@@ -170,6 +172,7 @@ convention = "numpy"
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "D", "E501"]
 "app/pygeoapi/*" = ["D", "DOC"]  # Temporarily ignored, tracked in #315
+"noxfile.py" = ["S404", "S603", "S607"]  # subprocess calls to git are safe
 
 [tool.ruff.format]
 quote-style = "double"
