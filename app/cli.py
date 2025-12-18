@@ -26,7 +26,7 @@ app = typer.Typer()
 
 
 @app.callback()
-def main_app_callback(ctx: typer.Context):
+def main_app_callback() -> None:
     """Commandline interface for fastgeoapi."""
 
 
@@ -74,7 +74,7 @@ def run(
 
 
 @app.command(name="openapi")
-def openapi(ctx: typer.Context) -> None:
+def openapi() -> None:
     """Generate openapi document enriched with security schemes."""
     try:
         # override pygeoapi os variables
