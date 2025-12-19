@@ -1,0 +1,201 @@
+name: Validate OGC API Conformance
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Validate OpenAPI against OGC API specifications
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Install ogcapi-registry
+        run: uv add ogcapi-registry
+
+      - name: Create OpenAPI with fastgeoapi CLI
+        run: uv run fastgeoapi openapi
+
+      - name: Validate OpenAPI against OGC API specifications
+        id: ogcapi-validate
+        run: |
+          uv run python -c "
+          import json
+          import sys
+
+          from ogcapi_registry import (
+              parse_conformance_classes,
+              validate_ogc_api,
+              get_specification_keys,
+              group_conformance_by_spec,
+          )
+
+          # Load the generated OpenAPI document
+          with open('pygeoapi-openapi.json', 'r') as f:
+              openapi_doc = json.load(f)
+
+          print('=' * 60)
+          print('OGC API Conformance Validation Report')
+          print('=' * 60)
+          print()
+
+          # Extract info
+          print(f\"Title: {openapi_doc.get('info', {}).get('title', 'N/A')}\")
+          print(f\"Version: {openapi_doc.get('info', {}).get('version', 'N/A')}\")
+          print(f\"OpenAPI Version: {openapi_doc.get('openapi', 'N/A')}\")
+          print()
+
+          # Get conformance classes from the OpenAPI document
+          # pygeoapi includes conformance in x-ogc-conformance or we derive from paths
+          conformance_data = openapi_doc.get('x-ogc-conformance', {})
+          if not conformance_data:
+              # Try to build from paths - pygeoapi exposes /conformance endpoint
+              # For static validation, we check declared paths
+              print('Note: No x-ogc-conformance extension found in OpenAPI document')
+              print('Validating based on declared paths and operations...')
+              print()
+              conformance_classes = []
+          else:
+              conformance_classes = parse_conformance_classes(conformance_data)
+
+          # Validate the OpenAPI document
+          result = validate_ogc_api(openapi_doc, conformance_classes)
+
+          # Print validation results
+          print('-' * 60)
+          print('Validation Results')
+          print('-' * 60)
+          print()
+
+          if result.is_valid:
+              print('Status: VALID')
+          elif result.is_compliant:
+              print('Status: COMPLIANT (no critical errors)')
+          else:
+              print('Status: NON-COMPLIANT')
+
+          print()
+
+          # Print errors by severity
+          if result.critical_errors:
+              print(f'Critical Errors ({len(result.critical_errors)}):')
+              for error in result.critical_errors:
+                  print(f\"  - [{error.get('type', 'ERROR')}] {error.get('message', 'Unknown error')}\")
+              print()
+
+          if result.warning_errors:
+              print(f'Warnings ({len(result.warning_errors)}):')
+              for error in result.warning_errors:
+                  print(f\"  - [{error.get('type', 'WARNING')}] {error.get('message', 'Unknown warning')}\")
+              print()
+
+          if result.info_errors:
+              print(f'Info ({len(result.info_errors)}):')
+              for error in result.info_errors:
+                  print(f\"  - [{error.get('type', 'INFO')}] {error.get('message', 'Unknown info')}\")
+              print()
+
+          # Generate summary
+          summary = result.get_summary()
+          print('-' * 60)
+          print('Summary')
+          print('-' * 60)
+          print(f\"Total issues: {summary.get('total', 0)}\")
+          print(f\"Critical: {summary.get('critical', 0)}\")
+          print(f\"Warnings: {summary.get('warnings', 0)}\")
+          print(f\"Info: {summary.get('info', 0)}\")
+          print()
+
+          # Generate markdown report for GitHub Summary
+          with open('ogcapi-validation-report.md', 'w') as f:
+              f.write('## Validation Status\\n\\n')
+              if result.is_valid:
+                  f.write('**Status:** :white_check_mark: VALID\\n\\n')
+              elif result.is_compliant:
+                  f.write('**Status:** :warning: COMPLIANT (no critical errors)\\n\\n')
+              else:
+                  f.write('**Status:** :x: NON-COMPLIANT\\n\\n')
+
+              f.write('## Summary\\n\\n')
+              f.write('| Severity | Count |\\n')
+              f.write('|----------|-------|\\n')
+              f.write(f\"| Critical | {summary.get('critical', 0)} |\\n\")
+              f.write(f\"| Warnings | {summary.get('warnings', 0)} |\\n\")
+              f.write(f\"| Info | {summary.get('info', 0)} |\\n\")
+              f.write('\\n')
+
+              if result.critical_errors or result.warning_errors:
+                  f.write('## Details\\n\\n')
+                  f.write('<details>\\n')
+                  f.write('<summary>Click to expand validation details</summary>\\n\\n')
+
+                  if result.critical_errors:
+                      f.write('### Critical Errors\\n\\n')
+                      for error in result.critical_errors:
+                          f.write(f\"- **{error.get('type', 'ERROR')}**: {error.get('message', 'Unknown')}\\n\")
+                      f.write('\\n')
+
+                  if result.warning_errors:
+                      f.write('### Warnings\\n\\n')
+                      for error in result.warning_errors:
+                          f.write(f\"- **{error.get('type', 'WARNING')}**: {error.get('message', 'Unknown')}\\n\")
+                      f.write('\\n')
+
+                  f.write('</details>\\n')
+
+              f.write('\\n---\\n')
+              f.write('*Report generated by [ogcapi-registry](https://github.com/francbartoli/ogcapi-registry)*\\n')
+
+          # Save JSON results
+          with open('ogcapi-validation-results.json', 'w') as f:
+              json.dump({
+                  'is_valid': result.is_valid,
+                  'is_compliant': result.is_compliant,
+                  'summary': summary,
+                  'errors': list(result.errors),
+                  'warnings': list(result.warnings),
+              }, f, indent=2, default=str)
+
+          # Exit with appropriate code
+          if result.is_compliant:
+              print('Validation passed (compliant)')
+              sys.exit(0)
+          else:
+              print('Validation failed (non-compliant)')
+              sys.exit(1)
+          "
+
+      - name: Generate OGC API Validation Report
+        if: always()
+        run: |
+          echo "# 🌍 OGC API Conformance Validation Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f ogcapi-validation-report.md ]; then
+            cat ogcapi-validation-report.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Validation report not generated" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload validation results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ogcapi-validation-results
+          path: |
+            ogcapi-validation-report.md
+            ogcapi-validation-results.json
+          retention-days: 30
