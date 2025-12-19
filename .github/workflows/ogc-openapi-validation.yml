@@ -1,0 +1,294 @@
+name: Validate OGC API Conformance
+
+on:
+  workflow_run:
+    workflows: ["Deploy to Fly.io"]
+    types:
+      - completed
+  workflow_dispatch:
+
+env:
+  SERVER_URL: https://fastgeoapi.fly.dev/geoapi
+
+jobs:
+  validate:
+    name: Validate OpenAPI against OGC API specifications
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Install ogcapi-registry
+        run: uv add ogcapi-registry
+
+      - name: Validate OGC API Server
+        id: ogcapi-validate
+        env:
+          SERVER_URL: ${{ env.SERVER_URL }}
+          # Default values (can be overridden by secrets)
+          OAUTH2_TOKEN_ENDPOINT: ${{ secrets.OAUTH2_TOKEN_ENDPOINT || 'https://76hxgq.logto.app/oidc/token' }}
+          OAUTH2_BASIC_AUTH: ${{ secrets.OAUTH2_BASIC_AUTH || 'czRyZjIzbnlucmNvdGM4NnhuaWVxOlc2RHJhQWJ1MTZnb29yR0xWSE02WFlSUnI4aWpObUww' }}
+          OAUTH2_RESOURCE: ${{ secrets.OAUTH2_RESOURCE || 'http://localhost:5000/geoapi/' }}
+        run: |
+          uv run python -c "
+          import json
+          import os
+          import sys
+          import httpx
+
+          from ogcapi_registry import (
+              OpenAPIClient,
+              parse_conformance_classes,
+              validate_ogc_api,
+              get_specification_keys,
+              group_conformance_by_spec,
+          )
+
+          SERVER_URL = os.environ.get('SERVER_URL', 'https://fastgeoapi.fly.dev/geoapi')
+          TOKEN_ENDPOINT = os.environ.get('OAUTH2_TOKEN_ENDPOINT', 'https://76hxgq.logto.app/oidc/token')
+          BASIC_AUTH = os.environ.get('OAUTH2_BASIC_AUTH', 'czRyZjIzbnlucmNvdGM4NnhuaWVxOlc2RHJhQWJ1MTZnb29yR0xWSE02WFlSUnI4aWpObUww')
+          RESOURCE = os.environ.get('OAUTH2_RESOURCE', 'http://localhost:5000/geoapi/')
+
+          print('=' * 60)
+          print('OGC API Conformance Validation Report')
+          print('=' * 60)
+          print()
+          print(f'Server URL: {SERVER_URL}')
+          print()
+
+          # Obtain OAuth2 access token
+          access_token = None
+          auth_required = bool(TOKEN_ENDPOINT and BASIC_AUTH)
+          auth_failed = False
+
+          if auth_required:
+              print('Obtaining OAuth2 access token...')
+              try:
+                  with httpx.Client(base_url=TOKEN_ENDPOINT, timeout=30) as http_client:
+                      response = http_client.post(
+                          '/',
+                          headers={
+                              'Authorization': f'Basic {BASIC_AUTH}',
+                              'Content-Type': 'application/x-www-form-urlencoded',
+                          },
+                          data={
+                              'grant_type': 'client_credentials',
+                              'resource': RESOURCE,
+                              'scope': 'openid profile ci',
+                          },
+                      )
+                      if response.status_code == 200:
+                          token_data = response.json()
+                          access_token = token_data.get('access_token')
+                          print('Access token obtained successfully')
+                          print()
+                      else:
+                          print(f'ERROR: Token request failed with status {response.status_code}')
+                          print(f'Response: {response.text}')
+                          auth_failed = True
+              except Exception as e:
+                  print(f'ERROR: Could not obtain access token: {e}')
+                  auth_failed = True
+          else:
+              print('OAuth2 credentials not configured, proceeding without authentication...')
+              print()
+
+          if auth_failed:
+              print('Authentication failed - cannot proceed with validation')
+              sys.exit(1)
+
+          # Initialize client with bearer token if available
+          headers = {}
+          if access_token:
+              headers['Authorization'] = f'Bearer {access_token}'
+
+          client = OpenAPIClient(timeout=30.0, headers=headers)
+
+          # Fetch OpenAPI document from the server
+          print('Fetching OpenAPI document...')
+          try:
+              openapi_doc, metadata = client.fetch(f'{SERVER_URL}/openapi?f=json')
+          except Exception as e:
+              print(f'Error fetching OpenAPI document: {e}')
+              sys.exit(1)
+
+          print(f\"Title: {openapi_doc.get('info', {}).get('title', 'N/A')}\")
+          print(f\"Version: {openapi_doc.get('info', {}).get('version', 'N/A')}\")
+          print(f\"OpenAPI Version: {openapi_doc.get('openapi', 'N/A')}\")
+          print()
+
+          # Fetch conformance classes from the server
+          print('Fetching conformance classes...')
+          try:
+              conformance_response, _ = client.fetch(f'{SERVER_URL}/conformance?f=json')
+              conformance_classes = parse_conformance_classes(conformance_response)
+              print(f'Found {len(conformance_classes)} conformance classes')
+              print()
+
+              # Group by specification
+              groups = group_conformance_by_spec(conformance_classes)
+              for spec_key, classes in groups.items():
+                  print(f'{spec_key}:')
+                  for cc in classes:
+                      print(f'  - {cc.conformance_class_name}')
+              print()
+          except Exception as e:
+              print(f'ERROR: Could not fetch conformance classes: {e}')
+              if auth_required:
+                  print('Authentication was configured but conformance fetch failed - this may indicate an auth issue')
+                  sys.exit(1)
+              conformance_classes = []
+
+          # Validate the OpenAPI document
+          print('Validating OpenAPI document...')
+          result = validate_ogc_api(openapi_doc, conformance_classes)
+
+          # Print validation results
+          print('-' * 60)
+          print('Validation Results')
+          print('-' * 60)
+          print()
+
+          if result.is_valid:
+              print('Status: VALID')
+          elif result.is_compliant:
+              print('Status: COMPLIANT (no critical errors)')
+          else:
+              print('Status: NON-COMPLIANT')
+
+          print()
+
+          # Print errors by severity
+          if result.critical_errors:
+              print(f'Critical Errors ({len(result.critical_errors)}):')
+              for error in result.critical_errors:
+                  print(f\"  - [{error.get('type', 'ERROR')}] {error.get('message', 'Unknown error')}\")
+              print()
+
+          if result.warning_errors:
+              print(f'Warnings ({len(result.warning_errors)}):')
+              for error in result.warning_errors:
+                  print(f\"  - [{error.get('type', 'WARNING')}] {error.get('message', 'Unknown warning')}\")
+              print()
+
+          if result.info_errors:
+              print(f'Info ({len(result.info_errors)}):')
+              for error in result.info_errors:
+                  print(f\"  - [{error.get('type', 'INFO')}] {error.get('message', 'Unknown info')}\")
+              print()
+
+          # Generate summary
+          summary = result.get_summary()
+          print('-' * 60)
+          print('Summary')
+          print('-' * 60)
+          print(f\"Total issues: {summary.get('total', 0)}\")
+          print(f\"Critical: {summary.get('critical', 0)}\")
+          print(f\"Warnings: {summary.get('warnings', 0)}\")
+          print(f\"Info: {summary.get('info', 0)}\")
+          print()
+
+          # Generate markdown report for GitHub Summary
+          with open('ogcapi-validation-report.md', 'w') as f:
+              f.write(f'## Server: {SERVER_URL}\\n\\n')
+              f.write('## Validation Status\\n\\n')
+              if result.is_valid:
+                  f.write('**Status:** :white_check_mark: VALID\\n\\n')
+              elif result.is_compliant:
+                  f.write('**Status:** :warning: COMPLIANT (no critical errors)\\n\\n')
+              else:
+                  f.write('**Status:** :x: NON-COMPLIANT\\n\\n')
+
+              # Add conformance classes
+              if conformance_classes:
+                  f.write('## Declared Conformance Classes\\n\\n')
+                  groups = group_conformance_by_spec(conformance_classes)
+                  for spec_key, classes in groups.items():
+                      f.write(f'### {spec_key}\\n\\n')
+                      for cc in classes:
+                          f.write(f'- {cc.conformance_class_name}\\n')
+                      f.write('\\n')
+
+              f.write('## Summary\\n\\n')
+              f.write('| Severity | Count |\\n')
+              f.write('|----------|-------|\\n')
+              f.write(f\"| Critical | {summary.get('critical', 0)} |\\n\")
+              f.write(f\"| Warnings | {summary.get('warnings', 0)} |\\n\")
+              f.write(f\"| Info | {summary.get('info', 0)} |\\n\")
+              f.write('\\n')
+
+              if result.critical_errors or result.warning_errors:
+                  f.write('## Details\\n\\n')
+                  f.write('<details>\\n')
+                  f.write('<summary>Click to expand validation details</summary>\\n\\n')
+
+                  if result.critical_errors:
+                      f.write('### Critical Errors\\n\\n')
+                      for error in result.critical_errors:
+                          f.write(f\"- **{error.get('type', 'ERROR')}**: {error.get('message', 'Unknown')}\\n\")
+                      f.write('\\n')
+
+                  if result.warning_errors:
+                      f.write('### Warnings\\n\\n')
+                      for error in result.warning_errors:
+                          f.write(f\"- **{error.get('type', 'WARNING')}**: {error.get('message', 'Unknown')}\\n\")
+                      f.write('\\n')
+
+                  f.write('</details>\\n')
+
+              f.write('\\n---\\n')
+              f.write('*Report generated by [ogcapi-registry](https://github.com/francbartoli/ogcapi-registry)*\\n')
+
+          # Save JSON results
+          with open('ogcapi-validation-results.json', 'w') as f:
+              json.dump({
+                  'server_url': SERVER_URL,
+                  'is_valid': result.is_valid,
+                  'is_compliant': result.is_compliant,
+                  'conformance_classes': [cc.uri for cc in conformance_classes],
+                  'summary': summary,
+                  'errors': list(result.errors),
+                  'warnings': list(result.warnings),
+              }, f, indent=2, default=str)
+
+          # Exit with appropriate code
+          if result.is_compliant:
+              print('Validation passed (compliant)')
+              sys.exit(0)
+          else:
+              print('Validation failed (non-compliant)')
+              sys.exit(1)
+          "
+
+      - name: Generate OGC API Validation Report
+        if: always()
+        run: |
+          echo "# 🌍 OGC API Conformance Validation Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f ogcapi-validation-report.md ]; then
+            cat ogcapi-validation-report.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Validation report not generated" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload validation results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ogcapi-validation-results
+          path: |
+            ogcapi-validation-report.md
+            ogcapi-validation-results.json
+          retention-days: 30
