@@ -1,14 +1,20 @@
 name: Validate OGC API Conformance
 
 on:
-  push:
-  pull_request:
+  workflow_run:
+    workflows: ["Deploy to Fly.io"]
+    types:
+      - completed
   workflow_dispatch:
+
+env:
+  SERVER_URL: https://fastgeoapi.fly.dev/geoapi
 
 jobs:
   validate:
     name: Validate OpenAPI against OGC API specifications
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     steps:
       - name: Check out the repository
         uses: actions/checkout@v4.1.1
@@ -27,52 +33,70 @@ jobs:
       - name: Install ogcapi-registry
         run: uv add ogcapi-registry
 
-      - name: Create OpenAPI with fastgeoapi CLI
-        run: uv run fastgeoapi openapi
-
-      - name: Validate OpenAPI against OGC API specifications
+      - name: Validate OGC API Server
         id: ogcapi-validate
+        env:
+          SERVER_URL: ${{ env.SERVER_URL }}
         run: |
           uv run python -c "
           import json
+          import os
           import sys
 
           from ogcapi_registry import (
+              OpenAPIClient,
               parse_conformance_classes,
               validate_ogc_api,
               get_specification_keys,
               group_conformance_by_spec,
           )
 
-          # Load the generated OpenAPI document
-          with open('pygeoapi-openapi.json', 'r') as f:
-              openapi_doc = json.load(f)
+          SERVER_URL = os.environ.get('SERVER_URL', 'https://fastgeoapi.fly.dev/geoapi')
 
           print('=' * 60)
           print('OGC API Conformance Validation Report')
           print('=' * 60)
           print()
+          print(f'Server URL: {SERVER_URL}')
+          print()
 
-          # Extract info
+          # Initialize client
+          client = OpenAPIClient(timeout=30.0)
+
+          # Fetch OpenAPI document from the server
+          print('Fetching OpenAPI document...')
+          try:
+              openapi_doc, metadata = client.fetch(f'{SERVER_URL}/openapi?f=json')
+          except Exception as e:
+              print(f'Error fetching OpenAPI document: {e}')
+              sys.exit(1)
+
           print(f\"Title: {openapi_doc.get('info', {}).get('title', 'N/A')}\")
           print(f\"Version: {openapi_doc.get('info', {}).get('version', 'N/A')}\")
           print(f\"OpenAPI Version: {openapi_doc.get('openapi', 'N/A')}\")
           print()
 
-          # Get conformance classes from the OpenAPI document
-          # pygeoapi includes conformance in x-ogc-conformance or we derive from paths
-          conformance_data = openapi_doc.get('x-ogc-conformance', {})
-          if not conformance_data:
-              # Try to build from paths - pygeoapi exposes /conformance endpoint
-              # For static validation, we check declared paths
-              print('Note: No x-ogc-conformance extension found in OpenAPI document')
-              print('Validating based on declared paths and operations...')
+          # Fetch conformance classes from the server
+          print('Fetching conformance classes...')
+          try:
+              conformance_response, _ = client.fetch(f'{SERVER_URL}/conformance?f=json')
+              conformance_classes = parse_conformance_classes(conformance_response)
+              print(f'Found {len(conformance_classes)} conformance classes')
               print()
+
+              # Group by specification
+              groups = group_conformance_by_spec(conformance_classes)
+              for spec_key, classes in groups.items():
+                  print(f'{spec_key}:')
+                  for cc in classes:
+                      print(f'  - {cc.conformance_class_name}')
+              print()
+          except Exception as e:
+              print(f'Warning: Could not fetch conformance classes: {e}')
               conformance_classes = []
-          else:
-              conformance_classes = parse_conformance_classes(conformance_data)
 
           # Validate the OpenAPI document
+          print('Validating OpenAPI document...')
           result = validate_ogc_api(openapi_doc, conformance_classes)
 
           # Print validation results
@@ -122,6 +146,7 @@ jobs:
 
           # Generate markdown report for GitHub Summary
           with open('ogcapi-validation-report.md', 'w') as f:
+              f.write(f'## Server: {SERVER_URL}\\n\\n')
               f.write('## Validation Status\\n\\n')
               if result.is_valid:
                   f.write('**Status:** :white_check_mark: VALID\\n\\n')
@@ -129,6 +154,16 @@ jobs:
                   f.write('**Status:** :warning: COMPLIANT (no critical errors)\\n\\n')
               else:
                   f.write('**Status:** :x: NON-COMPLIANT\\n\\n')
+
+              # Add conformance classes
+              if conformance_classes:
+                  f.write('## Declared Conformance Classes\\n\\n')
+                  groups = group_conformance_by_spec(conformance_classes)
+                  for spec_key, classes in groups.items():
+                      f.write(f'### {spec_key}\\n\\n')
+                      for cc in classes:
+                          f.write(f'- {cc.conformance_class_name}\\n')
+                      f.write('\\n')
 
               f.write('## Summary\\n\\n')
               f.write('| Severity | Count |\\n')
@@ -163,8 +198,10 @@ jobs:
           # Save JSON results
           with open('ogcapi-validation-results.json', 'w') as f:
               json.dump({
+                  'server_url': SERVER_URL,
                   'is_valid': result.is_valid,
                   'is_compliant': result.is_compliant,
+                  'conformance_classes': [cc.uri for cc in conformance_classes],
                   'summary': summary,
                   'errors': list(result.errors),
                   'warnings': list(result.warnings),
