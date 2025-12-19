@@ -419,7 +419,132 @@ $ curl -H "Authorization: Bearer <access_token>" http://localhost:5000/geoapi/co
 
 ### OpenID Connect
 
-TBD
+OpenID Connect (OIDC) is a protocol built on top of OAuth2 that provides authentication capabilities. It is commonly used for Single-Page Applications (SPA) and mobile applications where user identity verification is required.
+
+In **fastgeoapi**, OIDC authentication is integrated with [Open Policy Agent (OPA)](https://www.openpolicyagent.org/) for authorization decisions. This means that:
+
+1. **Authentication**: OIDC verifies the user's identity through an Identity Provider (IdP)
+2. **Authorization**: OPA evaluates policies to determine if the authenticated user can access specific resources
+
+#### Prerequisites
+
+Before configuring OIDC, you need to have:
+
+- An OIDC-compliant Identity Provider (e.g., [Keycloak](https://www.keycloak.org/), [Logto](https://logto.io/), [Auth0](https://auth0.com/))
+- An OPA server running with your authorization policies
+
+For local development, you can use the provided Docker Compose setup that includes Keycloak and OPA:
+
+```shell
+cd scripts/iam
+docker compose up -d
+```
+
+This starts:
+
+- **Keycloak** on port `8282` with a pre-configured `pygeoapi` realm
+- **OPA** on port `8383` with a sample authorization policy
+
+#### Configuration
+
+Configure OIDC and OPA in your `.env` file:
+
+```yml
+# Enable OPA (required for OIDC)
+DEV_OPA_ENABLED=true
+DEV_OPA_URL=http://localhost:8383/v1/data/httpapi/authz
+
+# OIDC configuration
+DEV_OIDC_WELL_KNOWN_ENDPOINT=http://localhost:8282/realms/pygeoapi/.well-known/openid-configuration
+DEV_OIDC_CLIENT_ID=pygeoapi-client
+DEV_OIDC_CLIENT_SECRET=2yholx8r3mqyUJaOoJiZhcqvQDQwmgyD
+
+# Disable other authentication mechanisms
+DEV_API_KEY_ENABLED=false
+DEV_JWKS_ENABLED=false
+```
+
+!!! warning "Mutual Exclusivity"
+
+    Remember that `OPA_ENABLED`, `API_KEY_ENABLED`, and `JWKS_ENABLED` are mutually exclusive. Only one can be enabled at a time.
+
+Start the server:
+
+<!-- termynal -->
+
+```shell
+$ uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload --loop asyncio
+...
+2024-02-26 14:30:00.000 | INFO     | app.main:<module>:190 - OPA_ENABLED=True
+2024-02-26 14:30:00.001 | INFO     | logging:callHandlers:1706 [id:app] - Application startup complete.
+```
+
+#### Testing with curl
+
+When OIDC is enabled, requests require a valid access token. First, obtain a token from your Identity Provider:
+
+```shell
+# Get an access token from Keycloak
+TOKEN=$(curl -s -X POST \
+  "http://localhost:8282/realms/pygeoapi/protocol/openid-connect/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=password" \
+  -d "client_id=pygeoapi-client" \
+  -d "client_secret=2yholx8r3mqyUJaOoJiZhcqvQDQwmgyD" \
+  -d "username=testuser" \
+  -d "password=testpassword" | jq -r '.access_token')
+```
+
+Then use the token to access protected endpoints:
+
+<!-- termynal -->
+
+```shell
+$ curl -H "Authorization: Bearer $TOKEN" http://localhost:5000/geoapi/collections/obs -vv
+
+*   Trying 127.0.0.1:5000...
+* Connected to localhost (127.0.0.1) port 5000
+> GET /geoapi/collections/obs HTTP/1.1
+> Host: localhost:5000
+> Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+>
+< HTTP/1.1 200 OK
+< content-type: application/json
+...
+```
+
+Without a valid token, you will receive a 401 Unauthorized response:
+
+<!-- termynal -->
+
+```shell
+$ curl http://localhost:5000/geoapi/collections/obs -vv
+
+*   Trying 127.0.0.1:5000...
+* Connected to localhost (127.0.0.1) port 5000
+> GET /geoapi/collections/obs HTTP/1.1
+> Host: localhost:5000
+>
+< HTTP/1.1 401 Unauthorized
+< content-type: application/json
+<
+{"message":"Unauthorized"}
+```
+
+#### How it works
+
+The authentication and authorization flow works as follows:
+
+1. The client sends a request with an `Authorization: Bearer <token>` header
+2. **fastgeoapi** validates the token with the OIDC provider using the well-known endpoint
+3. User claims (e.g., `sub`, `email`, `company`) are extracted from the token
+4. The request details and user claims are sent to OPA for authorization
+5. OPA evaluates the policy and returns an `allow: true` or `allow: false` decision
+6. If allowed, the request proceeds to pygeoapi; otherwise, a 401 response is returned
+
+!!! note "401 vs 403 Response"
+
+    Currently, the [fastapi-opa](https://github.com/busykoala/fastapi-opa) library returns 401 Unauthorized for both authentication failures and authorization denials. Ideally, authorization denials should return 403 Forbidden. This is a known limitation tracked in [issue #321](https://github.com/geobeyond/fastgeoapi/issues/321)
 
 ## Configure a coarse or fine-grained authorization
 

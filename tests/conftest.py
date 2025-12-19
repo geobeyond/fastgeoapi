@@ -56,7 +56,7 @@ def create_protected_with_apikey_app(create_app):
             os.environ,
             {
                 "ENV_STATE": "dev",
-                "HOST": "0.0.0.0",  # noqa: S104
+                "HOST": "0.0.0.0",
                 "PORT": "5000",
                 "API_KEY_ENABLED": "true",
                 "DEV_API_KEY_ENABLED": "true",
@@ -81,7 +81,7 @@ def create_app_with_reverse_proxy_enabled(create_app):
             os.environ,
             {
                 "ENV_STATE": "dev",
-                "HOST": "0.0.0.0",  # noqa: S104
+                "HOST": "0.0.0.0",
                 "PORT": "5000",
                 "DEV_API_KEY_ENABLED": "false",
                 "DEV_JWKS_ENABLED": "false",
@@ -105,7 +105,7 @@ def create_protected_with_bearer_app(create_app):
             os.environ,
             {
                 "ENV_STATE": "dev",
-                "HOST": "0.0.0.0",  # noqa: S104
+                "HOST": "0.0.0.0",
                 "PORT": "5000",
                 "JWKS_ENABLED": "true",
                 "DEV_API_KEY_ENABLED": "false",

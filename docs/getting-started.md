@@ -52,6 +52,10 @@ source .venv/bin/activate
 
 ### Running fastgeoapi
 
+#### Development workflow
+
+This workflow is for contributing to fastgeoapi itself by cloning the repository.
+
 Once Keycloak and OPA have been started, configure the required environment variables:
 
 ```shell
@@ -64,6 +68,305 @@ Start fastgeoapi in development mode:
 
 ```shell
 uv run fastapi run app/main.py --app app --host 0.0.0.0 --port 5000 --reload
+```
+
+#### Application workflow
+
+This workflow is for using fastgeoapi as a Python package to build your own FastAPI application.
+
+##### Installation
+
+Install fastgeoapi in your project:
+
+```shell
+pip install fastgeoapi
+```
+
+Or with UV:
+
+```shell
+uv add fastgeoapi
+```
+
+##### Running Your Application
+
+When using fastgeoapi as an installed package, you can start the server using the `fastgeoapi` CLI:
+
+```shell
+fastgeoapi run
+```
+
+With options:
+
+```shell
+fastgeoapi run --host 0.0.0.0 --port 5000 --reload
+```
+
+Or using uvicorn directly:
+
+```shell
+uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload
+```
+
+##### Verifying the Setup
+
+Once running, verify the endpoints are accessible:
+
+```shell
+# Landing page
+curl http://localhost:5000/geoapi/?f=json
+
+# OpenAPI specification
+curl http://localhost:5000/geoapi/openapi?f=json
+
+# Collections
+curl http://localhost:5000/geoapi/collections?f=json
+
+# Conformance
+curl http://localhost:5000/geoapi/conformance?f=json
+```
+
+#### Environment Configuration
+
+The following configuration applies to both the Development and Application workflows.
+
+fastgeoapi uses environment variables to configure its behavior. The main variable is `ENV_STATE` which determines whether to load development (`dev`) or production (`prod`) configuration.
+
+Create a `.env` file in your project root:
+
+```shell
+# Environment state: 'dev' or 'prod'
+ENV_STATE=dev
+
+# Server configuration
+HOST=0.0.0.0
+PORT=5000
+
+# Logging (required)
+DEV_LOG_PATH=/tmp
+DEV_LOG_FILENAME=fastgeoapi.log
+DEV_LOG_LEVEL=debug
+DEV_LOG_ENQUEUE=true
+DEV_LOG_ROTATION=1 days
+DEV_LOG_RETENTION=1 months
+
+# Pygeoapi configuration
+DEV_PYGEOAPI_BASEURL=http://localhost:5000
+DEV_PYGEOAPI_CONFIG=pygeoapi-config.yml
+DEV_PYGEOAPI_OPENAPI=pygeoapi-openapi.yml
+DEV_FASTGEOAPI_CONTEXT=/geoapi
+```
+
+#### Authentication Options
+
+The following authentication options apply to both the Development and Application workflows.
+
+fastgeoapi supports three mutually exclusive authentication methods. Only one can be enabled at a time.
+
+**Option 1: No Authentication (Open Access)**
+
+```shell
+DEV_API_KEY_ENABLED=false
+DEV_JWKS_ENABLED=false
+DEV_OPA_ENABLED=false
+```
+
+**Option 2: API Key Authentication**
+
+```shell
+DEV_API_KEY_ENABLED=true
+DEV_PYGEOAPI_KEY_GLOBAL=your-secret-api-key
+DEV_JWKS_ENABLED=false
+DEV_OPA_ENABLED=false
+```
+
+Clients must include the `X-API-KEY` header in requests:
+
+```shell
+curl -H "X-API-KEY: your-secret-api-key" http://localhost:5000/geoapi/collections
+```
+
+**Option 3: OAuth2/JWKS Authentication**
+
+```shell
+DEV_JWKS_ENABLED=true
+DEV_OAUTH2_JWKS_ENDPOINT=https://your-auth-server/.well-known/jwks.json
+DEV_OAUTH2_TOKEN_ENDPOINT=https://your-auth-server/oauth/token
+DEV_API_KEY_ENABLED=false
+DEV_OPA_ENABLED=false
+```
+
+**Option 4: Open Policy Agent (OPA) Authorization**
+
+```shell
+DEV_OPA_ENABLED=true
+DEV_OPA_URL=http://localhost:8181
+DEV_OIDC_WELL_KNOWN_ENDPOINT=http://localhost:8080/realms/master/.well-known/openid-configuration
+DEV_OIDC_CLIENT_ID=your-client-id
+DEV_OIDC_CLIENT_SECRET=your-client-secret
+DEV_API_KEY_ENABLED=false
+DEV_JWKS_ENABLED=false
+```
+
+#### Startup Flow
+
+The following startup flow applies to both the Development and Application workflows.
+
+When the application starts, fastgeoapi performs the following steps:
+
+1. **Load Configuration**: Reads `ENV_STATE` to determine which configuration to use (`DevConfig` or `ProdConfig`)
+2. **Initialize FastAPI**: Creates the FastAPI application with CORS middleware
+3. **Set Pygeoapi Variables**: Configures pygeoapi environment variables (`PYGEOAPI_CONFIG`, `PYGEOAPI_OPENAPI`, etc.)
+4. **Generate OpenAPI**: If `pygeoapi-openapi.yml` doesn't exist, generates it from `pygeoapi-config.yml`
+5. **Apply Authentication**: Based on configuration, adds the appropriate authentication middleware
+6. **Mount Pygeoapi**: Mounts the pygeoapi application at the configured context path (e.g., `/geoapi`)
+
+#### AWS Lambda Deployment
+
+The following configuration applies to both the Development and Application workflows.
+
+To deploy on AWS Lambda, enable the Mangum handler:
+
+```shell
+DEV_AWS_LAMBDA_DEPLOY=true
+# Disable log enqueue for Lambda compatibility
+DEV_LOG_ENQUEUE=false
+```
+
+The application automatically creates a `handler` object compatible with AWS Lambda when `AWS_LAMBDA_DEPLOY=true`.
+
+#### Example: Complete Application Setup with API Key
+
+This example demonstrates how to create a new project using fastgeoapi as a package with API Key authentication.
+
+##### Step 1: Create a new project
+
+```shell
+mkdir my-geoapi-app
+cd my-geoapi-app
+uv init --name my-geoapi-app
+```
+
+##### Step 2: Install fastgeoapi
+
+```shell
+uv add fastgeoapi
+```
+
+##### Step 3: Create the pygeoapi configuration
+
+Create a `pygeoapi-config.yml` file with your data sources. Here's a minimal example:
+
+```yaml
+server:
+  bind:
+    host: ${HOST}
+    port: ${PORT}
+  url: ${PYGEOAPI_BASEURL}${FASTGEOAPI_CONTEXT}
+  mimetype: application/json; charset=UTF-8
+  encoding: utf-8
+  languages:
+    - en-US
+  pretty_print: true
+  limits:
+    default_items: 20
+    max_items: 50
+
+logging:
+  level: ERROR
+
+metadata:
+  identification:
+    title: My GeoAPI Instance
+    description: My geospatial data API
+    keywords:
+      - geospatial
+      - api
+    terms_of_service: https://creativecommons.org/licenses/by/4.0/
+    url: https://example.org
+  license:
+    name: CC-BY 4.0 license
+    url: https://creativecommons.org/licenses/by/4.0/
+  provider:
+    name: My Organization
+    url: https://example.org
+  contact:
+    name: Contact Name
+    email: contact@example.org
+
+resources:
+  # Add your data sources here
+```
+
+##### Step 4: Create the environment file
+
+Create a `.env` file with all required configuration:
+
+```shell
+# Environment state
+ENV_STATE=dev
+
+# Server configuration
+HOST=0.0.0.0
+PORT=5000
+
+# Logging (required)
+DEV_LOG_PATH=/tmp
+DEV_LOG_FILENAME=fastgeoapi.log
+DEV_LOG_LEVEL=debug
+DEV_LOG_ENQUEUE=true
+DEV_LOG_ROTATION=1 days
+DEV_LOG_RETENTION=1 months
+
+# Pygeoapi configuration
+DEV_PYGEOAPI_BASEURL=http://localhost:5000
+DEV_PYGEOAPI_CONFIG=pygeoapi-config.yml
+DEV_PYGEOAPI_OPENAPI=pygeoapi-openapi.yml
+DEV_FASTGEOAPI_CONTEXT=/geoapi
+
+# API Key authentication
+DEV_API_KEY_ENABLED=true
+DEV_PYGEOAPI_KEY_GLOBAL=my-secret-api-key
+DEV_JWKS_ENABLED=false
+DEV_OPA_ENABLED=false
+```
+
+##### Step 5: Start the server
+
+```shell
+# Set the API key environment variable for the middleware
+export PYGEOAPI_KEY_GLOBAL=my-secret-api-key
+
+# Start the server using the fastgeoapi CLI
+fastgeoapi run
+
+# Or with options
+fastgeoapi run --host 0.0.0.0 --port 5000
+
+# Alternatively, using uvicorn directly
+uvicorn app.main:app --host 0.0.0.0 --port 5000
+```
+
+##### Step 6: Verify the endpoints
+
+Test that the API is running correctly:
+
+```shell
+# OpenAPI specification (public, no auth required)
+curl http://localhost:5000/geoapi/openapi?f=json
+
+# Landing page without API key (should return 401)
+curl http://localhost:5000/geoapi/?f=json
+# Response: {"detail":"no api key"}
+
+# Landing page with API key (should return 200)
+curl -H "X-API-KEY: my-secret-api-key" http://localhost:5000/geoapi/?f=json
+
+# Collections with API key
+curl -H "X-API-KEY: my-secret-api-key" http://localhost:5000/geoapi/collections?f=json
+
+# Conformance with API key
+curl -H "X-API-KEY: my-secret-api-key" http://localhost:5000/geoapi/conformance?f=json
 ```
 
 ## Release Workflow
