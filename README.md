@@ -1,6 +1,6 @@
 # fastgeoapi
 
-<img width="30" height="30" alt="g2" src="https://github.com/user-attachments/assets/a9af9c8d-9264-4473-b4d9-3ee4921b965b" /> A modern, high-performance geospatial API framework that extends [pygeoapi](https://github.com/geopython/pygeoapi) with authentication, authorization, and security features using FastAPI, OpenID Connect, and Open Policy Agent (OPA) 🗺️🔒.
+<img width="60" height="60" alt="fastgeoapi logo" src="docs/images/fastgeoapi_logo.png" style="vertical-align: middle;" /> A modern, high-performance geospatial API framework that extends [pygeoapi](https://github.com/geopython/pygeoapi) with authentication, authorization, and security features using FastAPI, OpenID Connect, and Open Policy Agent (OPA) 🗺️🔒.
 
 <div align="center">
   <a href="https://pygeoapi.io">
@@ -62,6 +62,50 @@ This diagram gives an overview of the basic architecture:
 - **Security Scanning** - OWASP ZAP integration for continuous security testing
 - **Pre-commit Hooks** - Code quality checks with Ruff formatting and linting
 - **Comprehensive Test Coverage** - Full test suite with pytest and coverage reporting
+
+### 📋 OGC API Conformance
+
+- **Specification Validation** - Automated validation against OGC API standards using [ogcapi-registry](https://github.com/francbartoli/ogcapi-registry)
+- **OpenAPI Document Verification** - Ensures generated OpenAPI documents conform to OGC API specifications
+- **Conformance Class Reporting** - Detailed reports on declared conformance classes (OGC API - Features, Common, GeoJSON, etc.)
+- **CI/CD Integration** - Continuous validation on every deployment to the demo server
+
+## Live Demo
+
+A public demo server is available at **[https://fastgeoapi.fly.dev/geoapi](https://fastgeoapi.fly.dev/geoapi)**.
+
+🔐 The API endpoints are protected with **OAuth2 client-credentials flow**, showcasing fastgeoapi's enterprise-ready security features. This allows you to test the full authentication workflow in a real environment.
+
+The **Swagger UI** documentation is publicly accessible without authentication at [https://fastgeoapi.fly.dev/geoapi/openapi](https://fastgeoapi.fly.dev/geoapi/openapi), allowing you to explore the API specification and available endpoints before authenticating.
+
+### Getting an Access Token
+
+The demo server requires OAuth2 authentication. To obtain an access token:
+
+```bash
+curl -X POST https://76hxgq.logto.app/oidc/token \
+  -H "Authorization: Basic czRyZjIzbnlucmNvdGM4NnhuaWVxOlc2RHJhQWJ1MTZnb29yR0xWSE02WFlSUnI4aWpObUww" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials&resource=http://localhost:5000/geoapi/&scope=openid profile ci"
+```
+
+### Using the Access Token
+
+Once you have the token, include it in your requests:
+
+```bash
+# Get the landing page
+curl -H "Authorization: Bearer <your_access_token>" \
+  "https://fastgeoapi.fly.dev/geoapi/?f=json"
+
+# List collections
+curl -H "Authorization: Bearer <your_access_token>" \
+  "https://fastgeoapi.fly.dev/geoapi/collections?f=json"
+
+# Check conformance
+curl -H "Authorization: Bearer <your_access_token>" \
+  "https://fastgeoapi.fly.dev/geoapi/conformance?f=json"
+```
 
 ## Requirements
 

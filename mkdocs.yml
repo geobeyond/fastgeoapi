@@ -3,6 +3,8 @@ docs_dir: docs
 site_dir: docs_build/site
 theme:
   name: material
+  logo: images/fastgeoapi_logo.png
+  favicon: images/fastgeoapi_logo.png
   features:
     - navigation.tabs
     - navigation.sections
@@ -19,13 +21,13 @@ theme:
       toggle:
         icon: material/toggle-switch-off-outline
         name: Switch to Dark Mode
-      primary: green
+      primary: custom
       accent: red
     - scheme: slate
       toggle:
         icon: material/toggle-switch
         name: Switch to Light Mode
-      primary: green
+      primary: custom
       accent: blue grey
   icon:
     admonition:
@@ -43,6 +45,7 @@ theme:
       quote: octicons/quote-16
 plugins:
   - search
+  - include-markdown
   - termynal:
       prompt_literal_start:
         - "$"
@@ -60,6 +63,9 @@ plugins:
             show_symbol_type_heading: true
             show_symbol_type_toc: true
             members_order: source
+extra_css:
+  - stylesheets/extra.css
+
 extra:
   social:
     - icon: fontawesome/brands/github-alt
@@ -87,5 +93,12 @@ markdown_extensions:
   - pymdownx.emoji
   - mkdocs-typer
 
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - How-to Guides: howto-guides.md
+  - Tutorials: tutorials.md
+  - OpenAPI: openapi.md
+
 copyright: |
-  &copy; Copyright 2024 <a href="https://github.com/geobeyond">Geobeyond team</a>.
+  &copy; Copyright 2025 <a href="https://github.com/geobeyond">Geobeyond team</a>.

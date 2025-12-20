@@ -1,5 +1,74 @@
 # Getting started
 
+## Live Demo Server
+
+A public demo server is available for testing and exploration:
+
+**Demo URL:** [https://fastgeoapi.fly.dev/geoapi](https://fastgeoapi.fly.dev/geoapi)
+
+The demo server is protected with **OAuth2 client-credentials flow**, demonstrating fastgeoapi's security capabilities in a real-world scenario.
+
+### Obtaining an Access Token
+
+To access the demo server, you need to obtain an OAuth2 access token using the client-credentials grant:
+
+```bash
+curl -X POST https://76hxgq.logto.app/oidc/token \
+  -H "Authorization: Basic czRyZjIzbnlucmNvdGM4NnhuaWVxOlc2RHJhQWJ1MTZnb29yR0xWSE02WFlSUnI4aWpObUww" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials&resource=http://localhost:5000/geoapi/&scope=openid profile ci"
+```
+
+The response will contain an `access_token`:
+
+```json
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
+```
+
+### Making Authenticated Requests
+
+Include the access token in the `Authorization` header:
+
+```bash
+# Store the token in a variable
+TOKEN=$(curl -s -X POST https://76hxgq.logto.app/oidc/token \
+  -H "Authorization: Basic czRyZjIzbnlucmNvdGM4NnhuaWVxOlc2RHJhQWJ1MTZnb29yR0xWSE02WFlSUnI4aWpObUww" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials&resource=http://localhost:5000/geoapi/&scope=openid profile ci" \
+  | jq -r '.access_token')
+
+# Landing page
+curl -H "Authorization: Bearer $TOKEN" \
+  "https://fastgeoapi.fly.dev/geoapi/?f=json"
+
+# List available collections
+curl -H "Authorization: Bearer $TOKEN" \
+  "https://fastgeoapi.fly.dev/geoapi/collections?f=json"
+
+# View conformance classes
+curl -H "Authorization: Bearer $TOKEN" \
+  "https://fastgeoapi.fly.dev/geoapi/conformance?f=json"
+
+# Access OpenAPI specification
+curl -H "Authorization: Bearer $TOKEN" \
+  "https://fastgeoapi.fly.dev/geoapi/openapi?f=json"
+```
+
+### OAuth2 Configuration Details
+
+| Parameter      | Value                                 |
+| -------------- | ------------------------------------- |
+| Token Endpoint | `https://76hxgq.logto.app/oidc/token` |
+| Grant Type     | `client_credentials`                  |
+| Scope          | `openid profile ci`                   |
+| Resource       | `http://localhost:5000/geoapi/`       |
+
+The Basic Authentication header contains the base64-encoded `client_id:client_secret` credentials for the demo application.
+
 ## Development
 
 ### Prerequisites
