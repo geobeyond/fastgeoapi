@@ -72,7 +72,7 @@ This diagram gives an overview of the basic architecture:
 
 ## Live Demo
 
-A public demo server is available at <img src="https://pygeoapi.io/img/pygeoapi-logo.png" alt="pygeoapi" width="20" height="20"/> **[https://fastgeoapi.fly.dev/geoapi](https://fastgeoapi.fly.dev/geoapi)**.
+A public demo server is available at **[https://fastgeoapi.fly.dev/geoapi](https://fastgeoapi.fly.dev/geoapi)**.
 
 🔐 The API endpoints are protected with **OAuth2 client-credentials flow**, showcasing fastgeoapi's enterprise-ready security features. This allows you to test the full authentication workflow in a real environment.
 
