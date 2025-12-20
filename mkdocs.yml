@@ -21,13 +21,13 @@ theme:
       toggle:
         icon: material/toggle-switch-off-outline
         name: Switch to Dark Mode
-      primary: green
+      primary: custom
       accent: red
     - scheme: slate
       toggle:
         icon: material/toggle-switch
         name: Switch to Light Mode
-      primary: green
+      primary: custom
       accent: blue grey
   icon:
     admonition:
