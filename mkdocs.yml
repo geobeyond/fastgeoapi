@@ -43,6 +43,7 @@ theme:
       quote: octicons/quote-16
 plugins:
   - search
+  - include-markdown
   - termynal:
       prompt_literal_start:
         - "$"
