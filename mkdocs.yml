@@ -93,5 +93,12 @@ markdown_extensions:
   - pymdownx.emoji
   - mkdocs-typer
 
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - How-to Guides: howto-guides.md
+  - Tutorials: tutorials.md
+  - OpenAPI: openapi.md
+
 copyright: |
   &copy; Copyright 2025 <a href="https://github.com/geobeyond">Geobeyond team</a>.
