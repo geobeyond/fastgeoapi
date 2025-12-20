@@ -60,12 +60,12 @@ curl -H "Authorization: Bearer $TOKEN" \
 
 ### OAuth2 Configuration Details
 
-| Parameter | Value |
-|-----------|-------|
+| Parameter      | Value                                 |
+| -------------- | ------------------------------------- |
 | Token Endpoint | `https://76hxgq.logto.app/oidc/token` |
-| Grant Type | `client_credentials` |
-| Scope | `openid profile ci` |
-| Resource | `http://localhost:5000/geoapi/` |
+| Grant Type     | `client_credentials`                  |
+| Scope          | `openid profile ci`                   |
+| Resource       | `http://localhost:5000/geoapi/`       |
 
 The Basic Authentication header contains the base64-encoded `client_id:client_secret` credentials for the demo application.
 
