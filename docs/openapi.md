@@ -4,4 +4,4 @@ hide:
   - toc
 ---
 
-<swagger-ui src="./pygeoapi-openapi.json"/>
+<swagger-ui src="https://fastgeoapi.fly.dev/geoapi/openapi?f=json"/>
