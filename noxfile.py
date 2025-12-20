@@ -105,7 +105,10 @@ def activate_virtualenv_in_precommit_hooks(session: Session) -> None:
 
         text = hook.read_text()
         bindir = repr(session.bin)[1:-1]  # strip quotes
-        if not ((Path("A") == Path("a") and bindir.lower() in text.lower()) or bindir in text):
+        if not (
+            (Path("A") == Path("a") and bindir.lower() in text.lower())
+            or bindir in text
+        ):
             continue
 
         lines = text.splitlines()
@@ -198,7 +201,9 @@ def tests(session: Session) -> None:
         "pytest-asyncio",
     )
     try:
-        session.run("coverage", "run", "--parallel", "-m", "pytest", *session.posargs)
+        session.run(
+            "coverage", "run", "--parallel", "-m", "pytest", *session.posargs
+        )
     finally:
         if session.interactive:
             session.notify("coverage", posargs=[])
@@ -262,6 +267,7 @@ def docs_build(session: Session) -> None:
         "mkdocs-swagger-ui-tag",
         "mkdocs-typer",
         "mkdocstrings[python]",
+        "mkdocs-include-markdown-plugin",
         "termynal",
     )
 
@@ -285,6 +291,7 @@ def docs(session: Session) -> None:
         "mkdocs-swagger-ui-tag",
         "mkdocs-typer",
         "mkdocstrings[python]",
+        "mkdocs-include-markdown-plugin",
         "termynal",
     )
 
