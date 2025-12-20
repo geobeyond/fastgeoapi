@@ -3,6 +3,8 @@ docs_dir: docs
 site_dir: docs_build/site
 theme:
   name: material
+  logo: images/fastgeoapi_almost_good.svg
+  favicon: images/fastgeoapi_almost_good.svg
   features:
     - navigation.tabs
     - navigation.sections
