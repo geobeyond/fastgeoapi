@@ -5,16 +5,18 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import httpx
 import loguru
 import uvicorn
+import yaml
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi_opa import OPAMiddleware
+from fastmcp import FastMCP
 from loguru import logger
 from mangum import Mangum
 from openapi_pydantic.v3.v3_0 import OAuthFlow, OAuthFlows, SecurityScheme
 from pygeoapi.l10n import LocaleError
-from pygeoapi.openapi import generate_openapi_document
 from pygeoapi.provider.base import ProviderConnectionError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
@@ -25,6 +27,7 @@ from app.middleware.oauth2 import Oauth2Middleware
 from app.middleware.proxy import ForwardedLinksMiddleware
 from app.middleware.pygeoapi import OpenapiSecurityMiddleware
 from app.utils.app_exceptions import AppExceptionError, app_exception_handler
+from app.utils.openapi_generator import ensure_openapi_file_exists
 from app.utils.pygeoapi_exceptions import (
     PygeoapiEnvError,
     PygeoapiLanguageError,
@@ -52,9 +55,18 @@ class FastGeoAPI(FastAPI):
         self.logger: loguru.Logger = logger
 
 
-def create_app():
-    """Handle application creation."""
-    app = FastGeoAPI(title="fastgeoapi", root_path=cfg.ROOT_PATH, debug=True)
+def create_app(lifespan=None):
+    """Handle application creation.
+
+    Args:
+        lifespan: Optional lifespan context manager for the app.
+    """
+    app = FastGeoAPI(
+        title="fastgeoapi",
+        root_path=cfg.ROOT_PATH,
+        debug=True,
+        lifespan=lifespan,
+    )
 
     # Set all CORS enabled origins
     app.add_middleware(
@@ -78,69 +90,35 @@ def create_app():
         return await app_exception_handler(request, e)
 
     try:
-        # override pygeoapi os variables
-        # Pydantic will validate these are set at config instantiation time
-        os.environ["PYGEOAPI_CONFIG"] = cfg.PYGEOAPI_CONFIG
-        os.environ["PYGEOAPI_OPENAPI"] = cfg.PYGEOAPI_OPENAPI
+        # Ensure OpenAPI file exists (environment variables are set by ensure_openapi_file_exists)
+        pygeoapi_conf = Path.cwd() / cfg.PYGEOAPI_CONFIG
 
-        # fill pygeoapi configuration with host, port, base url and context
-        os.environ["HOST"] = cfg.HOST
-        os.environ["PORT"] = cfg.PORT
-        os.environ["PYGEOAPI_BASEURL"] = cfg.PYGEOAPI_BASEURL
-        os.environ["FASTGEOAPI_CONTEXT"] = cfg.FASTGEOAPI_CONTEXT
+        # import pygeoapi starlette application once pygeoapi configuration
+        # are set and prepare the objects to override some core behavior
+        from pygeoapi.starlette_app import APP as PYGEOAPI_APP
+        from pygeoapi.starlette_app import url_prefix
+        from starlette.applications import Starlette
+        from starlette.routing import Mount
 
-        # prepare pygeoapi openapi file if it doesn't exist
-        pygeoapi_conf = Path.cwd() / os.environ["PYGEOAPI_CONFIG"]
-        pygeoapi_oapi = Path.cwd() / os.environ["PYGEOAPI_OPENAPI"]
-        if not (os.environ["PYGEOAPI_CONFIG"] and os.environ["PYGEOAPI_OPENAPI"]):
-            logger.error("pygeoapi variables are not configured")
-            raise PygeoapiEnvError("PYGEOAPI_CONFIG and PYGEOAPI_OPENAPI are not set")
-        else:
-            # fill pygeoapi configuration with host, port, base url and context
-            os.environ["HOST"] = cfg.HOST
-            os.environ["PORT"] = cfg.PORT
-            os.environ["PYGEOAPI_BASEURL"] = cfg.PYGEOAPI_BASEURL
-            os.environ["FASTGEOAPI_CONTEXT"] = cfg.FASTGEOAPI_CONTEXT
+        from app.utils.pygeoapi_utils import patch_route
 
-            # prepare pygeoapi openapi file if it doesn't exist
-            pygeoapi_conf = Path.cwd() / os.environ["PYGEOAPI_CONFIG"]
-            pygeoapi_oapi = Path.cwd() / os.environ["PYGEOAPI_OPENAPI"]
-            if not pygeoapi_oapi.exists():
-                pygeoapi_oapi.write_text(data="")
-                with pygeoapi_oapi.open(mode="w") as oapi_file:
-                    oapi_content = generate_openapi_document(
-                        pygeoapi_conf,
-                        output_format="yaml",
-                    )
-                    logger.debug(f"OpenAPI content: \n{oapi_content}")
-                    oapi_file.write(oapi_content)
+        static_route = PYGEOAPI_APP.routes[0]
+        api_app = PYGEOAPI_APP.routes[1].app
+        api_routes = api_app.routes
 
-            # import pygeoapi starlette application once pygeoapi configuration
-            # are set and prepare the objects to override some core behavior
-            from pygeoapi.starlette_app import APP as PYGEOAPI_APP
-            from pygeoapi.starlette_app import url_prefix
-            from starlette.applications import Starlette
-            from starlette.routing import Mount
+        patched_routes = ()
+        for api_route in api_routes:
+            api_route_ = patch_route(api_route)
+            patched_routes += (api_route_,)
 
-            from app.utils.pygeoapi_utils import patch_route
-
-            static_route = PYGEOAPI_APP.routes[0]
-            api_app = PYGEOAPI_APP.routes[1].app
-            api_routes = api_app.routes
-
-            patched_routes = ()
-            for api_route in api_routes:
-                api_route_ = patch_route(api_route)
-                patched_routes += (api_route_,)
-
-            patched_app = Starlette(
-                routes=[
-                    static_route,
-                    Mount(url_prefix or "/", routes=list(patched_routes)),
-                ],
-            )
-            if cfg.FASTGEOAPI_REVERSE_PROXY:
-                patched_app.add_middleware(ForwardedLinksMiddleware)
+        patched_app = Starlette(
+            routes=[
+                static_route,
+                Mount(url_prefix or "/", routes=list(patched_routes)),
+            ],
+        )
+        if cfg.FASTGEOAPI_REVERSE_PROXY:
+            patched_app.add_middleware(ForwardedLinksMiddleware)
 
     except FileNotFoundError:
         logger.error("Please configure pygeoapi settings in .env properly")
@@ -149,7 +127,7 @@ def create_app():
         logger.error(f"Runtime environment variables: \n{cfg}")
         raise PygeoapiEnvError from e
     except LocaleError as e:
-        logger.error(f"Runtime language configuration: \n{oapi_content}")
+        logger.error(f"Locale error during pygeoapi initialization: {e}")
         raise PygeoapiLanguageError from e
     except ProviderConnectionError as e:
         logger.error(f"Runtime environment variables: \n{cfg}")
@@ -225,7 +203,56 @@ def create_app():
     return app
 
 
-app = create_app()
+# MCP Server setup using OpenAPI spec from pygeoapi YAML file
+def create_mcp_server():
+    """Create MCP server from the OGC API OpenAPI specification."""
+    from app.utils.openapi_resolver import resolve_external_refs
+
+    # Load OpenAPI spec from the pygeoapi-generated YAML file
+    pygeoapi_openapi_path = Path.cwd() / cfg.PYGEOAPI_OPENAPI
+    if not pygeoapi_openapi_path.exists():
+        logger.warning(f"OpenAPI file not found: {pygeoapi_openapi_path}. MCP disabled.")
+        return None, None
+
+    with pygeoapi_openapi_path.open() as f:
+        base_spec = yaml.safe_load(f)
+
+    # Resolve external $ref references with disk caching
+    cache_dir = Path.cwd() / ".cache" / "openapi_refs"
+    logger.info("Resolving external OpenAPI references...")
+    openapi_spec = resolve_external_refs(base_spec, cache_dir=cache_dir)
+    logger.info("OpenAPI references resolved successfully")
+
+    # Base URL for API calls
+    api_base_url = f"http://{cfg.HOST}:{cfg.PORT}{cfg.FASTGEOAPI_CONTEXT}"
+
+    # Create async client for MCP to make API requests
+    api_client = httpx.AsyncClient(base_url=api_base_url, timeout=30.0)
+
+    # Create MCP server from OpenAPI spec
+    mcp_server = FastMCP.from_openapi(
+        openapi_spec=openapi_spec,
+        client=api_client,
+        name="OGC API MCP",
+    )
+
+    return mcp_server, mcp_server.http_app(path="/")
+
+
+# Ensure OpenAPI file exists
+ensure_openapi_file_exists()
+
+# Create the main app, optionally with MCP server
+if cfg.FASTGEOAPI_WITH_MCP:
+    mcp, mcp_app = create_mcp_server()
+    if mcp_app is not None:
+        app = create_app(lifespan=mcp_app.lifespan)
+        app.mount("/mcp", mcp_app)
+        logger.info("MCP server mounted at /mcp")
+    else:
+        app = create_app()
+else:
+    app = create_app()
 
 app.logger.debug(f"Global config: {cfg.__repr__()}")
 
