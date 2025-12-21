@@ -59,6 +59,7 @@ class DevConfig(GlobalConfig):
     PYGEOAPI_SECURITY_SCHEME: str | None = None
     FASTGEOAPI_CONTEXT: str
     FASTGEOAPI_REVERSE_PROXY: bool | None = None
+    FASTGEOAPI_WITH_MCP: bool = False
 
     model_config = SettingsConfigDict(
         env_prefix="DEV_",
@@ -100,6 +101,7 @@ class ProdConfig(GlobalConfig):
     PYGEOAPI_SECURITY_SCHEME: str | None = None
     FASTGEOAPI_CONTEXT: str
     FASTGEOAPI_REVERSE_PROXY: bool | None = None
+    FASTGEOAPI_WITH_MCP: bool = False
 
     model_config = SettingsConfigDict(
         env_prefix="PROD_",
