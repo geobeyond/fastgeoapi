@@ -1,6 +1,6 @@
 [project]
 name = "fastgeoapi"
-version = "0.0.6"
+version = "0.0.7"
 description = "fastgeoapi"
 authors = [{ name = "Francesco Bartoli", email = "francesco.bartoli@geobeyond.it" }]
 maintainers = [{ name = "Youssef Harby", email = "youssef.harby@geobeyond.it" }]
@@ -14,7 +14,7 @@ dependencies = [
     "fastapi-opa>=2.0.3,<3",
     "rasterio>=1.4.3,<2",
     "pygeoapi>=0.22.0",
-    "fastapi[standard]>=0.115.12,<1.0",
+    "fastapi[standard]>=0.126,<1.0",
     "typer>=0.15.3,<0.16",
     "fastapi-key-auth>=0.15.4,<0.16.0",
     "sqlalchemy>=2.0.40,<2.1",
@@ -30,6 +30,7 @@ dependencies = [
     "json-ref-dict>=0.7.2,<=1.0",
     "pyyaml>=6.0.2,<7",
     "scalar-fastapi>=1.4.3,<2",
+    "fastmcp>=2.14.1",
 ]
 
 [project.urls]
