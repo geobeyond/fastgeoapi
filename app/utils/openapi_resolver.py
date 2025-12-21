@@ -166,7 +166,9 @@ def _resolve_relative_url(ref: str, base_url: str | None) -> str:
 
     # If no base URL, we can't resolve relative refs
     if not base_url:
-        raise ValueError(f"Cannot resolve relative reference '{ref}' without base URL")
+        raise ValueError(
+            f"Cannot resolve relative reference '{ref}' without base URL"
+        )
 
     # Use urljoin to resolve relative URL
     return urljoin(base_url, ref)
@@ -358,9 +360,10 @@ def resolve_external_refs(
         A new specification with all external $refs resolved.
 
     Example:
-        >>> spec = yaml.safe_load(open("openapi.yaml"))
-        >>> resolved = resolve_external_refs(spec, cache_dir=Path(".cache/openapi"))
-        >>> # Now resolved has no external $refs
+        >>> spec = {"paths": {}, "components": {"schemas": {}}}
+        >>> resolved = resolve_external_refs(spec)
+        >>> resolved == spec  # No external refs, returns unchanged
+        True
     """
     document_cache: dict[str, dict[str, Any]] = {}
     return _resolve_object(
