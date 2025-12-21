@@ -166,9 +166,7 @@ def _resolve_relative_url(ref: str, base_url: str | None) -> str:
 
     # If no base URL, we can't resolve relative refs
     if not base_url:
-        raise ValueError(
-            f"Cannot resolve relative reference '{ref}' without base URL"
-        )
+        raise ValueError(f"Cannot resolve relative reference '{ref}' without base URL")
 
     # Use urljoin to resolve relative URL
     return urljoin(base_url, ref)
