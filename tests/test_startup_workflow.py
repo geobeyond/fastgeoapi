@@ -442,6 +442,232 @@ class TestStartupWorkflowOpenAPI:
             pass  # Skip actual execution as it requires proper file paths
 
 
+class TestStartupWorkflowMCP:
+    """Test startup workflow with MCP configuration for retrocompatibility."""
+
+    def test_startup_without_mcp_by_default(self):
+        """Test that application starts without MCP when FASTGEOAPI_WITH_MCP is not set (default=False)."""
+        env_vars = {
+            "ENV_STATE": "dev",
+            "HOST": "0.0.0.0",
+            "PORT": "5000",
+            "DEV_PYGEOAPI_BASEURL": "http://localhost:5000",
+            "DEV_PYGEOAPI_CONFIG": "pygeoapi-config.yml",
+            "DEV_PYGEOAPI_OPENAPI": "pygeoapi-openapi.yml",
+            "DEV_FASTGEOAPI_CONTEXT": "/geoapi",
+            "DEV_API_KEY_ENABLED": "false",
+            "DEV_JWKS_ENABLED": "false",
+            "DEV_OPA_ENABLED": "false",
+            # FASTGEOAPI_WITH_MCP is NOT set - should default to False
+        }
+
+        with mock.patch.dict(os.environ, env_vars, clear=False):
+            app = reload_app_with_env(env_vars)
+
+            assert app is not None
+            client = TestClient(app)
+
+            # pygeoapi endpoints should work
+            response = client.get("/geoapi/openapi?f=json")
+            assert response.status_code == 200
+
+            # MCP endpoint should NOT exist (404)
+            response = client.get("/mcp/")
+            assert response.status_code == 404
+
+    def test_startup_with_mcp_disabled_explicitly(self):
+        """Test that application starts without MCP when FASTGEOAPI_WITH_MCP=false."""
+        env_vars = {
+            "ENV_STATE": "dev",
+            "HOST": "0.0.0.0",
+            "PORT": "5000",
+            "DEV_PYGEOAPI_BASEURL": "http://localhost:5000",
+            "DEV_PYGEOAPI_CONFIG": "pygeoapi-config.yml",
+            "DEV_PYGEOAPI_OPENAPI": "pygeoapi-openapi.yml",
+            "DEV_FASTGEOAPI_CONTEXT": "/geoapi",
+            "DEV_FASTGEOAPI_WITH_MCP": "false",
+            "DEV_API_KEY_ENABLED": "false",
+            "DEV_JWKS_ENABLED": "false",
+            "DEV_OPA_ENABLED": "false",
+        }
+
+        with mock.patch.dict(os.environ, env_vars, clear=False):
+            app = reload_app_with_env(env_vars)
+
+            assert app is not None
+            client = TestClient(app)
+
+            # pygeoapi endpoints should work
+            response = client.get("/geoapi/openapi?f=json")
+            assert response.status_code == 200
+
+            # MCP endpoint should NOT exist (404)
+            response = client.get("/mcp/")
+            assert response.status_code == 404
+
+    def test_startup_with_mcp_enabled(self):
+        """Test that application starts with MCP when FASTGEOAPI_WITH_MCP=true."""
+        env_vars = {
+            "ENV_STATE": "dev",
+            "HOST": "0.0.0.0",
+            "PORT": "5000",
+            "DEV_PYGEOAPI_BASEURL": "http://localhost:5000",
+            "DEV_PYGEOAPI_CONFIG": "pygeoapi-config.yml",
+            "DEV_PYGEOAPI_OPENAPI": "pygeoapi-openapi.yml",
+            "DEV_FASTGEOAPI_CONTEXT": "/geoapi",
+            "DEV_FASTGEOAPI_WITH_MCP": "true",
+            "DEV_API_KEY_ENABLED": "false",
+            "DEV_JWKS_ENABLED": "false",
+            "DEV_OPA_ENABLED": "false",
+        }
+
+        with mock.patch.dict(os.environ, env_vars, clear=False):
+            # Need to reload the entire main module to test MCP mounting
+            modules_to_remove = [key for key in sys.modules.keys() if key.startswith("app.")]
+            for module in modules_to_remove:
+                del sys.modules[module]
+
+            from app.config.app import FactoryConfig
+
+            FactoryConfig.get_config.cache_clear()
+
+            # Import the app directly from main (which includes MCP setup at module level)
+            from app.main import app
+
+            assert app is not None
+
+            # Verify MCP route is mounted by checking routes
+            route_paths = [route.path for route in app.routes if hasattr(route, "path")]
+            assert (
+                "/mcp" in route_paths
+            ), "MCP route should be mounted when FASTGEOAPI_WITH_MCP=true"
+
+            # Verify pygeoapi is still accessible
+            client = TestClient(app)
+            response = client.get("/geoapi/openapi?f=json")
+            assert response.status_code == 200
+
+    def test_mcp_routes_not_in_app_when_disabled(self):
+        """Test that MCP routes are not present in the app when MCP is disabled."""
+        env_vars = {
+            "ENV_STATE": "dev",
+            "HOST": "0.0.0.0",
+            "PORT": "5000",
+            "DEV_PYGEOAPI_BASEURL": "http://localhost:5000",
+            "DEV_PYGEOAPI_CONFIG": "pygeoapi-config.yml",
+            "DEV_PYGEOAPI_OPENAPI": "pygeoapi-openapi.yml",
+            "DEV_FASTGEOAPI_CONTEXT": "/geoapi",
+            "DEV_FASTGEOAPI_WITH_MCP": "false",
+            "DEV_API_KEY_ENABLED": "false",
+            "DEV_JWKS_ENABLED": "false",
+            "DEV_OPA_ENABLED": "false",
+        }
+
+        with mock.patch.dict(os.environ, env_vars, clear=False):
+            app = reload_app_with_env(env_vars)
+
+            # Check that /mcp is not in the routes
+            route_paths = [route.path for route in app.routes if hasattr(route, "path")]
+            assert "/mcp" not in route_paths
+            assert not any("/mcp" in str(path) for path in route_paths)
+
+    def test_openapi_file_generated_when_mcp_disabled(self, tmp_path):
+        """Test that OpenAPI file is generated even when MCP is disabled.
+
+        This ensures the openapi_generator utility is called regardless of MCP setting.
+        """
+        # Create a temporary OpenAPI file path
+        temp_openapi = tmp_path / "pygeoapi-openapi.yml"
+
+        env_vars = {
+            "ENV_STATE": "dev",
+            "HOST": "0.0.0.0",
+            "PORT": "5000",
+            "DEV_PYGEOAPI_BASEURL": "http://localhost:5000",
+            "DEV_PYGEOAPI_CONFIG": "pygeoapi-config.yml",
+            "DEV_PYGEOAPI_OPENAPI": str(temp_openapi),
+            "DEV_FASTGEOAPI_CONTEXT": "/geoapi",
+            "DEV_FASTGEOAPI_WITH_MCP": "false",
+            "DEV_API_KEY_ENABLED": "false",
+            "DEV_JWKS_ENABLED": "false",
+            "DEV_OPA_ENABLED": "false",
+        }
+
+        # Ensure the temp openapi file doesn't exist
+        assert not temp_openapi.exists()
+
+        with mock.patch.dict(os.environ, env_vars, clear=False):
+            # Clear modules to get fresh import
+            modules_to_remove = [key for key in sys.modules.keys() if key.startswith("app.")]
+            for module in modules_to_remove:
+                del sys.modules[module]
+
+            from app.config.app import FactoryConfig
+
+            FactoryConfig.get_config.cache_clear()
+
+            # Import triggers ensure_openapi_file_exists() at module level
+            from app.main import app
+
+            assert app is not None
+
+            # Verify OpenAPI file was generated
+            assert (
+                temp_openapi.exists()
+            ), "OpenAPI file should be generated even when MCP is disabled"
+
+            # Verify file has content
+            content = temp_openapi.read_text()
+            assert len(content) > 0, "OpenAPI file should have content"
+            assert "openapi" in content, "OpenAPI file should contain valid OpenAPI spec"
+
+    def test_retrocompatibility_with_master_config(self):
+        """Test that server works exactly like master branch when MCP is disabled.
+
+        This test ensures retrocompatibility by verifying all standard pygeoapi
+        endpoints work without MCP enabled.
+        """
+        env_vars = {
+            "ENV_STATE": "dev",
+            "HOST": "0.0.0.0",
+            "PORT": "5000",
+            "DEV_PYGEOAPI_BASEURL": "http://localhost:5000",
+            "DEV_PYGEOAPI_CONFIG": "pygeoapi-config.yml",
+            "DEV_PYGEOAPI_OPENAPI": "pygeoapi-openapi.yml",
+            "DEV_FASTGEOAPI_CONTEXT": "/geoapi",
+            "DEV_API_KEY_ENABLED": "false",
+            "DEV_JWKS_ENABLED": "false",
+            "DEV_OPA_ENABLED": "false",
+            # No MCP setting - should behave like master
+        }
+
+        with mock.patch.dict(os.environ, env_vars, clear=False):
+            app = reload_app_with_env(env_vars)
+
+            client = TestClient(app)
+
+            # Test all standard OGC API endpoints that should work on master
+            # Landing page
+            response = client.get("/geoapi/?f=json")
+            assert response.status_code == 200
+
+            # OpenAPI
+            response = client.get("/geoapi/openapi?f=json")
+            assert response.status_code == 200
+
+            # Conformance
+            response = client.get("/geoapi/conformance?f=json")
+            assert response.status_code == 200
+
+            # Collections
+            response = client.get("/geoapi/collections?f=json")
+            assert response.status_code == 200
+
+            # Processes
+            response = client.get("/geoapi/processes?f=json")
+            assert response.status_code == 200
+
+
 class TestStartupWorkflowIntegration:
     """Integration tests for the complete startup workflow."""
 
