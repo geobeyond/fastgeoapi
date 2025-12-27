@@ -668,6 +668,315 @@ class TestStartupWorkflowMCP:
             assert response.status_code == 200
 
 
+class TestStartupWorkflowMCPAuth:
+    """Test MCP startup with OIDC authentication configuration."""
+
+    def test_mcp_without_oidc_auth(self):
+        """Test that MCP starts without OIDC auth when JWKS is disabled."""
+        env_vars = {
+            "ENV_STATE": "dev",
+            "HOST": "0.0.0.0",
+            "PORT": "5000",
+            "DEV_PYGEOAPI_BASEURL": "http://localhost:5000",
+            "DEV_PYGEOAPI_CONFIG": "pygeoapi-config.yml",
+            "DEV_PYGEOAPI_OPENAPI": "pygeoapi-openapi.yml",
+            "DEV_FASTGEOAPI_CONTEXT": "/geoapi",
+            "DEV_FASTGEOAPI_WITH_MCP": "true",
+            "DEV_API_KEY_ENABLED": "false",
+            "DEV_JWKS_ENABLED": "false",
+            "DEV_OPA_ENABLED": "false",
+        }
+
+        with mock.patch.dict(os.environ, env_vars, clear=False):
+            modules_to_remove = [key for key in sys.modules.keys() if key.startswith("app.")]
+            for module in modules_to_remove:
+                del sys.modules[module]
+
+            from app.config.app import FactoryConfig
+
+            FactoryConfig.get_config.cache_clear()
+
+            from app.main import app
+
+            assert app is not None
+
+            # Verify MCP route is mounted
+            route_paths = [route.path for route in app.routes if hasattr(route, "path")]
+            assert "/mcp" in route_paths
+
+            # Verify pygeoapi is still accessible
+            client = TestClient(app)
+            response = client.get("/geoapi/openapi?f=json")
+            assert response.status_code == 200
+
+    def test_mcp_with_oidc_auth_requires_config(self):
+        """Test that MCP with JWKS enabled starts without OIDC if config is missing."""
+        env_vars = {
+            "ENV_STATE": "dev",
+            "HOST": "0.0.0.0",
+            "PORT": "5000",
+            "DEV_PYGEOAPI_BASEURL": "http://localhost:5000",
+            "DEV_PYGEOAPI_CONFIG": "pygeoapi-config.yml",
+            "DEV_PYGEOAPI_OPENAPI": "pygeoapi-openapi.yml",
+            "DEV_FASTGEOAPI_CONTEXT": "/geoapi",
+            "DEV_FASTGEOAPI_WITH_MCP": "true",
+            "DEV_API_KEY_ENABLED": "false",
+            "DEV_JWKS_ENABLED": "true",
+            "DEV_OPA_ENABLED": "false",
+            "DEV_OAUTH2_JWKS_ENDPOINT": "https://example.com/.well-known/jwks.json",
+            # Explicitly unset OIDC config - MCP should start without OIDC auth
+            "DEV_OIDC_WELL_KNOWN_ENDPOINT": "",
+            "DEV_OIDC_CLIENT_ID": "",
+            "DEV_OIDC_CLIENT_SECRET": "",
+        }
+
+        with mock.patch.dict(os.environ, env_vars, clear=False):
+            modules_to_remove = [key for key in sys.modules.keys() if key.startswith("app.")]
+            for module in modules_to_remove:
+                del sys.modules[module]
+
+            from app.config.app import FactoryConfig
+
+            FactoryConfig.get_config.cache_clear()
+
+            from app.main import create_mcp_server
+
+            mcp_server, mcp_app, well_known_routes = create_mcp_server()
+
+            assert mcp_server is not None
+            assert mcp_app is not None
+            # No OIDC config, so no well-known routes
+            assert well_known_routes == []
+
+    def test_mcp_oidc_auth_config_creation(self):
+        """Test that OIDCProxy auth is created when all OIDC vars are set."""
+        env_vars = {
+            "ENV_STATE": "dev",
+            "HOST": "0.0.0.0",
+            "PORT": "5000",
+            "DEV_PYGEOAPI_BASEURL": "http://localhost:5000",
+            "DEV_PYGEOAPI_CONFIG": "pygeoapi-config.yml",
+            "DEV_PYGEOAPI_OPENAPI": "pygeoapi-openapi.yml",
+            "DEV_FASTGEOAPI_CONTEXT": "/geoapi",
+            "DEV_FASTGEOAPI_WITH_MCP": "true",
+            "DEV_API_KEY_ENABLED": "false",
+            "DEV_JWKS_ENABLED": "true",
+            "DEV_OPA_ENABLED": "false",
+            "DEV_OAUTH2_JWKS_ENDPOINT": "https://example.logto.app/oidc/jwks",
+            "DEV_OIDC_WELL_KNOWN_ENDPOINT": "https://example.logto.app/oidc/.well-known/openid-configuration",
+            "DEV_OIDC_CLIENT_ID": "test-client-id",
+            "DEV_OIDC_CLIENT_SECRET": "test-client-secret",
+            "DEV_APP_URI": "http://localhost:5000",
+        }
+
+        # Mock OIDC configuration response
+        mock_oidc_config = {
+            "issuer": "https://example.logto.app/oidc",
+            "authorization_endpoint": "https://example.logto.app/oidc/auth",
+            "token_endpoint": "https://example.logto.app/oidc/token",
+            "jwks_uri": "https://example.logto.app/oidc/jwks",
+            "response_types_supported": ["code"],
+            "subject_types_supported": ["public"],
+            "id_token_signing_alg_values_supported": ["RS256"],
+        }
+
+        with mock.patch.dict(os.environ, env_vars, clear=False):
+            # Clean app modules
+            modules_to_remove = [key for key in sys.modules.keys() if key.startswith("app.")]
+            for module in modules_to_remove:
+                del sys.modules[module]
+
+            from app.config.app import FactoryConfig
+
+            FactoryConfig.get_config.cache_clear()
+
+            # Mock httpx.get to return OIDC config
+            mock_response = mock.MagicMock()
+            mock_response.json.return_value = mock_oidc_config
+            mock_response.raise_for_status = mock.MagicMock()
+
+            with mock.patch("httpx.get", return_value=mock_response):
+                from app.main import create_mcp_server
+
+                mcp_server, mcp_app, well_known_routes = create_mcp_server()
+
+                assert mcp_server is not None
+                assert mcp_app is not None
+                # With OIDC config, we should have well-known routes
+                assert len(well_known_routes) > 0
+
+    def test_mcp_oidc_base_url_uses_app_uri(self):
+        """Test that MCP OIDC auth uses APP_URI for base_url when available."""
+        env_vars = {
+            "ENV_STATE": "dev",
+            "HOST": "0.0.0.0",
+            "PORT": "5000",
+            "DEV_PYGEOAPI_BASEURL": "http://localhost:5000",
+            "DEV_PYGEOAPI_CONFIG": "pygeoapi-config.yml",
+            "DEV_PYGEOAPI_OPENAPI": "pygeoapi-openapi.yml",
+            "DEV_FASTGEOAPI_CONTEXT": "/geoapi",
+            "DEV_FASTGEOAPI_WITH_MCP": "true",
+            "DEV_API_KEY_ENABLED": "false",
+            "DEV_JWKS_ENABLED": "true",
+            "DEV_OPA_ENABLED": "false",
+            "DEV_OAUTH2_JWKS_ENDPOINT": "https://example.logto.app/oidc/jwks",
+            "DEV_OIDC_WELL_KNOWN_ENDPOINT": "https://example.logto.app/oidc/.well-known/openid-configuration",
+            "DEV_OIDC_CLIENT_ID": "test-client-id",
+            "DEV_OIDC_CLIENT_SECRET": "test-client-secret",
+            "DEV_APP_URI": "https://myapp.example.com",
+        }
+
+        # Mock OIDC configuration response
+        mock_oidc_config = {
+            "issuer": "https://example.logto.app/oidc",
+            "authorization_endpoint": "https://example.logto.app/oidc/auth",
+            "token_endpoint": "https://example.logto.app/oidc/token",
+            "jwks_uri": "https://example.logto.app/oidc/jwks",
+            "response_types_supported": ["code"],
+            "subject_types_supported": ["public"],
+            "id_token_signing_alg_values_supported": ["RS256"],
+        }
+
+        with mock.patch.dict(os.environ, env_vars, clear=False):
+            modules_to_remove = [key for key in sys.modules.keys() if key.startswith("app.")]
+            for module in modules_to_remove:
+                del sys.modules[module]
+
+            from app.config.app import FactoryConfig
+
+            FactoryConfig.get_config.cache_clear()
+
+            # Mock httpx.get to return OIDC config
+            mock_response = mock.MagicMock()
+            mock_response.json.return_value = mock_oidc_config
+            mock_response.raise_for_status = mock.MagicMock()
+
+            with mock.patch("httpx.get", return_value=mock_response):
+                from app.main import create_mcp_server
+
+                mcp_server, _, well_known_routes = create_mcp_server()
+
+                assert mcp_server is not None
+                # With OIDC config, we should have well-known routes
+                assert len(well_known_routes) > 0
+
+    def test_mcp_oidc_base_url_fallback_to_host_port(self):
+        """Test that MCP OIDC auth falls back to HOST:PORT when APP_URI is not set."""
+        env_vars = {
+            "ENV_STATE": "dev",
+            "HOST": "localhost",  # Use localhost for MCP OIDC (allows HTTP)
+            "PORT": "5000",
+            "DEV_PYGEOAPI_BASEURL": "http://localhost:5000",
+            "DEV_PYGEOAPI_CONFIG": "pygeoapi-config.yml",
+            "DEV_PYGEOAPI_OPENAPI": "pygeoapi-openapi.yml",
+            "DEV_FASTGEOAPI_CONTEXT": "/geoapi",
+            "DEV_FASTGEOAPI_WITH_MCP": "true",
+            "DEV_API_KEY_ENABLED": "false",
+            "DEV_JWKS_ENABLED": "true",
+            "DEV_OPA_ENABLED": "false",
+            "DEV_OAUTH2_JWKS_ENDPOINT": "https://example.logto.app/oidc/jwks",
+            "DEV_OIDC_WELL_KNOWN_ENDPOINT": "https://example.logto.app/oidc/.well-known/openid-configuration",
+            "DEV_OIDC_CLIENT_ID": "test-client-id",
+            "DEV_OIDC_CLIENT_SECRET": "test-client-secret",
+            # APP_URI is NOT set - explicitly clear it
+            "DEV_APP_URI": "",
+        }
+
+        # Mock OIDC configuration response
+        mock_oidc_config = {
+            "issuer": "https://example.logto.app/oidc",
+            "authorization_endpoint": "https://example.logto.app/oidc/auth",
+            "token_endpoint": "https://example.logto.app/oidc/token",
+            "jwks_uri": "https://example.logto.app/oidc/jwks",
+            "response_types_supported": ["code"],
+            "subject_types_supported": ["public"],
+            "id_token_signing_alg_values_supported": ["RS256"],
+        }
+
+        with mock.patch.dict(os.environ, env_vars, clear=False):
+            modules_to_remove = [key for key in sys.modules.keys() if key.startswith("app.")]
+            for module in modules_to_remove:
+                del sys.modules[module]
+
+            from app.config.app import FactoryConfig
+
+            FactoryConfig.get_config.cache_clear()
+
+            # Mock httpx.get to return OIDC config
+            mock_response = mock.MagicMock()
+            mock_response.json.return_value = mock_oidc_config
+            mock_response.raise_for_status = mock.MagicMock()
+
+            with mock.patch("httpx.get", return_value=mock_response):
+                from app.main import create_mcp_server
+
+                mcp_server, _, well_known_routes = create_mcp_server()
+
+                assert mcp_server is not None
+                # With OIDC config, we should have well-known routes
+                assert len(well_known_routes) > 0
+
+    def test_mcp_well_known_routes_mounted_at_root(self):
+        """Test that OAuth well-known routes are mounted at root level, not under /mcp."""
+        env_vars = {
+            "ENV_STATE": "dev",
+            "HOST": "localhost",
+            "PORT": "5000",
+            "DEV_PYGEOAPI_BASEURL": "http://localhost:5000",
+            "DEV_PYGEOAPI_CONFIG": "pygeoapi-config.yml",
+            "DEV_PYGEOAPI_OPENAPI": "pygeoapi-openapi.yml",
+            "DEV_FASTGEOAPI_CONTEXT": "/geoapi",
+            "DEV_FASTGEOAPI_WITH_MCP": "true",
+            "DEV_API_KEY_ENABLED": "false",
+            "DEV_JWKS_ENABLED": "true",
+            "DEV_OPA_ENABLED": "false",
+            "DEV_OAUTH2_JWKS_ENDPOINT": "https://example.logto.app/oidc/jwks",
+            "DEV_OIDC_WELL_KNOWN_ENDPOINT": "https://example.logto.app/oidc/.well-known/openid-configuration",
+            "DEV_OIDC_CLIENT_ID": "test-client-id",
+            "DEV_OIDC_CLIENT_SECRET": "test-client-secret",
+            "DEV_APP_URI": "",
+        }
+
+        # Mock OIDC configuration response
+        mock_oidc_config = {
+            "issuer": "https://example.logto.app/oidc",
+            "authorization_endpoint": "https://example.logto.app/oidc/auth",
+            "token_endpoint": "https://example.logto.app/oidc/token",
+            "jwks_uri": "https://example.logto.app/oidc/jwks",
+            "response_types_supported": ["code"],
+            "subject_types_supported": ["public"],
+            "id_token_signing_alg_values_supported": ["RS256"],
+        }
+
+        with mock.patch.dict(os.environ, env_vars, clear=False):
+            modules_to_remove = [key for key in sys.modules.keys() if key.startswith("app.")]
+            for module in modules_to_remove:
+                del sys.modules[module]
+
+            from app.config.app import FactoryConfig
+
+            FactoryConfig.get_config.cache_clear()
+
+            # Mock httpx.get to return OIDC config
+            mock_response = mock.MagicMock()
+            mock_response.json.return_value = mock_oidc_config
+            mock_response.raise_for_status = mock.MagicMock()
+
+            with mock.patch("httpx.get", return_value=mock_response):
+                from app.main import create_mcp_server
+
+                _, _, well_known_routes = create_mcp_server()
+
+                # Verify well-known routes exist and have proper paths
+                assert len(well_known_routes) > 0
+                for route in well_known_routes:
+                    # All well-known routes should start with /.well-known/
+                    assert route.path.startswith("/.well-known/")
+                    # They should contain the mcp path as a suffix (RFC 9728)
+                    # e.g. /.well-known/oauth-authorization-server/mcp
+                    assert "/mcp" in route.path
+
+
 class TestStartupWorkflowIntegration:
     """Integration tests for the complete startup workflow."""
 
