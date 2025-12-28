@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from starlette.requests import Request
 
+from app.config.app import configuration as cfg
 from app.middleware.oauth2 import Oauth2Middleware
 
 
@@ -57,88 +58,74 @@ class TestMCPInternalAuthBypass:
         internal_key = "test-secret-key-12345"
         mock_request_localhost.headers = {"X-MCP-Internal-Key": internal_key}
 
-        with patch("app.middleware.oauth2.cfg") as mock_cfg:
-            mock_cfg.FASTGEOAPI_WITH_MCP = True
-            mock_cfg.MCP_INTERNAL_KEY = internal_key
-            mock_cfg.FASTGEOAPI_CONTEXT = "/geoapi"
+        # Use patch.object to patch specific attributes on the singleton
+        with patch.object(cfg, "FASTGEOAPI_WITH_MCP", True):
+            with patch.object(cfg, "MCP_INTERNAL_KEY", internal_key):
+                middleware = Oauth2Middleware(
+                    app=MagicMock(),
+                    config=mock_config,
+                )
 
-            middleware = Oauth2Middleware(
-                app=MagicMock(),
-                config=mock_config,
-            )
-
-            result = middleware._is_valid_mcp_internal_request(mock_request_localhost)
-            assert result is True
+                result = middleware._is_valid_mcp_internal_request(mock_request_localhost)
+                assert result is True
 
     def test_no_bypass_when_mcp_disabled(self, mock_config, mock_request_localhost):
         """Test: require auth when FASTGEOAPI_WITH_MCP is False."""
         internal_key = "test-secret-key-12345"
         mock_request_localhost.headers = {"X-MCP-Internal-Key": internal_key}
 
-        with patch("app.middleware.oauth2.cfg") as mock_cfg:
-            mock_cfg.FASTGEOAPI_WITH_MCP = False
-            mock_cfg.MCP_INTERNAL_KEY = internal_key
-            mock_cfg.FASTGEOAPI_CONTEXT = "/geoapi"
+        with patch.object(cfg, "FASTGEOAPI_WITH_MCP", False):
+            with patch.object(cfg, "MCP_INTERNAL_KEY", internal_key):
+                middleware = Oauth2Middleware(
+                    app=MagicMock(),
+                    config=mock_config,
+                )
 
-            middleware = Oauth2Middleware(
-                app=MagicMock(),
-                config=mock_config,
-            )
-
-            result = middleware._is_valid_mcp_internal_request(mock_request_localhost)
-            assert result is False
+                result = middleware._is_valid_mcp_internal_request(mock_request_localhost)
+                assert result is False
 
     def test_no_bypass_without_internal_key_header(self, mock_config, mock_request_localhost):
         """Test: require auth when X-MCP-Internal-Key header is missing."""
-        with patch("app.middleware.oauth2.cfg") as mock_cfg:
-            mock_cfg.FASTGEOAPI_WITH_MCP = True
-            mock_cfg.MCP_INTERNAL_KEY = "test-secret-key-12345"
-            mock_cfg.FASTGEOAPI_CONTEXT = "/geoapi"
+        with patch.object(cfg, "FASTGEOAPI_WITH_MCP", True):
+            with patch.object(cfg, "MCP_INTERNAL_KEY", "test-secret-key-12345"):
+                middleware = Oauth2Middleware(
+                    app=MagicMock(),
+                    config=mock_config,
+                )
 
-            middleware = Oauth2Middleware(
-                app=MagicMock(),
-                config=mock_config,
-            )
-
-            # No header set
-            mock_request_localhost.headers = {}
-            result = middleware._is_valid_mcp_internal_request(mock_request_localhost)
-            assert result is False
+                # No header set
+                mock_request_localhost.headers = {}
+                result = middleware._is_valid_mcp_internal_request(mock_request_localhost)
+                assert result is False
 
     def test_no_bypass_with_wrong_internal_key(self, mock_config, mock_request_localhost):
         """Test: require auth when X-MCP-Internal-Key doesn't match."""
         mock_request_localhost.headers = {"X-MCP-Internal-Key": "wrong-key"}
 
-        with patch("app.middleware.oauth2.cfg") as mock_cfg:
-            mock_cfg.FASTGEOAPI_WITH_MCP = True
-            mock_cfg.MCP_INTERNAL_KEY = "correct-key"
-            mock_cfg.FASTGEOAPI_CONTEXT = "/geoapi"
+        with patch.object(cfg, "FASTGEOAPI_WITH_MCP", True):
+            with patch.object(cfg, "MCP_INTERNAL_KEY", "correct-key"):
+                middleware = Oauth2Middleware(
+                    app=MagicMock(),
+                    config=mock_config,
+                )
 
-            middleware = Oauth2Middleware(
-                app=MagicMock(),
-                config=mock_config,
-            )
-
-            result = middleware._is_valid_mcp_internal_request(mock_request_localhost)
-            assert result is False
+                result = middleware._is_valid_mcp_internal_request(mock_request_localhost)
+                assert result is False
 
     def test_no_bypass_from_external_ip(self, mock_config, mock_request_external):
         """Test: require auth when request comes from external IP."""
         internal_key = "test-secret-key-12345"
         mock_request_external.headers = {"X-MCP-Internal-Key": internal_key}
 
-        with patch("app.middleware.oauth2.cfg") as mock_cfg:
-            mock_cfg.FASTGEOAPI_WITH_MCP = True
-            mock_cfg.MCP_INTERNAL_KEY = internal_key
-            mock_cfg.FASTGEOAPI_CONTEXT = "/geoapi"
+        with patch.object(cfg, "FASTGEOAPI_WITH_MCP", True):
+            with patch.object(cfg, "MCP_INTERNAL_KEY", internal_key):
+                middleware = Oauth2Middleware(
+                    app=MagicMock(),
+                    config=mock_config,
+                )
 
-            middleware = Oauth2Middleware(
-                app=MagicMock(),
-                config=mock_config,
-            )
-
-            result = middleware._is_valid_mcp_internal_request(mock_request_external)
-            assert result is False
+                result = middleware._is_valid_mcp_internal_request(mock_request_external)
+                assert result is False
 
     def test_no_bypass_when_mcp_internal_key_not_configured(
         self, mock_config, mock_request_localhost
@@ -146,19 +133,15 @@ class TestMCPInternalAuthBypass:
         """Test: require auth when MCP_INTERNAL_KEY is not set in config."""
         mock_request_localhost.headers = {"X-MCP-Internal-Key": "some-key"}
 
-        with patch("app.middleware.oauth2.cfg") as mock_cfg:
-            mock_cfg.FASTGEOAPI_WITH_MCP = True
-            # MCP_INTERNAL_KEY not set (simulating app started without MCP)
-            del mock_cfg.MCP_INTERNAL_KEY
-            mock_cfg.FASTGEOAPI_CONTEXT = "/geoapi"
+        with patch.object(cfg, "FASTGEOAPI_WITH_MCP", True):
+            with patch.object(cfg, "MCP_INTERNAL_KEY", None):
+                middleware = Oauth2Middleware(
+                    app=MagicMock(),
+                    config=mock_config,
+                )
 
-            middleware = Oauth2Middleware(
-                app=MagicMock(),
-                config=mock_config,
-            )
-
-            result = middleware._is_valid_mcp_internal_request(mock_request_localhost)
-            assert result is False
+                result = middleware._is_valid_mcp_internal_request(mock_request_localhost)
+                assert result is False
 
     def test_bypass_from_ipv6_localhost(self, mock_config):
         """Test: bypass auth when request comes from ::1 (IPv6 localhost)."""
@@ -172,18 +155,15 @@ class TestMCPInternalAuthBypass:
         request.url = MagicMock()
         request.url.path = "/geoapi/collections"
 
-        with patch("app.middleware.oauth2.cfg") as mock_cfg:
-            mock_cfg.FASTGEOAPI_WITH_MCP = True
-            mock_cfg.MCP_INTERNAL_KEY = internal_key
-            mock_cfg.FASTGEOAPI_CONTEXT = "/geoapi"
+        with patch.object(cfg, "FASTGEOAPI_WITH_MCP", True):
+            with patch.object(cfg, "MCP_INTERNAL_KEY", internal_key):
+                middleware = Oauth2Middleware(
+                    app=MagicMock(),
+                    config=mock_config,
+                )
 
-            middleware = Oauth2Middleware(
-                app=MagicMock(),
-                config=mock_config,
-            )
-
-            result = middleware._is_valid_mcp_internal_request(request)
-            assert result is True
+                result = middleware._is_valid_mcp_internal_request(request)
+                assert result is True
 
     def test_bypass_from_localhost_hostname(self, mock_config):
         """Test: bypass auth when request comes from 'localhost' hostname."""
@@ -197,15 +177,12 @@ class TestMCPInternalAuthBypass:
         request.url = MagicMock()
         request.url.path = "/geoapi/collections"
 
-        with patch("app.middleware.oauth2.cfg") as mock_cfg:
-            mock_cfg.FASTGEOAPI_WITH_MCP = True
-            mock_cfg.MCP_INTERNAL_KEY = internal_key
-            mock_cfg.FASTGEOAPI_CONTEXT = "/geoapi"
+        with patch.object(cfg, "FASTGEOAPI_WITH_MCP", True):
+            with patch.object(cfg, "MCP_INTERNAL_KEY", internal_key):
+                middleware = Oauth2Middleware(
+                    app=MagicMock(),
+                    config=mock_config,
+                )
 
-            middleware = Oauth2Middleware(
-                app=MagicMock(),
-                config=mock_config,
-            )
-
-            result = middleware._is_valid_mcp_internal_request(request)
-            assert result is True
+                result = middleware._is_valid_mcp_internal_request(request)
+                assert result is True

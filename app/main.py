@@ -1,6 +1,7 @@
 """Main module."""
 
 import os
+import secrets
 import sys
 from pathlib import Path
 from typing import Any
@@ -234,7 +235,6 @@ def create_mcp_server():
 
     # Generate a secret key for internal MCP-to-API calls
     # This allows the OAuth2 middleware to bypass auth for internal requests
-    import secrets
 
     mcp_internal_key = secrets.token_urlsafe(32)
 
@@ -250,115 +250,28 @@ def create_mcp_server():
     cfg.MCP_INTERNAL_KEY = mcp_internal_key
 
     # Configure OIDC authentication if JWKS is enabled
+    # Uses mcpauth for provider-agnostic configuration and JWT validation
     auth = None
     well_known_routes = []
     if cfg.JWKS_ENABLED and cfg.OIDC_WELL_KNOWN_ENDPOINT:
-        import hashlib
-        from base64 import urlsafe_b64encode
-        from typing import Any
-        from urllib.parse import urlencode
+        from app.auth.mcp_auth_provider import configure_mcp_auth
 
-        from fastmcp.server.auth.oidc_proxy import OIDCProxy
-        from fastmcp.server.auth.providers.introspection import IntrospectionTokenVerifier
-
-        class CustomOIDCProxy(OIDCProxy):
-            """Custom OIDC Proxy that doesn't forward the resource parameter to Logto.
-
-            IdP returns access_denied for third-party apps (like mcp-remote using
-            Dynamic Client Registration) that request API Resources without explicit
-            permission grants. By not forwarding the resource parameter, we only use
-            OIDC for authentication (ID token), not for API authorization.
-            """
-
-            def _build_upstream_authorize_url(
-                self, txn_id: str, transaction: dict[str, Any]
-            ) -> str:
-                """Override to not forward the resource parameter to the IdP."""
-                query_params: dict[str, Any] = {
-                    "response_type": "code",
-                    "client_id": self._upstream_client_id,
-                    "redirect_uri": f"{str(self.base_url).rstrip('/')}{self._redirect_path}",
-                    "state": txn_id,
-                }
-
-                scopes_to_use = transaction.get("scopes") or self.required_scopes or []
-                if scopes_to_use:
-                    query_params["scope"] = " ".join(scopes_to_use)
-
-                # If PKCE forwarding was enabled, include the proxy challenge
-                proxy_code_verifier = transaction.get("proxy_code_verifier")
-                if proxy_code_verifier:
-                    challenge_bytes = hashlib.sha256(proxy_code_verifier.encode()).digest()
-                    proxy_code_challenge = urlsafe_b64encode(challenge_bytes).decode().rstrip("=")
-                    query_params["code_challenge"] = proxy_code_challenge
-                    query_params["code_challenge_method"] = "S256"
-
-                # NOTE: We intentionally don't forward the resource parameter to the IdP
-                # because third-party apps cannot access API Resources without explicit
-                # permission grants in IdP's console.
-
-                # Extra configured parameters (but filter out 'resource' if present)
-                if self._extra_authorize_params:
-                    extra_params = {
-                        k: v for k, v in self._extra_authorize_params.items() if k != "resource"
-                    }
-                    query_params.update(extra_params)
-
-                separator = "&" if "?" in self._upstream_authorization_endpoint else "?"
-                return (
-                    f"{self._upstream_authorization_endpoint}{separator}{urlencode(query_params)}"
-                )
-
-        # Determine base URL for MCP server (with trailing slash for the IdP compatibility)
+        # Determine base URL for MCP server (with trailing slash for IdP compatibility)
         mcp_base_url = f"http://{cfg.HOST}:{cfg.PORT}/mcp/"
         if hasattr(cfg, "APP_URI") and cfg.APP_URI:
             mcp_base_url = f"{cfg.APP_URI.rstrip('/')}/mcp/"
 
-        # Extract IdP issuer URL for introspection endpoint
-        # IdP's introspection endpoint is at /oidc/token/introspection
-        idp_issuer = cfg.OIDC_WELL_KNOWN_ENDPOINT.replace(
-            "/oidc/.well-known/openid-configuration", ""
-        )
-        introspection_url = f"{idp_issuer}/oidc/token/introspection"
-
         logger.info(f"Configuring MCP with OIDC authentication via {cfg.OIDC_WELL_KNOWN_ENDPOINT}")
-        logger.info(f"Using token introspection endpoint: {introspection_url}")
 
-        # Use IntrospectionTokenVerifier for opaque tokens from IdP
-        # IdP returns opaque tokens when no API Resource is requested
-        token_verifier = IntrospectionTokenVerifier(
-            introspection_url=introspection_url,
+        # Use mcpauth for provider-agnostic OIDC configuration
+        # This handles Logto, Auth0, Keycloak, and other IdPs without custom code
+        auth, well_known_routes = configure_mcp_auth(
+            oidc_well_known_endpoint=cfg.OIDC_WELL_KNOWN_ENDPOINT,
             client_id=cfg.OIDC_CLIENT_ID,
             client_secret=cfg.OIDC_CLIENT_SECRET,
-            base_url=mcp_base_url,
+            mcp_base_url=mcp_base_url,
+            scopes=["openid", "profile", "email"],
         )
-
-        auth = CustomOIDCProxy(
-            config_url=cfg.OIDC_WELL_KNOWN_ENDPOINT,
-            client_id=cfg.OIDC_CLIENT_ID,
-            client_secret=cfg.OIDC_CLIENT_SECRET,
-            base_url=mcp_base_url,
-            # Use introspection for opaque token validation
-            token_verifier=token_verifier,
-            # Pass OIDC scopes to IdP
-            extra_authorize_params={"scope": "openid profile email"},
-        )
-
-        # Add standard OIDC scopes to supported scopes for mcp-remote compatibility
-        # mcp-remote requests: openid, profile, email
-        if auth.client_registration_options:
-            auth.client_registration_options.valid_scopes = [
-                "openid",
-                "profile",
-                "email",
-            ]
-
-        # Extract well-known routes that need to be mounted at root level
-        # per RFC 8414 and RFC 9728
-        # Use mcp_path="/" because the MCP app is created with path="/" internally,
-        # and will be mounted at /mcp on the main app. The base_url already includes /mcp.
-        well_known_routes = auth.get_well_known_routes(mcp_path="/")
-        logger.info(f"Extracted {len(well_known_routes)} OAuth well-known routes for root mounting")
 
     # Create MCP server from OpenAPI spec
     mcp_server = FastMCP.from_openapi(

@@ -790,20 +790,21 @@ class TestStartupWorkflowMCPAuth:
 
             FactoryConfig.get_config.cache_clear()
 
-            # Mock httpx.get to return OIDC config
+            # Mock requests.get for mcpauth and httpx.get for FastMCP
             mock_response = mock.MagicMock()
             mock_response.json.return_value = mock_oidc_config
             mock_response.raise_for_status = mock.MagicMock()
 
-            with mock.patch("httpx.get", return_value=mock_response):
-                from app.main import create_mcp_server
+            with mock.patch("requests.get", return_value=mock_response):
+                with mock.patch("httpx.get", return_value=mock_response):
+                    from app.main import create_mcp_server
 
-                mcp_server, mcp_app, well_known_routes = create_mcp_server()
+                    mcp_server, mcp_app, well_known_routes = create_mcp_server()
 
-                assert mcp_server is not None
-                assert mcp_app is not None
-                # With OIDC config, we should have well-known routes
-                assert len(well_known_routes) > 0
+                    assert mcp_server is not None
+                    assert mcp_app is not None
+                    # With OIDC config, we should have well-known routes
+                    assert len(well_known_routes) > 0
 
     def test_mcp_oidc_base_url_uses_app_uri(self):
         """Test that MCP OIDC auth uses APP_URI for base_url when available."""
@@ -846,19 +847,20 @@ class TestStartupWorkflowMCPAuth:
 
             FactoryConfig.get_config.cache_clear()
 
-            # Mock httpx.get to return OIDC config
+            # Mock requests.get for mcpauth and httpx.get for FastMCP
             mock_response = mock.MagicMock()
             mock_response.json.return_value = mock_oidc_config
             mock_response.raise_for_status = mock.MagicMock()
 
-            with mock.patch("httpx.get", return_value=mock_response):
-                from app.main import create_mcp_server
+            with mock.patch("requests.get", return_value=mock_response):
+                with mock.patch("httpx.get", return_value=mock_response):
+                    from app.main import create_mcp_server
 
-                mcp_server, _, well_known_routes = create_mcp_server()
+                    mcp_server, _, well_known_routes = create_mcp_server()
 
-                assert mcp_server is not None
-                # With OIDC config, we should have well-known routes
-                assert len(well_known_routes) > 0
+                    assert mcp_server is not None
+                    # With OIDC config, we should have well-known routes
+                    assert len(well_known_routes) > 0
 
     def test_mcp_oidc_base_url_fallback_to_host_port(self):
         """Test that MCP OIDC auth falls back to HOST:PORT when APP_URI is not set."""
@@ -902,19 +904,20 @@ class TestStartupWorkflowMCPAuth:
 
             FactoryConfig.get_config.cache_clear()
 
-            # Mock httpx.get to return OIDC config
+            # Mock requests.get for mcpauth and httpx.get for FastMCP
             mock_response = mock.MagicMock()
             mock_response.json.return_value = mock_oidc_config
             mock_response.raise_for_status = mock.MagicMock()
 
-            with mock.patch("httpx.get", return_value=mock_response):
-                from app.main import create_mcp_server
+            with mock.patch("requests.get", return_value=mock_response):
+                with mock.patch("httpx.get", return_value=mock_response):
+                    from app.main import create_mcp_server
 
-                mcp_server, _, well_known_routes = create_mcp_server()
+                    mcp_server, _, well_known_routes = create_mcp_server()
 
-                assert mcp_server is not None
-                # With OIDC config, we should have well-known routes
-                assert len(well_known_routes) > 0
+                    assert mcp_server is not None
+                    # With OIDC config, we should have well-known routes
+                    assert len(well_known_routes) > 0
 
     def test_mcp_well_known_routes_mounted_at_root(self):
         """Test that OAuth well-known routes are mounted at root level, not under /mcp."""
@@ -957,24 +960,25 @@ class TestStartupWorkflowMCPAuth:
 
             FactoryConfig.get_config.cache_clear()
 
-            # Mock httpx.get to return OIDC config
+            # Mock requests.get for mcpauth and httpx.get for FastMCP
             mock_response = mock.MagicMock()
             mock_response.json.return_value = mock_oidc_config
             mock_response.raise_for_status = mock.MagicMock()
 
-            with mock.patch("httpx.get", return_value=mock_response):
-                from app.main import create_mcp_server
+            with mock.patch("requests.get", return_value=mock_response):
+                with mock.patch("httpx.get", return_value=mock_response):
+                    from app.main import create_mcp_server
 
-                _, _, well_known_routes = create_mcp_server()
+                    _, _, well_known_routes = create_mcp_server()
 
-                # Verify well-known routes exist and have proper paths
-                assert len(well_known_routes) > 0
-                for route in well_known_routes:
-                    # All well-known routes should start with /.well-known/
-                    assert route.path.startswith("/.well-known/")
-                    # They should contain the mcp path as a suffix (RFC 9728)
-                    # e.g. /.well-known/oauth-authorization-server/mcp
-                    assert "/mcp" in route.path
+                    # Verify well-known routes exist and have proper paths
+                    assert len(well_known_routes) > 0
+                    for route in well_known_routes:
+                        # All well-known routes should start with /.well-known/
+                        assert route.path.startswith("/.well-known/")
+                        # They should contain the mcp path as a suffix (RFC 9728)
+                        # e.g. /.well-known/oauth-authorization-server/mcp
+                        assert "/mcp" in route.path
 
 
 class TestStartupWorkflowIntegration:
