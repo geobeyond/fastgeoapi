@@ -71,6 +71,39 @@ class Oauth2Middleware:
             self.skip_endpoints = [re.compile(skip) for skip in endpoints]
         logger.debug(f"Compiled skippable endpoints: {self.skip_endpoints}")
 
+    def _is_valid_mcp_internal_request(self, request: Request) -> bool:
+        """Check if request is a valid internal MCP-to-API call.
+
+        This allows FastMCP to call the pygeoapi backend without authentication
+        while ensuring external requests still require auth.
+
+        Conditions for bypass:
+        1. FASTGEOAPI_WITH_MCP must be enabled
+        2. MCP_INTERNAL_KEY must be configured
+        3. Request must come from localhost/127.0.0.1/::1
+        4. Request must have valid X-MCP-Internal-Key header matching the configured key
+        """
+        # Check if MCP is enabled
+        if not cfg.FASTGEOAPI_WITH_MCP:
+            return False
+
+        # Check if internal key is configured
+        mcp_internal_key = getattr(cfg, "MCP_INTERNAL_KEY", None)
+        if not mcp_internal_key:
+            return False
+
+        # Check if request comes from localhost
+        client_host = request.client.host if request.client else None
+        if client_host not in ("127.0.0.1", "localhost", "::1"):
+            return False
+
+        # Check if the internal key header matches
+        request_key = request.headers.get("X-MCP-Internal-Key")
+        if not request_key or request_key != mcp_internal_key:
+            return False
+
+        return True
+
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """Call the OAuth2 middleware."""
         if scope["type"] == "lifespan":
@@ -81,6 +114,11 @@ class Oauth2Middleware:
         request = Request(scope, receive, send)
 
         if request.method == "OPTIONS":
+            return await self.app(scope, receive, send)
+
+        # Bypass authentication for valid internal MCP requests
+        if self._is_valid_mcp_internal_request(request):
+            logger.debug(f"Bypassing auth for internal MCP request: {request.url.path}")
             return await self.app(scope, receive, send)
 
         # allow openapi endpoints without authentication

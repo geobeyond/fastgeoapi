@@ -1,6 +1,7 @@
 """Main module."""
 
 import os
+import secrets
 import sys
 from pathlib import Path
 from typing import Any
@@ -204,15 +205,29 @@ def create_app(lifespan=None):
 
 
 # MCP Server setup using OpenAPI spec from pygeoapi YAML file
-def create_mcp_server():
-    """Create MCP server from the OGC API OpenAPI specification."""
+def create_mcp_server(api_client: httpx.AsyncClient | None = None):
+    """Create MCP server from the OGC API OpenAPI specification.
+
+    Parameters
+    ----------
+    api_client : httpx.AsyncClient | None
+        Optional async client for MCP to make API requests. If not provided,
+        a new client will be created. When provided, the caller is responsible
+        for managing the client lifecycle (closing it when done).
+
+    Returns
+    -------
+        Tuple of (mcp_server, mcp_app, well_known_routes, api_client) where:
+        - well_known_routes are the OAuth discovery routes to mount at root level
+        - api_client is the httpx.AsyncClient used by MCP (for lifecycle management)
+    """
     from app.utils.openapi_resolver import resolve_external_refs
 
     # Load OpenAPI spec from the pygeoapi-generated YAML file
     pygeoapi_openapi_path = Path.cwd() / cfg.PYGEOAPI_OPENAPI
     if not pygeoapi_openapi_path.exists():
         logger.warning(f"OpenAPI file not found: {pygeoapi_openapi_path}. MCP disabled.")
-        return None, None
+        return None, None, [], None
 
     with pygeoapi_openapi_path.open() as f:
         base_spec = yaml.safe_load(f)
@@ -226,17 +241,60 @@ def create_mcp_server():
     # Base URL for API calls
     api_base_url = f"http://{cfg.HOST}:{cfg.PORT}{cfg.FASTGEOAPI_CONTEXT}"
 
-    # Create async client for MCP to make API requests
-    api_client = httpx.AsyncClient(base_url=api_base_url, timeout=30.0)
+    # Generate a secret key for internal MCP-to-API calls
+    # This allows the OAuth2 middleware to bypass auth for internal requests
+    mcp_internal_key = secrets.token_urlsafe(32)
+
+    # Create async client for MCP to make API requests if not provided
+    # Include the internal key header so the middleware can identify MCP requests
+    if api_client is None:
+        api_client = httpx.AsyncClient(
+            base_url=api_base_url,
+            timeout=30.0,
+            headers={"X-MCP-Internal-Key": mcp_internal_key},
+        )
+
+    # Store the key in config for the middleware to access
+    cfg.MCP_INTERNAL_KEY = mcp_internal_key
+
+    # Configure OIDC authentication if JWKS is enabled
+    # Uses mcpauth for provider-agnostic configuration and JWT validation
+    auth = None
+    well_known_routes = []
+    if cfg.JWKS_ENABLED and cfg.OIDC_WELL_KNOWN_ENDPOINT:
+        from app.auth.mcp_auth_provider import configure_mcp_auth
+
+        # Determine base URL for MCP server (with trailing slash for IdP compatibility)
+        mcp_base_url = f"http://{cfg.HOST}:{cfg.PORT}/mcp/"
+        if hasattr(cfg, "APP_URI") and cfg.APP_URI:
+            mcp_base_url = f"{cfg.APP_URI.rstrip('/')}/mcp/"
+
+        logger.info(f"Configuring MCP with OIDC authentication via {cfg.OIDC_WELL_KNOWN_ENDPOINT}")
+
+        # Use mcpauth for provider-agnostic OIDC configuration
+        # This handles Logto, Auth0, Keycloak, and other IdPs without custom code
+        auth, well_known_routes = configure_mcp_auth(
+            oidc_well_known_endpoint=cfg.OIDC_WELL_KNOWN_ENDPOINT,
+            client_id=cfg.OIDC_CLIENT_ID,
+            client_secret=cfg.OIDC_CLIENT_SECRET,
+            mcp_base_url=mcp_base_url,
+            scopes=["openid", "profile", "email"],
+        )
 
     # Create MCP server from OpenAPI spec
     mcp_server = FastMCP.from_openapi(
         openapi_spec=openapi_spec,
         client=api_client,
         name="OGC API MCP",
+        auth=auth,
     )
 
-    return mcp_server, mcp_server.http_app(path="/")
+    return (
+        mcp_server,
+        mcp_server.http_app(path="/"),
+        well_known_routes,
+        api_client,
+    )
 
 
 # Ensure OpenAPI file exists
@@ -244,9 +302,49 @@ ensure_openapi_file_exists()
 
 # Create the main app, optionally with MCP server
 if cfg.FASTGEOAPI_WITH_MCP:
-    mcp, mcp_app = create_mcp_server()
+    from contextlib import asynccontextmanager
+
+    mcp, mcp_app, well_known_routes, mcp_api_client = create_mcp_server()
     if mcp_app is not None:
-        app = create_app(lifespan=mcp_app.lifespan)
+
+        @asynccontextmanager
+        async def combined_lifespan(app):
+            """Combined lifespan that manages both MCP app and httpx client lifecycle.
+
+            This ensures the httpx.AsyncClient is properly closed when the app
+            shuts down, preventing resource leaks (open connections, file descriptors).
+            """
+            # Use MCP app's lifespan if available
+            if mcp_app.lifespan:
+                async with mcp_app.lifespan(app):
+                    try:
+                        yield
+                    finally:
+                        # Clean up the httpx client when app shuts down
+                        if mcp_api_client is not None:
+                            await mcp_api_client.aclose()
+                            logger.info("MCP API client closed")
+            else:
+                try:
+                    yield
+                finally:
+                    # Clean up the httpx client when app shuts down
+                    if mcp_api_client is not None:
+                        await mcp_api_client.aclose()
+                        logger.info("MCP API client closed")
+
+        app = create_app(lifespan=combined_lifespan)
+
+        # Mount OAuth well-known routes at root level per RFC 8414 and RFC 9728
+        # These routes must be accessible at /.well-known/* not /mcp/.well-known/*
+        # Mount these BEFORE /mcp to ensure they take precedence
+        if well_known_routes:
+            # Add well-known routes directly to the app's router
+            # The routes have paths like /.well-known/oauth-authorization-server/mcp
+            for route in well_known_routes:
+                app.router.routes.insert(0, route)
+                logger.info(f"Mounted OAuth route at root: {route.path}")
+
         app.mount("/mcp", mcp_app)
         logger.info("MCP server mounted at /mcp")
     else:

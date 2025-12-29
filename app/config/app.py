@@ -60,6 +60,8 @@ class DevConfig(GlobalConfig):
     FASTGEOAPI_CONTEXT: str
     FASTGEOAPI_REVERSE_PROXY: bool | None = None
     FASTGEOAPI_WITH_MCP: bool = False
+    # Runtime-generated key for MCP internal API calls (not from env)
+    MCP_INTERNAL_KEY: str | None = None
 
     model_config = SettingsConfigDict(
         env_prefix="DEV_",
@@ -102,6 +104,8 @@ class ProdConfig(GlobalConfig):
     FASTGEOAPI_CONTEXT: str
     FASTGEOAPI_REVERSE_PROXY: bool | None = None
     FASTGEOAPI_WITH_MCP: bool = False
+    # Runtime-generated key for MCP internal API calls (not from env)
+    MCP_INTERNAL_KEY: str | None = None
 
     model_config = SettingsConfigDict(
         env_prefix="PROD_",

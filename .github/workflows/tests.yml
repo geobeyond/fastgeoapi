@@ -1,8 +1,20 @@
 name: Tests
 
 on:
-  - push
-  - pull_request
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+# Prevent duplicate workflow runs
+# cancel-in-progress: false allows running jobs to complete
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
 
 jobs:
   tests:
