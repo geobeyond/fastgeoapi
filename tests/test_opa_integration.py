@@ -232,6 +232,8 @@ def create_opa_protected_app(mock_opa_server, mock_oidc_authenticate):
             "DEV_OIDC_CLIENT_SECRET": "test-client-secret",
             "DEV_API_KEY_ENABLED": "false",
             "DEV_JWKS_ENABLED": "false",
+            # Disable MCP to avoid StreamableHTTPSessionManager reuse issues in tests
+            "DEV_FASTGEOAPI_WITH_MCP": "false",
         }
 
         with mock.patch.dict(os.environ, env_vars, clear=False):

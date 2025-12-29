@@ -63,6 +63,8 @@ def create_protected_with_apikey_app(create_app):
                 "DEV_PYGEOAPI_KEY_GLOBAL": "pygeoapi",
                 "DEV_JWKS_ENABLED": "false",
                 "DEV_OPA_ENABLED": "false",
+                # Disable MCP to avoid StreamableHTTPSessionManager reuse issues
+                "DEV_FASTGEOAPI_WITH_MCP": "false",
             },
             clear=False,
         ):
@@ -87,6 +89,8 @@ def create_app_with_reverse_proxy_enabled(create_app):
                 "DEV_JWKS_ENABLED": "false",
                 "DEV_OPA_ENABLED": "false",
                 "DEV_FASTGEOAPI_REVERSE_PROXY": "true",
+                # Disable MCP to avoid StreamableHTTPSessionManager reuse issues
+                "DEV_FASTGEOAPI_WITH_MCP": "false",
             },
             clear=False,
         ):
@@ -113,6 +117,8 @@ def create_protected_with_bearer_app(create_app):
                 "DEV_OAUTH2_TOKEN_ENDPOINT": "https://76hxgq.logto.app/oidc/token",
                 "DEV_JWKS_ENABLED": "true",
                 "DEV_OPA_ENABLED": "false",
+                # Disable MCP to avoid StreamableHTTPSessionManager reuse issues
+                "DEV_FASTGEOAPI_WITH_MCP": "false",
             },
             clear=False,
         ):
