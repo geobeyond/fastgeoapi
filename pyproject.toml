@@ -1,6 +1,6 @@
 [project]
 name = "fastgeoapi"
-version = "0.0.7"
+version = "0.0.8"
 description = "fastgeoapi"
 authors = [{ name = "Francesco Bartoli", email = "francesco.bartoli@geobeyond.it" }]
 maintainers = [{ name = "Youssef Harby", email = "youssef.harby@geobeyond.it" }]
