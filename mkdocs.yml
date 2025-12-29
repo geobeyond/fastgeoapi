@@ -96,7 +96,9 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Getting started: getting-started.md
-  - How-to Guides: howto-guides.md
+  - How-to Guides:
+      - Overview: howto-guides.md
+      - MCP Server: mcp-server.md
   - Tutorials: tutorials.md
   - OpenAPI: openapi.md
 

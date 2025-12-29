@@ -324,6 +324,216 @@ license](https://opensource.org/licenses/MIT), _fastgeoapi_ is free and open-sou
 If you encounter any problems, please [file an
 issue](https://github.com/geobeyond/fastgeoapi/issues) along with a detailed description.
 
+## MCP Server (Model Context Protocol)
+
+fastgeoapi includes an optional integrated MCP server that exposes OGC API endpoints as tools for AI assistants and LLM-based applications. The MCP server is built using [FastMCP](https://github.com/jlowin/fastmcp) and automatically generates tools from the pygeoapi OpenAPI specification.
+
+### Features
+
+- **Automatic Tool Generation** - Tools are generated from the OGC API OpenAPI spec
+- **OAuth Authentication** - Supports OIDC authentication with any OAuth provider (Logto, Auth0, Keycloak, etc.)
+- **RFC 9728 Compliant** - Implements OAuth 2.0 Protected Resource Metadata
+- **Dynamic Client Registration** - Compatible with mcp-remote and other MCP clients
+- **Provider Agnostic** - Uses [mcpauth](https://github.com/alonsosilvaallende/mcpauth) for multi-IdP support
+
+### Enabling the MCP Server
+
+To enable the MCP server, set the `FASTGEOAPI_WITH_MCP` environment variable:
+
+```shell
+# In your .env file
+DEV_FASTGEOAPI_WITH_MCP=true
+
+# Or for production
+PROD_FASTGEOAPI_WITH_MCP=true
+```
+
+The MCP server will be mounted at `/mcp` endpoint.
+
+### Configuration
+
+#### Basic Configuration (No Authentication)
+
+```shell
+# .env file
+ENV_STATE=dev
+DEV_FASTGEOAPI_WITH_MCP=true
+DEV_PYGEOAPI_CONFIG=pygeoapi-config.yml
+DEV_PYGEOAPI_OPENAPI=pygeoapi-openapi.yml
+```
+
+#### With OAuth Authentication
+
+To enable OAuth authentication for the MCP server, configure JWKS:
+
+```shell
+# .env file
+ENV_STATE=dev
+DEV_FASTGEOAPI_WITH_MCP=true
+DEV_JWKS_ENABLED=true
+DEV_OIDC_WELL_KNOWN_ENDPOINT=https://your-idp.example.com/.well-known/openid-configuration
+DEV_OIDC_CLIENT_ID=your-client-id
+DEV_OIDC_CLIENT_SECRET=your-client-secret
+```
+
+### Security & Authentication Flows
+
+The MCP server supports multiple security configurations depending on your deployment needs.
+
+#### Supported OAuth 2.0 Flows
+
+| Flow                                  | Use Case                                         | Configuration                        |
+| ------------------------------------- | ------------------------------------------------ | ------------------------------------ |
+| **Authorization Code + PKCE**         | Interactive clients (Claude Desktop, mcp-remote) | `JWKS_ENABLED=true` with OIDC config |
+| **Client Credentials**                | Machine-to-machine, service accounts             | `JWKS_ENABLED=true` with OIDC config |
+| **Dynamic Client Registration (DCR)** | Auto-registration for MCP clients                | Enabled automatically with OIDC      |
+
+#### OAuth Proxy Architecture
+
+When OAuth is enabled, the MCP server acts as an **OAuth Proxy** implementing:
+
+- **RFC 8414** - OAuth 2.0 Authorization Server Metadata
+- **RFC 9728** - OAuth 2.0 Protected Resource Metadata
+- **RFC 7636** - Proof Key for Code Exchange (PKCE)
+- **RFC 7591** - OAuth 2.0 Dynamic Client Registration
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   MCP Client    │────▶│   MCP Server    │────▶│   Identity      │
+│  (mcp-remote)   │     │  (OAuth Proxy)  │     │   Provider      │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+        │                       │                       │
+        │  1. Discovery         │                       │
+        │──────────────────────▶│                       │
+        │  /.well-known/...     │                       │
+        │                       │                       │
+        │  2. DCR (register)    │                       │
+        │──────────────────────▶│                       │
+        │                       │                       │
+        │  3. Authorization     │  4. Redirect to IdP   │
+        │──────────────────────▶│──────────────────────▶│
+        │                       │                       │
+        │                       │  5. Auth Code         │
+        │                       │◀──────────────────────│
+        │  6. Token Exchange    │                       │
+        │◀──────────────────────│                       │
+        │                       │                       │
+        │  7. MCP Requests      │  8. Internal API call │
+        │  (with Bearer token)  │  (bypasses auth)      │
+        │──────────────────────▶│──────────────────────▶│
+```
+
+#### Security Features
+
+| Feature                  | Description                                                                 |
+| ------------------------ | --------------------------------------------------------------------------- |
+| **JWT Validation**       | Tokens are validated using JWKS from the IdP                                |
+| **Opaque Token Support** | Supports IdPs that return opaque tokens (e.g., Logto without API Resources) |
+| **RFC 6750 Compliance**  | Proper error handling for missing vs invalid tokens                         |
+| **Internal API Bypass**  | MCP-to-API calls use an internal key to bypass authentication               |
+| **Scope Validation**     | Configurable required scopes for access control                             |
+
+#### Supported Identity Providers
+
+The MCP server is provider-agnostic and works with any OIDC-compliant IdP:
+
+- **Logto** - Tested with OAuth proxy and DCR
+- **Auth0** - Full OIDC support
+- **Keycloak** - Full OIDC and OPA integration
+- **Okta** - Standard OIDC flows
+- **Azure AD** - Microsoft identity platform
+- **Google** - Google OAuth 2.0
+
+### Using the MCP Server
+
+#### With Claude Desktop
+
+Add the following to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+
+```json
+{
+  "mcpServers": {
+    "fastgeoapi": {
+      "command": "npx",
+      "args": ["mcp-remote", "http://localhost:5000/mcp/"]
+    }
+  }
+}
+```
+
+#### With mcp-remote (OAuth)
+
+When OAuth is enabled, mcp-remote handles authentication automatically:
+
+```json
+{
+  "mcpServers": {
+    "fastgeoapi": {
+      "command": "npx",
+      "args": ["mcp-remote", "http://localhost:5000/mcp/", "--allow-http"]
+    }
+  }
+}
+```
+
+The `--allow-http` flag is needed for local development. In production with HTTPS, remove this flag.
+
+#### Direct SSE Connection
+
+For clients that support Server-Sent Events directly:
+
+```
+http://localhost:5000/mcp/sse
+```
+
+### Available Tools
+
+The MCP server exposes all OGC API endpoints as tools, including:
+
+| Tool             | Description                                                  |
+| ---------------- | ------------------------------------------------------------ |
+| `getLandingPage` | Get the API landing page                                     |
+| `getConformance` | Get OGC API conformance classes                              |
+| `getCollections` | List all feature collections                                 |
+| `getCollection`  | Get metadata for a specific collection                       |
+| `getItems`       | Query features from a collection                             |
+| `getItem`        | Get a specific feature by ID                                 |
+| `getProcesses`   | List available processes (if OGC API - Processes is enabled) |
+
+### OAuth Discovery Endpoints
+
+When OAuth is enabled, the following RFC-compliant endpoints are available:
+
+| Endpoint                                      | Description                              |
+| --------------------------------------------- | ---------------------------------------- |
+| `/.well-known/oauth-protected-resource/mcp/`  | Protected resource metadata (RFC 9728)   |
+| `/mcp/.well-known/oauth-authorization-server` | Authorization server metadata (RFC 8414) |
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Claude Desktop                        │
+│                    or MCP Client                         │
+└─────────────────────┬───────────────────────────────────┘
+                      │ MCP Protocol (SSE/HTTP)
+                      ▼
+┌─────────────────────────────────────────────────────────┐
+│                   fastgeoapi                             │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │              MCP Server (/mcp)                     │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌───────────┐  │  │
+│  │  │ OAuth Proxy │  │ Tool Router │  │ SSE/HTTP  │  │  │
+│  │  └─────────────┘  └─────────────┘  └───────────┘  │  │
+│  └───────────────────────────────────────────────────┘  │
+│                          │                               │
+│                          ▼                               │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │           pygeoapi OGC API (/geoapi)              │  │
+│  └───────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+```
+
 ## Credits
 
 This project was generated from
