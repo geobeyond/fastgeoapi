@@ -77,31 +77,42 @@ class Oauth2Middleware:
         This allows FastMCP to call the pygeoapi backend without authentication
         while ensuring external requests still require auth.
 
+        Security Model:
+        - The internal key is generated using secrets.token_urlsafe(32)
+          providing 256 bits of cryptographic entropy
+        - The key is generated at runtime and never exposed externally
+        - An attacker cannot brute-force a 256-bit key in any reasonable timeframe
+        - This approach is necessary for containerized deployments (e.g., fly.io)
+          where internal httpx requests may not originate from localhost due to
+          container networking routing through external IPs
+
         Conditions for bypass:
         1. FASTGEOAPI_WITH_MCP must be enabled
         2. MCP_INTERNAL_KEY must be configured
-        3. Request must come from localhost/127.0.0.1/::1
-        4. Request must have valid X-MCP-Internal-Key header matching the configured key
+        3. Request must have valid X-MCP-Internal-Key header matching the configured key
         """
         # Check if MCP is enabled
         if not cfg.FASTGEOAPI_WITH_MCP:
+            logger.debug("MCP bypass check: FASTGEOAPI_WITH_MCP is disabled")
             return False
 
         # Check if internal key is configured
         mcp_internal_key = getattr(cfg, "MCP_INTERNAL_KEY", None)
         if not mcp_internal_key:
+            logger.debug("MCP bypass check: MCP_INTERNAL_KEY not configured")
             return False
 
-        # Check if request comes from localhost
-        client_host = request.client.host if request.client else None
-        if client_host not in ("127.0.0.1", "localhost", "::1"):
-            return False
-
-        # Check if the internal key header matches
+        # Get request key from header
         request_key = request.headers.get("X-MCP-Internal-Key")
+        client_host = request.client.host if request.client else None
+        logger.debug(f"MCP bypass check: client_host={client_host}, has_key={bool(request_key)}")
+
+        # Check if the internal key header matches (exact match required)
         if not request_key or request_key != mcp_internal_key:
+            logger.debug("MCP bypass check: internal key mismatch or missing")
             return False
 
+        logger.debug("MCP bypass check: PASSED - bypassing auth")
         return True
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:

@@ -238,8 +238,8 @@ def create_mcp_server(api_client: httpx.AsyncClient | None = None):
     openapi_spec = resolve_external_refs(base_spec, cache_dir=cache_dir)
     logger.info("OpenAPI references resolved successfully")
 
-    # Base URL for API calls
-    api_base_url = f"http://{cfg.HOST}:{cfg.PORT}{cfg.FASTGEOAPI_CONTEXT}"
+    # Base URL for API calls - use 127.0.0.1 for internal calls to bypass auth
+    api_base_url = f"http://127.0.0.1:{cfg.PORT}{cfg.FASTGEOAPI_CONTEXT}"
 
     # Generate a secret key for internal MCP-to-API calls
     # This allows the OAuth2 middleware to bypass auth for internal requests
