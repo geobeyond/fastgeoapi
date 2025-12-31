@@ -54,21 +54,13 @@ class JWKSAuthentication(AuthInterface):
             logger.debug(f"JSON Key Set: {jwks.as_json()}")
             keys = jwks.as_dict()["keys"]
             # Extract algs and remove None
-            algs = [
-                item
-                for item in tuple({key.get("alg") for key in keys})
-                if item is not None
-            ]
+            algs = [item for item in tuple({key.get("alg") for key in keys}) if item is not None]
             if len(algs) > 1:
                 logger.error("Multiple algorithms are not supported")
-                raise Oauth2Error(
-                    "Unable to decode the token with multiple algorithms"
-                )
+                raise Oauth2Error("Unable to decode the token with multiple algorithms")
             alg = algs[0]
             if not alg:
-                raise Oauth2Error(
-                    "Unable to decode the token with a missing algorithm"
-                )
+                raise Oauth2Error("Unable to decode the token with a missing algorithm")
             logger.debug(f"Algorithm used for decoding the token: {alg}")
 
             # Build claim validation options based on configuration
@@ -113,9 +105,7 @@ class JWKSAuthentication(AuthInterface):
                         f"Expected: '{self.config.expected_audience}', "
                         f"received: '{aud}', sub: '{sub}'"
                     )
-                    raise Oauth2Error(
-                        f"Invalid audience: expected {self.config.expected_audience}"
-                    )
+                    raise Oauth2Error(f"Invalid audience: expected {self.config.expected_audience}")
 
             # Validate issuer if configured
             if self.config.expected_issuer:
@@ -133,9 +123,7 @@ class JWKSAuthentication(AuthInterface):
                         f"Expected: '{self.config.expected_issuer}', "
                         f"received: '{iss}', sub: '{sub}'"
                     )
-                    raise Oauth2Error(
-                        f"Invalid issuer: expected {self.config.expected_issuer}"
-                    )
+                    raise Oauth2Error(f"Invalid issuer: expected {self.config.expected_issuer}")
 
             claims.validate()
         except KeyError:

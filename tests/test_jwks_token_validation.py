@@ -144,7 +144,7 @@ class TestAudienceValidation:
             jwks_auth, "get_jwks", new_callable=AsyncMock
         ) as mock_jwks:
             mock_jwks.return_value = JsonWebKey.import_key_set(jwks)
-            with pytest.raises(Oauth2Error, match="[Aa]udience"):
+            with pytest.raises(Oauth2Error, match=r"[Aa]udience"):
                 await jwks_auth.decode_token(token)
 
     @pytest.mark.asyncio
@@ -164,7 +164,7 @@ class TestAudienceValidation:
             jwks_auth, "get_jwks", new_callable=AsyncMock
         ) as mock_jwks:
             mock_jwks.return_value = JsonWebKey.import_key_set(jwks)
-            with pytest.raises(Oauth2Error, match="[Aa]udience"):
+            with pytest.raises(Oauth2Error, match=r"[Aa]udience"):
                 await jwks_auth.decode_token(token)
 
     @pytest.mark.asyncio
@@ -210,7 +210,7 @@ class TestAudienceValidation:
             jwks_auth, "get_jwks", new_callable=AsyncMock
         ) as mock_jwks:
             mock_jwks.return_value = JsonWebKey.import_key_set(jwks)
-            with pytest.raises(Oauth2Error, match="[Aa]udience"):
+            with pytest.raises(Oauth2Error, match=r"[Aa]udience"):
                 await jwks_auth.decode_token(token)
 
 
@@ -250,7 +250,7 @@ class TestIssuerValidation:
             jwks_auth, "get_jwks", new_callable=AsyncMock
         ) as mock_jwks:
             mock_jwks.return_value = JsonWebKey.import_key_set(jwks)
-            with pytest.raises(Oauth2Error, match="[Ii]ssuer"):
+            with pytest.raises(Oauth2Error, match=r"[Ii]ssuer"):
                 await jwks_auth.decode_token(token)
 
     @pytest.mark.asyncio
@@ -270,7 +270,7 @@ class TestIssuerValidation:
             jwks_auth, "get_jwks", new_callable=AsyncMock
         ) as mock_jwks:
             mock_jwks.return_value = JsonWebKey.import_key_set(jwks)
-            with pytest.raises(Oauth2Error, match="[Ii]ssuer"):
+            with pytest.raises(Oauth2Error, match=r"[Ii]ssuer"):
                 await jwks_auth.decode_token(token)
 
 
