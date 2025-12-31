@@ -823,7 +823,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "bandit", specifier = ">=1.7.5,<2" },
+    { name = "bandit", specifier = ">=1.9.2,<2" },
     { name = "commitizen", specifier = ">=3.24.0,<4" },
     { name = "coverage", extras = ["toml"], specifier = ">=6.5.0,<7" },
     { name = "ipython", specifier = "<8.12" },
