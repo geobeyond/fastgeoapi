@@ -406,20 +406,30 @@ class TestMCPInternalKeyBypassSecurity:
             assert "X-MCP-Internal-Key" not in response.headers
             assert internal_key not in str(response.headers)
 
-    def test_bypass_requires_all_conditions(self, mock_config):
-        """Test that bypass requires ALL conditions to be met simultaneously."""
+    def test_bypass_requires_mcp_enabled_and_correct_key(self, mock_config):
+        """Test that bypass requires MCP enabled and correct key (no IP restriction).
+
+        Since Solution 1, we no longer require localhost - the 256-bit secret key
+        provides sufficient security for containerized deployments where internal
+        requests may come from external IPs.
+        """
         from starlette.requests import Request
 
         from app.middleware.oauth2 import Oauth2Middleware
 
         internal_key = "test-key-12345"
 
-        # Test matrix: all combinations should fail except when all conditions are True
+        # Test matrix: bypass requires MCP enabled + correct key (IP doesn't matter)
         test_cases = [
             # (mcp_enabled, from_localhost, has_correct_key, expected_bypass)
             (True, True, True, True),  # All conditions met - should bypass
             (False, True, True, False),  # MCP disabled
-            (True, False, True, False),  # External IP
+            (
+                True,
+                False,
+                True,
+                True,
+            ),  # External IP with valid key - should bypass (Solution 1)
             (True, True, False, False),  # Wrong key
             (False, False, True, False),  # MCP disabled + external
             (False, True, False, False),  # MCP disabled + wrong key
@@ -524,8 +534,13 @@ class TestMCPInternalKeyBypassSecurity:
             request.headers = {"X-MCP-Internal-Key": ""}
             assert middleware._is_valid_mcp_internal_request(request) is False
 
-    def test_bypass_rejects_none_client(self, mock_config):
-        """Test that requests with None client are rejected."""
+    def test_bypass_accepts_none_client_with_valid_key(self, mock_config):
+        """Test that requests with None client are accepted if key is valid.
+
+        Since Solution 1, we rely solely on the 256-bit secret key for security.
+        The client IP/host is not required - this supports containerized deployments
+        where client info may not be available.
+        """
         from starlette.requests import Request
 
         from app.middleware.oauth2 import Oauth2Middleware
@@ -550,7 +565,7 @@ class TestMCPInternalKeyBypassSecurity:
             )
 
             result = middleware._is_valid_mcp_internal_request(request)
-            assert result is False
+            assert result is True
 
     def test_internal_key_stored_in_config(self):
         """Test that MCP internal key is properly stored in config at runtime."""
