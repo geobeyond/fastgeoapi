@@ -55,9 +55,7 @@ class TestIAMServerIntegration:
         assert "kty" in key  # Key type
         assert "alg" in key or "use" in key  # Algorithm or usage
 
-    def test_openid_configuration_accessible(
-        self, iam_server, iam_openid_config_uri
-    ):
+    def test_openid_configuration_accessible(self, iam_server, iam_openid_config_uri):
         """Verify OpenID Connect discovery endpoint is accessible."""
         import httpx
 
@@ -70,9 +68,7 @@ class TestIAMServerIntegration:
         assert "token_endpoint" in data
         assert "jwks_uri" in data
 
-    def test_openid_config_jwks_uri_matches(
-        self, iam_server, iam_jwks_uri, iam_openid_config_uri
-    ):
+    def test_openid_config_jwks_uri_matches(self, iam_server, iam_jwks_uri, iam_openid_config_uri):
         """Verify JWKS URI in OpenID config matches expected endpoint."""
         import httpx
 
@@ -114,9 +110,7 @@ class TestJWKSKeyStructure:
 
         # Algorithm should be RS256 or similar
         alg = keys_with_alg[0]["alg"]
-        assert alg.startswith("RS") or alg.startswith("ES"), (
-            f"Unexpected algorithm: {alg}"
-        )
+        assert alg.startswith("RS") or alg.startswith("ES"), f"Unexpected algorithm: {alg}"
 
 
 class TestIAMUserManagement:

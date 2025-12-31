@@ -36,9 +36,7 @@ def create_jwks_from_public_key(public_key):
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo,
     )
-    jwk = JsonWebKey.import_key(
-        public_pem, {"kty": "RSA", "use": "sig", "alg": "RS256"}
-    )
+    jwk = JsonWebKey.import_key(public_pem, {"kty": "RSA", "use": "sig", "alg": "RS256"})
     return {"keys": [jwk.as_dict()]}
 
 
@@ -112,25 +110,19 @@ class TestAudienceValidation:
     """Tests for audience (aud) claim validation."""
 
     @pytest.mark.asyncio
-    async def test_valid_audience_accepted(
-        self, test_keypair, jwks_auth, valid_claims
-    ):
+    async def test_valid_audience_accepted(self, test_keypair, jwks_auth, valid_claims):
         """Token with correct audience should be accepted."""
         private_key, public_key = test_keypair
         jwks = create_jwks_from_public_key(public_key)
         token = create_test_token(private_key, valid_claims)
 
-        with patch.object(
-            jwks_auth, "get_jwks", new_callable=AsyncMock
-        ) as mock_jwks:
+        with patch.object(jwks_auth, "get_jwks", new_callable=AsyncMock) as mock_jwks:
             mock_jwks.return_value = JsonWebKey.import_key_set(jwks)
             claims = await jwks_auth.decode_token(token)
             assert claims["aud"] == "https://api.example.com"
 
     @pytest.mark.asyncio
-    async def test_wrong_audience_rejected(
-        self, test_keypair, jwks_auth, valid_claims
-    ):
+    async def test_wrong_audience_rejected(self, test_keypair, jwks_auth, valid_claims):
         """Token with wrong audience should be rejected."""
         private_key, public_key = test_keypair
         jwks = create_jwks_from_public_key(public_key)
@@ -140,17 +132,13 @@ class TestAudienceValidation:
         wrong_claims["aud"] = "https://other-api.example.com"
         token = create_test_token(private_key, wrong_claims)
 
-        with patch.object(
-            jwks_auth, "get_jwks", new_callable=AsyncMock
-        ) as mock_jwks:
+        with patch.object(jwks_auth, "get_jwks", new_callable=AsyncMock) as mock_jwks:
             mock_jwks.return_value = JsonWebKey.import_key_set(jwks)
-            with pytest.raises(Oauth2Error, match="[Aa]udience"):
+            with pytest.raises(Oauth2Error, match=r"[Aa]udience"):
                 await jwks_auth.decode_token(token)
 
     @pytest.mark.asyncio
-    async def test_missing_audience_rejected(
-        self, test_keypair, jwks_auth, valid_claims
-    ):
+    async def test_missing_audience_rejected(self, test_keypair, jwks_auth, valid_claims):
         """Token without audience claim should be rejected when validation is enabled."""
         private_key, public_key = test_keypair
         jwks = create_jwks_from_public_key(public_key)
@@ -160,17 +148,13 @@ class TestAudienceValidation:
         del no_aud_claims["aud"]
         token = create_test_token(private_key, no_aud_claims)
 
-        with patch.object(
-            jwks_auth, "get_jwks", new_callable=AsyncMock
-        ) as mock_jwks:
+        with patch.object(jwks_auth, "get_jwks", new_callable=AsyncMock) as mock_jwks:
             mock_jwks.return_value = JsonWebKey.import_key_set(jwks)
-            with pytest.raises(Oauth2Error, match="[Aa]udience"):
+            with pytest.raises(Oauth2Error, match=r"[Aa]udience"):
                 await jwks_auth.decode_token(token)
 
     @pytest.mark.asyncio
-    async def test_audience_array_with_valid_value(
-        self, test_keypair, jwks_auth, valid_claims
-    ):
+    async def test_audience_array_with_valid_value(self, test_keypair, jwks_auth, valid_claims):
         """Token with audience as array containing valid value should be accepted."""
         private_key, public_key = test_keypair
         jwks = create_jwks_from_public_key(public_key)
@@ -183,17 +167,13 @@ class TestAudienceValidation:
         ]
         token = create_test_token(private_key, array_aud_claims)
 
-        with patch.object(
-            jwks_auth, "get_jwks", new_callable=AsyncMock
-        ) as mock_jwks:
+        with patch.object(jwks_auth, "get_jwks", new_callable=AsyncMock) as mock_jwks:
             mock_jwks.return_value = JsonWebKey.import_key_set(jwks)
             claims = await jwks_auth.decode_token(token)
             assert "https://api.example.com" in claims["aud"]
 
     @pytest.mark.asyncio
-    async def test_audience_array_without_valid_value(
-        self, test_keypair, jwks_auth, valid_claims
-    ):
+    async def test_audience_array_without_valid_value(self, test_keypair, jwks_auth, valid_claims):
         """Token with audience array not containing valid value should be rejected."""
         private_key, public_key = test_keypair
         jwks = create_jwks_from_public_key(public_key)
@@ -206,11 +186,9 @@ class TestAudienceValidation:
         ]
         token = create_test_token(private_key, wrong_array_claims)
 
-        with patch.object(
-            jwks_auth, "get_jwks", new_callable=AsyncMock
-        ) as mock_jwks:
+        with patch.object(jwks_auth, "get_jwks", new_callable=AsyncMock) as mock_jwks:
             mock_jwks.return_value = JsonWebKey.import_key_set(jwks)
-            with pytest.raises(Oauth2Error, match="[Aa]udience"):
+            with pytest.raises(Oauth2Error, match=r"[Aa]udience"):
                 await jwks_auth.decode_token(token)
 
 
@@ -218,25 +196,19 @@ class TestIssuerValidation:
     """Tests for issuer (iss) claim validation."""
 
     @pytest.mark.asyncio
-    async def test_valid_issuer_accepted(
-        self, test_keypair, jwks_auth, valid_claims
-    ):
+    async def test_valid_issuer_accepted(self, test_keypair, jwks_auth, valid_claims):
         """Token with correct issuer should be accepted."""
         private_key, public_key = test_keypair
         jwks = create_jwks_from_public_key(public_key)
         token = create_test_token(private_key, valid_claims)
 
-        with patch.object(
-            jwks_auth, "get_jwks", new_callable=AsyncMock
-        ) as mock_jwks:
+        with patch.object(jwks_auth, "get_jwks", new_callable=AsyncMock) as mock_jwks:
             mock_jwks.return_value = JsonWebKey.import_key_set(jwks)
             claims = await jwks_auth.decode_token(token)
             assert claims["iss"] == "https://test-idp.example.com"
 
     @pytest.mark.asyncio
-    async def test_wrong_issuer_rejected(
-        self, test_keypair, jwks_auth, valid_claims
-    ):
+    async def test_wrong_issuer_rejected(self, test_keypair, jwks_auth, valid_claims):
         """Token with wrong issuer should be rejected."""
         private_key, public_key = test_keypair
         jwks = create_jwks_from_public_key(public_key)
@@ -246,17 +218,13 @@ class TestIssuerValidation:
         wrong_claims["iss"] = "https://malicious-idp.example.com"
         token = create_test_token(private_key, wrong_claims)
 
-        with patch.object(
-            jwks_auth, "get_jwks", new_callable=AsyncMock
-        ) as mock_jwks:
+        with patch.object(jwks_auth, "get_jwks", new_callable=AsyncMock) as mock_jwks:
             mock_jwks.return_value = JsonWebKey.import_key_set(jwks)
-            with pytest.raises(Oauth2Error, match="[Ii]ssuer"):
+            with pytest.raises(Oauth2Error, match=r"[Ii]ssuer"):
                 await jwks_auth.decode_token(token)
 
     @pytest.mark.asyncio
-    async def test_missing_issuer_rejected(
-        self, test_keypair, jwks_auth, valid_claims
-    ):
+    async def test_missing_issuer_rejected(self, test_keypair, jwks_auth, valid_claims):
         """Token without issuer claim should be rejected when validation is enabled."""
         private_key, public_key = test_keypair
         jwks = create_jwks_from_public_key(public_key)
@@ -266,11 +234,9 @@ class TestIssuerValidation:
         del no_iss_claims["iss"]
         token = create_test_token(private_key, no_iss_claims)
 
-        with patch.object(
-            jwks_auth, "get_jwks", new_callable=AsyncMock
-        ) as mock_jwks:
+        with patch.object(jwks_auth, "get_jwks", new_callable=AsyncMock) as mock_jwks:
             mock_jwks.return_value = JsonWebKey.import_key_set(jwks)
-            with pytest.raises(Oauth2Error, match="[Ii]ssuer"):
+            with pytest.raises(Oauth2Error, match=r"[Ii]ssuer"):
                 await jwks_auth.decode_token(token)
 
 
@@ -290,9 +256,7 @@ class TestBackwardCompatibility:
         claims["aud"] = "https://any-api.example.com"
         token = create_test_token(private_key, claims)
 
-        with patch.object(
-            jwks_auth_no_validation, "get_jwks", new_callable=AsyncMock
-        ) as mock_jwks:
+        with patch.object(jwks_auth_no_validation, "get_jwks", new_callable=AsyncMock) as mock_jwks:
             mock_jwks.return_value = JsonWebKey.import_key_set(jwks)
             result = await jwks_auth_no_validation.decode_token(token)
             assert result["aud"] == "https://any-api.example.com"
@@ -310,9 +274,7 @@ class TestBackwardCompatibility:
         claims["iss"] = "https://any-issuer.example.com"
         token = create_test_token(private_key, claims)
 
-        with patch.object(
-            jwks_auth_no_validation, "get_jwks", new_callable=AsyncMock
-        ) as mock_jwks:
+        with patch.object(jwks_auth_no_validation, "get_jwks", new_callable=AsyncMock) as mock_jwks:
             mock_jwks.return_value = JsonWebKey.import_key_set(jwks)
             result = await jwks_auth_no_validation.decode_token(token)
             assert result["iss"] == "https://any-issuer.example.com"
@@ -335,18 +297,14 @@ class TestCognitoCompatibility:
         cognito_claims["client_id"] = "cognito-client-123"
         token = create_test_token(private_key, cognito_claims)
 
-        with patch.object(
-            jwks_auth_no_validation, "get_jwks", new_callable=AsyncMock
-        ) as mock_jwks:
+        with patch.object(jwks_auth_no_validation, "get_jwks", new_callable=AsyncMock) as mock_jwks:
             mock_jwks.return_value = JsonWebKey.import_key_set(jwks)
             result = await jwks_auth_no_validation.decode_token(token)
             # client_id should be used as aud fallback
             assert result.get("aud") == "cognito-client-123"
 
     @pytest.mark.asyncio
-    async def test_cognito_client_id_validated_as_audience(
-        self, test_keypair, valid_claims
-    ):
+    async def test_cognito_client_id_validated_as_audience(self, test_keypair, valid_claims):
         """When validation is enabled, Cognito client_id should be validated as audience."""
         private_key, public_key = test_keypair
         jwks = create_jwks_from_public_key(public_key)
@@ -365,9 +323,7 @@ class TestCognitoCompatibility:
         cognito_claims["client_id"] = "cognito-client-123"
         token = create_test_token(private_key, cognito_claims)
 
-        with patch.object(
-            auth, "get_jwks", new_callable=AsyncMock
-        ) as mock_jwks:
+        with patch.object(auth, "get_jwks", new_callable=AsyncMock) as mock_jwks:
             mock_jwks.return_value = JsonWebKey.import_key_set(jwks)
             result = await auth.decode_token(token)
             assert result.get("aud") == "cognito-client-123"
