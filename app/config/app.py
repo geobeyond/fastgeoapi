@@ -52,6 +52,8 @@ class DevConfig(GlobalConfig):
     JWKS_ENABLED: bool | None = None
     OAUTH2_JWKS_ENDPOINT: str | None = None
     OAUTH2_TOKEN_ENDPOINT: str | None = None
+    OAUTH2_EXPECTED_AUDIENCE: str | None = None
+    OAUTH2_EXPECTED_ISSUER: str | None = None
     PYGEOAPI_KEY_GLOBAL: str | None = None
     PYGEOAPI_BASEURL: str
     PYGEOAPI_CONFIG: str
@@ -96,6 +98,8 @@ class ProdConfig(GlobalConfig):
     JWKS_ENABLED: bool | None = None
     OAUTH2_JWKS_ENDPOINT: str | None = None
     OAUTH2_TOKEN_ENDPOINT: str | None = None
+    OAUTH2_EXPECTED_AUDIENCE: str | None = None
+    OAUTH2_EXPECTED_ISSUER: str | None = None
     PYGEOAPI_KEY_GLOBAL: str | None = None
     PYGEOAPI_BASEURL: str
     PYGEOAPI_CONFIG: str

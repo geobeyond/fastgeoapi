@@ -23,6 +23,10 @@ if cfg.OPA_ENABLED:
     oidc_auth = OIDCAuthentication(oidc_config)
     auth_config = OPAConfig(authentication=oidc_auth, opa_host=opa_host)
 elif cfg.JWKS_ENABLED:
-    jwks_config = JWKSConfig(jwks_uri=cfg.OAUTH2_JWKS_ENDPOINT)
+    jwks_config = JWKSConfig(
+        jwks_uri=cfg.OAUTH2_JWKS_ENDPOINT,
+        expected_audience=cfg.OAUTH2_EXPECTED_AUDIENCE,
+        expected_issuer=cfg.OAUTH2_EXPECTED_ISSUER,
+    )
     jwks_auth = JWKSAuthentication(jwks_config)
     auth_config = Oauth2Provider(authentication=jwks_auth)
