@@ -54,13 +54,21 @@ class JWKSAuthentication(AuthInterface):
             logger.debug(f"JSON Key Set: {jwks.as_json()}")
             keys = jwks.as_dict()["keys"]
             # Extract algs and remove None
-            algs = [item for item in tuple({key.get("alg") for key in keys}) if item is not None]
+            algs = [
+                item
+                for item in tuple({key.get("alg") for key in keys})
+                if item is not None
+            ]
             if len(algs) > 1:
                 logger.error("Multiple algorithms are not supported")
-                raise Oauth2Error("Unable to decode the token with multiple algorithms")
+                raise Oauth2Error(
+                    "Unable to decode the token with multiple algorithms"
+                )
             alg = algs[0]
             if not alg:
-                raise Oauth2Error("Unable to decode the token with a missing algorithm")
+                raise Oauth2Error(
+                    "Unable to decode the token with a missing algorithm"
+                )
             logger.debug(f"Algorithm used for decoding the token: {alg}")
 
             # Build claim validation options based on configuration
