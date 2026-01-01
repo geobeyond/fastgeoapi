@@ -49,7 +49,7 @@ services:
       timeout: 10s
       retries: 3
   opa:
-    image: openpolicyagent/opa:0.54.0
+    image: openpolicyagent/opa:0.70.0
     ports:
       - 8383:8181
     command:
