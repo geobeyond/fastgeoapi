@@ -18,7 +18,7 @@ dependencies = [
     "typer>=0.15.3,<0.16",
     "fastapi-key-auth>=0.15.4,<0.16.0",
     "sqlalchemy>=2.0.40,<2.1",
-    "geoalchemy2>=0.17.1,<0.18",
+    "geoalchemy2>=0.18.1,<0.19",
     "shapely>=2.0,<3",
     "psycopg2-binary>=2.9.10,<3",
     "openapi-pydantic>=0.5.1,<=1.0",
