@@ -159,7 +159,7 @@ jobs:
 
       - name: Download coverage data
         id: download-coverage
-        uses: actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@v4.3.0
         continue-on-error: true
         with:
           name: coverage-data
