@@ -50,10 +50,11 @@ class TestIAMServerIntegration:
         data = response.json()
         assert "keys" in data
         assert len(data["keys"]) > 0
-        # Verify key structure
+        # Verify key structure - kty is required per RFC 7517
         key = data["keys"][0]
-        assert "kty" in key  # Key type
-        assert "alg" in key or "use" in key  # Algorithm or usage
+        assert "kty" in key  # Key type is required
+        # Note: 'alg' and 'use' are optional per RFC 7517
+        # Canaille may not include them, which is spec-compliant
 
     def test_openid_configuration_accessible(self, iam_server, iam_openid_config_uri):
         """Verify OpenID Connect discovery endpoint is accessible."""
@@ -97,20 +98,24 @@ class TestJWKSKeyStructure:
         assert "n" in rsa_key, "RSA key missing modulus (n)"
         assert "e" in rsa_key, "RSA key missing exponent (e)"
 
-    def test_jwks_key_has_algorithm(self, iam_server, iam_jwks_uri):
-        """Verify JWKS key has algorithm specified for JWT decoding."""
+    def test_jwks_key_has_kid(self, iam_server, iam_jwks_uri):
+        """Verify JWKS key has kid (key ID) for JWT key selection.
+
+        Note: 'alg' is optional per RFC 7517, but 'kid' is commonly used
+        for key selection during JWT validation.
+        """
         import httpx
 
         response = httpx.get(iam_jwks_uri)
         data = response.json()
 
-        # At least one key should have alg specified
-        keys_with_alg = [k for k in data["keys"] if "alg" in k]
-        assert len(keys_with_alg) > 0, "No keys with algorithm specified"
+        # At least one key should have kid specified for key selection
+        keys_with_kid = [k for k in data["keys"] if "kid" in k]
+        assert len(keys_with_kid) > 0, "No keys with key ID (kid) specified"
 
-        # Algorithm should be RS256 or similar
-        alg = keys_with_alg[0]["alg"]
-        assert alg.startswith("RS") or alg.startswith("ES"), f"Unexpected algorithm: {alg}"
+        # Kid should be a non-empty string
+        kid = keys_with_kid[0]["kid"]
+        assert isinstance(kid, str) and len(kid) > 0, "Key ID should be non-empty string"
 
 
 class TestIAMUserManagement:
