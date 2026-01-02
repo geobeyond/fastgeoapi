@@ -176,4 +176,4 @@ jobs:
 
       - name: Upload coverage report
         if: steps.download-coverage.outcome == 'success'
-        uses: codecov/codecov-action@v4.6.0
+        uses: codecov/codecov-action@v5.5.2
