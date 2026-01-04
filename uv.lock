@@ -943,7 +943,7 @@ dev = [
     { name = "termynal", specifier = ">=0.13.0" },
     { name = "ty", specifier = ">=0.0.8" },
     { name = "typeguard", specifier = ">=4.0.0,<5" },
-    { name = "xdoctest", extras = ["colors"], specifier = ">=0.15.10,<0.16" },
+    { name = "xdoctest", extras = ["colors"], specifier = ">=1.3,<1.4" },
 ]
 
 [[package]]
@@ -3936,14 +3936,11 @@ wheels = [
 
 [[package]]
 name = "xdoctest"
-version = "0.15.10"
+version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "six" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f7/9b/4dfdab9ab61c82ed569c44ffad3edcb10d77a0b0b4f501d0a90a811e8909/xdoctest-0.15.10.tar.gz", hash = "sha256:5f16438f2b203860e75ec594dbc38020df7524db0b41bb88467ea0a6030e6685", size = 161945, upload-time = "2021-10-06T11:58:55.668Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/92/3a/425e9555e23409559fa01d3431b7e1ffbc4ad6fa3b808e9f7bac9e3afbb6/xdoctest-1.3.0.tar.gz", hash = "sha256:f92cb99a3be6011c57bb94613a26b09a268e0095e926b4559132d135d8f6c9d4", size = 207394, upload-time = "2025-09-08T15:02:46.256Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/45/04/308ee791fdc3b33607c11e61a0e288f84b87195ad83522a6b11607bd193d/xdoctest-0.15.10-py3-none-any.whl", hash = "sha256:7666bd0511df59275dfe94ef94b0fde9654afd14f00bf88902fdc9bcee77d527", size = 116438, upload-time = "2021-10-06T11:58:58.48Z" },
+    { url = "https://files.pythonhosted.org/packages/a7/75/35c17f21153190386af9fb36aab5f76d9f865c69d2f13afdfeb0b3109481/xdoctest-1.3.0-py3-none-any.whl", hash = "sha256:b546accaecae2fd0a14e8d8e125550832f3f11981629324519d057e218dd348f", size = 152543, upload-time = "2025-09-08T15:02:43.245Z" },
 ]
 
 [package.optional-dependencies]
