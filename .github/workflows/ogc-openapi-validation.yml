@@ -40,7 +40,7 @@ jobs:
           # Default values (can be overridden by secrets)
           OAUTH2_TOKEN_ENDPOINT: ${{ secrets.OAUTH2_TOKEN_ENDPOINT || 'https://76hxgq.logto.app/oidc/token' }}
           OAUTH2_BASIC_AUTH: ${{ secrets.OAUTH2_BASIC_AUTH || 'czRyZjIzbnlucmNvdGM4NnhuaWVxOlc2RHJhQWJ1MTZnb29yR0xWSE02WFlSUnI4aWpObUww' }}
-          OAUTH2_RESOURCE: ${{ secrets.OAUTH2_RESOURCE || 'http://localhost:5000/geoapi/' }}
+          OAUTH2_RESOURCE: ${{ vars.OAUTH2_RESOURCE || 'https://fastgeoapi.fly.dev/geoapi/' }}
         run: |
           uv run python -c "
           import json
