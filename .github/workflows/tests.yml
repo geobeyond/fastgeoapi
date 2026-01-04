@@ -109,6 +109,10 @@ jobs:
           restore-keys: |
             ${{ steps.pre-commit-cache.outputs.result }}-
 
+      - name: Create virtual environment for pre-commit
+        if: matrix.session == 'pre-commit'
+        run: uv sync --frozen
+
       - name: Run Nox
         run: |
           nox --force-color --python=${{ matrix.python }}
