@@ -35,7 +35,7 @@ repos:
         stages: [pre-commit, pre-push, manual]
       - id: ty
         name: Type check with ty
-        entry: uvx ty check
+        entry: uv run --frozen ty check
         language: system
         types: [python]
         pass_filenames: false
