@@ -1,4 +1,11 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended"]
+  "extends": ["config:recommended"],
+  "packageRules": [
+    {
+      "matchPackageNames": ["typer"],
+      "allowedVersions": "<0.16",
+      "description": "Typer 0.17+ breaks safety CLI (AttributeError: module 'typer' has no attribute 'rich_utils'). Waiting for safety update."
+    }
+  ]
 }
