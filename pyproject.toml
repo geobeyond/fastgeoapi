@@ -63,7 +63,7 @@ dev = [
     "mkdocs-swagger-ui-tag>=0.7",
     "mkdocstrings[python]>=1.0.0",
     "bandit>=1.9.2,<2",
-    "ipython<9.9",
+    "ipython<9.10",
     "safety>=3.0,<4",
     "ty>=0.0.8",
     "commitizen>=4.11,<5",
