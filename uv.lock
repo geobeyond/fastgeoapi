@@ -906,7 +906,7 @@ requires-dist = [
     { name = "psycopg2-binary", specifier = ">=2.9.10,<3" },
     { name = "pydantic-settings", specifier = ">=2.9.1,<3" },
     { name = "pygeoapi", git = "https://github.com/geopython/pygeoapi.git?branch=master" },
-    { name = "pygeofilter", git = "https://github.com/geopython/pygeofilter.git?tag=v0.3.1" },
+    { name = "pygeofilter", git = "https://github.com/geopython/pygeofilter.git?tag=v0.3.3" },
     { name = "pyyaml", specifier = ">=6.0.2,<7" },
     { name = "rasterio", specifier = ">=1.4.3,<2" },
     { name = "scalar-fastapi", specifier = ">=1.4.3,<2" },
@@ -2507,9 +2507,10 @@ dependencies = [
 
 [[package]]
 name = "pygeofilter"
-version = "0.3.1"
-source = { git = "https://github.com/geopython/pygeofilter.git?tag=v0.3.1#25743c9c5472f1d77a76607e3364418919d1f25e" }
+version = "0.3.3"
+source = { git = "https://github.com/geopython/pygeofilter.git?tag=v0.3.3#53407d3004f7d81aa75c73c01371a6d6255154e9" }
 dependencies = [
+    { name = "click" },
     { name = "dateparser" },
     { name = "lark" },
     { name = "pygeoif" },

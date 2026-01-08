@@ -81,7 +81,7 @@ dev = [
 
 [tool.uv.sources]
 pygeoapi = { git = "https://github.com/geopython/pygeoapi.git", branch = "master" }
-pygeofilter = { git = "https://github.com/geopython/pygeofilter.git", tag = "v0.3.1" }
+pygeofilter = { git = "https://github.com/geopython/pygeofilter.git", tag = "v0.3.3" }
 fencer = { git = "https://github.com/abunuwas/fencer.git", branch = "main" }
 
 [tool.hatch.build.targets.sdist]
