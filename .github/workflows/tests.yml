@@ -132,7 +132,7 @@ jobs:
           path: docs_build/site
 
   coverage:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: tests
     if: success() || failure()
     steps:
