@@ -85,7 +85,7 @@ jobs:
 
       - name: Publish the release notes
         if: github.ref != 'refs/heads/develop'
-        uses: release-drafter/release-drafter@v6.1.0
+        uses: release-drafter/release-drafter@v6.2.0
         with:
           publish: ${{ steps.check-version.outputs.tag != '' }}
           tag: ${{ steps.check-version.outputs.tag }}
