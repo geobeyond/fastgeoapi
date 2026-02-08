@@ -1,0 +1,1428 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      <link rel="icon" href="images/fastgeoapi_logo.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-8.2.16">
+    
+    
+      
+        <title>fastgeoapi</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.1c3799f8.min.css">
+      
+        
+        <link rel="stylesheet" href="assets/stylesheets/palette.cc9b2e1e.min.css">
+        
+      
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="stylesheets/extra.css">
+    
+      <link rel="stylesheet" href="termynal.css">
+    
+    <script>__md_scope=new URL(".",location),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="red">
+  
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&"object"==typeof palette.color)for(var key of Object.keys(palette.color))document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#fastgeoapi" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="fastgeoapi" class="md-header__button md-logo" aria-label="fastgeoapi" data-md-component="logo">
+      
+  <img src="images/fastgeoapi_logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            fastgeoapi
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Home
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      <form class="md-header__option" data-md-component="palette">
+        
+          
+          
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="red"  aria-label="Switch to Dark Mode"  type="radio" name="__palette" id="__palette_1">
+          
+            <label class="md-header__button md-icon" title="Switch to Dark Mode" for="__palette_2" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6zm0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4zM7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+            </label>
+          
+        
+          
+          
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="blue-grey"  aria-label="Switch to Light Mode"  type="radio" name="__palette" id="__palette_2">
+          
+            <label class="md-header__button md-icon" title="Switch to Light Mode" for="__palette_1" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3Z"/></svg>
+            </label>
+          
+        
+      </form>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-tabs__inner md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+    
+  
+
+
+  <li class="md-tabs__item">
+    <a href="." class="md-tabs__link md-tabs__link--active">
+      Home
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="getting-started/" class="md-tabs__link">
+      Getting started
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="howto-guides/" class="md-tabs__link">
+        How-to Guides
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="tutorials/" class="md-tabs__link">
+      Tutorials
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="openapi/" class="md-tabs__link">
+      OpenAPI
+    </a>
+  </li>
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="fastgeoapi" class="md-nav__button md-logo" aria-label="fastgeoapi" data-md-component="logo">
+      
+  <img src="images/fastgeoapi_logo.png" alt="logo">
+
+    </a>
+    fastgeoapi
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Home
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="." class="md-nav__link md-nav__link--active">
+        Home
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#architecture" class="md-nav__link">
+    Architecture
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    Features
+  </a>
+  
+    <nav class="md-nav" aria-label="Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#security-authentication" class="md-nav__link">
+    🔐 Security &amp; Authentication
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance-modern-stack" class="md-nav__link">
+    🚀 Performance &amp; Modern Stack
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geospatial-api-standards" class="md-nav__link">
+    🗺️ Geospatial API Standards
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security-testing-quality" class="md-nav__link">
+    🛡️ Security Testing &amp; Quality
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ogc-api-conformance" class="md-nav__link">
+    📋 OGC API Conformance
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#live-demo" class="md-nav__link">
+    Live Demo
+  </a>
+  
+    <nav class="md-nav" aria-label="Live Demo">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#getting-an-access-token" class="md-nav__link">
+    Getting an Access Token
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-the-access-token" class="md-nav__link">
+    Using the Access Token
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#requirements" class="md-nav__link">
+    Requirements
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    Installation
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#development" class="md-nav__link">
+    Development
+  </a>
+  
+    <nav class="md-nav" aria-label="Development">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    Prerequisites
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#setup" class="md-nav__link">
+    Setup
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#activate-the-virtual-environment" class="md-nav__link">
+    Activate the Virtual Environment
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#running-fastgeoapi" class="md-nav__link">
+    Running fastgeoapi
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start-package-installation" class="md-nav__link">
+    Quick Start (Package Installation)
+  </a>
+  
+    <nav class="md-nav" aria-label="Quick Start (Package Installation)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-uv-commands" class="md-nav__link">
+    Common UV Commands
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#release-workflow" class="md-nav__link">
+    Release Workflow
+  </a>
+  
+    <nav class="md-nav" aria-label="Release Workflow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#development-releases" class="md-nav__link">
+    Development Releases
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#production-releases" class="md-nav__link">
+    Production Releases
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    Usage
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contributing" class="md-nav__link">
+    Contributing
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#license" class="md-nav__link">
+    License
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#issues" class="md-nav__link">
+    Issues
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mcp-server-model-context-protocol" class="md-nav__link">
+    MCP Server (Model Context Protocol)
+  </a>
+  
+    <nav class="md-nav" aria-label="MCP Server (Model Context Protocol)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#features_1" class="md-nav__link">
+    Features
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#enabling-the-mcp-server" class="md-nav__link">
+    Enabling the MCP Server
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    Configuration
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-configuration-no-authentication" class="md-nav__link">
+    Basic Configuration (No Authentication)
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#with-oauth-authentication" class="md-nav__link">
+    With OAuth Authentication
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security-authentication-flows" class="md-nav__link">
+    Security &amp; Authentication Flows
+  </a>
+  
+    <nav class="md-nav" aria-label="Security &amp; Authentication Flows">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#supported-oauth-20-flows" class="md-nav__link">
+    Supported OAuth 2.0 Flows
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oauth-proxy-architecture" class="md-nav__link">
+    OAuth Proxy Architecture
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security-features" class="md-nav__link">
+    Security Features
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#supported-identity-providers" class="md-nav__link">
+    Supported Identity Providers
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-the-mcp-server" class="md-nav__link">
+    Using the MCP Server
+  </a>
+  
+    <nav class="md-nav" aria-label="Using the MCP Server">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#with-claude-desktop" class="md-nav__link">
+    With Claude Desktop
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#with-mcp-remote-oauth" class="md-nav__link">
+    With mcp-remote (OAuth)
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#direct-sse-connection" class="md-nav__link">
+    Direct SSE Connection
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#available-tools" class="md-nav__link">
+    Available Tools
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oauth-discovery-endpoints" class="md-nav__link">
+    OAuth Discovery Endpoints
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#architecture_1" class="md-nav__link">
+    Architecture
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#credits" class="md-nav__link">
+    Credits
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="getting-started/" class="md-nav__link">
+        Getting started
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" >
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3">
+          How-to Guides
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="How-to Guides" data-md-level="1">
+        <label class="md-nav__title" for="__nav_3">
+          <span class="md-nav__icon md-icon"></span>
+          How-to Guides
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="howto-guides/" class="md-nav__link">
+        Overview
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="mcp-server/" class="md-nav__link">
+        MCP Server
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tutorials/" class="md-nav__link">
+        Tutorials
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="openapi/" class="md-nav__link">
+        OpenAPI
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          <div class="md-content" data-md-component="content">
+            <article class="md-content__inner md-typeset">
+              
+                
+
+
+<h1 id="fastgeoapi">fastgeoapi</h1>
+<p><img width="60" height="60" alt="fastgeoapi logo" src="images/fastgeoapi_logo.png" style="vertical-align: middle;" /> A modern, high-performance geospatial API framework that extends <a href="https://github.com/geopython/pygeoapi">pygeoapi</a> with authentication, authorization, and security features using FastAPI, OpenID Connect, and Open Policy Agent (OPA) 🗺️🔒.</p>
+<div align="center">
+  <a href="https://pygeoapi.io">
+    <img src="https://pygeoapi.io/img/pygeoapi-logo.png" alt="pygeoapi logo" width="150"/>
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://www.openpolicyagent.org">
+    <img src="https://www.openpolicyagent.org/img/logos/opa-horizontal-color.png" alt="Open Policy Agent logo" width="150"/>
+  </a>
+</div>
+
+<p><a href="https://pypi.org/project/fastgeoapi/"><img alt="PyPI" src="https://img.shields.io/pypi/v/fastgeoapi?logo=pypi&amp;logoColor=white&amp;style=flat-square&amp;label=pypi%20package" /></a>
+<a href="https://pypi.org/project/fastgeoapi/"><img alt="Status" src="https://img.shields.io/pypi/status/fastgeoapi?style=flat-square" /></a>
+<a href="https://www.python.org"><img alt="Python" src="https://img.shields.io/badge/python-3.12%20|%203.13-blue?logo=python&amp;logoColor=white&amp;style=flat-square" /></a>
+<a href="https://github.com/geobeyond/fastgeoapi/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/geobeyond/fastgeoapi?style=flat-square&amp;label=license" /></a></p>
+<p><a href="https://geobeyond.github.io/fastgeoapi/"><img alt="Documentation" src="https://img.shields.io/badge/docs-github%20pages-blue?logo=github&amp;logoColor=white&amp;style=flat-square" /></a>
+<a href="https://github.com/geobeyond/fastgeoapi/actions?workflow=Tests"><img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/geobeyond/fastgeoapi/tests.yml?branch=main&amp;logo=github&amp;logoColor=white&amp;style=flat-square&amp;label=tests" /></a>
+<a href="https://github.com/geobeyond/fastgeoapi/actions/workflows/contract-tests.yml"><img alt="Contract Tests" src="https://img.shields.io/github/actions/workflow/status/geobeyond/fastgeoapi/contract-tests.yml?branch=main&amp;logo=openapi-initiative&amp;logoColor=white&amp;style=flat-square&amp;label=contract%20tests" /></a>
+<a href="https://github.com/geobeyond/fastgeoapi/actions/workflows/zap-scan.yml"><img alt="ZAP Scan" src="https://img.shields.io/github/actions/workflow/status/geobeyond/fastgeoapi/zap-scan.yml?branch=main&amp;logo=owasp&amp;logoColor=white&amp;style=flat-square&amp;label=security" /></a>
+<a href="https://codecov.io/gh/geobeyond/fastgeoapi"><img alt="Codecov" src="https://img.shields.io/codecov/c/github/geobeyond/fastgeoapi?logo=codecov&amp;logoColor=white&amp;style=flat-square" /></a></p>
+<p><a href="https://github.com/pre-commit/pre-commit"><img alt="pre-commit" src="https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&amp;logoColor=white&amp;style=flat-square" /></a>
+<a href="https://github.com/astral-sh/ruff"><img alt="Ruff" src="https://img.shields.io/badge/code%20style-ruff-000000?logo=ruff&amp;logoColor=white&amp;style=flat-square" /></a>
+<a href="https://github.com/astral-sh/uv"><img alt="uv" src="https://img.shields.io/badge/package%20manager-uv-6366f1?logo=uv&amp;logoColor=white&amp;style=flat-square" /></a></p>
+<h2 id="architecture">Architecture</h2>
+<p>This diagram gives an overview of the basic architecture:</p>
+<p><img alt="general architecture" src="images/fastgeoapi_architecture.png" /></p>
+<h2 id="features">Features</h2>
+<h3 id="security-authentication">🔐 Security &amp; Authentication</h3>
+<ul>
+<li><strong>OpenID Connect (OIDC) Integration</strong> - OAuth2/JWT Bearer token authentication with JWKS support</li>
+<li><strong>API Key Authentication</strong> - Flexible API key-based authentication for programmatic access</li>
+<li><strong>Open Policy Agent (OPA)</strong> - Policy-based authorization with fine-grained access control</li>
+<li><strong>Multi-scheme Support</strong> - Seamlessly switch between authentication methods based on your needs</li>
+</ul>
+<h3 id="performance-modern-stack">🚀 Performance &amp; Modern Stack</h3>
+<ul>
+<li><strong>FastAPI Framework</strong> - High-performance async API built on Starlette and Pydantic</li>
+<li><strong>Async I/O</strong> - Non-blocking operations for better scalability</li>
+<li><strong>Modern Python</strong> - Python 3.12+ with type hints and modern language features</li>
+<li><strong>Fast Dependency Management</strong> - UV-based tooling for lightning-fast installations</li>
+</ul>
+<h3 id="geospatial-api-standards">🗺️ Geospatial API Standards</h3>
+<ul>
+<li><strong>OGC API Compliance</strong> - Full support for OGC API - Features, Processes, and more</li>
+<li><strong>OpenAPI Integration</strong> - Auto-generated, security-enhanced OpenAPI specifications</li>
+<li><strong>Geospatial Data Access</strong> - Seamless access to vector and raster geospatial data</li>
+<li><strong>pygeoapi Extension</strong> - Extends vanilla pygeoapi with enterprise-ready security</li>
+</ul>
+<h3 id="security-testing-quality">🛡️ Security Testing &amp; Quality</h3>
+<ul>
+<li><strong>Contract Testing</strong> - Automated OpenAPI contract validation with Schemathesis</li>
+<li><strong>Security Scanning</strong> - OWASP ZAP integration for continuous security testing</li>
+<li><strong>Pre-commit Hooks</strong> - Code quality checks with Ruff formatting and linting</li>
+<li><strong>Comprehensive Test Coverage</strong> - Full test suite with pytest and coverage reporting</li>
+</ul>
+<h3 id="ogc-api-conformance">📋 OGC API Conformance</h3>
+<ul>
+<li><strong>Specification Validation</strong> - Automated validation against OGC API standards using <a href="https://github.com/francbartoli/ogcapi-registry">ogcapi-registry</a></li>
+<li><strong>OpenAPI Document Verification</strong> - Ensures generated OpenAPI documents conform to OGC API specifications</li>
+<li><strong>Conformance Class Reporting</strong> - Detailed reports on declared conformance classes (OGC API - Features, Common, GeoJSON, etc.)</li>
+<li><strong>CI/CD Integration</strong> - Continuous validation on every deployment to the demo server</li>
+</ul>
+<h2 id="live-demo">Live Demo</h2>
+<p>A public demo server is available at <strong><a href="https://fastgeoapi.fly.dev/geoapi">https://fastgeoapi.fly.dev/geoapi</a></strong>.</p>
+<p>🔐 The API endpoints are protected with <strong>OAuth2 client-credentials flow</strong>, showcasing fastgeoapi's enterprise-ready security features. This allows you to test the full authentication workflow in a real environment.</p>
+<p>The <strong>Swagger UI</strong> documentation is publicly accessible without authentication at <a href="https://fastgeoapi.fly.dev/geoapi/openapi">https://fastgeoapi.fly.dev/geoapi/openapi</a>, allowing you to explore the API specification and available endpoints before authenticating.</p>
+<h3 id="getting-an-access-token">Getting an Access Token</h3>
+<p>The demo server requires OAuth2 authentication. To obtain an access token:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>https://76hxgq.logto.app/oidc/token<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Basic czRyZjIzbnlucmNvdGM4NnhuaWVxOlc2RHJhQWJ1MTZnb29yR0xWSE02WFlSUnI4aWpObUww&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/x-www-form-urlencoded&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span>-d<span class="w"> </span><span class="s2">&quot;grant_type=client_credentials&amp;resource=http://localhost:5000/geoapi/&amp;scope=openid profile ci&quot;</span>
+</span></code></pre></div>
+<h3 id="using-the-access-token">Using the Access Token</h3>
+<p>Once you have the token, include it in your requests:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Get the landing page</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer &lt;your_access_token&gt;&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="s2">&quot;https://fastgeoapi.fly.dev/geoapi/?f=json&quot;</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1"># List collections</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer &lt;your_access_token&gt;&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="s2">&quot;https://fastgeoapi.fly.dev/geoapi/collections?f=json&quot;</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="c1"># Check conformance</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer &lt;your_access_token&gt;&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="s2">&quot;https://fastgeoapi.fly.dev/geoapi/conformance?f=json&quot;</span>
+</span></code></pre></div>
+<h2 id="requirements">Requirements</h2>
+<ul>
+<li><a href="https://github.com/geopython/pygeoapi/">pygeoapi</a></li>
+<li><a href="https://github.com/busykoala/fastapi-opa">fastapi-opa</a></li>
+<li>An OpenID Connect provider (Keycloak, WSO2, etc)</li>
+<li>Open Policy Agent (OPA)</li>
+</ul>
+<h2 id="installation">Installation</h2>
+<p>You can install <em>fastgeoapi</em> via <a href="https://pip.pypa.io/">pip</a> from <a href="https://pypi.org/">PyPI</a>:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pip<span class="w"> </span>install<span class="w"> </span>fastgeoapi
+</span></code></pre></div>
+<h2 id="development">Development</h2>
+<h3 id="prerequisites">Prerequisites</h3>
+<p>Install <a href="https://github.com/astral-sh/uv">UV</a> - a fast Python package installer and resolver:</p>
+<p><strong>macOS / Linux:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>curl<span class="w"> </span>-sSf<span class="w"> </span>https://install.ultraviolet.dev<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh
+</span></code></pre></div>
+<p><strong>Windows (PowerShell):</strong></p>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">powershell</span> <span class="n">-ExecutionPolicy</span> <span class="n">ByPass</span> <span class="n">-c</span> <span class="s2">&quot;irm https://astral.sh/uv/install.ps1 | iex&quot;</span>
+</span></code></pre></div>
+<h3 id="setup">Setup</h3>
+<p>After cloning the repository, use UV to install dependencies:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/geobeyond/fastgeoapi.git
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nb">cd</span><span class="w"> </span>fastgeoapi
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>uv<span class="w"> </span>sync
+</span></code></pre></div>
+<p>This automatically:</p>
+<ul>
+<li>Creates a virtual environment in <code>.venv</code></li>
+<li>Installs all required dependencies including git-based packages from <code>[tool.uv.sources]</code> (pygeoapi master, pygeofilter, fencer)</li>
+<li>Sets up fastgeoapi in development mode</li>
+</ul>
+<blockquote>
+<p><strong>Note:</strong> For development, UV uses git-based dependencies defined in <code>[tool.uv.sources]</code> to get the latest features from upstream projects. The PyPI release uses stable published versions. See <a href="../uv.md">uv.md</a> for more details.</p>
+</blockquote>
+<h3 id="activate-the-virtual-environment">Activate the Virtual Environment</h3>
+<p><strong>macOS / Linux:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+</span></code></pre></div>
+<p><strong>Windows (PowerShell):</strong></p>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">.</span><span class="n">venv</span><span class="p">\</span><span class="n">Scripts</span><span class="p">\</span><span class="n">Activate</span><span class="p">.</span><span class="n">ps1</span>
+</span></code></pre></div>
+<h3 id="running-fastgeoapi">Running fastgeoapi</h3>
+<p>Once Keycloak and OPA have been started, configure the required environment variables:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">PYGEOAPI_CONFIG</span><span class="o">=</span>pygeoapi-config.yml
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">PYGEOAPI_OPENAPI</span><span class="o">=</span>pygeoapi-openapi.yml
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">FASTGEOAPI_CONTEXT</span><span class="o">=</span><span class="s1">&#39;/geoapi&#39;</span>
+</span></code></pre></div>
+<p>Start fastgeoapi in development mode:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>uv<span class="w"> </span>run<span class="w"> </span>fastapi<span class="w"> </span>run<span class="w"> </span>app/main.py<span class="w"> </span>--app<span class="w"> </span>app<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span><span class="w"> </span>--reload
+</span></code></pre></div>
+<h2 id="quick-start-package-installation">Quick Start (Package Installation)</h2>
+<p>Install fastgeoapi:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>pip<span class="w"> </span>install<span class="w"> </span>fastgeoapi
+</span></code></pre></div>
+<p>Create a <code>.env</code> file with the required configuration:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Environment state: &#39;dev&#39; or &#39;prod&#39;</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nv">ENV_STATE</span><span class="o">=</span>dev
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># Server configuration</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="nv">HOST</span><span class="o">=</span><span class="m">0</span>.0.0.0
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="nv">PORT</span><span class="o">=</span><span class="m">5000</span>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="c1"># Logging (required)</span>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="nv">DEV_LOG_PATH</span><span class="o">=</span>/tmp
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="nv">DEV_LOG_FILENAME</span><span class="o">=</span>fastgeoapi.log
+</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="nv">DEV_LOG_LEVEL</span><span class="o">=</span>debug
+</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="nv">DEV_LOG_ENQUEUE</span><span class="o">=</span><span class="nb">true</span>
+</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="nv">DEV_LOG_ROTATION</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>days
+</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="nv">DEV_LOG_RETENTION</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>months
+</span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>
+</span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="c1"># Pygeoapi configuration</span>
+</span><span id="__span-11-17"><a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="nv">DEV_PYGEOAPI_BASEURL</span><span class="o">=</span>http://localhost:5000
+</span><span id="__span-11-18"><a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a><span class="nv">DEV_PYGEOAPI_CONFIG</span><span class="o">=</span>pygeoapi-config.yml
+</span><span id="__span-11-19"><a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a><span class="nv">DEV_PYGEOAPI_OPENAPI</span><span class="o">=</span>pygeoapi-openapi.yml
+</span><span id="__span-11-20"><a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a><span class="nv">DEV_FASTGEOAPI_CONTEXT</span><span class="o">=</span>/geoapi
+</span><span id="__span-11-21"><a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a>
+</span><span id="__span-11-22"><a id="__codelineno-11-22" name="__codelineno-11-22" href="#__codelineno-11-22"></a><span class="c1"># Authentication (choose one, all others must be false)</span>
+</span><span id="__span-11-23"><a id="__codelineno-11-23" name="__codelineno-11-23" href="#__codelineno-11-23"></a><span class="nv">DEV_API_KEY_ENABLED</span><span class="o">=</span><span class="nb">false</span>
+</span><span id="__span-11-24"><a id="__codelineno-11-24" name="__codelineno-11-24" href="#__codelineno-11-24"></a><span class="nv">DEV_JWKS_ENABLED</span><span class="o">=</span><span class="nb">false</span>
+</span><span id="__span-11-25"><a id="__codelineno-11-25" name="__codelineno-11-25" href="#__codelineno-11-25"></a><span class="nv">DEV_OPA_ENABLED</span><span class="o">=</span><span class="nb">false</span>
+</span></code></pre></div>
+<p>Start the server:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>fastgeoapi<span class="w"> </span>run
+</span></code></pre></div>
+<p>With options:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>fastgeoapi<span class="w"> </span>run<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span><span class="w"> </span>--reload
+</span></code></pre></div>
+<p>See the <a href="https://geobeyond.github.io/fastgeoapi/getting-started/">Getting Started guide</a> for complete setup instructions including authentication options and examples.</p>
+<h3 id="common-uv-commands">Common UV Commands</h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Update dependencies</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>uv<span class="w"> </span>sync<span class="w"> </span>--upgrade
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="c1"># View installed packages</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>uv<span class="w"> </span>pip<span class="w"> </span>list
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="c1"># Install a new package</span>
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>package-name
+</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>
+</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="c1"># Install dev dependencies</span>
+</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--group<span class="w"> </span>dev
+</span></code></pre></div>
+<p>For more details, see <a href="../uv.md">uv.md</a>.</p>
+<h2 id="release-workflow">Release Workflow</h2>
+<p>This project uses a branching strategy with automated releases:</p>
+<table>
+<thead>
+<tr>
+<th>Branch</th>
+<th>Target</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>develop</code></td>
+<td>TestPyPI</td>
+<td>Development releases with <code>.dev</code> suffix</td>
+</tr>
+<tr>
+<td><code>main</code></td>
+<td>PyPI</td>
+<td>Production releases when version is bumped</td>
+</tr>
+</tbody>
+</table>
+<h3 id="development-releases">Development Releases</h3>
+<p>Push to <code>develop</code> branch triggers automatic publishing to <a href="https://test.pypi.org/project/fastgeoapi/">TestPyPI</a>:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>git<span class="w"> </span>checkout<span class="w"> </span>develop
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="c1"># Make changes</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;feat: add new feature&quot;</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>develop
+</span></code></pre></div>
+<p>The workflow automatically creates a dev version (e.g., <code>0.0.4.dev.1733912345</code>) and publishes to TestPyPI.</p>
+<h3 id="production-releases">Production Releases</h3>
+<p>To create a production release on <a href="https://pypi.org/project/fastgeoapi/">PyPI</a>:</p>
+<ol>
+<li>Update the version in <code>pyproject.toml</code></li>
+<li>Merge to <code>main</code> branch</li>
+<li>The workflow detects the version change, creates a git tag, and publishes to PyPI</li>
+</ol>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Update version in pyproject.toml to e.g., 0.0.4</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>git<span class="w"> </span>checkout<span class="w"> </span>main
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>git<span class="w"> </span>merge<span class="w"> </span>develop
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>main
+</span></code></pre></div>
+<p>Both workflows use <a href="https://docs.pypi.org/trusted-publishers/">Trusted Publisher</a> (OIDC) for secure, tokenless authentication with PyPI/TestPyPI.</p>
+<h2 id="usage">Usage</h2>
+<p>Please see the <a href="https://geobeyond.github.io/fastgeoapi/reference/">Command-line
+Reference</a> for
+details.</p>
+<p>Please have a look at the <code>docker-compose.yml</code> file under <code>scripts/iam</code> to start the stack with <strong>Keycloak</strong> and <strong>Open Policy Agent</strong> locally. There is a <code>README.md</code> file that explains how to use it.</p>
+<p>The file <code>scripts/iam/keycloak/realm-export.json</code> can be used to import an already configured realm into Keycloak.</p>
+<p>The files under <code>scripts/postman</code> can be used to setup Postman with a configuration that is ready to perform the requests for the whole stack.</p>
+<h2 id="contributing">Contributing</h2>
+<p>Contributions are very welcome. To learn more, see the <a href="../CONTRIBUTING.rst">Contributor
+Guide</a>.</p>
+<h2 id="license">License</h2>
+<p>Distributed under the terms of the <a href="https://opensource.org/licenses/MIT">MIT
+license</a>, <em>fastgeoapi</em> is free and open-source software.</p>
+<h2 id="issues">Issues</h2>
+<p>If you encounter any problems, please <a href="https://github.com/geobeyond/fastgeoapi/issues">file an
+issue</a> along with a detailed description.</p>
+<h2 id="mcp-server-model-context-protocol">MCP Server (Model Context Protocol)</h2>
+<p>fastgeoapi includes an optional integrated MCP server that exposes OGC API endpoints as tools for AI assistants and LLM-based applications. The MCP server is built using <a href="https://github.com/jlowin/fastmcp">FastMCP</a> and automatically generates tools from the pygeoapi OpenAPI specification.</p>
+<h3 id="features_1">Features</h3>
+<ul>
+<li><strong>Automatic Tool Generation</strong> - Tools are generated from the OGC API OpenAPI spec</li>
+<li><strong>OAuth Authentication</strong> - Supports OIDC authentication with any OAuth provider (Logto, Auth0, Keycloak, etc.)</li>
+<li><strong>RFC 9728 Compliant</strong> - Implements OAuth 2.0 Protected Resource Metadata</li>
+<li><strong>Dynamic Client Registration</strong> - Compatible with mcp-remote and other MCP clients</li>
+<li><strong>Provider Agnostic</strong> - Uses <a href="https://github.com/alonsosilvaallende/mcpauth">mcpauth</a> for multi-IdP support</li>
+</ul>
+<h3 id="enabling-the-mcp-server">Enabling the MCP Server</h3>
+<p>To enable the MCP server, set the <code>FASTGEOAPI_WITH_MCP</code> environment variable:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># In your .env file</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="nv">DEV_FASTGEOAPI_WITH_MCP</span><span class="o">=</span><span class="nb">true</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="c1"># Or for production</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="nv">PROD_FASTGEOAPI_WITH_MCP</span><span class="o">=</span><span class="nb">true</span>
+</span></code></pre></div>
+<p>The MCP server will be mounted at <code>/mcp</code> endpoint.</p>
+<h3 id="configuration">Configuration</h3>
+<h4 id="basic-configuration-no-authentication">Basic Configuration (No Authentication)</h4>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="c1"># .env file</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="nv">ENV_STATE</span><span class="o">=</span>dev
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="nv">DEV_FASTGEOAPI_WITH_MCP</span><span class="o">=</span><span class="nb">true</span>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="nv">DEV_PYGEOAPI_CONFIG</span><span class="o">=</span>pygeoapi-config.yml
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="nv">DEV_PYGEOAPI_OPENAPI</span><span class="o">=</span>pygeoapi-openapi.yml
+</span></code></pre></div>
+<h4 id="with-oauth-authentication">With OAuth Authentication</h4>
+<p>To enable OAuth authentication for the MCP server, configure JWKS:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># .env file</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="nv">ENV_STATE</span><span class="o">=</span>dev
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="nv">DEV_FASTGEOAPI_WITH_MCP</span><span class="o">=</span><span class="nb">true</span>
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="nv">DEV_JWKS_ENABLED</span><span class="o">=</span><span class="nb">true</span>
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="nv">DEV_OIDC_WELL_KNOWN_ENDPOINT</span><span class="o">=</span>https://your-idp.example.com/.well-known/openid-configuration
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="nv">DEV_OIDC_CLIENT_ID</span><span class="o">=</span>your-client-id
+</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="nv">DEV_OIDC_CLIENT_SECRET</span><span class="o">=</span>your-client-secret
+</span></code></pre></div>
+<h3 id="security-authentication-flows">Security &amp; Authentication Flows</h3>
+<p>The MCP server supports multiple security configurations depending on your deployment needs.</p>
+<h4 id="supported-oauth-20-flows">Supported OAuth 2.0 Flows</h4>
+<table>
+<thead>
+<tr>
+<th>Flow</th>
+<th>Use Case</th>
+<th>Configuration</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Authorization Code + PKCE</strong></td>
+<td>Interactive clients (Claude Desktop, mcp-remote)</td>
+<td><code>JWKS_ENABLED=true</code> with OIDC config</td>
+</tr>
+<tr>
+<td><strong>Client Credentials</strong></td>
+<td>Machine-to-machine, service accounts</td>
+<td><code>JWKS_ENABLED=true</code> with OIDC config</td>
+</tr>
+<tr>
+<td><strong>Dynamic Client Registration (DCR)</strong></td>
+<td>Auto-registration for MCP clients</td>
+<td>Enabled automatically with OIDC</td>
+</tr>
+</tbody>
+</table>
+<h4 id="oauth-proxy-architecture">OAuth Proxy Architecture</h4>
+<p>When OAuth is enabled, the MCP server acts as an <strong>OAuth Proxy</strong> implementing:</p>
+<ul>
+<li><strong>RFC 8414</strong> - OAuth 2.0 Authorization Server Metadata</li>
+<li><strong>RFC 9728</strong> - OAuth 2.0 Protected Resource Metadata</li>
+<li><strong>RFC 7636</strong> - Proof Key for Code Exchange (PKCE)</li>
+<li><strong>RFC 7591</strong> - OAuth 2.0 Dynamic Client Registration</li>
+</ul>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>│   MCP Client    │────▶│   MCP Server    │────▶│   Identity      │
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>│  (mcp-remote)   │     │  (OAuth Proxy)  │     │   Provider      │
+</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>└─────────────────┘     └─────────────────┘     └─────────────────┘
+</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>        │                       │                       │
+</span><span id="__span-20-6"><a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>        │  1. Discovery         │                       │
+</span><span id="__span-20-7"><a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>        │──────────────────────▶│                       │
+</span><span id="__span-20-8"><a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>        │  /.well-known/...     │                       │
+</span><span id="__span-20-9"><a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>        │                       │                       │
+</span><span id="__span-20-10"><a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a>        │  2. DCR (register)    │                       │
+</span><span id="__span-20-11"><a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a>        │──────────────────────▶│                       │
+</span><span id="__span-20-12"><a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a>        │                       │                       │
+</span><span id="__span-20-13"><a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a>        │  3. Authorization     │  4. Redirect to IdP   │
+</span><span id="__span-20-14"><a id="__codelineno-20-14" name="__codelineno-20-14" href="#__codelineno-20-14"></a>        │──────────────────────▶│──────────────────────▶│
+</span><span id="__span-20-15"><a id="__codelineno-20-15" name="__codelineno-20-15" href="#__codelineno-20-15"></a>        │                       │                       │
+</span><span id="__span-20-16"><a id="__codelineno-20-16" name="__codelineno-20-16" href="#__codelineno-20-16"></a>        │                       │  5. Auth Code         │
+</span><span id="__span-20-17"><a id="__codelineno-20-17" name="__codelineno-20-17" href="#__codelineno-20-17"></a>        │                       │◀──────────────────────│
+</span><span id="__span-20-18"><a id="__codelineno-20-18" name="__codelineno-20-18" href="#__codelineno-20-18"></a>        │  6. Token Exchange    │                       │
+</span><span id="__span-20-19"><a id="__codelineno-20-19" name="__codelineno-20-19" href="#__codelineno-20-19"></a>        │◀──────────────────────│                       │
+</span><span id="__span-20-20"><a id="__codelineno-20-20" name="__codelineno-20-20" href="#__codelineno-20-20"></a>        │                       │                       │
+</span><span id="__span-20-21"><a id="__codelineno-20-21" name="__codelineno-20-21" href="#__codelineno-20-21"></a>        │  7. MCP Requests      │  8. Internal API call │
+</span><span id="__span-20-22"><a id="__codelineno-20-22" name="__codelineno-20-22" href="#__codelineno-20-22"></a>        │  (with Bearer token)  │  (bypasses auth)      │
+</span><span id="__span-20-23"><a id="__codelineno-20-23" name="__codelineno-20-23" href="#__codelineno-20-23"></a>        │──────────────────────▶│──────────────────────▶│
+</span></code></pre></div>
+<h4 id="security-features">Security Features</h4>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>JWT Validation</strong></td>
+<td>Tokens are validated using JWKS from the IdP</td>
+</tr>
+<tr>
+<td><strong>Opaque Token Support</strong></td>
+<td>Supports IdPs that return opaque tokens (e.g., Logto without API Resources)</td>
+</tr>
+<tr>
+<td><strong>RFC 6750 Compliance</strong></td>
+<td>Proper error handling for missing vs invalid tokens</td>
+</tr>
+<tr>
+<td><strong>Internal API Bypass</strong></td>
+<td>MCP-to-API calls use an internal key to bypass authentication</td>
+</tr>
+<tr>
+<td><strong>Scope Validation</strong></td>
+<td>Configurable required scopes for access control</td>
+</tr>
+</tbody>
+</table>
+<h4 id="supported-identity-providers">Supported Identity Providers</h4>
+<p>The MCP server is provider-agnostic and works with any OIDC-compliant IdP:</p>
+<ul>
+<li><strong>Logto</strong> - Tested with OAuth proxy and DCR</li>
+<li><strong>Auth0</strong> - Full OIDC support</li>
+<li><strong>Keycloak</strong> - Full OIDC and OPA integration</li>
+<li><strong>Okta</strong> - Standard OIDC flows</li>
+<li><strong>Azure AD</strong> - Microsoft identity platform</li>
+<li><strong>Google</strong> - Google OAuth 2.0</li>
+</ul>
+<h3 id="using-the-mcp-server">Using the MCP Server</h3>
+<h4 id="with-claude-desktop">With Claude Desktop</h4>
+<p>Add the following to your Claude Desktop configuration (<code>~/Library/Application Support/Claude/claude_desktop_config.json</code> on macOS):</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="p">{</span>
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="w">  </span><span class="nt">&quot;mcpServers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="w">    </span><span class="nt">&quot;fastgeoapi&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="w">      </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;npx&quot;</span><span class="p">,</span>
+</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="w">      </span><span class="nt">&quot;args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;mcp-remote&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;http://localhost:5000/mcp/&quot;</span><span class="p">]</span>
+</span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-21-7"><a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-21-8"><a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a><span class="p">}</span>
+</span></code></pre></div>
+<h4 id="with-mcp-remote-oauth">With mcp-remote (OAuth)</h4>
+<p>When OAuth is enabled, mcp-remote handles authentication automatically:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="p">{</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w">  </span><span class="nt">&quot;mcpServers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="w">    </span><span class="nt">&quot;fastgeoapi&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="w">      </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;npx&quot;</span><span class="p">,</span>
+</span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="w">      </span><span class="nt">&quot;args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;mcp-remote&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;http://localhost:5000/mcp/&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;--allow-http&quot;</span><span class="p">]</span>
+</span><span id="__span-22-6"><a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-22-7"><a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-22-8"><a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>The <code>--allow-http</code> flag is needed for local development. In production with HTTPS, remove this flag.</p>
+<h4 id="direct-sse-connection">Direct SSE Connection</h4>
+<p>For clients that support Server-Sent Events directly:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>http://localhost:5000/mcp/sse
+</span></code></pre></div>
+<h3 id="available-tools">Available Tools</h3>
+<p>The MCP server exposes all OGC API endpoints as tools, including:</p>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>getLandingPage</code></td>
+<td>Get the API landing page</td>
+</tr>
+<tr>
+<td><code>getConformance</code></td>
+<td>Get OGC API conformance classes</td>
+</tr>
+<tr>
+<td><code>getCollections</code></td>
+<td>List all feature collections</td>
+</tr>
+<tr>
+<td><code>getCollection</code></td>
+<td>Get metadata for a specific collection</td>
+</tr>
+<tr>
+<td><code>getItems</code></td>
+<td>Query features from a collection</td>
+</tr>
+<tr>
+<td><code>getItem</code></td>
+<td>Get a specific feature by ID</td>
+</tr>
+<tr>
+<td><code>getProcesses</code></td>
+<td>List available processes (if OGC API - Processes is enabled)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="oauth-discovery-endpoints">OAuth Discovery Endpoints</h3>
+<p>When OAuth is enabled, the following RFC-compliant endpoints are available:</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/.well-known/oauth-protected-resource/mcp/</code></td>
+<td>Protected resource metadata (RFC 9728)</td>
+</tr>
+<tr>
+<td><code>/mcp/.well-known/oauth-authorization-server</code></td>
+<td>Authorization server metadata (RFC 8414)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="architecture_1">Architecture</h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>┌─────────────────────────────────────────────────────────┐
+</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>│                    Claude Desktop                        │
+</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>│                    or MCP Client                         │
+</span><span id="__span-24-4"><a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>└─────────────────────┬───────────────────────────────────┘
+</span><span id="__span-24-5"><a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>                      │ MCP Protocol (SSE/HTTP)
+</span><span id="__span-24-6"><a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>                      ▼
+</span><span id="__span-24-7"><a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>┌─────────────────────────────────────────────────────────┐
+</span><span id="__span-24-8"><a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a>│                   fastgeoapi                             │
+</span><span id="__span-24-9"><a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a>│  ┌───────────────────────────────────────────────────┐  │
+</span><span id="__span-24-10"><a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a>│  │              MCP Server (/mcp)                     │  │
+</span><span id="__span-24-11"><a id="__codelineno-24-11" name="__codelineno-24-11" href="#__codelineno-24-11"></a>│  │  ┌─────────────┐  ┌─────────────┐  ┌───────────┐  │  │
+</span><span id="__span-24-12"><a id="__codelineno-24-12" name="__codelineno-24-12" href="#__codelineno-24-12"></a>│  │  │ OAuth Proxy │  │ Tool Router │  │ SSE/HTTP  │  │  │
+</span><span id="__span-24-13"><a id="__codelineno-24-13" name="__codelineno-24-13" href="#__codelineno-24-13"></a>│  │  └─────────────┘  └─────────────┘  └───────────┘  │  │
+</span><span id="__span-24-14"><a id="__codelineno-24-14" name="__codelineno-24-14" href="#__codelineno-24-14"></a>│  └───────────────────────────────────────────────────┘  │
+</span><span id="__span-24-15"><a id="__codelineno-24-15" name="__codelineno-24-15" href="#__codelineno-24-15"></a>│                          │                               │
+</span><span id="__span-24-16"><a id="__codelineno-24-16" name="__codelineno-24-16" href="#__codelineno-24-16"></a>│                          ▼                               │
+</span><span id="__span-24-17"><a id="__codelineno-24-17" name="__codelineno-24-17" href="#__codelineno-24-17"></a>│  ┌───────────────────────────────────────────────────┐  │
+</span><span id="__span-24-18"><a id="__codelineno-24-18" name="__codelineno-24-18" href="#__codelineno-24-18"></a>│  │           pygeoapi OGC API (/geoapi)              │  │
+</span><span id="__span-24-19"><a id="__codelineno-24-19" name="__codelineno-24-19" href="#__codelineno-24-19"></a>│  └───────────────────────────────────────────────────┘  │
+</span><span id="__span-24-20"><a id="__codelineno-24-20" name="__codelineno-24-20" href="#__codelineno-24-20"></a>└─────────────────────────────────────────────────────────┘
+</span></code></pre></div>
+<h2 id="credits">Credits</h2>
+<p>This project was generated from
+<a href="https://github.com/cjolowicz">\@cjolowicz</a>\'s <a href="https://github.com/cjolowicz/cookiecutter-hypermodern-python">Hypermodern Python
+Cookiecutter</a>
+template.</p>
+
+              
+            </article>
+          </div>
+        </div>
+        
+          <a href="#" class="md-top md-icon" data-md-component="top" data-md-state="hidden">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+            Back to top
+          </a>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    <nav class="md-footer__inner md-grid" aria-label="Footer">
+      
+      
+        
+        <a href="getting-started/" class="md-footer__link md-footer__link--next" aria-label="Next: Getting started" rel="next">
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              Getting started
+            </div>
+          </div>
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+          </div>
+        </a>
+      
+    </nav>
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      &copy; Copyright 2025 <a href="https://github.com/geobeyond">Geobeyond team</a>.
+
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+      
+      
+    
+    <a href="https://github.com/geobeyond" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M186.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1zM480 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2zm-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3zm-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1z"/></svg>
+    </a>
+  
+    
+    
+      
+      
+    
+    <a href="https://twitter.com/geobeyond" target="_blank" rel="noopener" title="twitter.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z"/></svg>
+    </a>
+  
+    
+    
+      
+      
+    
+    <a href="https://www.linkedin.com/company/geobeyond" target="_blank" rel="noopener" title="www.linkedin.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3zM135.4 416H69V202.2h66.5V416zm-33.2-243c-21.3 0-38.5-17.3-38.5-38.5S80.9 96 102.2 96c21.2 0 38.5 17.3 38.5 38.5 0 21.3-17.2 38.5-38.5 38.5zm282.1 243h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9V416z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    <script id="__config" type="application/json">{"base": ".", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "navigation.top", "search.suggest", "search.highlight", "content.tabs.link", "content.code.annotation", "content.code.copy"], "search": "assets/javascripts/workers/search.2a1c317c.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
+    
+    
+      <script src="assets/javascripts/bundle.3a4b43e5.min.js"></script>
+      
+        <script src="termynal.js"></script>
+      
+    
+  </body>
+</html>
