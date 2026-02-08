@@ -11,7 +11,7 @@ jobs:
     steps:
       # Check out the repository
       - name: Check out the repository
-        uses: actions/checkout@v6.0.1
+        uses: actions/checkout@v6.0.2
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v6.2.0
@@ -56,7 +56,7 @@ jobs:
     steps:
       # Check out the repository
       - name: Check out the repository
-        uses: actions/checkout@v6.0.1
+        uses: actions/checkout@v6.0.2
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v6.2.0
