@@ -27,7 +27,9 @@ def runner() -> CliRunner:
 def reload_app():
     """Reload the app with the test environment variables."""
     # Remove all app modules to ensure clean reload with new environment
-    modules_to_remove = [key for key in sys.modules.keys() if key.startswith("app.")]
+    modules_to_remove = [
+        key for key in sys.modules.keys() if key.startswith("app.")
+    ]
     for module in modules_to_remove:
         del sys.modules[module]
 
@@ -172,6 +174,36 @@ def reverse_proxy_enabled(create_app_with_reverse_proxy_enabled):
     return app
 
 
+@pytest.fixture
+def create_unprotected_app(create_app):
+    """Return an unprotected app (no authentication)."""
+
+    def _unprotected_app():
+        with mock.patch.dict(
+            os.environ,
+            {
+                "ENV_STATE": "dev",
+                "HOST": "0.0.0.0",
+                "PORT": "5000",
+                "DEV_API_KEY_ENABLED": "false",
+                "DEV_JWKS_ENABLED": "false",
+                "DEV_OPA_ENABLED": "false",
+                "DEV_FASTGEOAPI_WITH_MCP": "false",
+            },
+            clear=False,
+        ):
+            app = create_app()
+        return app
+
+    yield _unprotected_app
+
+
+@pytest.fixture
+def unprotected_app(create_unprotected_app):
+    """Return the unprotected app instance."""
+    return create_unprotected_app()
+
+
 def get_access_token():
     """Fetch an access token."""
     try:
@@ -195,9 +227,13 @@ def get_access_token():
                 access_token = response.json()["access_token"]
                 return access_token
             else:
-                pytest.skip("Unable to fetch access token - OAuth2 endpoint not available")
+                pytest.skip(
+                    "Unable to fetch access token - OAuth2 endpoint not available"
+                )
     except Exception:
-        pytest.skip("Unable to fetch access token - OAuth2 endpoint not available")
+        pytest.skip(
+            "Unable to fetch access token - OAuth2 endpoint not available"
+        )
 
 
 @pytest.fixture

@@ -11,7 +11,9 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response
 
 
-def call_api_threadsafe(loop: asyncio.AbstractEventLoop, api_call: Callable, *args) -> tuple:
+def call_api_threadsafe(
+    loop: asyncio.AbstractEventLoop, api_call: Callable, *args
+) -> tuple:
     """Call api in a safe thread.
 
     The api call needs a running loop. This method is meant to be called
@@ -41,7 +43,9 @@ async def get_response(
     :returns: A Response instance.
     """
     loop = asyncio.get_running_loop()
-    result = await loop.run_in_executor(None, call_api_threadsafe, loop, api_call, *args)
+    result = await loop.run_in_executor(
+        None, call_api_threadsafe, loop, api_call, *args
+    )
 
     headers, status, content = result
     if headers["Content-Type"] == "text/html":
@@ -71,10 +75,31 @@ async def patched_get_job_result(request: Request, job_id=None):
     # Convert Starlette Request to APIRequest
     api_request = await APIRequest.from_starlette(request, geoapi.locales)
 
-    response = await get_response(processes_api.get_job_result, geoapi, api_request, job_id)
+    response = await get_response(
+        processes_api.get_job_result, geoapi, api_request, job_id
+    )
 
     from app.pygeoapi.api.processes import patch_response
 
     patched_response = patch_response(response=response)
 
     return patched_response
+
+
+async def patched_conformance(request: Request) -> Response:
+    """OGC API conformance endpoint with fix for global list mutation bug.
+
+    This patched version uses a corrected conformance function that:
+    1. Creates a copy of the base conformance classes to avoid mutating the global
+    2. Uses immutable value objects (ConformanceResponse) for thread safety
+    3. Only includes conformance classes for configured API types
+
+    :param request: Starlette Request instance
+
+    :returns: HTTP response
+    """
+    from app.pygeoapi.api.conformance import conformance
+
+    api_request = await APIRequest.from_starlette(request, geoapi.locales)
+
+    return await get_response(conformance, geoapi, api_request)
