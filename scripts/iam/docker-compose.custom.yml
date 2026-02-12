@@ -36,7 +36,7 @@ services:
       retries: 3
       start_period: 90s
   postgres:
-    image: postgres:14.3
+    image: postgres:18.2
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
