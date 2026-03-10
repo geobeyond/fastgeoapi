@@ -1,0 +1,1646 @@
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "pygeoapi default instance",
+    "description": "pygeoapi provides an API to geospatial data",
+    "termsOfService": "https://creativecommons.org/licenses/by/4.0/",
+    "contact": {
+      "name": "Organization Name",
+      "url": "https://pygeoapi.io",
+      "email": "you@example.org"
+    },
+    "license": {
+      "name": "CC-BY 4.0 license",
+      "url": "https://creativecommons.org/licenses/by/4.0/"
+    },
+    "version": "0.16.dev0",
+    "x-keywords": ["geospatial", "data", "api"]
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000/geoapi",
+      "description": "pygeoapi provides an API to geospatial data"
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "tags": ["server"],
+        "summary": "Landing page",
+        "description": "Landing page",
+        "operationId": "getLandingPage",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/f"
+          },
+          {
+            "$ref": "#/components/parameters/lang"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/LandingPage"
+          },
+          "400": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter"
+          },
+          "500": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      }
+    },
+    "/openapi": {
+      "get": {
+        "tags": ["server"],
+        "summary": "This document",
+        "description": "This document",
+        "operationId": "getOpenapi",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/f"
+          },
+          {
+            "$ref": "#/components/parameters/lang"
+          },
+          {
+            "description": "UI to render the OpenAPI document",
+            "required": false,
+            "deprecated": false,
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "enum": ["swagger", "redoc"],
+              "type": "string",
+              "default": "swagger"
+            },
+            "name": "ui",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/200"
+          },
+          "400": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      }
+    },
+    "/conformance": {
+      "get": {
+        "tags": ["server"],
+        "summary": "API conformance definition",
+        "description": "API conformance definition",
+        "operationId": "getConformanceDeclaration",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/f"
+          },
+          {
+            "$ref": "#/components/parameters/lang"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/LandingPage"
+          },
+          "400": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter"
+          },
+          "500": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      }
+    },
+    "/collections": {
+      "get": {
+        "tags": ["server"],
+        "summary": "Collections",
+        "description": "Collections",
+        "operationId": "getCollections",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/f"
+          },
+          {
+            "$ref": "#/components/parameters/lang"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/LandingPage"
+          },
+          "400": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter"
+          },
+          "500": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      }
+    },
+    "/collections/obs": {
+      "get": {
+        "tags": ["obs"],
+        "summary": "Get Observations metadata",
+        "description": "My cool observations",
+        "operationId": "describeObsCollection",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/f"
+          },
+          {
+            "$ref": "#/components/parameters/lang"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/Collection"
+          },
+          "400": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter"
+          },
+          "404": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      }
+    },
+    "/collections/obs/items": {
+      "get": {
+        "tags": ["obs"],
+        "summary": "Get Observations items",
+        "description": "My cool observations",
+        "operationId": "getObsFeatures",
+        "parameters": [
+          {
+            "description": "The optional f parameter indicates the output format which the server shall provide as part of the response document.  The default format is GeoJSON.",
+            "required": false,
+            "deprecated": false,
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "enum": ["json", "html", "jsonld", "csv"],
+              "type": "string",
+              "default": "json"
+            },
+            "name": "f",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          },
+          {
+            "description": "The optional lang parameter instructs the server return a response in a certain language, if supported.  If the language is not among the available values, the Accept-Language header language will be used if it is supported. If the header is missing, the default server language is used. Note that providers may only support a single language (or often no language at all), that can be different from the server language.  Language strings can be written in a complex (e.g. \"fr-CA,fr;q=0.9,en-US;q=0.8,en;q=0.7\"), simple (e.g. \"de\") or locale-like (e.g. \"de-CH\" or \"fr_BE\") fashion.",
+            "required": false,
+            "deprecated": false,
+            "explode": false,
+            "schema": {
+              "enum": ["en-US", "fr-CA"],
+              "type": "string",
+              "default": "en-US"
+            },
+            "name": "lang",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          },
+          {
+            "$ref": "#/components/parameters/bbox"
+          },
+          {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/crs"
+          },
+          {
+            "$ref": "#/components/parameters/bbox-crs"
+          },
+          {
+            "description": "The properties that should be included for each feature. The parameter value is a comma-separated list of property names.",
+            "required": false,
+            "deprecated": false,
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "enum": ["id", "stn_id", "datetime", "value"],
+                "type": "string"
+              }
+            },
+            "name": "properties",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          },
+          {
+            "$ref": "#/components/parameters/vendorSpecificParameters"
+          },
+          {
+            "$ref": "#/components/parameters/skipGeometry"
+          },
+          {
+            "$ref": "https://raw.githubusercontent.com/opengeospatial/ogcapi-records/master/core/openapi/parameters/sortby.yaml"
+          },
+          {
+            "$ref": "#/components/parameters/offset"
+          },
+          {
+            "required": false,
+            "deprecated": false,
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "type": "string"
+            },
+            "name": "id",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          },
+          {
+            "required": false,
+            "deprecated": false,
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "type": "integer"
+            },
+            "name": "stn_id",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          },
+          {
+            "required": false,
+            "deprecated": false,
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "type": "string"
+            },
+            "name": "datetime",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          },
+          {
+            "required": false,
+            "deprecated": false,
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "type": "number"
+            },
+            "name": "value",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/Features"
+          },
+          "400": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter"
+          },
+          "404": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      },
+      "options": {
+        "tags": ["obs"],
+        "summary": "Options for Observations items",
+        "description": "My cool observations",
+        "operationId": "optionsObsFeatures",
+        "responses": {
+          "200": {
+            "description": "options response"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          },
+          "404": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      }
+    },
+    "/collections/obs/schema": {
+      "get": {
+        "tags": ["obs"],
+        "summary": "Get Observations schema",
+        "description": "My cool observations",
+        "operationId": "getObsQueryables",
+        "parameters": [
+          {
+            "description": "The optional f parameter indicates the output format which the server shall provide as part of the response document.  The default format is GeoJSON.",
+            "required": false,
+            "deprecated": false,
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "enum": ["json", "html", "jsonld", "csv"],
+              "type": "string",
+              "default": "json"
+            },
+            "name": "f",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          },
+          {
+            "description": "The optional lang parameter instructs the server return a response in a certain language, if supported.  If the language is not among the available values, the Accept-Language header language will be used if it is supported. If the header is missing, the default server language is used. Note that providers may only support a single language (or often no language at all), that can be different from the server language.  Language strings can be written in a complex (e.g. \"fr-CA,fr;q=0.9,en-US;q=0.8,en;q=0.7\"), simple (e.g. \"de\") or locale-like (e.g. \"de-CH\" or \"fr_BE\") fashion.",
+            "required": false,
+            "deprecated": false,
+            "explode": false,
+            "schema": {
+              "enum": ["en-US", "fr-CA"],
+              "type": "string",
+              "default": "en-US"
+            },
+            "name": "lang",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Queryables"
+          },
+          "400": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter"
+          },
+          "404": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      }
+    },
+    "/collections/obs/queryables": {
+      "get": {
+        "tags": ["obs"],
+        "summary": "Get Observations queryables",
+        "description": "My cool observations",
+        "operationId": "getObsQueryables",
+        "parameters": [
+          {
+            "description": "The optional f parameter indicates the output format which the server shall provide as part of the response document.  The default format is GeoJSON.",
+            "required": false,
+            "deprecated": false,
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "enum": ["json", "html", "jsonld", "csv"],
+              "type": "string",
+              "default": "json"
+            },
+            "name": "f",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          },
+          {
+            "description": "The optional lang parameter instructs the server return a response in a certain language, if supported.  If the language is not among the available values, the Accept-Language header language will be used if it is supported. If the header is missing, the default server language is used. Note that providers may only support a single language (or often no language at all), that can be different from the server language.  Language strings can be written in a complex (e.g. \"fr-CA,fr;q=0.9,en-US;q=0.8,en;q=0.7\"), simple (e.g. \"de\") or locale-like (e.g. \"de-CH\" or \"fr_BE\") fashion.",
+            "required": false,
+            "deprecated": false,
+            "explode": false,
+            "schema": {
+              "enum": ["en-US", "fr-CA"],
+              "type": "string",
+              "default": "en-US"
+            },
+            "name": "lang",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Queryables"
+          },
+          "400": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter"
+          },
+          "404": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      }
+    },
+    "/collections/obs/items/{featureId}": {
+      "get": {
+        "tags": ["obs"],
+        "summary": "Get Observations item by id",
+        "description": "My cool observations",
+        "operationId": "getObsFeature",
+        "parameters": [
+          {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/featureId"
+          },
+          {
+            "$ref": "#/components/parameters/crs"
+          },
+          {
+            "$ref": "#/components/parameters/f"
+          },
+          {
+            "$ref": "#/components/parameters/lang"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/Feature"
+          },
+          "400": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter"
+          },
+          "404": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      },
+      "options": {
+        "tags": ["obs"],
+        "summary": "Options for Observations item by id",
+        "description": "My cool observations",
+        "operationId": "optionsObsFeature",
+        "parameters": [
+          {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/featureId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "options response"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          },
+          "404": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      }
+    },
+    "/collections/lakes": {
+      "get": {
+        "tags": ["lakes"],
+        "summary": "Get Large Lakes metadata",
+        "description": "lakes of the world, public domain",
+        "operationId": "describeLakesCollection",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/f"
+          },
+          {
+            "$ref": "#/components/parameters/lang"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/Collection"
+          },
+          "400": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter"
+          },
+          "404": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      }
+    },
+    "/collections/lakes/items": {
+      "get": {
+        "tags": ["lakes"],
+        "summary": "Get Large Lakes items",
+        "description": "lakes of the world, public domain",
+        "operationId": "getLakesFeatures",
+        "parameters": [
+          {
+            "description": "The optional f parameter indicates the output format which the server shall provide as part of the response document.  The default format is GeoJSON.",
+            "required": false,
+            "deprecated": false,
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "enum": ["json", "html", "jsonld", "csv"],
+              "type": "string",
+              "default": "json"
+            },
+            "name": "f",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          },
+          {
+            "description": "The optional lang parameter instructs the server return a response in a certain language, if supported.  If the language is not among the available values, the Accept-Language header language will be used if it is supported. If the header is missing, the default server language is used. Note that providers may only support a single language (or often no language at all), that can be different from the server language.  Language strings can be written in a complex (e.g. \"fr-CA,fr;q=0.9,en-US;q=0.8,en;q=0.7\"), simple (e.g. \"de\") or locale-like (e.g. \"de-CH\" or \"fr_BE\") fashion.",
+            "required": false,
+            "deprecated": false,
+            "explode": false,
+            "schema": {
+              "enum": ["en-US", "fr-CA"],
+              "type": "string",
+              "default": "en-US"
+            },
+            "name": "lang",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          },
+          {
+            "$ref": "#/components/parameters/bbox"
+          },
+          {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/crs"
+          },
+          {
+            "$ref": "#/components/parameters/bbox-crs"
+          },
+          {
+            "description": "The properties that should be included for each feature. The parameter value is a comma-separated list of property names.",
+            "required": false,
+            "deprecated": false,
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "id",
+                  "scalerank",
+                  "name",
+                  "name_alt",
+                  "admin",
+                  "featureclass"
+                ],
+                "type": "string"
+              }
+            },
+            "name": "properties",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          },
+          {
+            "$ref": "#/components/parameters/vendorSpecificParameters"
+          },
+          {
+            "$ref": "#/components/parameters/skipGeometry"
+          },
+          {
+            "$ref": "https://raw.githubusercontent.com/opengeospatial/ogcapi-records/master/core/openapi/parameters/sortby.yaml"
+          },
+          {
+            "$ref": "#/components/parameters/offset"
+          },
+          {
+            "required": false,
+            "deprecated": false,
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "type": "integer"
+            },
+            "name": "id",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          },
+          {
+            "required": false,
+            "deprecated": false,
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "type": "integer"
+            },
+            "name": "scalerank",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          },
+          {
+            "required": false,
+            "deprecated": false,
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "type": "string"
+            },
+            "name": "name",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          },
+          {
+            "required": false,
+            "deprecated": false,
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "type": "string"
+            },
+            "name": "name_alt",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          },
+          {
+            "required": false,
+            "deprecated": false,
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "type": "string"
+            },
+            "name": "admin",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          },
+          {
+            "required": false,
+            "deprecated": false,
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "type": "string"
+            },
+            "name": "featureclass",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/Features"
+          },
+          "400": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter"
+          },
+          "404": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      },
+      "options": {
+        "tags": ["lakes"],
+        "summary": "Options for Large Lakes items",
+        "description": "lakes of the world, public domain",
+        "operationId": "optionsLakesFeatures",
+        "responses": {
+          "200": {
+            "description": "options response"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          },
+          "404": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      }
+    },
+    "/collections/lakes/schema": {
+      "get": {
+        "tags": ["lakes"],
+        "summary": "Get Large Lakes schema",
+        "description": "lakes of the world, public domain",
+        "operationId": "getLakesQueryables",
+        "parameters": [
+          {
+            "description": "The optional f parameter indicates the output format which the server shall provide as part of the response document.  The default format is GeoJSON.",
+            "required": false,
+            "deprecated": false,
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "enum": ["json", "html", "jsonld", "csv"],
+              "type": "string",
+              "default": "json"
+            },
+            "name": "f",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          },
+          {
+            "description": "The optional lang parameter instructs the server return a response in a certain language, if supported.  If the language is not among the available values, the Accept-Language header language will be used if it is supported. If the header is missing, the default server language is used. Note that providers may only support a single language (or often no language at all), that can be different from the server language.  Language strings can be written in a complex (e.g. \"fr-CA,fr;q=0.9,en-US;q=0.8,en;q=0.7\"), simple (e.g. \"de\") or locale-like (e.g. \"de-CH\" or \"fr_BE\") fashion.",
+            "required": false,
+            "deprecated": false,
+            "explode": false,
+            "schema": {
+              "enum": ["en-US", "fr-CA"],
+              "type": "string",
+              "default": "en-US"
+            },
+            "name": "lang",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Queryables"
+          },
+          "400": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter"
+          },
+          "404": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      }
+    },
+    "/collections/lakes/queryables": {
+      "get": {
+        "tags": ["lakes"],
+        "summary": "Get Large Lakes queryables",
+        "description": "lakes of the world, public domain",
+        "operationId": "getLakesQueryables",
+        "parameters": [
+          {
+            "description": "The optional f parameter indicates the output format which the server shall provide as part of the response document.  The default format is GeoJSON.",
+            "required": false,
+            "deprecated": false,
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "enum": ["json", "html", "jsonld", "csv"],
+              "type": "string",
+              "default": "json"
+            },
+            "name": "f",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          },
+          {
+            "description": "The optional lang parameter instructs the server return a response in a certain language, if supported.  If the language is not among the available values, the Accept-Language header language will be used if it is supported. If the header is missing, the default server language is used. Note that providers may only support a single language (or often no language at all), that can be different from the server language.  Language strings can be written in a complex (e.g. \"fr-CA,fr;q=0.9,en-US;q=0.8,en;q=0.7\"), simple (e.g. \"de\") or locale-like (e.g. \"de-CH\" or \"fr_BE\") fashion.",
+            "required": false,
+            "deprecated": false,
+            "explode": false,
+            "schema": {
+              "enum": ["en-US", "fr-CA"],
+              "type": "string",
+              "default": "en-US"
+            },
+            "name": "lang",
+            "in": "query",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Queryables"
+          },
+          "400": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter"
+          },
+          "404": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      }
+    },
+    "/collections/lakes/items/{featureId}": {
+      "get": {
+        "tags": ["lakes"],
+        "summary": "Get Large Lakes item by id",
+        "description": "lakes of the world, public domain",
+        "operationId": "getLakesFeature",
+        "parameters": [
+          {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/featureId"
+          },
+          {
+            "$ref": "#/components/parameters/crs"
+          },
+          {
+            "$ref": "#/components/parameters/f"
+          },
+          {
+            "$ref": "#/components/parameters/lang"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/Feature"
+          },
+          "400": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/InvalidParameter"
+          },
+          "404": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/ServerError"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      },
+      "options": {
+        "tags": ["lakes"],
+        "summary": "Options for Large Lakes item by id",
+        "description": "lakes of the world, public domain",
+        "operationId": "optionsLakesFeature",
+        "parameters": [
+          {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/parameters/featureId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "options response"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          },
+          "404": {
+            "$ref": "https://schemas.opengis.net/ogcapi/features/part1/1.0/openapi/ogcapi-features-1.yaml#/components/responses/NotFound"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      }
+    },
+    "/processes": {
+      "get": {
+        "tags": ["server"],
+        "summary": "Processes",
+        "description": "Processes",
+        "operationId": "getProcesses",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/f"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "https://schemas.opengis.net/ogcapi/processes/part1/1.0/openapi/responses/ProcessList.yaml"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      }
+    },
+    "/processes/hello-world": {
+      "get": {
+        "tags": ["hello-world"],
+        "summary": "Get process metadata",
+        "description": "An example process that takes a name as input, and echoes it back as output. Intended to demonstrate a simple process with a single literal input.",
+        "operationId": "describeHello-worldProcess",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/f"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/200"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      }
+    },
+    "/processes/hello-world/execution": {
+      "post": {
+        "tags": ["hello-world"],
+        "summary": "Process Hello World execution",
+        "description": "An example process that takes a name as input, and echoes it back as output. Intended to demonstrate a simple process with a single literal input.",
+        "operationId": "executeHello-worldJob",
+        "requestBody": {
+          "description": "Mandatory execute request JSON",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "https://schemas.opengis.net/ogcapi/processes/part1/1.0/openapi/schemas/execute.yaml"
+              },
+              "example": {
+                "inputs": {
+                  "name": "World",
+                  "message": "An optional message."
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/200"
+          },
+          "201": {
+            "$ref": "https://schemas.opengis.net/ogcapi/processes/part1/1.0/openapi/responses/ExecuteAsync.yaml"
+          },
+          "404": {
+            "$ref": "https://schemas.opengis.net/ogcapi/processes/part1/1.0/openapi/responses/NotFound.yaml"
+          },
+          "500": {
+            "$ref": "https://schemas.opengis.net/ogcapi/processes/part1/1.0/openapi/responses/ServerError.yaml"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      }
+    },
+    "/jobs": {
+      "get": {
+        "tags": ["jobs"],
+        "summary": "Retrieve jobs list",
+        "description": "Retrieve a list of jobs",
+        "operationId": "getJobs",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/200"
+          },
+          "404": {
+            "$ref": "https://schemas.opengis.net/ogcapi/processes/part1/1.0/openapi/responses/NotFound.yaml"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      }
+    },
+    "/jobs/{jobId}": {
+      "get": {
+        "tags": ["jobs"],
+        "summary": "Retrieve job details",
+        "description": "Retrieve job details",
+        "operationId": "getJob",
+        "parameters": [
+          {
+            "description": "job identifier",
+            "required": true,
+            "deprecated": false,
+            "explode": false,
+            "schema": {
+              "type": "string"
+            },
+            "name": "jobId",
+            "in": "path",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          },
+          {
+            "$ref": "#/components/parameters/f"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/200"
+          },
+          "404": {
+            "$ref": "https://schemas.opengis.net/ogcapi/processes/part1/1.0/openapi/responses/NotFound.yaml"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["jobs"],
+        "summary": "Cancel / delete job",
+        "description": "Cancel / delete job",
+        "operationId": "deleteJob",
+        "parameters": [
+          {
+            "description": "job identifier",
+            "required": true,
+            "deprecated": false,
+            "explode": false,
+            "schema": {
+              "type": "string"
+            },
+            "name": "jobId",
+            "in": "path",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          }
+        ],
+        "responses": {
+          "204": {
+            "$ref": "#/components/responses/204"
+          },
+          "404": {
+            "$ref": "https://schemas.opengis.net/ogcapi/processes/part1/1.0/openapi/responses/NotFound.yaml"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      }
+    },
+    "/jobs/{jobId}/results": {
+      "get": {
+        "tags": ["jobs"],
+        "summary": "Retrieve job results",
+        "description": "Retrive job resiults",
+        "operationId": "getJobResults",
+        "parameters": [
+          {
+            "description": "job identifier",
+            "required": true,
+            "deprecated": false,
+            "explode": false,
+            "schema": {
+              "type": "string"
+            },
+            "name": "jobId",
+            "in": "path",
+            "allowEmptyValue": false,
+            "allowReserved": false
+          },
+          {
+            "$ref": "#/components/parameters/f"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/200"
+          },
+          "404": {
+            "$ref": "https://schemas.opengis.net/ogcapi/processes/part1/1.0/openapi/responses/NotFound.yaml"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "401": {
+            "description": "Unauthorized response",
+            "message": "Unauthenticated"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "pygeoapi http": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "queryable": {
+        "required": ["queryable", "type"],
+        "type": "object",
+        "properties": {
+          "queryable": {
+            "type": "string",
+            "description": "the token that may be used in a CQL predicate"
+          },
+          "title": {
+            "type": "string",
+            "description": "a human readable title for the queryable"
+          },
+          "description": {
+            "type": "string",
+            "description": "a human-readable narrative describing the queryable"
+          },
+          "language": {
+            "type": "string",
+            "description": "the language used for the title and description",
+            "default": ["en"]
+          },
+          "type": {
+            "type": "string",
+            "description": "the data type of the queryable"
+          },
+          "type-ref": {
+            "type": "string",
+            "description": "a reference to the formal definition of the type",
+            "format": "url"
+          }
+        }
+      },
+      "queryables": {
+        "required": ["queryables"],
+        "type": "object",
+        "properties": {
+          "queryables": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/queryable"
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "200": {
+        "description": "successful operation"
+      },
+      "204": {
+        "description": "no content"
+      },
+      "default": {
+        "description": "Unexpected error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "https://schemas.opengis.net/ogcapi/processes/part1/1.0/openapi/schemas/exception.yaml"
+            }
+          }
+        }
+      },
+      "Queryables": {
+        "description": "successful queryables operation",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/queryables"
+            }
+          }
+        }
+      }
+    },
+    "parameters": {
+      "f": {
+        "description": "The optional f parameter indicates the output format which the server shall provide as part of the response document.  The default format is GeoJSON.",
+        "required": false,
+        "deprecated": false,
+        "style": "form",
+        "explode": false,
+        "schema": {
+          "enum": ["json", "html", "jsonld"],
+          "type": "string",
+          "default": "json"
+        },
+        "name": "f",
+        "in": "query",
+        "allowEmptyValue": false,
+        "allowReserved": false
+      },
+      "lang": {
+        "description": "The optional lang parameter instructs the server return a response in a certain language, if supported.  If the language is not among the available values, the Accept-Language header language will be used if it is supported. If the header is missing, the default server language is used. Note that providers may only support a single language (or often no language at all), that can be different from the server language.  Language strings can be written in a complex (e.g. \"fr-CA,fr;q=0.9,en-US;q=0.8,en;q=0.7\"), simple (e.g. \"de\") or locale-like (e.g. \"de-CH\" or \"fr_BE\") fashion.",
+        "required": false,
+        "deprecated": false,
+        "explode": false,
+        "schema": {
+          "enum": ["en-US", "fr-CA"],
+          "type": "string",
+          "default": "en-US"
+        },
+        "name": "lang",
+        "in": "query",
+        "allowEmptyValue": false,
+        "allowReserved": false
+      },
+      "properties": {
+        "description": "The properties that should be included for each feature. The parameter value is a comma-separated list of property names.",
+        "required": false,
+        "deprecated": false,
+        "style": "form",
+        "explode": false,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": "properties",
+        "in": "query",
+        "allowEmptyValue": false,
+        "allowReserved": false
+      },
+      "skipGeometry": {
+        "description": "This option can be used to skip response geometries for each feature.",
+        "required": false,
+        "deprecated": false,
+        "style": "form",
+        "explode": false,
+        "schema": {
+          "type": "boolean",
+          "default": false
+        },
+        "name": "skipGeometry",
+        "in": "query",
+        "allowEmptyValue": false,
+        "allowReserved": false
+      },
+      "crs": {
+        "description": "Indicates the coordinate reference system for the results.",
+        "required": false,
+        "deprecated": false,
+        "style": "form",
+        "explode": false,
+        "schema": {
+          "type": "string",
+          "format": "uri"
+        },
+        "name": "crs",
+        "in": "query",
+        "allowEmptyValue": false,
+        "allowReserved": false
+      },
+      "bbox": {
+        "description": "Only features that have a geometry that intersects the bounding box are selected.The bounding box is provided as four or six numbers, depending on whether the coordinate reference system includes a vertical axis (height or depth).",
+        "required": false,
+        "deprecated": false,
+        "style": "form",
+        "explode": false,
+        "schema": {
+          "maxItems": 6,
+          "minItems": 4,
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "name": "bbox",
+        "in": "query",
+        "allowEmptyValue": false,
+        "allowReserved": false
+      },
+      "bbox-crs": {
+        "description": "Indicates the coordinate reference system for the given bbox coordinates.",
+        "required": false,
+        "deprecated": false,
+        "style": "form",
+        "explode": false,
+        "schema": {
+          "type": "string",
+          "format": "uri"
+        },
+        "name": "bbox-crs",
+        "in": "query",
+        "allowEmptyValue": false,
+        "allowReserved": false
+      },
+      "bbox-crs-epsg": {
+        "description": "Indicates the EPSG for the given bbox coordinates.",
+        "required": false,
+        "deprecated": false,
+        "style": "form",
+        "explode": false,
+        "schema": {
+          "type": "integer",
+          "default": 4326
+        },
+        "name": "bbox-crs",
+        "in": "query",
+        "allowEmptyValue": false,
+        "allowReserved": false
+      },
+      "offset": {
+        "description": "The optional offset parameter indicates the index within the result set from which the server shall begin presenting results in the response document.  The first element has an index of 0 (default).",
+        "required": false,
+        "deprecated": false,
+        "style": "form",
+        "explode": false,
+        "schema": {
+          "minimum": 0.0,
+          "type": "integer",
+          "default": 0
+        },
+        "name": "offset",
+        "in": "query",
+        "allowEmptyValue": false,
+        "allowReserved": false
+      },
+      "vendorSpecificParameters": {
+        "description": "Additional \"free-form\" parameters that are not explicitly defined",
+        "required": false,
+        "deprecated": false,
+        "style": "form",
+        "explode": false,
+        "schema": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "name": "vendorSpecificParameters",
+        "in": "query",
+        "allowEmptyValue": false,
+        "allowReserved": false
+      },
+      "resourceId": {
+        "description": "Configuration resource identifier",
+        "required": true,
+        "deprecated": false,
+        "explode": false,
+        "schema": {
+          "type": "string"
+        },
+        "name": "resourceId",
+        "in": "path",
+        "allowEmptyValue": false,
+        "allowReserved": false
+      }
+    },
+    "securitySchemes": {
+      "pygeoapi http": {
+        "type": "http",
+        "name": "pygeoapi",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "server",
+      "description": "pygeoapi provides an API to geospatial data",
+      "externalDocs": {
+        "description": "information",
+        "url": "https://example.org"
+      }
+    },
+    {
+      "name": "jobs",
+      "description": "Process jobs"
+    },
+    {
+      "name": "stac",
+      "description": "SpatioTemporal Asset Catalog"
+    },
+    {
+      "name": "obs",
+      "description": "My cool observations"
+    },
+    {
+      "name": "lakes",
+      "description": "lakes of the world, public domain"
+    },
+    {
+      "name": "hello-world",
+      "description": "An example process that takes a name as input, and echoes it back as output. Intended to demonstrate a simple process with a single literal input."
+    }
+  ]
+}
