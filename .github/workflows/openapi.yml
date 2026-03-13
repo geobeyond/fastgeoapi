@@ -28,7 +28,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
-          version: "0.10.9"
+          version: "0.10.10"
 
       - name: Create OpenAPI with fastgeoapi CLI
         run: |
@@ -73,7 +73,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
-          version: "0.10.9"
+          version: "0.10.10"
 
       - name: Create OpenAPI with fastgeoapi CLI
         run: |
