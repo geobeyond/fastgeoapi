@@ -640,9 +640,9 @@ class TestMCPAuthTokenVerifierReturnsAccessToken:
         result = await verifier.verify_token("valid-jwt-token")
 
         # This should be an AccessToken object, not a dict
-        assert isinstance(
-            result, AccessToken
-        ), f"verify_token should return AccessToken, got {type(result).__name__}"
+        assert isinstance(result, AccessToken), (
+            f"verify_token should return AccessToken, got {type(result).__name__}"
+        )
 
     @pytest.mark.asyncio
     async def test_verify_token_has_expires_at_attribute(self, mock_verify_fn):
@@ -789,9 +789,9 @@ class TestTrustingUpstreamTokenVerifier:
 
         result = await verifier.verify_token(opaque_token)
 
-        assert isinstance(
-            result, AccessToken
-        ), f"verify_token should return AccessToken, got {type(result).__name__}"
+        assert isinstance(result, AccessToken), (
+            f"verify_token should return AccessToken, got {type(result).__name__}"
+        )
 
     @pytest.mark.asyncio
     async def test_verify_token_has_required_attributes(self, verifier):
@@ -1037,9 +1037,9 @@ class TestMCPRemoteOAuthFlow:
                 # even when no token is provided.
 
                 # Check WWW-Authenticate header exists
-                assert (
-                    "WWW-Authenticate" in response.headers
-                ), "Response should include WWW-Authenticate header"
+                assert "WWW-Authenticate" in response.headers, (
+                    "Response should include WWW-Authenticate header"
+                )
 
                 www_auth = response.headers.get("WWW-Authenticate", "")
 
@@ -1363,12 +1363,12 @@ class TestOAuthEndpointURLConsistency:
                 response_without_slash = client.get("/.well-known/oauth-protected-resource/mcp")
 
                 # Both should return 200
-                assert (
-                    response_with_slash.status_code == 200
-                ), f"Expected 200 for /mcp/, got {response_with_slash.status_code}"
-                assert (
-                    response_without_slash.status_code == 200
-                ), f"Expected 200 for /mcp, got {response_without_slash.status_code}"
+                assert response_with_slash.status_code == 200, (
+                    f"Expected 200 for /mcp/, got {response_with_slash.status_code}"
+                )
+                assert response_without_slash.status_code == 200, (
+                    f"Expected 200 for /mcp, got {response_without_slash.status_code}"
+                )
 
                 # Parse responses
                 prm_with_slash = response_with_slash.json()
@@ -1520,12 +1520,12 @@ class TestOAuthEndpointURLConsistency:
                 prm_finish = client.get("/.well-known/oauth-protected-resource/mcp")
 
                 # Both must return 200
-                assert (
-                    prm_initial.status_code == 200
-                ), f"Initial PRM request failed: {prm_initial.status_code}"
-                assert (
-                    prm_finish.status_code == 200
-                ), f"FinishAuth PRM request failed: {prm_finish.status_code}"
+                assert prm_initial.status_code == 200, (
+                    f"Initial PRM request failed: {prm_initial.status_code}"
+                )
+                assert prm_finish.status_code == 200, (
+                    f"FinishAuth PRM request failed: {prm_finish.status_code}"
+                )
 
                 # Get authorization servers from both
                 auth_servers_initial = prm_initial.json().get("authorization_servers", [])
@@ -1559,6 +1559,6 @@ class TestOAuthEndpointURLConsistency:
             normalized1 = url1.rstrip("/")
             normalized2 = url2.rstrip("/")
 
-            assert (
-                normalized1 == normalized2
-            ), f"URLs should normalize to the same value: {url1} vs {url2}"
+            assert normalized1 == normalized2, (
+                f"URLs should normalize to the same value: {url1} vs {url2}"
+            )

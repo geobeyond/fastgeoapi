@@ -39,7 +39,7 @@ class GenericConformance(Protocol):
     """
 
     @property
-    def CONFORMANCE_CLASSES(self) -> Sequence[str]:
+    def CONFORMANCE_CLASSES(self) -> Sequence[str]:  # noqa: N802
         """Return the conformance classes for this provider.
 
         Returns
@@ -70,7 +70,7 @@ class FeatureRecordConformance(Protocol):
     """
 
     @property
-    def CONFORMANCE_CLASSES_FEATURES(self) -> Sequence[str]:
+    def CONFORMANCE_CLASSES_FEATURES(self) -> Sequence[str]:  # noqa: N802
         """Return the conformance classes for OGC API Features.
 
         Returns
@@ -81,7 +81,7 @@ class FeatureRecordConformance(Protocol):
         ...
 
     @property
-    def CONFORMANCE_CLASSES_RECORDS(self) -> Sequence[str]:
+    def CONFORMANCE_CLASSES_RECORDS(self) -> Sequence[str]:  # noqa: N802
         """Return the conformance classes for OGC API Records.
 
         Returns

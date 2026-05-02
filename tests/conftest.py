@@ -27,9 +27,7 @@ def runner() -> CliRunner:
 def reload_app():
     """Reload the app with the test environment variables."""
     # Remove all app modules to ensure clean reload with new environment
-    modules_to_remove = [
-        key for key in sys.modules.keys() if key.startswith("app.")
-    ]
+    modules_to_remove = [key for key in sys.modules.keys() if key.startswith("app.")]
     for module in modules_to_remove:
         del sys.modules[module]
 
@@ -227,13 +225,9 @@ def get_access_token():
                 access_token = response.json()["access_token"]
                 return access_token
             else:
-                pytest.skip(
-                    "Unable to fetch access token - OAuth2 endpoint not available"
-                )
+                pytest.skip("Unable to fetch access token - OAuth2 endpoint not available")
     except Exception:
-        pytest.skip(
-            "Unable to fetch access token - OAuth2 endpoint not available"
-        )
+        pytest.skip("Unable to fetch access token - OAuth2 endpoint not available")
 
 
 @pytest.fixture

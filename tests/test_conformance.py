@@ -109,9 +109,7 @@ class TestConformanceFiltering:
     """
 
     @pytest.mark.asyncio
-    async def test_conformance_includes_base_classes(
-        self, unprotected_app
-    ) -> None:
+    async def test_conformance_includes_base_classes(self, unprotected_app) -> None:
         """Test that base OGC API Common conformance classes are always included."""
         transport = ASGITransport(app=unprotected_app)
         context = os.environ.get("FASTGEOAPI_CONTEXT", "/geoapi")
@@ -128,9 +126,7 @@ class TestConformanceFiltering:
             )
 
     @pytest.mark.asyncio
-    async def test_conformance_includes_features_when_configured(
-        self, unprotected_app
-    ) -> None:
+    async def test_conformance_includes_features_when_configured(self, unprotected_app) -> None:
         """Test that Features conformance classes are included when feature providers exist."""
         transport = ASGITransport(app=unprotected_app)
         context = os.environ.get("FASTGEOAPI_CONTEXT", "/geoapi")
@@ -147,9 +143,7 @@ class TestConformanceFiltering:
             )
 
     @pytest.mark.asyncio
-    async def test_conformance_includes_processes_when_configured(
-        self, unprotected_app
-    ) -> None:
+    async def test_conformance_includes_processes_when_configured(self, unprotected_app) -> None:
         """Test that Processes conformance classes are included when processes exist."""
         transport = ASGITransport(app=unprotected_app)
         context = os.environ.get("FASTGEOAPI_CONTEXT", "/geoapi")
@@ -186,9 +180,7 @@ class TestConformanceFiltering:
             )
 
     @pytest.mark.asyncio
-    async def test_conformance_excludes_tiles_when_not_configured(
-        self, unprotected_app
-    ) -> None:
+    async def test_conformance_excludes_tiles_when_not_configured(self, unprotected_app) -> None:
         """Test that Tiles conformance classes are NOT included when no tile providers exist."""
         transport = ASGITransport(app=unprotected_app)
         context = os.environ.get("FASTGEOAPI_CONTEXT", "/geoapi")
@@ -206,9 +198,7 @@ class TestConformanceFiltering:
             )
 
     @pytest.mark.asyncio
-    async def test_conformance_excludes_maps_when_not_configured(
-        self, unprotected_app
-    ) -> None:
+    async def test_conformance_excludes_maps_when_not_configured(self, unprotected_app) -> None:
         """Test that Maps conformance classes are NOT included when no map providers exist."""
         transport = ASGITransport(app=unprotected_app)
         context = os.environ.get("FASTGEOAPI_CONTEXT", "/geoapi")
@@ -226,9 +216,7 @@ class TestConformanceFiltering:
             )
 
     @pytest.mark.asyncio
-    async def test_conformance_excludes_records_when_not_configured(
-        self, unprotected_app
-    ) -> None:
+    async def test_conformance_excludes_records_when_not_configured(self, unprotected_app) -> None:
         """Test that Records conformance classes are NOT included when no record providers exist."""
         transport = ASGITransport(app=unprotected_app)
         context = os.environ.get("FASTGEOAPI_CONTEXT", "/geoapi")
@@ -246,9 +234,7 @@ class TestConformanceFiltering:
             )
 
     @pytest.mark.asyncio
-    async def test_conformance_excludes_edr_when_not_configured(
-        self, unprotected_app
-    ) -> None:
+    async def test_conformance_excludes_edr_when_not_configured(self, unprotected_app) -> None:
         """Test that EDR conformance classes are NOT included when no EDR providers exist."""
         transport = ASGITransport(app=unprotected_app)
         context = os.environ.get("FASTGEOAPI_CONTEXT", "/geoapi")

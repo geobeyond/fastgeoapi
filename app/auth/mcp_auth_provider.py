@@ -325,10 +325,10 @@ def patch_fastmcp_auth_middleware():
     import fastmcp.server.auth.middleware as fastmcp_middleware
     import fastmcp.server.http as fastmcp_http
 
-    # Replace the class in both modules
-    # Intentional monkey-patching for RFC 6750 compliance
-    fastmcp_middleware.RequireAuthMiddleware = RFC6750CompliantAuthMiddleware  # type: ignore[assignment]
-    fastmcp_http.RequireAuthMiddleware = RFC6750CompliantAuthMiddleware  # type: ignore[assignment]
+    # Intentional monkey-patching for RFC 6750 compliance — setattr signals
+    # the dynamic intent and keeps type checkers from flagging the assignment.
+    setattr(fastmcp_middleware, "RequireAuthMiddleware", RFC6750CompliantAuthMiddleware)  # noqa: B010
+    setattr(fastmcp_http, "RequireAuthMiddleware", RFC6750CompliantAuthMiddleware)  # noqa: B010
 
     logger.debug("Patched FastMCP RequireAuthMiddleware for RFC 6750 compliance")
 
