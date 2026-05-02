@@ -100,7 +100,10 @@ def _run_external_command(
     kwargs = {"text": True}
     if capture_output:
         kwargs["capture_output"] = True
-    process_result = subprocess.run(shlex.split(command), **kwargs)  # type: ignore[call-overload] # noqa
+    process_result = subprocess.run(  # noqa: S603  # ty: ignore[no-matching-overload]
+        shlex.split(command),
+        **kwargs,
+    )
     if raise_on_error:
         process_result.check_returncode()
     result = process_result.stdout

@@ -324,9 +324,9 @@ class TestMCPRemoteOAuthFlowE2E:
         # Should get 401 but NOT with invalid_token
         assert unauth_response.status_code == 401
         www_auth = unauth_response.headers.get("WWW-Authenticate", "")
-        assert (
-            'error="invalid_token"' not in www_auth
-        ), "Unauthenticated request should not return invalid_token"
+        assert 'error="invalid_token"' not in www_auth, (
+            "Unauthenticated request should not return invalid_token"
+        )
 
         # Step 3: Client should still be valid for authorization
         # (In real flow, mcp-remote would now start the OAuth dance)
