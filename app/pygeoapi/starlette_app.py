@@ -78,3 +78,21 @@ async def patched_get_job_result(request: Request, job_id=None):
     patched_response = patch_response(response=response)
 
     return patched_response
+
+
+async def patched_conformance(request: Request) -> Response:
+    """OGC API conformance endpoint that filters classes by configured providers.
+
+    Wraps the fastgeoapi conformance handler so only conformance classes for
+    configured API types are advertised, and the response is built from an
+    immutable value object.
+
+    :param request: Starlette Request instance
+
+    :returns: HTTP response
+    """
+    from app.pygeoapi.api.conformance import conformance
+
+    api_request = await APIRequest.from_starlette(request, geoapi.locales)
+
+    return await get_response(conformance, geoapi, api_request)

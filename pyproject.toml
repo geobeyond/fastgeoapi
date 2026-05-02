@@ -13,7 +13,7 @@ dependencies = [
     "loguru>=0.7.3,<1.0",
     "fastapi-opa>=2.0.3,<3",
     "rasterio>=1.4.3,<2",
-    "pygeoapi>=0.22.0",
+    "pygeoapi>=0.23.4,<0.24",
     "fastapi[standard]>=0.126,<1.0",
     "typer>=0.15.3,<0.16",
     "fastapi-key-auth>=0.15.4,<0.16.0",
@@ -80,7 +80,7 @@ dev = [
 [tool.uv]
 
 [tool.uv.sources]
-pygeoapi = { git = "https://github.com/geopython/pygeoapi.git", branch = "master" }
+pygeoapi = { git = "https://github.com/geopython/pygeoapi.git", tag = "0.23.4" }
 pygeofilter = { git = "https://github.com/geopython/pygeofilter.git", tag = "v0.3.3" }
 fencer = { git = "https://github.com/abunuwas/fencer.git", branch = "main" }
 
