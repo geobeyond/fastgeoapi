@@ -538,9 +538,9 @@ class TestStartupWorkflowMCP:
 
             # Verify MCP route is mounted by checking routes
             route_paths = [route.path for route in app.routes if hasattr(route, "path")]
-            assert (
-                "/mcp" in route_paths
-            ), "MCP route should be mounted when FASTGEOAPI_WITH_MCP=true"
+            assert "/mcp" in route_paths, (
+                "MCP route should be mounted when FASTGEOAPI_WITH_MCP=true"
+            )
 
             # Verify pygeoapi is still accessible
             client = TestClient(app)
@@ -612,9 +612,9 @@ class TestStartupWorkflowMCP:
             assert app is not None
 
             # Verify OpenAPI file was generated
-            assert (
-                temp_openapi.exists()
-            ), "OpenAPI file should be generated even when MCP is disabled"
+            assert temp_openapi.exists(), (
+                "OpenAPI file should be generated even when MCP is disabled"
+            )
 
             # Verify file has content
             content = temp_openapi.read_text()
