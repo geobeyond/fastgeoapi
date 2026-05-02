@@ -1,17 +1,16 @@
 """Override module for pygeoapi conformance endpoint.
 
-This module provides a corrected implementation of the conformance function
-that dynamically builds the conformance classes list based on the actual
-server configuration, avoiding the upstream bug where the global list
-is mutated on each request.
+Replaces the upstream conformance handler with one that filters conformance
+classes based on the providers actually configured, so coverages/tiles/maps/
+EDR/records are not advertised when absent. This is fastgeoapi-specific and
+has no upstream equivalent.
 
-Architecture follows the project typing patterns:
-- Protocol (Static Duck Typing): ConformanceProvider for loose coupling
-  (defined in app.interfaces.conformance)
-- Dataclass (Static Nominal): ConformanceResponse as immutable value object
-- Service function: build_conformance_list for business logic
-
-See: https://github.com/geopython/pygeoapi/issues/XXXX
+Typing patterns:
+- Protocols (app.interfaces.conformance): GenericConformance,
+  FeatureRecordConformance — for composability with pygeoapi modules and
+  potential third-party providers.
+- Dataclasses: ConformanceResponse, ResourceConfig — immutable value objects.
+- Service: build_conformance_list — pure function building the response.
 """
 
 from __future__ import annotations
@@ -30,6 +29,11 @@ from pygeoapi.util import render_j2_template
 
 if TYPE_CHECKING:
     from pygeoapi.api import API, APIRequest
+
+    from app.interfaces.conformance import (
+        FeatureRecordConformance,
+        GenericConformance,
+    )
 
 
 # =============================================================================
@@ -124,7 +128,6 @@ def build_conformance_list(
     apis_dict = all_apis()
     itemtypes_module = apis_dict["itemtypes"]
 
-    # CRITICAL FIX: Create a copy to avoid mutating the global list
     conformance_set: set[str] = set(CONFORMANCE_CLASSES)
 
     for name, config in resources.items():
@@ -151,12 +154,11 @@ def build_conformance_list(
 
 
 def conformance(api: API, request: APIRequest) -> tuple[dict, int, str]:
-    """Provide conformance definition based on configured resources.
+    """Provide conformance definition filtered by configured resources.
 
-    This is a corrected version of pygeoapi.api.conformance that:
-    1. Creates a copy of the base conformance classes to avoid mutating the global
-    2. Only includes conformance classes for API types that are actually configured
-    3. Uses immutable value objects for thread safety
+    Unlike pygeoapi.api.conformance, this only advertises conformance classes
+    for API types actually configured (e.g. coverages are excluded when no
+    coverage provider is registered) and returns an immutable response.
 
     :param api: API instance
     :param request: APIRequest instance

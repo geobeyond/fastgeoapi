@@ -87,12 +87,11 @@ async def patched_get_job_result(request: Request, job_id=None):
 
 
 async def patched_conformance(request: Request) -> Response:
-    """OGC API conformance endpoint with fix for global list mutation bug.
+    """OGC API conformance endpoint that filters classes by configured providers.
 
-    This patched version uses a corrected conformance function that:
-    1. Creates a copy of the base conformance classes to avoid mutating the global
-    2. Uses immutable value objects (ConformanceResponse) for thread safety
-    3. Only includes conformance classes for configured API types
+    Wraps the fastgeoapi conformance handler so only conformance classes for
+    configured API types are advertised, and the response is built from an
+    immutable value object.
 
     :param request: Starlette Request instance
 

@@ -361,10 +361,10 @@ class OIDCProxyWithoutResource(OIDCProxy):
         """
         return [
             Middleware(
-                AuthenticationMiddleware,  # type: ignore[arg-type]
+                AuthenticationMiddleware,
                 backend=BearerAuthBackend(self),
             ),
-            Middleware(AuthContextMiddleware),  # type: ignore[arg-type]
+            Middleware(AuthContextMiddleware),
         ]
 
     def _build_upstream_authorize_url(self, txn_id: str, transaction: dict[str, Any]) -> str:

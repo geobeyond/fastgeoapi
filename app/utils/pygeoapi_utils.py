@@ -9,10 +9,10 @@ from app.pygeoapi.starlette_app import (
 
 
 def patch_route(route: Route) -> Route:
-    """Patch specific pygeoapi routes to fix bugs or add custom behavior.
+    """Patch specific pygeoapi routes to add fastgeoapi-specific behavior.
 
     Currently patched routes:
-    - /conformance: Fix for global CONFORMANCE_CLASSES list mutation bug
+    - /conformance: Filter conformance classes by configured providers
     - /jobs/{job_id}/results: Custom job result handling
     """
     if route.path == "/conformance":
