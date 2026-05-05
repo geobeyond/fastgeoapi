@@ -150,15 +150,11 @@ def test_api_with_apikey(case):
     if case.method.upper() == "POST" and "/execution" in case.path:
         case.body = {"inputs": {"name": "test-user"}}
 
-    if case.path_parameters:
-        if case.path_parameters.get("jobId"):
-            job_id = case.path_parameters.get("jobId")
-            if r"\n" or r"\r" in job_id:
-                case.path_parameters["jobId"] = job_id.strip()
-            if "%0A" in job_id:
-                case.path_parameters["jobId"] = job_id.replace("%0A", "")
-            if "%0D" in job_id:
-                case.path_parameters["jobId"] = job_id.replace("%0D", "")
+    if case.path_parameters and case.path_parameters.get("jobId"):
+        job_id = case.path_parameters["jobId"]
+        case.path_parameters["jobId"] = (
+            job_id.replace("\n", "").replace("\r", "").replace("%0A", "").replace("%0D", "")
+        )
     case.headers = {"X-API-KEY": "pygeoapi"}
     # response = case.call()
     # Only check for server errors, skip schema validation due to pygeoapi issues
@@ -177,15 +173,11 @@ def test_api_with_bearer(case, access_token):
     if case.method.upper() == "POST" and "/execution" in case.path:
         case.body = {"inputs": {"name": "test-user"}}
 
-    if case.path_parameters:
-        if case.path_parameters.get("jobId"):
-            job_id = case.path_parameters.get("jobId")
-            if r"\n" or r"\r" in job_id:
-                case.path_parameters["jobId"] = job_id.strip()
-            if "%0A" in job_id:
-                case.path_parameters["jobId"] = job_id.replace("%0A", "")
-            if "%0D" in job_id:
-                case.path_parameters["jobId"] = job_id.replace("%0D", "")
+    if case.path_parameters and case.path_parameters.get("jobId"):
+        job_id = case.path_parameters["jobId"]
+        case.path_parameters["jobId"] = (
+            job_id.replace("\n", "").replace("\r", "").replace("%0A", "").replace("%0D", "")
+        )
     case.headers = {"Authorization": f"Bearer {access_token}"}
     # response = case.call()
     # Only check for server errors, skip schema validation due to pygeoapi issues
