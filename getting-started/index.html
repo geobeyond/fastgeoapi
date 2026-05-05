@@ -1,0 +1,1275 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      <link rel="icon" href="../images/fastgeoapi_logo.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-8.2.16">
+    
+    
+      
+        <title>Getting started - fastgeoapi</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.1c3799f8.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.cc9b2e1e.min.css">
+        
+      
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+      <link rel="stylesheet" href="../termynal.css">
+    
+    <script>__md_scope=new URL("..",location),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="red">
+  
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&"object"==typeof palette.color)for(var key of Object.keys(palette.color))document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#getting-started" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="fastgeoapi" class="md-header__button md-logo" aria-label="fastgeoapi" data-md-component="logo">
+      
+  <img src="../images/fastgeoapi_logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            fastgeoapi
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Getting started
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      <form class="md-header__option" data-md-component="palette">
+        
+          
+          
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="red"  aria-label="Switch to Dark Mode"  type="radio" name="__palette" id="__palette_1">
+          
+            <label class="md-header__button md-icon" title="Switch to Dark Mode" for="__palette_2" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6zm0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4zM7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+            </label>
+          
+        
+          
+          
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="blue-grey"  aria-label="Switch to Light Mode"  type="radio" name="__palette" id="__palette_2">
+          
+            <label class="md-header__button md-icon" title="Switch to Light Mode" for="__palette_1" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3Z"/></svg>
+            </label>
+          
+        
+      </form>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-tabs__inner md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href=".." class="md-tabs__link">
+      Home
+    </a>
+  </li>
+
+      
+        
+  
+  
+    
+  
+
+
+  <li class="md-tabs__item">
+    <a href="./" class="md-tabs__link md-tabs__link--active">
+      Getting started
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../howto-guides/" class="md-tabs__link">
+        How-to Guides
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../tutorials/" class="md-tabs__link">
+      Tutorials
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../openapi/" class="md-tabs__link">
+      OpenAPI
+    </a>
+  </li>
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="fastgeoapi" class="md-nav__button md-logo" aria-label="fastgeoapi" data-md-component="logo">
+      
+  <img src="../images/fastgeoapi_logo.png" alt="logo">
+
+    </a>
+    fastgeoapi
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        Home
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Getting started
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        Getting started
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#live-demo-server" class="md-nav__link">
+    Live Demo Server
+  </a>
+  
+    <nav class="md-nav" aria-label="Live Demo Server">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#obtaining-an-access-token" class="md-nav__link">
+    Obtaining an Access Token
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#making-authenticated-requests" class="md-nav__link">
+    Making Authenticated Requests
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oauth2-configuration-details" class="md-nav__link">
+    OAuth2 Configuration Details
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#development" class="md-nav__link">
+    Development
+  </a>
+  
+    <nav class="md-nav" aria-label="Development">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    Prerequisites
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#setup" class="md-nav__link">
+    Setup
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#activate-the-virtual-environment" class="md-nav__link">
+    Activate the Virtual Environment
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#running-fastgeoapi" class="md-nav__link">
+    Running fastgeoapi
+  </a>
+  
+    <nav class="md-nav" aria-label="Running fastgeoapi">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#development-workflow" class="md-nav__link">
+    Development workflow
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#application-workflow" class="md-nav__link">
+    Application workflow
+  </a>
+  
+    <nav class="md-nav" aria-label="Application workflow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    Installation
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#running-your-application" class="md-nav__link">
+    Running Your Application
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verifying-the-setup" class="md-nav__link">
+    Verifying the Setup
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#environment-configuration" class="md-nav__link">
+    Environment Configuration
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authentication-options" class="md-nav__link">
+    Authentication Options
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#startup-flow" class="md-nav__link">
+    Startup Flow
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aws-lambda-deployment" class="md-nav__link">
+    AWS Lambda Deployment
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-complete-application-setup-with-api-key" class="md-nav__link">
+    Example: Complete Application Setup with API Key
+  </a>
+  
+    <nav class="md-nav" aria-label="Example: Complete Application Setup with API Key">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-create-a-new-project" class="md-nav__link">
+    Step 1: Create a new project
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-install-fastgeoapi" class="md-nav__link">
+    Step 2: Install fastgeoapi
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-create-the-pygeoapi-configuration" class="md-nav__link">
+    Step 3: Create the pygeoapi configuration
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-create-the-environment-file" class="md-nav__link">
+    Step 4: Create the environment file
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-5-start-the-server" class="md-nav__link">
+    Step 5: Start the server
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-6-verify-the-endpoints" class="md-nav__link">
+    Step 6: Verify the endpoints
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#release-workflow" class="md-nav__link">
+    Release Workflow
+  </a>
+  
+    <nav class="md-nav" aria-label="Release Workflow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#branches-and-targets" class="md-nav__link">
+    Branches and Targets
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#development-releases-testpypi" class="md-nav__link">
+    Development Releases (TestPyPI)
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#production-releases-pypi" class="md-nav__link">
+    Production Releases (PyPI)
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trusted-publisher" class="md-nav__link">
+    Trusted Publisher
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#production" class="md-nav__link">
+    Production
+  </a>
+  
+    <nav class="md-nav" aria-label="Production">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#behind-a-proxy" class="md-nav__link">
+    Behind a proxy
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" >
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3">
+          How-to Guides
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="How-to Guides" data-md-level="1">
+        <label class="md-nav__title" for="__nav_3">
+          <span class="md-nav__icon md-icon"></span>
+          How-to Guides
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../howto-guides/" class="md-nav__link">
+        Overview
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mcp-server/" class="md-nav__link">
+        MCP Server
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/" class="md-nav__link">
+        Tutorials
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../openapi/" class="md-nav__link">
+        OpenAPI
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          <div class="md-content" data-md-component="content">
+            <article class="md-content__inner md-typeset">
+              
+                
+
+
+<h1 id="getting-started">Getting started</h1>
+<h2 id="live-demo-server">Live Demo Server</h2>
+<p>A public demo server is available for testing and exploration:</p>
+<p><strong>Demo URL:</strong> <a href="https://fastgeoapi.fly.dev/geoapi">https://fastgeoapi.fly.dev/geoapi</a></p>
+<p>The demo server is protected with <strong>OAuth2 client-credentials flow</strong>, demonstrating fastgeoapi's security capabilities in a real-world scenario.</p>
+<h3 id="obtaining-an-access-token">Obtaining an Access Token</h3>
+<p>To access the demo server, you need to obtain an OAuth2 access token using the client-credentials grant:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>https://76hxgq.logto.app/oidc/token<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Basic czRyZjIzbnlucmNvdGM4NnhuaWVxOlc2RHJhQWJ1MTZnb29yR0xWSE02WFlSUnI4aWpObUww&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/x-www-form-urlencoded&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span>-d<span class="w"> </span><span class="s2">&quot;grant_type=client_credentials&amp;resource=http://localhost:5000/geoapi/&amp;scope=openid profile ci&quot;</span>
+</span></code></pre></div>
+<p>The response will contain an <code>access_token</code>:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">&quot;access_token&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...&quot;</span><span class="p">,</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">&quot;token_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Bearer&quot;</span><span class="p">,</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">&quot;expires_in&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3600</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">}</span>
+</span></code></pre></div>
+<h3 id="making-authenticated-requests">Making Authenticated Requests</h3>
+<p>Include the access token in the <code>Authorization</code> header:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Store the token in a variable</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nv">TOKEN</span><span class="o">=</span><span class="k">$(</span>curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>https://76hxgq.logto.app/oidc/token<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Basic czRyZjIzbnlucmNvdGM4NnhuaWVxOlc2RHJhQWJ1MTZnb29yR0xWSE02WFlSUnI4aWpObUww&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/x-www-form-urlencoded&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span>-d<span class="w"> </span><span class="s2">&quot;grant_type=client_credentials&amp;resource=http://localhost:5000/geoapi/&amp;scope=openid profile ci&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.access_token&#39;</span><span class="k">)</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="c1"># Landing page</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="nv">$TOKEN</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">  </span><span class="s2">&quot;https://fastgeoapi.fly.dev/geoapi/?f=json&quot;</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="c1"># List available collections</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="nv">$TOKEN</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">  </span><span class="s2">&quot;https://fastgeoapi.fly.dev/geoapi/collections?f=json&quot;</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="c1"># View conformance classes</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="nv">$TOKEN</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">  </span><span class="s2">&quot;https://fastgeoapi.fly.dev/geoapi/conformance?f=json&quot;</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="c1"># Access OpenAPI specification</span>
+</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="nv">$TOKEN</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="w">  </span><span class="s2">&quot;https://fastgeoapi.fly.dev/geoapi/openapi?f=json&quot;</span>
+</span></code></pre></div>
+<h3 id="oauth2-configuration-details">OAuth2 Configuration Details</h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Token Endpoint</td>
+<td><code>https://76hxgq.logto.app/oidc/token</code></td>
+</tr>
+<tr>
+<td>Grant Type</td>
+<td><code>client_credentials</code></td>
+</tr>
+<tr>
+<td>Scope</td>
+<td><code>openid profile ci</code></td>
+</tr>
+<tr>
+<td>Resource</td>
+<td><code>http://localhost:5000/geoapi/</code></td>
+</tr>
+</tbody>
+</table>
+<p>The Basic Authentication header contains the base64-encoded <code>client_id:client_secret</code> credentials for the demo application.</p>
+<h2 id="development">Development</h2>
+<h3 id="prerequisites">Prerequisites</h3>
+<p>Install <a href="https://github.com/astral-sh/uv">UV</a> - a fast Python package installer and resolver:</p>
+<p><strong>macOS / Linux:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>curl<span class="w"> </span>-sSf<span class="w"> </span>https://install.ultraviolet.dev<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh
+</span></code></pre></div>
+<p><strong>Windows (PowerShell):</strong></p>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">powershell</span> <span class="n">-ExecutionPolicy</span> <span class="n">ByPass</span> <span class="n">-c</span> <span class="s2">&quot;irm https://astral.sh/uv/install.ps1 | iex&quot;</span>
+</span></code></pre></div>
+<h3 id="setup">Setup</h3>
+<p>After cloning the repository, use UV to install dependencies:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/geobeyond/fastgeoapi.git
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nb">cd</span><span class="w"> </span>fastgeoapi
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>uv<span class="w"> </span>sync
+</span></code></pre></div>
+<p>This automatically:</p>
+<ul>
+<li>Creates a virtual environment in <code>.venv</code></li>
+<li>Installs all required dependencies including git-based packages from <code>[tool.uv.sources]</code></li>
+<li>Sets up fastgeoapi in development mode</li>
+</ul>
+<p>For development, UV uses git-based dependencies defined in <code>[tool.uv.sources]</code> to get the latest features from upstream projects (pygeoapi master, pygeofilter, fencer). The PyPI release uses stable published versions.</p>
+<h3 id="activate-the-virtual-environment">Activate the Virtual Environment</h3>
+<p><strong>macOS / Linux:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+</span></code></pre></div>
+<p><strong>Windows (PowerShell):</strong></p>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">.</span><span class="n">venv</span><span class="p">\</span><span class="n">Scripts</span><span class="p">\</span><span class="n">Activate</span><span class="p">.</span><span class="n">ps1</span>
+</span></code></pre></div>
+<h3 id="running-fastgeoapi">Running fastgeoapi</h3>
+<h4 id="development-workflow">Development workflow</h4>
+<p>This workflow is for contributing to fastgeoapi itself by cloning the repository.</p>
+<p>Once Keycloak and OPA have been started, configure the required environment variables:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">PYGEOAPI_CONFIG</span><span class="o">=</span>pygeoapi-config.yml
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">PYGEOAPI_OPENAPI</span><span class="o">=</span>pygeoapi-openapi.yml
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">FASTGEOAPI_CONTEXT</span><span class="o">=</span><span class="s1">&#39;/geoapi&#39;</span>
+</span></code></pre></div>
+<p>Start fastgeoapi in development mode:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>uv<span class="w"> </span>run<span class="w"> </span>fastapi<span class="w"> </span>run<span class="w"> </span>app/main.py<span class="w"> </span>--app<span class="w"> </span>app<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span><span class="w"> </span>--reload
+</span></code></pre></div>
+<h4 id="application-workflow">Application workflow</h4>
+<p>This workflow is for using fastgeoapi as a Python package to build your own FastAPI application.</p>
+<h5 id="installation">Installation</h5>
+<p>Install fastgeoapi in your project:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>pip<span class="w"> </span>install<span class="w"> </span>fastgeoapi
+</span></code></pre></div>
+<p>Or with UV:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>uv<span class="w"> </span>add<span class="w"> </span>fastgeoapi
+</span></code></pre></div>
+<h5 id="running-your-application">Running Your Application</h5>
+<p>When using fastgeoapi as an installed package, you can start the server using the <code>fastgeoapi</code> CLI:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>fastgeoapi<span class="w"> </span>run
+</span></code></pre></div>
+<p>With options:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>fastgeoapi<span class="w"> </span>run<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span><span class="w"> </span>--reload
+</span></code></pre></div>
+<p>Or using uvicorn directly:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>uvicorn<span class="w"> </span>app.main:app<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span><span class="w"> </span>--reload
+</span></code></pre></div>
+<h5 id="verifying-the-setup">Verifying the Setup</h5>
+<p>Once running, verify the endpoints are accessible:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># Landing page</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>curl<span class="w"> </span>http://localhost:5000/geoapi/?f<span class="o">=</span>json
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="c1"># OpenAPI specification</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>curl<span class="w"> </span>http://localhost:5000/geoapi/openapi?f<span class="o">=</span>json
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="c1"># Collections</span>
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>curl<span class="w"> </span>http://localhost:5000/geoapi/collections?f<span class="o">=</span>json
+</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>
+</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="c1"># Conformance</span>
+</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>curl<span class="w"> </span>http://localhost:5000/geoapi/conformance?f<span class="o">=</span>json
+</span></code></pre></div>
+<h4 id="environment-configuration">Environment Configuration</h4>
+<p>The following configuration applies to both the Development and Application workflows.</p>
+<p>fastgeoapi uses environment variables to configure its behavior. The main variable is <code>ENV_STATE</code> which determines whether to load development (<code>dev</code>) or production (<code>prod</code>) configuration.</p>
+<p>Create a <code>.env</code> file in your project root:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Environment state: &#39;dev&#39; or &#39;prod&#39;</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="nv">ENV_STATE</span><span class="o">=</span>dev
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="c1"># Server configuration</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="nv">HOST</span><span class="o">=</span><span class="m">0</span>.0.0.0
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="nv">PORT</span><span class="o">=</span><span class="m">5000</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="c1"># Logging (required)</span>
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="nv">DEV_LOG_PATH</span><span class="o">=</span>/tmp
+</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="nv">DEV_LOG_FILENAME</span><span class="o">=</span>fastgeoapi.log
+</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="nv">DEV_LOG_LEVEL</span><span class="o">=</span>debug
+</span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="nv">DEV_LOG_ENQUEUE</span><span class="o">=</span><span class="nb">true</span>
+</span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="nv">DEV_LOG_ROTATION</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>days
+</span><span id="__span-16-14"><a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="nv">DEV_LOG_RETENTION</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>months
+</span><span id="__span-16-15"><a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a>
+</span><span id="__span-16-16"><a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a><span class="c1"># Pygeoapi configuration</span>
+</span><span id="__span-16-17"><a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a><span class="nv">DEV_PYGEOAPI_BASEURL</span><span class="o">=</span>http://localhost:5000
+</span><span id="__span-16-18"><a id="__codelineno-16-18" name="__codelineno-16-18" href="#__codelineno-16-18"></a><span class="nv">DEV_PYGEOAPI_CONFIG</span><span class="o">=</span>pygeoapi-config.yml
+</span><span id="__span-16-19"><a id="__codelineno-16-19" name="__codelineno-16-19" href="#__codelineno-16-19"></a><span class="nv">DEV_PYGEOAPI_OPENAPI</span><span class="o">=</span>pygeoapi-openapi.yml
+</span><span id="__span-16-20"><a id="__codelineno-16-20" name="__codelineno-16-20" href="#__codelineno-16-20"></a><span class="nv">DEV_FASTGEOAPI_CONTEXT</span><span class="o">=</span>/geoapi
+</span></code></pre></div>
+<h4 id="authentication-options">Authentication Options</h4>
+<p>The following authentication options apply to both the Development and Application workflows.</p>
+<p>fastgeoapi supports three mutually exclusive authentication methods. Only one can be enabled at a time.</p>
+<p><strong>Option 1: No Authentication (Open Access)</strong></p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="nv">DEV_API_KEY_ENABLED</span><span class="o">=</span><span class="nb">false</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="nv">DEV_JWKS_ENABLED</span><span class="o">=</span><span class="nb">false</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="nv">DEV_OPA_ENABLED</span><span class="o">=</span><span class="nb">false</span>
+</span></code></pre></div>
+<p><strong>Option 2: API Key Authentication</strong></p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="nv">DEV_API_KEY_ENABLED</span><span class="o">=</span><span class="nb">true</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="nv">DEV_PYGEOAPI_KEY_GLOBAL</span><span class="o">=</span>your-secret-api-key
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="nv">DEV_JWKS_ENABLED</span><span class="o">=</span><span class="nb">false</span>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="nv">DEV_OPA_ENABLED</span><span class="o">=</span><span class="nb">false</span>
+</span></code></pre></div>
+<p>Clients must include the <code>X-API-KEY</code> header in requests:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;X-API-KEY: your-secret-api-key&quot;</span><span class="w"> </span>http://localhost:5000/geoapi/collections
+</span></code></pre></div>
+<p><strong>Option 3: OAuth2/JWKS Authentication</strong></p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="nv">DEV_JWKS_ENABLED</span><span class="o">=</span><span class="nb">true</span>
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="nv">DEV_OAUTH2_JWKS_ENDPOINT</span><span class="o">=</span>https://your-auth-server/.well-known/jwks.json
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="nv">DEV_OAUTH2_TOKEN_ENDPOINT</span><span class="o">=</span>https://your-auth-server/oauth/token
+</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="nv">DEV_API_KEY_ENABLED</span><span class="o">=</span><span class="nb">false</span>
+</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="nv">DEV_OPA_ENABLED</span><span class="o">=</span><span class="nb">false</span>
+</span></code></pre></div>
+<p><strong>Option 4: Open Policy Agent (OPA) Authorization</strong></p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="nv">DEV_OPA_ENABLED</span><span class="o">=</span><span class="nb">true</span>
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="nv">DEV_OPA_URL</span><span class="o">=</span>http://localhost:8181
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="nv">DEV_OIDC_WELL_KNOWN_ENDPOINT</span><span class="o">=</span>http://localhost:8080/realms/master/.well-known/openid-configuration
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="nv">DEV_OIDC_CLIENT_ID</span><span class="o">=</span>your-client-id
+</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="nv">DEV_OIDC_CLIENT_SECRET</span><span class="o">=</span>your-client-secret
+</span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="nv">DEV_API_KEY_ENABLED</span><span class="o">=</span><span class="nb">false</span>
+</span><span id="__span-21-7"><a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="nv">DEV_JWKS_ENABLED</span><span class="o">=</span><span class="nb">false</span>
+</span></code></pre></div>
+<h4 id="startup-flow">Startup Flow</h4>
+<p>The following startup flow applies to both the Development and Application workflows.</p>
+<p>When the application starts, fastgeoapi performs the following steps:</p>
+<ol>
+<li><strong>Load Configuration</strong>: Reads <code>ENV_STATE</code> to determine which configuration to use (<code>DevConfig</code> or <code>ProdConfig</code>)</li>
+<li><strong>Initialize FastAPI</strong>: Creates the FastAPI application with CORS middleware</li>
+<li><strong>Set Pygeoapi Variables</strong>: Configures pygeoapi environment variables (<code>PYGEOAPI_CONFIG</code>, <code>PYGEOAPI_OPENAPI</code>, etc.)</li>
+<li><strong>Generate OpenAPI</strong>: If <code>pygeoapi-openapi.yml</code> doesn't exist, generates it from <code>pygeoapi-config.yml</code></li>
+<li><strong>Apply Authentication</strong>: Based on configuration, adds the appropriate authentication middleware</li>
+<li><strong>Mount Pygeoapi</strong>: Mounts the pygeoapi application at the configured context path (e.g., <code>/geoapi</code>)</li>
+</ol>
+<h4 id="aws-lambda-deployment">AWS Lambda Deployment</h4>
+<p>The following configuration applies to both the Development and Application workflows.</p>
+<p>To deploy on AWS Lambda, enable the Mangum handler:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="nv">DEV_AWS_LAMBDA_DEPLOY</span><span class="o">=</span><span class="nb">true</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="c1"># Disable log enqueue for Lambda compatibility</span>
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="nv">DEV_LOG_ENQUEUE</span><span class="o">=</span><span class="nb">false</span>
+</span></code></pre></div>
+<p>The application automatically creates a <code>handler</code> object compatible with AWS Lambda when <code>AWS_LAMBDA_DEPLOY=true</code>.</p>
+<h4 id="example-complete-application-setup-with-api-key">Example: Complete Application Setup with API Key</h4>
+<p>This example demonstrates how to create a new project using fastgeoapi as a package with API Key authentication.</p>
+<h5 id="step-1-create-a-new-project">Step 1: Create a new project</h5>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>mkdir<span class="w"> </span>my-geoapi-app
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="nb">cd</span><span class="w"> </span>my-geoapi-app
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>uv<span class="w"> </span>init<span class="w"> </span>--name<span class="w"> </span>my-geoapi-app
+</span></code></pre></div>
+<h5 id="step-2-install-fastgeoapi">Step 2: Install fastgeoapi</h5>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>uv<span class="w"> </span>add<span class="w"> </span>fastgeoapi
+</span></code></pre></div>
+<h5 id="step-3-create-the-pygeoapi-configuration">Step 3: Create the pygeoapi configuration</h5>
+<p>Create a <code>pygeoapi-config.yml</code> file with your data sources. Here's a minimal example:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="nt">server</span><span class="p">:</span>
+</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="w">  </span><span class="nt">bind</span><span class="p">:</span>
+</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="w">    </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${HOST}</span>
+</span><span id="__span-25-4"><a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${PORT}</span>
+</span><span id="__span-25-5"><a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a><span class="w">  </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${PYGEOAPI_BASEURL}${FASTGEOAPI_CONTEXT}</span>
+</span><span id="__span-25-6"><a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a><span class="w">  </span><span class="nt">mimetype</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">application/json; charset=UTF-8</span>
+</span><span id="__span-25-7"><a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a><span class="w">  </span><span class="nt">encoding</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">utf-8</span>
+</span><span id="__span-25-8"><a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a><span class="w">  </span><span class="nt">languages</span><span class="p">:</span>
+</span><span id="__span-25-9"><a id="__codelineno-25-9" name="__codelineno-25-9" href="#__codelineno-25-9"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">en-US</span>
+</span><span id="__span-25-10"><a id="__codelineno-25-10" name="__codelineno-25-10" href="#__codelineno-25-10"></a><span class="w">  </span><span class="nt">pretty_print</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-25-11"><a id="__codelineno-25-11" name="__codelineno-25-11" href="#__codelineno-25-11"></a><span class="w">  </span><span class="nt">limits</span><span class="p">:</span>
+</span><span id="__span-25-12"><a id="__codelineno-25-12" name="__codelineno-25-12" href="#__codelineno-25-12"></a><span class="w">    </span><span class="nt">default_items</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
+</span><span id="__span-25-13"><a id="__codelineno-25-13" name="__codelineno-25-13" href="#__codelineno-25-13"></a><span class="w">    </span><span class="nt">max_items</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
+</span><span id="__span-25-14"><a id="__codelineno-25-14" name="__codelineno-25-14" href="#__codelineno-25-14"></a>
+</span><span id="__span-25-15"><a id="__codelineno-25-15" name="__codelineno-25-15" href="#__codelineno-25-15"></a><span class="nt">logging</span><span class="p">:</span>
+</span><span id="__span-25-16"><a id="__codelineno-25-16" name="__codelineno-25-16" href="#__codelineno-25-16"></a><span class="w">  </span><span class="nt">level</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ERROR</span>
+</span><span id="__span-25-17"><a id="__codelineno-25-17" name="__codelineno-25-17" href="#__codelineno-25-17"></a>
+</span><span id="__span-25-18"><a id="__codelineno-25-18" name="__codelineno-25-18" href="#__codelineno-25-18"></a><span class="nt">metadata</span><span class="p">:</span>
+</span><span id="__span-25-19"><a id="__codelineno-25-19" name="__codelineno-25-19" href="#__codelineno-25-19"></a><span class="w">  </span><span class="nt">identification</span><span class="p">:</span>
+</span><span id="__span-25-20"><a id="__codelineno-25-20" name="__codelineno-25-20" href="#__codelineno-25-20"></a><span class="w">    </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">My GeoAPI Instance</span>
+</span><span id="__span-25-21"><a id="__codelineno-25-21" name="__codelineno-25-21" href="#__codelineno-25-21"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">My geospatial data API</span>
+</span><span id="__span-25-22"><a id="__codelineno-25-22" name="__codelineno-25-22" href="#__codelineno-25-22"></a><span class="w">    </span><span class="nt">keywords</span><span class="p">:</span>
+</span><span id="__span-25-23"><a id="__codelineno-25-23" name="__codelineno-25-23" href="#__codelineno-25-23"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">geospatial</span>
+</span><span id="__span-25-24"><a id="__codelineno-25-24" name="__codelineno-25-24" href="#__codelineno-25-24"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">api</span>
+</span><span id="__span-25-25"><a id="__codelineno-25-25" name="__codelineno-25-25" href="#__codelineno-25-25"></a><span class="w">    </span><span class="nt">terms_of_service</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://creativecommons.org/licenses/by/4.0/</span>
+</span><span id="__span-25-26"><a id="__codelineno-25-26" name="__codelineno-25-26" href="#__codelineno-25-26"></a><span class="w">    </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://example.org</span>
+</span><span id="__span-25-27"><a id="__codelineno-25-27" name="__codelineno-25-27" href="#__codelineno-25-27"></a><span class="w">  </span><span class="nt">license</span><span class="p">:</span>
+</span><span id="__span-25-28"><a id="__codelineno-25-28" name="__codelineno-25-28" href="#__codelineno-25-28"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CC-BY 4.0 license</span>
+</span><span id="__span-25-29"><a id="__codelineno-25-29" name="__codelineno-25-29" href="#__codelineno-25-29"></a><span class="w">    </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://creativecommons.org/licenses/by/4.0/</span>
+</span><span id="__span-25-30"><a id="__codelineno-25-30" name="__codelineno-25-30" href="#__codelineno-25-30"></a><span class="w">  </span><span class="nt">provider</span><span class="p">:</span>
+</span><span id="__span-25-31"><a id="__codelineno-25-31" name="__codelineno-25-31" href="#__codelineno-25-31"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">My Organization</span>
+</span><span id="__span-25-32"><a id="__codelineno-25-32" name="__codelineno-25-32" href="#__codelineno-25-32"></a><span class="w">    </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://example.org</span>
+</span><span id="__span-25-33"><a id="__codelineno-25-33" name="__codelineno-25-33" href="#__codelineno-25-33"></a><span class="w">  </span><span class="nt">contact</span><span class="p">:</span>
+</span><span id="__span-25-34"><a id="__codelineno-25-34" name="__codelineno-25-34" href="#__codelineno-25-34"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Contact Name</span>
+</span><span id="__span-25-35"><a id="__codelineno-25-35" name="__codelineno-25-35" href="#__codelineno-25-35"></a><span class="w">    </span><span class="nt">email</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">contact@example.org</span>
+</span><span id="__span-25-36"><a id="__codelineno-25-36" name="__codelineno-25-36" href="#__codelineno-25-36"></a>
+</span><span id="__span-25-37"><a id="__codelineno-25-37" name="__codelineno-25-37" href="#__codelineno-25-37"></a><span class="nt">resources</span><span class="p">:</span>
+</span><span id="__span-25-38"><a id="__codelineno-25-38" name="__codelineno-25-38" href="#__codelineno-25-38"></a><span class="w">  </span><span class="c1"># Add your data sources here</span>
+</span></code></pre></div>
+<h5 id="step-4-create-the-environment-file">Step 4: Create the environment file</h5>
+<p>Create a <code>.env</code> file with all required configuration:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="c1"># Environment state</span>
+</span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="nv">ENV_STATE</span><span class="o">=</span>dev
+</span><span id="__span-26-3"><a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>
+</span><span id="__span-26-4"><a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="c1"># Server configuration</span>
+</span><span id="__span-26-5"><a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a><span class="nv">HOST</span><span class="o">=</span><span class="m">0</span>.0.0.0
+</span><span id="__span-26-6"><a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a><span class="nv">PORT</span><span class="o">=</span><span class="m">5000</span>
+</span><span id="__span-26-7"><a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a>
+</span><span id="__span-26-8"><a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a><span class="c1"># Logging (required)</span>
+</span><span id="__span-26-9"><a id="__codelineno-26-9" name="__codelineno-26-9" href="#__codelineno-26-9"></a><span class="nv">DEV_LOG_PATH</span><span class="o">=</span>/tmp
+</span><span id="__span-26-10"><a id="__codelineno-26-10" name="__codelineno-26-10" href="#__codelineno-26-10"></a><span class="nv">DEV_LOG_FILENAME</span><span class="o">=</span>fastgeoapi.log
+</span><span id="__span-26-11"><a id="__codelineno-26-11" name="__codelineno-26-11" href="#__codelineno-26-11"></a><span class="nv">DEV_LOG_LEVEL</span><span class="o">=</span>debug
+</span><span id="__span-26-12"><a id="__codelineno-26-12" name="__codelineno-26-12" href="#__codelineno-26-12"></a><span class="nv">DEV_LOG_ENQUEUE</span><span class="o">=</span><span class="nb">true</span>
+</span><span id="__span-26-13"><a id="__codelineno-26-13" name="__codelineno-26-13" href="#__codelineno-26-13"></a><span class="nv">DEV_LOG_ROTATION</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>days
+</span><span id="__span-26-14"><a id="__codelineno-26-14" name="__codelineno-26-14" href="#__codelineno-26-14"></a><span class="nv">DEV_LOG_RETENTION</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>months
+</span><span id="__span-26-15"><a id="__codelineno-26-15" name="__codelineno-26-15" href="#__codelineno-26-15"></a>
+</span><span id="__span-26-16"><a id="__codelineno-26-16" name="__codelineno-26-16" href="#__codelineno-26-16"></a><span class="c1"># Pygeoapi configuration</span>
+</span><span id="__span-26-17"><a id="__codelineno-26-17" name="__codelineno-26-17" href="#__codelineno-26-17"></a><span class="nv">DEV_PYGEOAPI_BASEURL</span><span class="o">=</span>http://localhost:5000
+</span><span id="__span-26-18"><a id="__codelineno-26-18" name="__codelineno-26-18" href="#__codelineno-26-18"></a><span class="nv">DEV_PYGEOAPI_CONFIG</span><span class="o">=</span>pygeoapi-config.yml
+</span><span id="__span-26-19"><a id="__codelineno-26-19" name="__codelineno-26-19" href="#__codelineno-26-19"></a><span class="nv">DEV_PYGEOAPI_OPENAPI</span><span class="o">=</span>pygeoapi-openapi.yml
+</span><span id="__span-26-20"><a id="__codelineno-26-20" name="__codelineno-26-20" href="#__codelineno-26-20"></a><span class="nv">DEV_FASTGEOAPI_CONTEXT</span><span class="o">=</span>/geoapi
+</span><span id="__span-26-21"><a id="__codelineno-26-21" name="__codelineno-26-21" href="#__codelineno-26-21"></a>
+</span><span id="__span-26-22"><a id="__codelineno-26-22" name="__codelineno-26-22" href="#__codelineno-26-22"></a><span class="c1"># API Key authentication</span>
+</span><span id="__span-26-23"><a id="__codelineno-26-23" name="__codelineno-26-23" href="#__codelineno-26-23"></a><span class="nv">DEV_API_KEY_ENABLED</span><span class="o">=</span><span class="nb">true</span>
+</span><span id="__span-26-24"><a id="__codelineno-26-24" name="__codelineno-26-24" href="#__codelineno-26-24"></a><span class="nv">DEV_PYGEOAPI_KEY_GLOBAL</span><span class="o">=</span>my-secret-api-key
+</span><span id="__span-26-25"><a id="__codelineno-26-25" name="__codelineno-26-25" href="#__codelineno-26-25"></a><span class="nv">DEV_JWKS_ENABLED</span><span class="o">=</span><span class="nb">false</span>
+</span><span id="__span-26-26"><a id="__codelineno-26-26" name="__codelineno-26-26" href="#__codelineno-26-26"></a><span class="nv">DEV_OPA_ENABLED</span><span class="o">=</span><span class="nb">false</span>
+</span></code></pre></div>
+<h5 id="step-5-start-the-server">Step 5: Start the server</h5>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="c1"># Set the API key environment variable for the middleware</span>
+</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">PYGEOAPI_KEY_GLOBAL</span><span class="o">=</span>my-secret-api-key
+</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>
+</span><span id="__span-27-4"><a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="c1"># Start the server using the fastgeoapi CLI</span>
+</span><span id="__span-27-5"><a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>fastgeoapi<span class="w"> </span>run
+</span><span id="__span-27-6"><a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a>
+</span><span id="__span-27-7"><a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a><span class="c1"># Or with options</span>
+</span><span id="__span-27-8"><a id="__codelineno-27-8" name="__codelineno-27-8" href="#__codelineno-27-8"></a>fastgeoapi<span class="w"> </span>run<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span>
+</span><span id="__span-27-9"><a id="__codelineno-27-9" name="__codelineno-27-9" href="#__codelineno-27-9"></a>
+</span><span id="__span-27-10"><a id="__codelineno-27-10" name="__codelineno-27-10" href="#__codelineno-27-10"></a><span class="c1"># Alternatively, using uvicorn directly</span>
+</span><span id="__span-27-11"><a id="__codelineno-27-11" name="__codelineno-27-11" href="#__codelineno-27-11"></a>uvicorn<span class="w"> </span>app.main:app<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span>
+</span></code></pre></div>
+<h5 id="step-6-verify-the-endpoints">Step 6: Verify the endpoints</h5>
+<p>Test that the API is running correctly:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="c1"># OpenAPI specification (public, no auth required)</span>
+</span><span id="__span-28-2"><a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>curl<span class="w"> </span>http://localhost:5000/geoapi/openapi?f<span class="o">=</span>json
+</span><span id="__span-28-3"><a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>
+</span><span id="__span-28-4"><a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a><span class="c1"># Landing page without API key (should return 401)</span>
+</span><span id="__span-28-5"><a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a>curl<span class="w"> </span>http://localhost:5000/geoapi/?f<span class="o">=</span>json
+</span><span id="__span-28-6"><a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a><span class="c1"># Response: {&quot;detail&quot;:&quot;no api key&quot;}</span>
+</span><span id="__span-28-7"><a id="__codelineno-28-7" name="__codelineno-28-7" href="#__codelineno-28-7"></a>
+</span><span id="__span-28-8"><a id="__codelineno-28-8" name="__codelineno-28-8" href="#__codelineno-28-8"></a><span class="c1"># Landing page with API key (should return 200)</span>
+</span><span id="__span-28-9"><a id="__codelineno-28-9" name="__codelineno-28-9" href="#__codelineno-28-9"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;X-API-KEY: my-secret-api-key&quot;</span><span class="w"> </span>http://localhost:5000/geoapi/?f<span class="o">=</span>json
+</span><span id="__span-28-10"><a id="__codelineno-28-10" name="__codelineno-28-10" href="#__codelineno-28-10"></a>
+</span><span id="__span-28-11"><a id="__codelineno-28-11" name="__codelineno-28-11" href="#__codelineno-28-11"></a><span class="c1"># Collections with API key</span>
+</span><span id="__span-28-12"><a id="__codelineno-28-12" name="__codelineno-28-12" href="#__codelineno-28-12"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;X-API-KEY: my-secret-api-key&quot;</span><span class="w"> </span>http://localhost:5000/geoapi/collections?f<span class="o">=</span>json
+</span><span id="__span-28-13"><a id="__codelineno-28-13" name="__codelineno-28-13" href="#__codelineno-28-13"></a>
+</span><span id="__span-28-14"><a id="__codelineno-28-14" name="__codelineno-28-14" href="#__codelineno-28-14"></a><span class="c1"># Conformance with API key</span>
+</span><span id="__span-28-15"><a id="__codelineno-28-15" name="__codelineno-28-15" href="#__codelineno-28-15"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;X-API-KEY: my-secret-api-key&quot;</span><span class="w"> </span>http://localhost:5000/geoapi/conformance?f<span class="o">=</span>json
+</span></code></pre></div>
+<h2 id="release-workflow">Release Workflow</h2>
+<p>This project uses a branching strategy with automated releases via GitHub Actions:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+</span><span id="__span-29-2"><a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>│   develop   │────▶│    main     │────▶│    PyPI     │
+</span><span id="__span-29-3"><a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>│             │     │             │     │  (release)  │
+</span><span id="__span-29-4"><a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a>└──────┬──────┘     └─────────────┘     └─────────────┘
+</span><span id="__span-29-5"><a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a>       │
+</span><span id="__span-29-6"><a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a>       ▼
+</span><span id="__span-29-7"><a id="__codelineno-29-7" name="__codelineno-29-7" href="#__codelineno-29-7"></a>┌─────────────┐
+</span><span id="__span-29-8"><a id="__codelineno-29-8" name="__codelineno-29-8" href="#__codelineno-29-8"></a>│  TestPyPI   │
+</span><span id="__span-29-9"><a id="__codelineno-29-9" name="__codelineno-29-9" href="#__codelineno-29-9"></a>│    (dev)    │
+</span><span id="__span-29-10"><a id="__codelineno-29-10" name="__codelineno-29-10" href="#__codelineno-29-10"></a>└─────────────┘
+</span></code></pre></div>
+<h3 id="branches-and-targets">Branches and Targets</h3>
+<table>
+<thead>
+<tr>
+<th>Branch</th>
+<th>Target</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>develop</code></td>
+<td><a href="https://test.pypi.org/project/fastgeoapi/">TestPyPI</a></td>
+<td>Development releases with <code>.dev</code> suffix</td>
+</tr>
+<tr>
+<td><code>main</code></td>
+<td><a href="https://pypi.org/project/fastgeoapi/">PyPI</a></td>
+<td>Production releases when version is bumped</td>
+</tr>
+</tbody>
+</table>
+<h3 id="development-releases-testpypi">Development Releases (TestPyPI)</h3>
+<p>Every push to the <code>develop</code> branch triggers automatic publishing to TestPyPI:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>git<span class="w"> </span>checkout<span class="w"> </span>develop
+</span><span id="__span-30-2"><a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a><span class="c1"># Make changes</span>
+</span><span id="__span-30-3"><a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;feat: add new feature&quot;</span>
+</span><span id="__span-30-4"><a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>develop
+</span></code></pre></div>
+<p>The workflow automatically:</p>
+<ol>
+<li>Bumps the version with a <code>.dev</code> suffix (e.g., <code>0.0.4.dev.1733912345</code>)</li>
+<li>Builds the package</li>
+<li>Publishes to TestPyPI using trusted publisher</li>
+</ol>
+<p>You can install the development version:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>pip<span class="w"> </span>install<span class="w"> </span>--index-url<span class="w"> </span>https://test.pypi.org/simple/<span class="w"> </span>--extra-index-url<span class="w"> </span>https://pypi.org/simple/<span class="w"> </span>fastgeoapi
+</span></code></pre></div>
+<h3 id="production-releases-pypi">Production Releases (PyPI)</h3>
+<p>To create a production release:</p>
+<ol>
+<li>Update the version in <code>pyproject.toml</code> (e.g., <code>0.0.3</code> → <code>0.0.4</code>)</li>
+<li>Merge changes to <code>main</code> branch</li>
+<li>Push to trigger the release workflow</li>
+</ol>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-32-1"><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="c1"># Update version in pyproject.toml</span>
+</span><span id="__span-32-2"><a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>git<span class="w"> </span>checkout<span class="w"> </span>main
+</span><span id="__span-32-3"><a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a>git<span class="w"> </span>merge<span class="w"> </span>develop
+</span><span id="__span-32-4"><a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>main
+</span></code></pre></div>
+<p>The workflow automatically:</p>
+<ol>
+<li>Detects the version change</li>
+<li>Creates a git tag (e.g., <code>v0.0.4</code>)</li>
+<li>Builds the package</li>
+<li>Publishes to PyPI using trusted publisher</li>
+<li>Creates release notes via Release Drafter</li>
+</ol>
+<h3 id="trusted-publisher">Trusted Publisher</h3>
+<p>Both PyPI and TestPyPI publishing use <a href="https://docs.pypi.org/trusted-publishers/">Trusted Publisher</a> (OIDC) for secure, tokenless authentication. This eliminates the need for API tokens and provides better security through short-lived credentials.</p>
+<h2 id="production">Production</h2>
+<h3 id="behind-a-proxy">Behind a proxy</h3>
+<p>If the deployment is operated behind a proxy (i.e. Traefik, Nginx, WSO2 Gateway, etc), fastgeoapi provides a reverse proxy configuration to return the pygeoapi links accordingly to the urls called by the users.
+The configuration is disabled by default with the following configuration <code>PROD_FASTGEOAPI_REVERSE_PROXY=false</code> in the <code>.env</code> file. The most relevant configurations for production in a reverse proxy scenario are:</p>
+<ul>
+<li><code>PROD_FASTGEOAPI_CONTEXT</code>: the base path where pygeoapi is operated, i.e. <code>/geoapi</code></li>
+<li><code>PROD_FASTGEOAPI_REVERSE_PROXY</code>: boolean flag to enable or disable the reverse proxy configuration, i.e. <code>true</code></li>
+</ul>
+<p>At runtime, if the variable <code>FASTGEOAPI_REVERSE_PROXY</code> has the value <code>true</code> the returned pygeoapi links are dynamic. This means, for example, that a Kubernetes Ingress with multiple hosts might be supported
+in a transparent way:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-33-1"><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a># snippet example of a kubernetes ingress with multiple hosts
+</span><span id="__span-33-2"><a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>spec:
+</span><span id="__span-33-3"><a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a>  rules:
+</span><span id="__span-33-4"><a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a>    - host: public.pygeoapi.io
+</span><span id="__span-33-5"><a id="__codelineno-33-5" name="__codelineno-33-5" href="#__codelineno-33-5"></a>      http:
+</span><span id="__span-33-6"><a id="__codelineno-33-6" name="__codelineno-33-6" href="#__codelineno-33-6"></a>        paths:
+</span><span id="__span-33-7"><a id="__codelineno-33-7" name="__codelineno-33-7" href="#__codelineno-33-7"></a>          - backend:
+</span><span id="__span-33-8"><a id="__codelineno-33-8" name="__codelineno-33-8" href="#__codelineno-33-8"></a>              serviceName: fastgeoapi-svc
+</span><span id="__span-33-9"><a id="__codelineno-33-9" name="__codelineno-33-9" href="#__codelineno-33-9"></a>              servicePort: 5000
+</span><span id="__span-33-10"><a id="__codelineno-33-10" name="__codelineno-33-10" href="#__codelineno-33-10"></a>            path: /geoapi
+</span><span id="__span-33-11"><a id="__codelineno-33-11" name="__codelineno-33-11" href="#__codelineno-33-11"></a>            pathType: ImplementationSpecific
+</span><span id="__span-33-12"><a id="__codelineno-33-12" name="__codelineno-33-12" href="#__codelineno-33-12"></a>    - host: private.pygeoapi.io
+</span><span id="__span-33-13"><a id="__codelineno-33-13" name="__codelineno-33-13" href="#__codelineno-33-13"></a>      http:
+</span><span id="__span-33-14"><a id="__codelineno-33-14" name="__codelineno-33-14" href="#__codelineno-33-14"></a>        paths:
+</span><span id="__span-33-15"><a id="__codelineno-33-15" name="__codelineno-33-15" href="#__codelineno-33-15"></a>          - backend:
+</span><span id="__span-33-16"><a id="__codelineno-33-16" name="__codelineno-33-16" href="#__codelineno-33-16"></a>              serviceName: fastgeoapi-svc
+</span><span id="__span-33-17"><a id="__codelineno-33-17" name="__codelineno-33-17" href="#__codelineno-33-17"></a>              servicePort: 5000
+</span><span id="__span-33-18"><a id="__codelineno-33-18" name="__codelineno-33-18" href="#__codelineno-33-18"></a>            path: /geoapi
+</span><span id="__span-33-19"><a id="__codelineno-33-19" name="__codelineno-33-19" href="#__codelineno-33-19"></a>            pathType: ImplementationSpecific
+</span></code></pre></div>
+<p>If the user calls the public url <code>http://public.pygeoapi.io</code> the response contains the links which respect this base url without the need to have it hard-coded in the pygeoapi configuration <code>pygeoapi-config.yml</code>.</p>
+<div class="termy" data-termynal data-ty-macos data-ty-title="bash"><span class="termynal-comment" data-ty># Using a security scheme driven by an api-key</span><span data-ty="input" data-ty-prompt="$">curl -H &quot;X-API-KEY: pygeoapi&quot; http://public.pygeoapi.io/geoapi/collections/obs</span><span data-ty><br>{<br>    &quot;id&quot;:&quot;obs&quot;,<br>    &quot;title&quot;:&quot;Observations&quot;,<br>    &quot;description&quot;:&quot;My cool observations&quot;,<br>    &quot;keywords&quot;:[<br>        &quot;observations&quot;,<br>        &quot;monitoring&quot;<br>    ],<br>    &quot;links&quot;:[<br>        {<br>            &quot;type&quot;:&quot;text/csv&quot;,<br>            &quot;rel&quot;:&quot;canonical&quot;,<br>            &quot;title&quot;:&quot;data&quot;,<br>            &quot;href&quot;:&quot;https://github.com/mapserver/mapserver/blob/branch-7-0/msautotest/wxs/data/obs.csv&quot;,<br>            &quot;hreflang&quot;:&quot;en-US&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;text/csv&quot;,<br>            &quot;rel&quot;:&quot;alternate&quot;,<br>            &quot;title&quot;:&quot;data&quot;,<br>            &quot;href&quot;:&quot;https://raw.githubusercontent.com/mapserver/mapserver/branch-7-0/msautotest/wxs/data/obs.csv&quot;,<br>            &quot;hreflang&quot;:&quot;en-US&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;application/json&quot;,<br>            &quot;rel&quot;:&quot;root&quot;,<br>            &quot;title&quot;:&quot;The landing page of this server as JSON&quot;,<br>            &quot;href&quot;:&quot;http://public.pygeoapi.io/geoapi?f=json&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;text/html&quot;,<br>            &quot;rel&quot;:&quot;root&quot;,<br>            &quot;title&quot;:&quot;The landing page of this server as HTML&quot;,<br>            &quot;href&quot;:&quot;http://public.pygeoapi.io/geoapi?f=html&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;application/json&quot;,<br>            &quot;rel&quot;:&quot;self&quot;,<br>            &quot;title&quot;:&quot;This document as JSON&quot;,<br>            &quot;href&quot;:&quot;http://public.pygeoapi.io/geoapi/collections/obs?f=json&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;application/ld+json&quot;,<br>            &quot;rel&quot;:&quot;alternate&quot;,<br>            &quot;title&quot;:&quot;This document as RDF (JSON-LD)&quot;,<br>            &quot;href&quot;:&quot;http://public.pygeoapi.io/geoapi/collections/obs?f=jsonld&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;text/html&quot;,<br>            &quot;rel&quot;:&quot;alternate&quot;,<br>            &quot;title&quot;:&quot;This document as HTML&quot;,<br>            &quot;href&quot;:&quot;http://public.pygeoapi.io/geoapi/collections/obs?f=html&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;application/schema+json&quot;,<br>            &quot;rel&quot;:&quot;http://www.opengis.net/def/rel/ogc/1.0/queryables&quot;,<br>            &quot;title&quot;:&quot;Queryables for this collection as JSON&quot;,<br>            &quot;href&quot;:&quot;http://public.pygeoapi.io/geoapi/collections/obs/queryables?f=json&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;text/html&quot;,<br>            &quot;rel&quot;:&quot;http://www.opengis.net/def/rel/ogc/1.0/queryables&quot;,<br>            &quot;title&quot;:&quot;Queryables for this collection as HTML&quot;,<br>            &quot;href&quot;:&quot;http://public.pygeoapi.io/geoapi/collections/obs/queryables?f=html&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;application/geo+json&quot;,<br>            &quot;rel&quot;:&quot;items&quot;,<br>            &quot;title&quot;:&quot;items as GeoJSON&quot;,<br>            &quot;href&quot;:&quot;http://public.pygeoapi.io/geoapi/collections/obs/items?f=json&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;application/ld+json&quot;,<br>            &quot;rel&quot;:&quot;items&quot;,<br>            &quot;title&quot;:&quot;items as RDF (GeoJSON-LD)&quot;,<br>            &quot;href&quot;:&quot;http://public.pygeoapi.io/geoapi/collections/obs/items?f=jsonld&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;text/html&quot;,<br>            &quot;rel&quot;:&quot;items&quot;,<br>            &quot;title&quot;:&quot;Items as HTML&quot;,<br>            &quot;href&quot;:&quot;http://public.pygeoapi.io/geoapi/collections/obs/items?f=html&quot;<br>        }<br>    ],<br>    &quot;extent&quot;:{<br>        &quot;spatial&quot;:{<br>            &quot;bbox&quot;:[<br>                [<br>                    -180,<br>                    -90,<br>                    180,<br>                    90<br>                ]<br>            ],<br>            &quot;crs&quot;:&quot;http://www.opengis.net/def/crs/OGC/1.3/CRS84&quot;<br>        },<br>        &quot;temporal&quot;:{<br>            &quot;interval&quot;:[<br>                [<br>                    &quot;2000-10-30T18:24:39+00:00&quot;,<br>                    &quot;2007-10-30T08:57:29+00:00&quot;<br>                ]<br>            ]<br>        }<br>    },<br>    &quot;itemType&quot;:&quot;feature&quot;,<br>    &quot;crs&quot;:[<br>        &quot;http://www.opengis.net/def/crs/OGC/1.3/CRS84&quot;<br>    ],<br>    &quot;storageCRS&quot;:&quot;http://www.opengis.net/def/crs/OGC/1.3/CRS84&quot;<br>}<br></span></div>
+
+<p>The same result would have been got if a private endpoint is hit, i.e. <code>http://private.pygeoapi.io/geoapi/collections/obs</code></p>
+
+              
+            </article>
+          </div>
+        </div>
+        
+          <a href="#" class="md-top md-icon" data-md-component="top" data-md-state="hidden">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+            Back to top
+          </a>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    <nav class="md-footer__inner md-grid" aria-label="Footer">
+      
+        
+        <a href=".." class="md-footer__link md-footer__link--prev" aria-label="Previous: Home" rel="prev">
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+          </div>
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              Home
+            </div>
+          </div>
+        </a>
+      
+      
+        
+        <a href="../howto-guides/" class="md-footer__link md-footer__link--next" aria-label="Next: Overview" rel="next">
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              Overview
+            </div>
+          </div>
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+          </div>
+        </a>
+      
+    </nav>
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      &copy; Copyright 2025 <a href="https://github.com/geobeyond">Geobeyond team</a>.
+
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+      
+      
+    
+    <a href="https://github.com/geobeyond" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M186.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1zM480 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2zm-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3zm-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1z"/></svg>
+    </a>
+  
+    
+    
+      
+      
+    
+    <a href="https://twitter.com/geobeyond" target="_blank" rel="noopener" title="twitter.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z"/></svg>
+    </a>
+  
+    
+    
+      
+      
+    
+    <a href="https://www.linkedin.com/company/geobeyond" target="_blank" rel="noopener" title="www.linkedin.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3zM135.4 416H69V202.2h66.5V416zm-33.2-243c-21.3 0-38.5-17.3-38.5-38.5S80.9 96 102.2 96c21.2 0 38.5 17.3 38.5 38.5 0 21.3-17.2 38.5-38.5 38.5zm282.1 243h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9V416z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "navigation.top", "search.suggest", "search.highlight", "content.tabs.link", "content.code.annotation", "content.code.copy"], "search": "../assets/javascripts/workers/search.2a1c317c.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.3a4b43e5.min.js"></script>
+      
+        <script src="../termynal.js"></script>
+      
+    
+  </body>
+</html>
