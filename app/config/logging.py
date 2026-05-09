@@ -9,6 +9,13 @@ from loguru import logger
 from app.config.app import configuration as cfg
 from app.schemas.logging import LoggerModel, LoggingBase
 
+# The configured LOG_FORMAT references `extra[request_id]` and `extra[method]`.
+# Records emitted without an explicit bind (e.g. plain `logger.info(...)` from
+# third-party code or module-level startup logs) would otherwise crash the
+# loguru handler with `KeyError: 'request_id'`. Setting defaults via
+# `logger.configure(extra=...)` makes those keys always present.
+logger.configure(extra={"request_id": None, "method": None})
+
 
 class InterceptHandler(logging.Handler):
     """Custom logging interceptor."""
