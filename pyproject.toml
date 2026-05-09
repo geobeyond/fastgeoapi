@@ -30,7 +30,7 @@ dependencies = [
     "json-ref-dict>=0.7.2,<=1.0",
     "pyyaml>=6.0.2,<7",
     "scalar-fastapi>=1.4.3,<2",
-    "fastmcp>=2.14.1",
+    "fastmcp>=3.2.4,<4",
     "mcpauth==0.2.0b1",
 ]
 
