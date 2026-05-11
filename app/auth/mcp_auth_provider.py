@@ -7,11 +7,8 @@ It supports multiple identity providers (Logto, Auth0, Keycloak, etc.) without
 requiring custom code for each provider.
 """
 
-import hashlib
 import json
-from base64 import urlsafe_b64encode
 from typing import Any
-from urllib.parse import urlencode
 
 from fastmcp.server.auth.oidc_proxy import OIDCProxy
 from loguru import logger
@@ -334,18 +331,18 @@ def patch_fastmcp_auth_middleware():
 
 
 class OIDCProxyWithoutResource(OIDCProxy):
-    """OIDC Proxy that filters the resource parameter for DCR compatibility.
+    """OIDC Proxy with RFC 6750 compliant auth error middleware.
 
-    This enables support for IdPs that don't allow third-party apps to
-    request API Resources without explicit permission grants (e.g., Logto).
+    The class exists solely to override `get_middleware()` and inject
+    `RFC6750CompliantAuthMiddleware`, which fixes the MCP SDK bug at
+    `mcp/server/auth/middleware/bearer_auth.py` where `invalid_token` is
+    returned even when no Bearer token is provided.
 
-    By filtering the resource parameter, we use OIDC only for authentication
-    (ID token), not for API authorization. This enables DCR with mcp-remote
-    and similar clients.
-
-    Additionally, this class overrides get_middleware() to use RFC6750-compliant
-    authentication middleware that properly distinguishes between "no token"
-    and "invalid token" errors.
+    The historical second purpose of this subclass — stripping the
+    `resource` parameter from the upstream `/authorize` URL for IdPs
+    like Logto that don't allow third-party API Resource requests — is
+    now handled by passing `forward_resource=False` to the parent
+    `OIDCProxy` constructor (see `configure_mcp_auth`).
     """
 
     def get_middleware(self) -> list:
@@ -366,51 +363,6 @@ class OIDCProxyWithoutResource(OIDCProxy):
             ),
             Middleware(AuthContextMiddleware),
         ]
-
-    def _build_upstream_authorize_url(self, txn_id: str, transaction: dict[str, Any]) -> str:
-        """Build authorize URL without the resource parameter.
-
-        Parameters
-        ----------
-        txn_id : str
-            The transaction ID for state tracking.
-        transaction : dict
-            The transaction data containing scopes and other params.
-
-        Returns
-        -------
-        str
-            The upstream authorization URL without resource parameter.
-        """
-        query_params: dict[str, Any] = {
-            "response_type": "code",
-            "client_id": self._upstream_client_id,
-            "redirect_uri": f"{str(self.base_url).rstrip('/')}{self._redirect_path}",
-            "state": txn_id,
-        }
-
-        scopes_to_use = transaction.get("scopes") or self.required_scopes or []
-        if scopes_to_use:
-            query_params["scope"] = " ".join(scopes_to_use)
-
-        # Include PKCE challenge if present
-        proxy_code_verifier = transaction.get("proxy_code_verifier")
-        if proxy_code_verifier:
-            challenge_bytes = hashlib.sha256(proxy_code_verifier.encode()).digest()
-            proxy_code_challenge = urlsafe_b64encode(challenge_bytes).decode().rstrip("=")
-            query_params["code_challenge"] = proxy_code_challenge
-            query_params["code_challenge_method"] = "S256"
-
-        # Filter out 'resource' parameter to avoid access_denied errors
-        # from IdPs that don't support third-party resource requests
-        if self._extra_authorize_params:
-            extra_params = {
-                k: v for k, v in self._extra_authorize_params.items() if k != "resource"
-            }
-            query_params.update(extra_params)
-
-        separator = "&" if "?" in self._upstream_authorization_endpoint else "?"
-        return f"{self._upstream_authorization_endpoint}{separator}{urlencode(query_params)}"
 
 
 def configure_mcp_auth(
@@ -505,8 +457,11 @@ def configure_mcp_auth(
         required_scopes=scopes,
     )
 
-    # Create OIDCProxy with resource parameter filtering for DCR compatibility
-    # and the TrustingUpstreamTokenVerifier for opaque token support.
+    # Create the OIDC proxy. `forward_resource=False` makes fastmcp 3.x skip
+    # the `resource` parameter on the upstream `/authorize` URL — necessary
+    # for IdPs like Logto that reject third-party resource indicators.
+    # `OIDCProxyWithoutResource` is our subclass solely for the RFC 6750
+    # compliant middleware (`get_middleware()` override).
     # Note: required_scopes is not passed here because FastMCP doesn't allow it
     # when using a custom token_verifier. Scopes are configured on the verifier.
     auth = OIDCProxyWithoutResource(
@@ -516,6 +471,7 @@ def configure_mcp_auth(
         base_url=mcp_base_url,
         extra_authorize_params={"scope": " ".join(scopes)},
         token_verifier=token_verifier,
+        forward_resource=False,
     )
 
     # Configure valid scopes for mcp-remote compatibility

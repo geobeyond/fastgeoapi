@@ -258,6 +258,55 @@ class TestOIDCProxyWithoutResourceFiltering:
             expected_challenge = urlsafe_b64encode(expected_challenge_bytes).decode().rstrip("=")
             assert params["code_challenge"][0] == expected_challenge
 
+    def test_real_proxy_does_not_forward_resource(self, mock_oidc_config):
+        """`OIDCProxyWithoutResource` with `forward_resource=False` strips the
+        `resource` parameter that the MCP downstream client (e.g. mcp-remote)
+        passes via the transaction (per RFC 8707).
+
+        Sentinel for the Phase 4.1 refactor that replaced a private-method
+        override with the public `forward_resource` flag of fastmcp 3.x.
+        Unlike the other tests in this class — which exercise a locally
+        defined `CustomOIDCProxy` mock — this one exercises the real
+        subclass shipped in `app.auth.mcp_auth_provider`.
+
+        In production, `configure_mcp_auth` passes
+        `extra_authorize_params={"scope": ...}` (no `resource` key); the
+        `resource` indicator originates from the downstream MCP client via
+        the OAuth transaction, and that's what `forward_resource=False`
+        suppresses.
+        """
+        from app.auth.mcp_auth_provider import OIDCProxyWithoutResource
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = mock_oidc_config
+        mock_response.raise_for_status = MagicMock()
+
+        with patch(
+            "fastmcp.server.auth.oidc_proxy.httpx.get",
+            return_value=mock_response,
+        ):
+            proxy = OIDCProxyWithoutResource(
+                config_url="https://example.logto.app/oidc/.well-known/openid-configuration",
+                client_id="test-client-id",
+                client_secret="test-client-secret",
+                base_url="http://localhost:5000/mcp/",
+                extra_authorize_params={"scope": "openid profile email"},
+                forward_resource=False,
+            )
+
+            # `resource` originates from the downstream MCP client transaction
+            # (RFC 8707) and MUST NOT be forwarded upstream when
+            # `forward_resource=False`.
+            transaction = {
+                "scopes": ["openid", "profile"],
+                "resource": "https://api.example.com",
+            }
+            url = proxy._build_upstream_authorize_url("test-txn-id", transaction)
+
+            assert "resource=" not in url
+            assert "resource%3D" not in url
+            assert proxy._forward_resource is False
+
 
 class TestIntrospectionTokenVerifier:
     """Test IntrospectionTokenVerifier handles token validation correctly.
