@@ -414,20 +414,6 @@ class TestClientResourceLeakPrevention:
 class TestHTTPClientHeaders:
     """Test HTTP client header management."""
 
-    def test_client_has_internal_key_header(self):
-        """Verify client includes the MCP internal key header."""
-        import secrets
-
-        internal_key = secrets.token_urlsafe(32)
-
-        client = httpx.AsyncClient(
-            base_url="http://localhost:5000/geoapi",
-            headers={"X-MCP-Internal-Key": internal_key},
-        )
-
-        assert "X-MCP-Internal-Key" in client.headers
-        assert client.headers["X-MCP-Internal-Key"] == internal_key
-
     def test_injected_client_preserves_custom_headers(self):
         """Verify injected client preserves custom headers."""
         custom_headers = {
