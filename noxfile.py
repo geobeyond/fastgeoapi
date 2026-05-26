@@ -182,6 +182,11 @@ def ty(session: Session) -> None:
         "pytest",
         "schemathesis>=4.0",
         "pytest-asyncio",
+        # Mirror the `tests` session test deps so ty can resolve imports
+        # in tests/test_mcp_oauth_e2e.py (pytest-iam pulls in portpicker).
+        "pytest-iam",
+        "canaille[sqlite]",
+        "faker",
     )
     session.run("ty", *args)
 

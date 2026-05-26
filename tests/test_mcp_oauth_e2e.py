@@ -57,9 +57,7 @@ def iam_oauth_client(iam_server, fastgeoapi_port: int):
     """
     redirect_uri = f"http://localhost:{fastgeoapi_port}/mcp/auth/callback"
     with iam_server.app.app_context():
-        existing = iam_server.backend.query(
-            iam_server.models.Client, client_id="mcp-test-client"
-        )
+        existing = iam_server.backend.query(iam_server.models.Client, client_id="mcp-test-client")
         for stale in existing:
             iam_server.backend.delete(stale)
         # canaille stores ``scope`` as ``list[str]``; passing a string here
@@ -233,9 +231,7 @@ def _pkce_pair() -> tuple[str, str]:
     """Return a (code_verifier, code_challenge) pair for PKCE S256."""
     verifier = secrets.token_urlsafe(64)
     challenge = (
-        base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest())
-        .rstrip(b"=")
-        .decode()
+        base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
     )
     return verifier, challenge
 
@@ -333,9 +329,7 @@ def test_full_oauth_authorization_code_flow(
             follow_redirects=False,
         )
         assert r.status_code == 200, r.text[:300]
-        csrf_match = re.search(
-            r'name="csrf_token"\s+value="([^"]+)"', r.text
-        )
+        csrf_match = re.search(r'name="csrf_token"\s+value="([^"]+)"', r.text)
         txn_match = re.search(r'name="txn_id"\s+value="([^"]+)"', r.text)
         assert csrf_match and txn_match, "consent form missing csrf_token/txn_id"
         csrf_token = csrf_match.group(1)
@@ -359,19 +353,13 @@ def test_full_oauth_authorization_code_flow(
         # canaille issues 302 back to /mcp/auth/callback?code=...
         r = client.get(canaille_url, follow_redirects=False)
         callback = _follow_until(client, r, f"{base_url}/mcp/auth/callback")
-        callback_location = str(
-            httpx.URL(str(callback.url)).join(callback.headers["location"])
-        )
-        assert callback_location.startswith(f"{base_url}/mcp/auth/callback"), (
-            callback_location
-        )
+        callback_location = str(httpx.URL(str(callback.url)).join(callback.headers["location"]))
+        assert callback_location.startswith(f"{base_url}/mcp/auth/callback"), callback_location
 
         # 6. /mcp/auth/callback -> 302 to client_redirect with code+state.
         r = client.get(callback_location, follow_redirects=False)
         final = _follow_until(client, r, client_redirect)
-        final_location = str(
-            httpx.URL(str(final.url)).join(final.headers["location"])
-        )
+        final_location = str(httpx.URL(str(final.url)).join(final.headers["location"]))
         final_params = parse_qs(urlparse(final_location).query)
         assert final_params.get("state") == [state]
         assert "code" in final_params, final_location
