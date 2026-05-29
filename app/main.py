@@ -296,6 +296,7 @@ def create_mcp_server(api_client: httpx.AsyncClient | None = None):
             client_secret=cfg.OIDC_CLIENT_SECRET,
             mcp_base_url=mcp_base_url,
             scopes=["openid", "profile", "email"],
+            consent_mode=getattr(cfg, "FASTGEOAPI_MCP_CONSENT_MODE", None),
         )
 
     # Create MCP server from OpenAPI spec

@@ -62,6 +62,7 @@ class DevConfig(GlobalConfig):
     FASTGEOAPI_CONTEXT: str
     FASTGEOAPI_REVERSE_PROXY: bool | None = None
     FASTGEOAPI_WITH_MCP: bool = False
+    FASTGEOAPI_MCP_CONSENT_MODE: str | None = None
 
     model_config = SettingsConfigDict(
         env_prefix="DEV_",
@@ -106,6 +107,7 @@ class ProdConfig(GlobalConfig):
     FASTGEOAPI_CONTEXT: str
     FASTGEOAPI_REVERSE_PROXY: bool | None = None
     FASTGEOAPI_WITH_MCP: bool = False
+    FASTGEOAPI_MCP_CONSENT_MODE: str | None = None
 
     model_config = SettingsConfigDict(
         env_prefix="PROD_",

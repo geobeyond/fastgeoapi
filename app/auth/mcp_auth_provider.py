@@ -365,12 +365,51 @@ class OIDCProxyWithoutResource(OIDCProxy):
         ]
 
 
+def _coerce_consent_mode(consent_mode: str | None) -> bool | str:
+    """Map a human-friendly consent string to FastMCP's expected value.
+
+    FastMCP's ``OAuthProxy`` accepts ``require_authorization_consent`` as
+    ``bool | Literal["remember", "external"]``. This helper translates the
+    ``FASTGEOAPI_MCP_CONSENT_MODE`` env value into that type.
+
+    Parameters
+    ----------
+    consent_mode : str | None
+        One of ``"always"``, ``"remember"``, ``"external"``, ``"never"``
+        (case-insensitive). ``None`` or unknown values fall back to
+        ``"remember"``.
+
+    Returns
+    -------
+    bool | str
+        ``True`` for ``"always"``, ``False`` for ``"never"``, or the literal
+        string for ``"remember"`` / ``"external"``.
+    """
+    mapping: dict[str, bool | str] = {
+        "always": True,
+        "remember": "remember",
+        "external": "external",
+        "never": False,
+    }
+    if consent_mode is None:
+        return "remember"
+    resolved = mapping.get(consent_mode.strip().lower())
+    if resolved is None:
+        logger.warning(
+            f"Unknown FASTGEOAPI_MCP_CONSENT_MODE '{consent_mode}'; "
+            "falling back to 'remember'"
+        )
+        return "remember"
+    return resolved
+
+
 def configure_mcp_auth(
     oidc_well_known_endpoint: str,
     client_id: str,
     client_secret: str,
     mcp_base_url: str,
     scopes: list[str] | None = None,
+    consent_mode: str | None = "remember",
 ):
     """Configure MCP authentication using mcpauth for multi-provider support.
 
@@ -394,6 +433,15 @@ def configure_mcp_auth(
         The base URL for the MCP server.
     scopes : list[str], optional
         The OIDC scopes to request. Defaults to ["openid", "profile", "email"].
+    consent_mode : str | None, optional
+        Consent screen behavior. One of ``"always"``, ``"remember"``,
+        ``"external"``, ``"never"`` (see :func:`_coerce_consent_mode`).
+        Defaults to ``"remember"``: the approval page is shown the first
+        time and then silently approved on return visits (the approval is
+        persisted in a host-scoped, HMAC-signed browser cookie, so it
+        survives server deploys). This stops the approval page from
+        reappearing on every fresh authorization while keeping the
+        first-time consent and its CSRF double-submit protection.
 
     Returns
     -------
@@ -472,7 +520,9 @@ def configure_mcp_auth(
         extra_authorize_params={"scope": " ".join(scopes)},
         token_verifier=token_verifier,
         forward_resource=False,
+        require_authorization_consent=_coerce_consent_mode(consent_mode),
     )
+    logger.info(f"MCP consent mode: {consent_mode or 'remember'}")
 
     # Configure valid scopes for mcp-remote compatibility
     if auth.client_registration_options:
