@@ -150,12 +150,10 @@ def safety(session: Session) -> None:
     Get a free API key at https://safetycli.com
     """
     _install_project(session)
-    # safety 3.7.0 (current stable) declares `typer>=0.16.0` with an open
-    # upper bound; typer 0.26.0 broke its CLI bootstrap with
-    # `RuntimeError: There is no active click context.` Upstream already
-    # capped `typer<0.26.0` in safety 3.8.0b4 — mirror that constraint
-    # here until 3.8.0 stable ships.
-    session.install("safety", "typer<0.26.0")
+    # safety 3.8.x stable now pins `typer<0.26.0,>=0.16.0` itself (the
+    # `typer 0.26` "no active click context" bootstrap break is handled
+    # upstream), so the manual cap we used to mirror is no longer needed.
+    session.install("safety")
     # Build command with API key if available
     cmd = ["safety"]
     if "SAFETY_API_KEY" in os.environ:
@@ -165,7 +163,13 @@ def safety(session: Session) -> None:
             "SAFETY_API_KEY not set. Running locally may prompt for confirmation. "
             "Set the environment variable or run: safety auth login"
         )
-    cmd.extend(["scan", "--detailed-output"])
+    # Use explicit `--output screen` (a string from the CLI Choice) instead of
+    # `--detailed-output`. `--detailed-output` leaves `--output` at its enum
+    # default `ScanOutput.SCREEN`, which safety 3.8.x then fails to validate
+    # at report-rendering time (after a successful auth) with:
+    #   Invalid value for '--output': <ScanOutput.SCREEN: 'screen'> is not one of ...
+    # Passing the string explicitly avoids the enum-default code path.
+    cmd.extend(["scan", "--output", "screen"])
     session.run(*cmd)
 
 

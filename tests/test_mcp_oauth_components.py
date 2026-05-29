@@ -1418,9 +1418,7 @@ class TestConsentMode:
         with (
             patch("httpx.get", return_value=mock_response),
             patch("requests.get", return_value=mock_response),
-            patch(
-                "fastmcp.server.auth.oidc_proxy.httpx.get", return_value=mock_response
-            ),
+            patch("fastmcp.server.auth.oidc_proxy.httpx.get", return_value=mock_response),
         ):
             auth, _routes = configure_mcp_auth(
                 oidc_well_known_endpoint="https://example.logto.app/oidc/.well-known/openid-configuration",
@@ -1443,9 +1441,7 @@ class TestConsentMode:
         with (
             patch("httpx.get", return_value=mock_response),
             patch("requests.get", return_value=mock_response),
-            patch(
-                "fastmcp.server.auth.oidc_proxy.httpx.get", return_value=mock_response
-            ),
+            patch("fastmcp.server.auth.oidc_proxy.httpx.get", return_value=mock_response),
         ):
             auth, _routes = configure_mcp_auth(
                 oidc_well_known_endpoint="https://example.logto.app/oidc/.well-known/openid-configuration",
@@ -1458,9 +1454,7 @@ class TestConsentMode:
 
         assert auth._require_authorization_consent is True
 
-    def test_configure_mcp_auth_default_scopes_request_offline_access(
-        self, mock_oidc_config
-    ):
+    def test_configure_mcp_auth_default_scopes_request_offline_access(self, mock_oidc_config):
         """The default scopes must request ``offline_access``.
 
         Without it the IdP issues no refresh token, so the MCP client cannot
@@ -1477,9 +1471,7 @@ class TestConsentMode:
         with (
             patch("httpx.get", return_value=mock_response),
             patch("requests.get", return_value=mock_response),
-            patch(
-                "fastmcp.server.auth.oidc_proxy.httpx.get", return_value=mock_response
-            ),
+            patch("fastmcp.server.auth.oidc_proxy.httpx.get", return_value=mock_response),
         ):
             # No `scopes` argument -> exercises the default.
             auth, _routes = configure_mcp_auth(
