@@ -1,6 +1,6 @@
 [project]
 name = "fastgeoapi"
-version = "0.0.8"
+version = "0.0.9"
 description = "fastgeoapi"
 authors = [{ name = "Francesco Bartoli", email = "francesco.bartoli@geobeyond.it" }]
 maintainers = [{ name = "Youssef Harby", email = "youssef.harby@geobeyond.it" }]
@@ -14,7 +14,8 @@ dependencies = [
     "fastapi-opa>=2.0.3,<3",
     "rasterio>=1.4.3,<2",
     "pygeoapi>=0.23.4,<0.24",
-    "fastapi[standard]>=0.126,<1.0",
+    "fastapi[standard]>=0.136,<1.0",
+    "starlette>=1.0.1,<2.0", # to be removed after fastapi will include 1.0.1+
     "typer>=0.15.3,<0.16",
     "fastapi-key-auth>=0.15.4,<0.16.0",
     "sqlalchemy>=2.0.40,<2.1",
@@ -24,13 +25,13 @@ dependencies = [
     "openapi-pydantic>=0.5.1,<=1.0",
     "pygeofilter",
     "pydantic-settings>=2.9.1,<3",
-    "authlib>=1.5.2,<2",
+    "authlib>=1.7.2,<2",
     "cachetools>=7,<8",
     "fencer",
     "json-ref-dict>=0.7.2,<=1.0",
     "pyyaml>=6.0.2,<7",
     "scalar-fastapi>=1.4.3,<2",
-    "fastmcp>=2.14.1",
+    "fastmcp>=3.2.4,<4",
     "mcpauth==0.2.0b1",
 ]
 

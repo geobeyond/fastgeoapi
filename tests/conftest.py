@@ -2,6 +2,8 @@
 
 import os
 import sys
+import uuid
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -16,6 +18,64 @@ from app.config.app import configuration as cfg
 # These need to be set before test collection happens
 os.environ["API_KEY_ENABLED"] = "true"
 os.environ["JWKS_ENABLED"] = "true"
+
+
+@pytest.fixture(scope="session")
+def iam_configuration(tmp_path_factory, iam_server_port) -> dict[str, Any]:
+    """Override pytest-iam's default config to disable nonce enforcement.
+
+    fastmcp's OIDCProxy doesn't emit ``nonce`` on the upstream
+    ``authorization_code`` request (the OIDC spec marks it OPTIONAL when
+    ``response_type=code``), but canaille defaults to
+    ``REQUIRE_NONCE=True`` which would reject every E2E flow. Real-world
+    IdPs we target (Logto, Auth0, Keycloak) don't enforce it for code
+    flow, so this override only affects the local test IdP.
+    """
+    from joserfc.jwk import JWKRegistry
+
+    os.environ["AUTHLIB_INSECURE_TRANSPORT"] = "1"
+
+    jwk = JWKRegistry.generate_key("RSA", 2048)
+    jwk.ensure_kid()
+
+    return {
+        "TESTING": True,
+        "ENV_FILE": None,
+        "SECRET_KEY": str(uuid.uuid4()),
+        "WTF_CSRF_ENABLED": False,
+        "PREFERRED_URL_SCHEME": "http",
+        "SERVER_NAME": f"localhost:{iam_server_port}",
+        "CANAILLE": {
+            "DATABASE": "memory",
+            "ENABLE_REGISTRATION": True,
+            "JAVASCRIPT": False,
+            "ACL": {
+                "DEFAULT": {
+                    "PERMISSIONS": ["use_oidc", "manage_oidc"],
+                }
+            },
+            "LOGGING": {
+                "version": 1,
+                "formatters": {
+                    "default": {
+                        "format": "[%(asctime)s] %(levelname)s in %(module)s: %(message)s",
+                    }
+                },
+                "handlers": {
+                    "canaille": {
+                        "class": "logging.NullHandler",
+                        "formatter": "default",
+                    }
+                },
+                "root": {"level": "DEBUG", "handlers": ["canaille"]},
+            },
+        },
+        "CANAILLE_OIDC": {
+            "DYNAMIC_CLIENT_REGISTRATION_OPEN": True,
+            "ACTIVE_JWKS": [jwk.as_dict()],
+            "REQUIRE_NONCE": False,
+        },
+    }
 
 
 @pytest.fixture

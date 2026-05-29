@@ -150,7 +150,12 @@ def safety(session: Session) -> None:
     Get a free API key at https://safetycli.com
     """
     _install_project(session)
-    session.install("safety")
+    # safety 3.7.0 (current stable) declares `typer>=0.16.0` with an open
+    # upper bound; typer 0.26.0 broke its CLI bootstrap with
+    # `RuntimeError: There is no active click context.` Upstream already
+    # capped `typer<0.26.0` in safety 3.8.0b4 — mirror that constraint
+    # here until 3.8.0 stable ships.
+    session.install("safety", "typer<0.26.0")
     # Build command with API key if available
     cmd = ["safety"]
     if "SAFETY_API_KEY" in os.environ:
@@ -182,6 +187,11 @@ def ty(session: Session) -> None:
         "pytest",
         "schemathesis>=4.0",
         "pytest-asyncio",
+        # Mirror the `tests` session test deps so ty can resolve imports
+        # in tests/test_mcp_oauth_e2e.py (pytest-iam pulls in portpicker).
+        "pytest-iam",
+        "canaille[sqlite]",
+        "faker",
     )
     session.run("ty", *args)
 

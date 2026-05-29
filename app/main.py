@@ -1,10 +1,11 @@
 """Main module."""
 
+from __future__ import annotations
+
 import os
-import secrets
 import sys
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 import loguru
@@ -29,6 +30,9 @@ from app.middleware.proxy import ForwardedLinksMiddleware
 from app.middleware.pygeoapi import OpenapiSecurityMiddleware
 from app.utils.app_exceptions import AppExceptionError, app_exception_handler
 from app.utils.openapi_generator import ensure_openapi_file_exists
+
+if TYPE_CHECKING:
+    from starlette.applications import Starlette
 from app.utils.pygeoapi_exceptions import (
     PygeoapiEnvError,
     PygeoapiLanguageError,
@@ -54,6 +58,61 @@ class FastGeoAPI(FastAPI):
         """Included the self.logger attribute."""
         super().__init__(**extra)
         self.logger: loguru.Logger = logger
+
+
+def _build_pygeoapi_subapp() -> Starlette:
+    """Build the raw pygeoapi Starlette sub-app with no middleware.
+
+    Used by two callers:
+
+    - :func:`create_app` as the starting point for the externally-mounted
+      pygeoapi instance, which then has auth/security middleware wrapped
+      around it.
+    - :func:`create_mcp_server` (when no ``api_client`` is provided) as
+      the target of an ``httpx.ASGITransport``, so the MCP server can
+      issue in-process requests to pygeoapi without going through the
+      network or any middleware. This replaces the previous
+      ``X-MCP-Internal-Key`` header bypass.
+
+    The function is intentionally lean: it only assembles the routing,
+    leaving every middleware concern to the caller.
+    """
+    try:
+        pygeoapi_conf = Path.cwd() / cfg.PYGEOAPI_CONFIG
+
+        from pygeoapi.starlette_app import APP as PYGEOAPI_APP
+        from pygeoapi.starlette_app import url_prefix
+        from starlette.applications import Starlette
+        from starlette.routing import Mount
+
+        from app.utils.pygeoapi_utils import patch_route
+
+        static_route = PYGEOAPI_APP.routes[0]
+        api_app = PYGEOAPI_APP.routes[1].app
+        api_routes = api_app.routes
+
+        patched_routes = tuple(patch_route(r) for r in api_routes)
+
+        return Starlette(
+            routes=[
+                static_route,
+                Mount(url_prefix or "/", routes=list(patched_routes)),
+            ],
+        )
+    except FileNotFoundError:
+        logger.error("Please configure pygeoapi settings in .env properly")
+        raise
+    except OSError as e:
+        logger.error(f"Runtime environment variables: \n{cfg}")
+        raise PygeoapiEnvError from e
+    except LocaleError as e:
+        logger.error(f"Locale error during pygeoapi initialization: {e}")
+        raise PygeoapiLanguageError from e
+    except ProviderConnectionError as e:
+        logger.error(f"Runtime environment variables: \n{cfg}")
+        logger.error(f"pygeoapi configuration: \n{pygeoapi_conf}")
+        logger.error(e)
+        raise e
 
 
 def create_app(lifespan=None):
@@ -90,51 +149,11 @@ def create_app(lifespan=None):
     async def custom_app_exception_handler(request, e):
         return await app_exception_handler(request, e)
 
-    try:
-        # Ensure OpenAPI file exists (environment variables are set by ensure_openapi_file_exists)
-        pygeoapi_conf = Path.cwd() / cfg.PYGEOAPI_CONFIG
-
-        # import pygeoapi starlette application once pygeoapi configuration
-        # are set and prepare the objects to override some core behavior
-        from pygeoapi.starlette_app import APP as PYGEOAPI_APP
-        from pygeoapi.starlette_app import url_prefix
-        from starlette.applications import Starlette
-        from starlette.routing import Mount
-
-        from app.utils.pygeoapi_utils import patch_route
-
-        static_route = PYGEOAPI_APP.routes[0]
-        api_app = PYGEOAPI_APP.routes[1].app
-        api_routes = api_app.routes
-
-        patched_routes = ()
-        for api_route in api_routes:
-            api_route_ = patch_route(api_route)
-            patched_routes += (api_route_,)
-
-        patched_app = Starlette(
-            routes=[
-                static_route,
-                Mount(url_prefix or "/", routes=list(patched_routes)),
-            ],
-        )
-        if cfg.FASTGEOAPI_REVERSE_PROXY:
-            patched_app.add_middleware(ForwardedLinksMiddleware)
-
-    except FileNotFoundError:
-        logger.error("Please configure pygeoapi settings in .env properly")
-        raise
-    except OSError as e:
-        logger.error(f"Runtime environment variables: \n{cfg}")
-        raise PygeoapiEnvError from e
-    except LocaleError as e:
-        logger.error(f"Locale error during pygeoapi initialization: {e}")
-        raise PygeoapiLanguageError from e
-    except ProviderConnectionError as e:
-        logger.error(f"Runtime environment variables: \n{cfg}")
-        logger.error(f"pygeoapi configuration: \n{pygeoapi_conf}")
-        logger.error(e)
-        raise e
+    # Build the externally-mounted pygeoapi sub-app and wrap it with the
+    # middleware stack appropriate to the current auth mode.
+    patched_app = _build_pygeoapi_subapp()
+    if cfg.FASTGEOAPI_REVERSE_PROXY:
+        patched_app.add_middleware(ForwardedLinksMiddleware)
 
     # Add OPAMiddleware to the pygeoapi app
     security_schemes = []
@@ -238,24 +257,22 @@ def create_mcp_server(api_client: httpx.AsyncClient | None = None):
     openapi_spec = resolve_external_refs(base_spec, cache_dir=cache_dir)
     logger.info("OpenAPI references resolved successfully")
 
-    # Base URL for API calls - use 127.0.0.1 for internal calls to bypass auth
-    api_base_url = f"http://127.0.0.1:{cfg.PORT}{cfg.FASTGEOAPI_CONTEXT}"
-
-    # Generate a secret key for internal MCP-to-API calls
-    # This allows the OAuth2 middleware to bypass auth for internal requests
-    mcp_internal_key = secrets.token_urlsafe(32)
-
-    # Create async client for MCP to make API requests if not provided
-    # Include the internal key header so the middleware can identify MCP requests
+    # When no client is provided, build a default that routes MCP→pygeoapi
+    # calls in-process via httpx.ASGITransport. The target is a *raw*
+    # pygeoapi sub-app with no auth/security middleware, so no bypass is
+    # needed: the middleware chain simply isn't on this path.
+    #
+    # `base_url` uses a virtual hostname (not loopback, not an IP) so that
+    # even if the client object is somehow leaked, the request can't reach
+    # an external network — it can only be served by the ASGI transport.
+    # The raw sub-app's routes live at the root (no FASTGEOAPI_CONTEXT
+    # prefix), so the base URL must not include the context either.
     if api_client is None:
         api_client = httpx.AsyncClient(
-            base_url=api_base_url,
+            transport=httpx.ASGITransport(app=_build_pygeoapi_subapp()),
+            base_url="http://mcp-internal",
             timeout=30.0,
-            headers={"X-MCP-Internal-Key": mcp_internal_key},
         )
-
-    # Store the key in config for the middleware to access
-    cfg.MCP_INTERNAL_KEY = mcp_internal_key
 
     # Configure OIDC authentication if JWKS is enabled
     # Uses mcpauth for provider-agnostic configuration and JWT validation
