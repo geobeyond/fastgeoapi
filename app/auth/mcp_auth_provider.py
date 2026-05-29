@@ -396,8 +396,7 @@ def _coerce_consent_mode(consent_mode: str | None) -> bool | str:
     resolved = mapping.get(consent_mode.strip().lower())
     if resolved is None:
         logger.warning(
-            f"Unknown FASTGEOAPI_MCP_CONSENT_MODE '{consent_mode}'; "
-            "falling back to 'remember'"
+            f"Unknown FASTGEOAPI_MCP_CONSENT_MODE '{consent_mode}'; falling back to 'remember'"
         )
         return "remember"
     return resolved
