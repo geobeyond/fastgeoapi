@@ -432,7 +432,11 @@ def configure_mcp_auth(
     mcp_base_url : str
         The base URL for the MCP server.
     scopes : list[str], optional
-        The OIDC scopes to request. Defaults to ["openid", "profile", "email"].
+        The OIDC scopes to request. Defaults to
+        ["openid", "profile", "email", "offline_access"]. ``offline_access``
+        is required for the IdP to issue a refresh token; without it the MCP
+        client must re-run the full authorization on every access-token expiry
+        instead of refreshing silently.
     consent_mode : str | None, optional
         Consent screen behavior. One of ``"always"``, ``"remember"``,
         ``"external"``, ``"never"`` (see :func:`_coerce_consent_mode`).
@@ -454,7 +458,7 @@ def configure_mcp_auth(
     patch_fastmcp_auth_middleware()
 
     if scopes is None:
-        scopes = ["openid", "profile", "email"]
+        scopes = ["openid", "profile", "email", "offline_access"]
 
     # Extract issuer from well-known endpoint
     # e.g., "https://example.logto.app/oidc/.well-known/openid-configuration"

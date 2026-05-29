@@ -1457,3 +1457,40 @@ class TestConsentMode:
             )
 
         assert auth._require_authorization_consent is True
+
+    def test_configure_mcp_auth_default_scopes_request_offline_access(
+        self, mock_oidc_config
+    ):
+        """The default scopes must request ``offline_access``.
+
+        Without it the IdP issues no refresh token, so the MCP client cannot
+        refresh silently and re-runs the full authorization (browser + consent)
+        on every access-token expiry — reopening the consent page every few
+        minutes and breaking MCP session continuity mid-conversation.
+        """
+        from app.auth.mcp_auth_provider import configure_mcp_auth
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = mock_oidc_config
+        mock_response.raise_for_status = MagicMock()
+
+        with (
+            patch("httpx.get", return_value=mock_response),
+            patch("requests.get", return_value=mock_response),
+            patch(
+                "fastmcp.server.auth.oidc_proxy.httpx.get", return_value=mock_response
+            ),
+        ):
+            # No `scopes` argument -> exercises the default.
+            auth, _routes = configure_mcp_auth(
+                oidc_well_known_endpoint="https://example.logto.app/oidc/.well-known/openid-configuration",
+                client_id="test-client",
+                client_secret="test-secret",
+                mcp_base_url="http://localhost:5000/mcp/",
+            )
+
+        # The scope forwarded to the upstream IdP authorize endpoint.
+        requested_scope = auth._extra_authorize_params.get("scope", "")
+        assert "offline_access" in requested_scope.split()
+        # And it propagates to the token verifier's required scopes.
+        assert "offline_access" in auth._token_validator.required_scopes
