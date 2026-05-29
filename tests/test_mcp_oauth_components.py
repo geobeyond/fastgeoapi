@@ -1362,3 +1362,98 @@ class TestOAuthEndpointURLConsistency:
             assert normalized1 == normalized2, (
                 f"URLs should normalize to the same value: {url1} vs {url2}"
             )
+
+
+class TestConsentMode:
+    """Test the consent mode wiring that stops the approval page reappearing.
+
+    By default ``configure_mcp_auth`` runs the OAuth proxy in ``"remember"``
+    mode: the consent screen is shown once per browser, then silently
+    approved on return visits. This prevents the approval page from popping
+    up on every fresh authorization (e.g. after a server deploy) while
+    keeping the first-time consent and its CSRF double-submit protection.
+    """
+
+    @pytest.fixture
+    def mock_oidc_config(self):
+        """Mock OIDC configuration from IdP."""
+        return {
+            "issuer": "https://example.logto.app/oidc",
+            "authorization_endpoint": "https://example.logto.app/oidc/auth",
+            "token_endpoint": "https://example.logto.app/oidc/token",
+            "jwks_uri": "https://example.logto.app/oidc/jwks",
+            "introspection_endpoint": "https://example.logto.app/oidc/token/introspection",
+            "response_types_supported": ["code"],
+            "subject_types_supported": ["public"],
+            "id_token_signing_alg_values_supported": ["RS256"],
+        }
+
+    @pytest.mark.parametrize(
+        ("consent_mode", "expected"),
+        [
+            ("always", True),
+            ("remember", "remember"),
+            ("external", "external"),
+            ("never", False),
+            ("REMEMBER", "remember"),  # case-insensitive
+            (" remember ", "remember"),  # whitespace tolerant
+            (None, "remember"),  # default
+            ("bogus", "remember"),  # unknown -> safe default
+        ],
+    )
+    def test_coerce_consent_mode(self, consent_mode, expected):
+        """The env string is mapped to FastMCP's expected union type."""
+        from app.auth.mcp_auth_provider import _coerce_consent_mode
+
+        assert _coerce_consent_mode(consent_mode) == expected
+
+    def test_configure_mcp_auth_defaults_to_remember(self, mock_oidc_config):
+        """`configure_mcp_auth` defaults the proxy to 'remember' consent."""
+        from app.auth.mcp_auth_provider import configure_mcp_auth
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = mock_oidc_config
+        mock_response.raise_for_status = MagicMock()
+
+        with (
+            patch("httpx.get", return_value=mock_response),
+            patch("requests.get", return_value=mock_response),
+            patch(
+                "fastmcp.server.auth.oidc_proxy.httpx.get", return_value=mock_response
+            ),
+        ):
+            auth, _routes = configure_mcp_auth(
+                oidc_well_known_endpoint="https://example.logto.app/oidc/.well-known/openid-configuration",
+                client_id="test-client",
+                client_secret="test-secret",
+                mcp_base_url="http://localhost:5000/mcp/",
+                scopes=["openid", "profile", "email"],
+            )
+
+        assert auth._require_authorization_consent == "remember"
+
+    def test_configure_mcp_auth_respects_explicit_consent_mode(self, mock_oidc_config):
+        """An explicit ``consent_mode`` is honored on the built proxy."""
+        from app.auth.mcp_auth_provider import configure_mcp_auth
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = mock_oidc_config
+        mock_response.raise_for_status = MagicMock()
+
+        with (
+            patch("httpx.get", return_value=mock_response),
+            patch("requests.get", return_value=mock_response),
+            patch(
+                "fastmcp.server.auth.oidc_proxy.httpx.get", return_value=mock_response
+            ),
+        ):
+            auth, _routes = configure_mcp_auth(
+                oidc_well_known_endpoint="https://example.logto.app/oidc/.well-known/openid-configuration",
+                client_id="test-client",
+                client_secret="test-secret",
+                mcp_base_url="http://localhost:5000/mcp/",
+                scopes=["openid", "profile", "email"],
+                consent_mode="always",
+            )
+
+        assert auth._require_authorization_consent is True
