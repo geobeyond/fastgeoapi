@@ -295,7 +295,12 @@ def create_mcp_server(api_client: httpx.AsyncClient | None = None):
             client_id=cfg.OIDC_CLIENT_ID,
             client_secret=cfg.OIDC_CLIENT_SECRET,
             mcp_base_url=mcp_base_url,
-            scopes=["openid", "profile", "email"],
+            # `offline_access` is required so the IdP issues a refresh token;
+            # without it the MCP client cannot refresh silently and re-runs the
+            # full authorization (browser + consent) on every access-token
+            # expiry — which both reopens the consent page and breaks the MCP
+            # session continuity mid-conversation.
+            scopes=["openid", "profile", "email", "offline_access"],
             consent_mode=getattr(cfg, "FASTGEOAPI_MCP_CONSENT_MODE", None),
         )
 
