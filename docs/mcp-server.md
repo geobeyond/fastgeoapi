@@ -97,6 +97,68 @@ DEV_API_KEY_ENABLED=false
 DEV_OPA_ENABLED=false
 ```
 
+### Consent Mode (`FASTGEOAPI_MCP_CONSENT_MODE`)
+
+When OAuth is enabled, the MCP server acts as an OAuth proxy and can present a
+**consent (authorization approval) screen** before redirecting the user to the
+upstream Identity Provider. `FASTGEOAPI_MCP_CONSENT_MODE` controls that
+behaviour. It is read **only when `FASTGEOAPI_WITH_MCP=true`** and an OIDC
+provider is configured; otherwise it is ignored.
+
+```shell
+# .env file — optional, defaults to "remember" when unset
+DEV_FASTGEOAPI_MCP_CONSENT_MODE=remember
+```
+
+| Value        | Consent screen                                  | Consent binding cookie check | When to use                                                                 |
+| ------------ | ----------------------------------------------- | ---------------------------- | --------------------------------------------------------------------------- |
+| `always`     | Shown on **every** authorization                | Enforced                     | Strongest protection; re-prompts the user on each fresh authorization       |
+| `remember`   | Shown once per browser, then silently approved  | Enforced                     | **Default.** Balances UX and protection for multi-user / shared deployments |
+| `external`   | Skipped (consent handled outside fastgeoapi)    | Skipped                      | You manage consent in a separate layer                                      |
+| `never`      | Skipped entirely                                | **Skipped**                  | Single-tenant / single trusted user (see risks below)                       |
+
+Unknown or unset values fall back to `remember`.
+
+#### Why the consent binding cookie matters
+
+In `always` and `remember` modes the proxy issues a signed **consent binding
+cookie** to the browser that approved consent and re-verifies it on the IdP
+callback. This is a [confused-deputy](https://en.wikipedia.org/wiki/Confused_deputy_problem)
+protection: a victim lured to a crafted authorization URL won't hold the
+matching cookie and is rejected.
+
+The trade-off is fragility on **re-authorization**: the cookie must survive the
+cross-site redirect back from the IdP. In some scenarios — a long machine
+suspend (e.g. Fly.io auto-suspend), `SameSite` handling, or concurrent OAuth
+flows opened by the client — the cookie does not round-trip, and the callback
+fails with:
+
+> Authorization session mismatch. This can happen if you followed a link from
+> another person or your session expired. Please try authenticating again.
+
+If you hit this repeatedly on a trusted single-user deployment, `never` removes
+the binding-cookie check and the symptom.
+
+#### Risks of `never`
+
+Setting `never` (`require_authorization_consent=False`) disables **both** the
+consent screen **and** the consent binding-cookie verification. Concretely:
+
+- ⚠️ **No confused-deputy protection.** Any party who can drive the MCP client
+  through the authorization flow can complete it silently, without an approval
+  step. Only acceptable when there is a **single, trusted user** and the client
+  itself is trusted (typical for a personal/single-tenant deployment).
+- It does **not** weaken token validation, scope checks, PKCE, or issuer/audience
+  validation — those remain in force regardless of consent mode.
+- Recommended **only** for single-tenant deployments. For any multi-user or
+  shared setup, prefer `remember` (or `always`) and accept the occasional
+  re-authentication prompt.
+
+> **Note:** the recurring "login page reopens every few minutes" problem is a
+> **separate** issue caused by a missing refresh token, not by the consent mode.
+> Ensure the `offline_access` scope is requested so the IdP issues a refresh
+> token and the client can refresh silently instead of re-authorizing.
+
 ## Security & Authentication Flows
 
 The MCP server supports multiple security configurations depending on your deployment needs.
