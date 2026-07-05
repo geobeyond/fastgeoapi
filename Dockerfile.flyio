@@ -48,10 +48,15 @@ ENV PATH="$PATH:/home/appuser/.local/bin" \
     UV_SYSTEM_PYTHON=1 \
     UV_BREAK_SYSTEM_PACKAGES=1
 
-# Trust X-Forwarded-* from the Fly proxy (it connects from the private
-# 6PN network, not loopback). Without this, uvicorn keeps scheme=http
-# and any generated redirect Location downgrades https -> http.
-ENV FORWARDED_ALLOW_IPS="*"
+# Trust X-Forwarded-* from the Fly proxy only. fly-proxy reaches the
+# machine from the host bridge network (172.16.0.0/16, observed live),
+# while direct 6PN connections from other apps in the org (fdaa::/16)
+# stay untrusted — so proxy headers cannot be spoofed from inside the
+# private network. Without this, uvicorn keeps scheme=http and any
+# generated redirect Location downgrades https -> http. If Fly ever
+# changes the proxy source network, the symptom is an http:// scheme
+# in generated URLs (visible in logs), not an outage.
+ENV FORWARDED_ALLOW_IPS="172.16.0.0/16,127.0.0.1"
 
 # Write git commit identifier into the image
 ARG GIT_COMMIT
