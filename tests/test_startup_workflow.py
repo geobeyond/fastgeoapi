@@ -973,12 +973,21 @@ class TestStartupWorkflowMCPAuth:
 
                     # Verify well-known routes exist and have proper paths
                     assert len(well_known_routes) > 0
+                    # fastmcp >= 3.4 also registers a root-level OIDC discovery
+                    # alias (RFC 8414 §5) with no path suffix; every other
+                    # well-known route must stay path-scoped (RFC 9728),
+                    # e.g. /.well-known/oauth-authorization-server/mcp
+                    oidc_discovery_alias = "/.well-known/openid-configuration"
+                    path_scoped = []
                     for route in well_known_routes:
                         # All well-known routes should start with /.well-known/
                         assert route.path.startswith("/.well-known/")
-                        # They should contain the mcp path as a suffix (RFC 9728)
-                        # e.g. /.well-known/oauth-authorization-server/mcp
+                        if route.path == oidc_discovery_alias:
+                            continue
                         assert "/mcp" in route.path
+                        path_scoped.append(route.path)
+                    # The path-scoped RFC 9728 routes must still be present
+                    assert path_scoped
 
 
 class TestStartupWorkflowIntegration:

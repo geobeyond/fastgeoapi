@@ -1486,3 +1486,76 @@ class TestConsentMode:
         assert "offline_access" in requested_scope.split()
         # And it propagates to the token verifier's required scopes.
         assert "offline_access" in auth._token_validator.required_scopes
+
+
+class TestAccessTokenTTL:
+    """Test the client-facing access-token TTL wiring.
+
+    By default fastmcp's OAuth proxy mirrors the upstream IdP ``expires_in``
+    on the JWT it issues to MCP clients. With short IdP lifetimes, clients
+    that keep tokens only in process memory (mcp-remote) hit frequent token
+    renewals. ``fastmcp_access_token_expiry_seconds`` (fastmcp >= 3.4)
+    decouples the client-facing TTL from the upstream one; this is safe
+    because the FastMCP JWT is a reference token that is re-validated
+    against the upstream IdP on every request (with transparent refresh),
+    so a longer client TTL does not extend upstream access.
+    """
+
+    @pytest.fixture
+    def mock_oidc_config(self):
+        """Mock OIDC configuration from IdP."""
+        return {
+            "issuer": "https://example.logto.app/oidc",
+            "authorization_endpoint": "https://example.logto.app/oidc/auth",
+            "token_endpoint": "https://example.logto.app/oidc/token",
+            "jwks_uri": "https://example.logto.app/oidc/jwks",
+            "introspection_endpoint": "https://example.logto.app/oidc/token/introspection",
+            "response_types_supported": ["code"],
+            "subject_types_supported": ["public"],
+            "id_token_signing_alg_values_supported": ["RS256"],
+        }
+
+    def _configure(self, mock_oidc_config, **kwargs):
+        """Run ``configure_mcp_auth`` with mocked OIDC discovery."""
+        from app.auth.mcp_auth_provider import configure_mcp_auth
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = mock_oidc_config
+        mock_response.raise_for_status = MagicMock()
+
+        with (
+            patch("httpx.get", return_value=mock_response),
+            patch("requests.get", return_value=mock_response),
+            patch("fastmcp.server.auth.oidc_proxy.httpx.get", return_value=mock_response),
+        ):
+            auth, _routes = configure_mcp_auth(
+                oidc_well_known_endpoint="https://example.logto.app/oidc/.well-known/openid-configuration",
+                client_id="test-client",
+                client_secret="test-secret",
+                mcp_base_url="http://localhost:5000/mcp/",
+                scopes=["openid", "profile", "email", "offline_access"],
+                **kwargs,
+            )
+        return auth
+
+    def test_configure_mcp_auth_defaults_access_token_ttl_to_24h(self, mock_oidc_config):
+        """Without an explicit TTL the client-facing token lives 24 hours."""
+        auth = self._configure(mock_oidc_config)
+
+        assert auth._fastmcp_access_token_expiry_seconds == 60 * 60 * 24
+
+    def test_configure_mcp_auth_respects_explicit_access_token_ttl(self, mock_oidc_config):
+        """An explicit ``access_token_expiry_seconds`` is honored on the proxy."""
+        auth = self._configure(mock_oidc_config, access_token_expiry_seconds=604800)
+
+        assert auth._fastmcp_access_token_expiry_seconds == 604800
+
+    def test_configure_mcp_auth_zero_ttl_mirrors_upstream(self, mock_oidc_config):
+        """``access_token_expiry_seconds=0`` opts out of the decoupling.
+
+        The proxy then falls back to fastmcp's default behavior of
+        mirroring the upstream IdP ``expires_in`` on the client-facing JWT.
+        """
+        auth = self._configure(mock_oidc_config, access_token_expiry_seconds=0)
+
+        assert auth._fastmcp_access_token_expiry_seconds is None

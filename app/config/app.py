@@ -63,6 +63,7 @@ class DevConfig(GlobalConfig):
     FASTGEOAPI_REVERSE_PROXY: bool | None = None
     FASTGEOAPI_WITH_MCP: bool = False
     FASTGEOAPI_MCP_CONSENT_MODE: str | None = None
+    FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS: int | None = None
 
     model_config = SettingsConfigDict(
         env_prefix="DEV_",
@@ -108,6 +109,7 @@ class ProdConfig(GlobalConfig):
     FASTGEOAPI_REVERSE_PROXY: bool | None = None
     FASTGEOAPI_WITH_MCP: bool = False
     FASTGEOAPI_MCP_CONSENT_MODE: str | None = None
+    FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS: int | None = None
 
     model_config = SettingsConfigDict(
         env_prefix="PROD_",
