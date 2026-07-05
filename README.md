@@ -454,37 +454,32 @@ The MCP server is provider-agnostic and works with any OIDC-compliant IdP:
 
 ### Using the MCP Server
 
-#### With Claude Desktop
+#### With Claude Desktop (native connector, recommended)
 
-Add the following to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Claude Desktop supports remote MCP servers natively as **custom connectors** — no local shim or config-file edit required:
 
-```json
-{
-  "mcpServers": {
-    "fastgeoapi": {
-      "command": "npx",
-      "args": ["mcp-remote", "http://localhost:5000/mcp/"]
-    }
-  }
-}
-```
+1. Open **Settings → Connectors → Add custom connector**
+2. Paste the server URL: `https://your-domain.com/mcp/` (trailing slash optional)
+3. Complete the OAuth login in the browser popup on first use
 
-#### With mcp-remote (OAuth)
+If an older `mcp-remote`-based entry for the same server is still in `claude_desktop_config.json`, remove it — the two clients race through the OAuth flow and can leave the tools list stuck.
 
-When OAuth is enabled, mcp-remote handles authentication automatically:
+#### With stdio-only clients (mcp-remote)
+
+For MCP clients that only speak stdio, front the server with [mcp-remote](https://www.npmjs.com/package/mcp-remote):
 
 ```json
 {
   "mcpServers": {
     "fastgeoapi": {
       "command": "npx",
-      "args": ["mcp-remote", "http://localhost:5000/mcp/", "--allow-http"]
+      "args": ["mcp-remote", "https://your-domain.com/mcp/"]
     }
   }
 }
 ```
 
-The `--allow-http` flag is needed for local development. In production with HTTPS, remove this flag.
+For local development over plain HTTP, add the `--allow-http` flag. Note that mcp-remote keeps tokens only in process memory, so every restart re-runs the full OAuth dance.
 
 #### Direct Streamable HTTP Connection
 
