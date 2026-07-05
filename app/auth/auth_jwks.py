@@ -156,8 +156,6 @@ class JWKSAuthentication(AuthInterface):
         access_token = bearer.replace("Bearer ", "")
         try:
             claims = await self.decode_token(access_token)
-            if not claims:
-                pass
             return claims
         except Exception:
             raise Oauth2Error("Authentication error")  # noqa

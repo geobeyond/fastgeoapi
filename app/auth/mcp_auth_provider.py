@@ -402,6 +402,9 @@ def _coerce_consent_mode(consent_mode: str | None) -> bool | str:
     return resolved
 
 
+DEFAULT_MCP_ACCESS_TOKEN_EXPIRY_SECONDS = 60 * 60 * 24  # 24 hours
+
+
 def configure_mcp_auth(
     oidc_well_known_endpoint: str,
     client_id: str,
@@ -409,6 +412,7 @@ def configure_mcp_auth(
     mcp_base_url: str,
     scopes: list[str] | None = None,
     consent_mode: str | None = "remember",
+    access_token_expiry_seconds: int | None = None,
 ):
     """Configure MCP authentication using mcpauth for multi-provider support.
 
@@ -445,6 +449,16 @@ def configure_mcp_auth(
         survives server deploys). This stops the approval page from
         reappearing on every fresh authorization while keeping the
         first-time consent and its CSRF double-submit protection.
+    access_token_expiry_seconds : int | None, optional
+        Lifetime of the access token the proxy issues to MCP clients,
+        decoupled from the upstream IdP ``expires_in``. Defaults to 24
+        hours. This is safe because the FastMCP JWT is a reference token:
+        every request re-validates the upstream token (with transparent
+        refresh when expired), so a revoked or expired upstream session
+        still fails immediately. A value of ``0`` (or negative) opts out
+        and mirrors the upstream ``expires_in`` on the client-facing JWT.
+        Longer client TTLs matter for clients like mcp-remote that keep
+        tokens only in process memory and renew via refresh grant.
 
     Returns
     -------
@@ -515,6 +529,10 @@ def configure_mcp_auth(
     # compliant middleware (`get_middleware()` override).
     # Note: required_scopes is not passed here because FastMCP doesn't allow it
     # when using a custom token_verifier. Scopes are configured on the verifier.
+    if access_token_expiry_seconds is None:
+        access_token_expiry_seconds = DEFAULT_MCP_ACCESS_TOKEN_EXPIRY_SECONDS
+    client_token_ttl = access_token_expiry_seconds if access_token_expiry_seconds > 0 else None
+
     auth = OIDCProxyWithoutResource(
         config_url=oidc_well_known_endpoint,
         client_id=client_id,
@@ -524,8 +542,13 @@ def configure_mcp_auth(
         token_verifier=token_verifier,
         forward_resource=False,
         require_authorization_consent=_coerce_consent_mode(consent_mode),
+        fastmcp_access_token_expiry_seconds=client_token_ttl,
     )
     logger.info(f"MCP consent mode: {consent_mode or 'remember'}")
+    logger.info(
+        "MCP client access-token TTL: "
+        f"{f'{client_token_ttl}s' if client_token_ttl else 'mirror upstream expires_in'}"
+    )
 
     # Configure valid scopes for mcp-remote compatibility
     if auth.client_registration_options:

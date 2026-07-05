@@ -159,6 +159,39 @@ consent screen **and** the consent binding-cookie verification. Concretely:
 > Ensure the `offline_access` scope is requested so the IdP issues a refresh
 > token and the client can refresh silently instead of re-authorizing.
 
+### Access Token TTL (`FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS`)
+
+By default fastmcp's OAuth proxy mirrors the upstream IdP `expires_in` on the
+access token it issues to MCP clients, so a short IdP lifetime (often 1 hour or
+less) becomes the client-facing lifetime too. Clients that keep tokens only in
+process memory (e.g. `mcp-remote`) then renew frequently via refresh grant, and
+any hiccup in that path surfaces as a re-authentication prompt.
+
+`FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS` decouples the client-facing token
+lifetime from the upstream one. It defaults to **86400 (24 hours)** when unset.
+
+```shell
+# .env file — optional, defaults to 86400 (24h) when unset
+DEV_FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS=86400
+```
+
+| Value           | Behaviour                                                            |
+| --------------- | -------------------------------------------------------------------- |
+| unset           | Client-facing token lives 24 hours                                    |
+| `N > 0`         | Client-facing token lives `N` seconds                                 |
+| `0` (or `< 0`)  | Opt out: mirror the upstream IdP `expires_in` (fastmcp default)       |
+
+This is **not** a security relaxation: the FastMCP token is a *reference*
+token. On every request the proxy re-validates the underlying upstream token
+against the IdP and transparently refreshes it when expired. A revoked or
+expired upstream session therefore fails immediately, regardless of how much
+lifetime is left on the client-facing token. When the IdP issues no refresh
+token, fastmcp caps the client-facing lifetime at the upstream `expires_in`
+anyway.
+
+> Requires fastmcp >= 3.4 (`fastmcp_access_token_expiry_seconds` on the OAuth
+> proxy).
+
 ## Security & Authentication Flows
 
 The MCP server supports multiple security configurations depending on your deployment needs.

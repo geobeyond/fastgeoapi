@@ -302,6 +302,12 @@ def create_mcp_server(api_client: httpx.AsyncClient | None = None):
             # session continuity mid-conversation.
             scopes=["openid", "profile", "email", "offline_access"],
             consent_mode=getattr(cfg, "FASTGEOAPI_MCP_CONSENT_MODE", None),
+            # Client-facing token TTL decoupled from the IdP `expires_in`
+            # (defaults to 24h inside `configure_mcp_auth`); reduces re-auth
+            # friction for clients that keep tokens only in memory.
+            access_token_expiry_seconds=getattr(
+                cfg, "FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS", None
+            ),
         )
 
     # Create MCP server from OpenAPI spec
