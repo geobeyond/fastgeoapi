@@ -283,30 +283,33 @@ The MCP server is provider-agnostic and works with any OIDC-compliant Identity P
 
 ## Using the MCP Server
 
-### Connect Claude Desktop
+### Connect Claude Desktop (native connector)
 
-[Claude Desktop](https://claude.ai/desktop) supports MCP servers natively. Add the following to your configuration file:
+[Claude Desktop](https://claude.ai/desktop) supports remote MCP servers natively as **custom connectors** — no local shim or config-file edit required. This is the recommended path:
 
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+1. Open **Settings → Connectors → Add custom connector**
+2. Paste the server URL: `https://your-domain.com/mcp/` (the trailing slash is optional — both variants are served)
+3. On first use, complete the OAuth login in the browser popup; the connector then refreshes tokens silently
 
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+!!! warning "Avoid running mcp-remote alongside the connector"
+If an older `mcp-remote`-based entry for the same server is still present in `claude_desktop_config.json`, remove it: the two clients race through the OAuth flow and the mcp-remote process can wedge on its fixed callback port (43711), leaving the tools list stuck.
 
-#### Without Authentication
+### Connect stdio-only clients (mcp-remote)
+
+For MCP clients that only speak stdio, front the server with [mcp-remote](https://www.npmjs.com/package/mcp-remote) in the client configuration file (for Claude Desktop: `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
   "mcpServers": {
     "fastgeoapi": {
       "command": "npx",
-      "args": ["mcp-remote", "http://localhost:5000/mcp/"]
+      "args": ["mcp-remote", "https://your-domain.com/mcp/"]
     }
   }
 }
 ```
 
-#### With OAuth Authentication
-
-When OAuth is enabled, mcp-remote handles authentication automatically:
+For local development over plain HTTP, add the `--allow-http` flag:
 
 ```json
 {
@@ -319,23 +322,8 @@ When OAuth is enabled, mcp-remote handles authentication automatically:
 }
 ```
 
-!!! note "HTTP Flag"
-The `--allow-http` flag is required for local development. In production with HTTPS, remove this flag.
-
-#### Production Configuration
-
-For production deployments with HTTPS:
-
-```json
-{
-  "mcpServers": {
-    "fastgeoapi": {
-      "command": "npx",
-      "args": ["mcp-remote", "https://your-domain.com/mcp/"]
-    }
-  }
-}
-```
+!!! note "mcp-remote caveats"
+mcp-remote keeps tokens only in process memory (every restart re-runs the full OAuth dance) and binds a fixed OAuth callback port. If the client loops on authentication, check for zombie processes with `lsof -i :43711` and kill them.
 
 ### Connect via Streamable HTTP
 
