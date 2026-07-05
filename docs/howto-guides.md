@@ -19,6 +19,6 @@ The MCP server provides:
 - **Automatic Tool Generation** from the OGC API OpenAPI specification
 - **OAuth Authentication** with any OIDC-compliant provider
 - **Dynamic Client Registration** for seamless integration with MCP clients
-- **SSE Transport** for real-time communication
+- **Streamable HTTP Transport** for real-time communication (fastmcp 3.x)
 
 For complete configuration instructions, security flows, and usage examples, see the dedicated [MCP Server guide](mcp-server.md).

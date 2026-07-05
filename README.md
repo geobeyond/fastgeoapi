@@ -374,7 +374,15 @@ DEV_JWKS_ENABLED=true
 DEV_OIDC_WELL_KNOWN_ENDPOINT=https://your-idp.example.com/.well-known/openid-configuration
 DEV_OIDC_CLIENT_ID=your-client-id
 DEV_OIDC_CLIENT_SECRET=your-client-secret
+
+# Optional MCP OAuth tuning (see docs/mcp-server.md for details)
+# Consent screen behavior: always | remember | external | never
+DEV_FASTGEOAPI_MCP_CONSENT_MODE=remember
+# Client-facing access-token lifetime, decoupled from the IdP expires_in
+DEV_FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS=86400
 ```
+
+The requested scopes include `offline_access` by default, so the IdP issues a refresh token and MCP clients can renew silently instead of re-running the browser authorization on every token expiry (make sure your IdP allows that scope for the client).
 
 ### Security & Authentication Flows
 
@@ -418,20 +426,20 @@ When OAuth is enabled, the MCP server acts as an **OAuth Proxy** implementing:
         │  6. Token Exchange    │                       │
         │◀──────────────────────│                       │
         │                       │                       │
-        │  7. MCP Requests      │  8. Internal API call │
-        │  (with Bearer token)  │  (bypasses auth)      │
+        │  7. MCP Requests      │  8. In-process ASGI   │
+        │  (with Bearer token)  │     call to pygeoapi  │
         │──────────────────────▶│──────────────────────▶│
 ```
 
 #### Security Features
 
-| Feature                  | Description                                                                 |
-| ------------------------ | --------------------------------------------------------------------------- |
-| **JWT Validation**       | Tokens are validated using JWKS from the IdP                                |
-| **Opaque Token Support** | Supports IdPs that return opaque tokens (e.g., Logto without API Resources) |
-| **RFC 6750 Compliance**  | Proper error handling for missing vs invalid tokens                         |
-| **Internal API Bypass**  | MCP-to-API calls use an internal key to bypass authentication               |
-| **Scope Validation**     | Configurable required scopes for access control                             |
+| Feature                       | Description                                                                                                                    |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **JWT Validation**            | Tokens are validated using JWKS from the IdP                                                                                   |
+| **Opaque Token Support**      | Supports IdPs that return opaque tokens (e.g., Logto without API Resources)                                                    |
+| **RFC 6750 Compliance**       | Proper error handling for missing vs invalid tokens                                                                            |
+| **In-Process Internal Calls** | MCP-to-pygeoapi calls run in-process via `httpx.ASGITransport` on a non-routable virtual host — no bypass key or header exists |
+| **Scope Validation**          | Configurable required scopes for access control                                                                                |
 
 #### Supported Identity Providers
 
@@ -478,36 +486,37 @@ When OAuth is enabled, mcp-remote handles authentication automatically:
 
 The `--allow-http` flag is needed for local development. In production with HTTPS, remove this flag.
 
-#### Direct SSE Connection
+#### Direct Streamable HTTP Connection
 
-For clients that support Server-Sent Events directly:
+fastmcp 3.x serves MCP over the Streamable HTTP transport (the legacy `/mcp/sse` endpoint no longer exists). Clients with native remote MCP support connect directly to:
 
 ```
-http://localhost:5000/mcp/sse
+http://localhost:5000/mcp/
 ```
 
 ### Available Tools
 
-The MCP server exposes all OGC API endpoints as tools, including:
+The MCP server exposes all OGC API endpoints as tools. Names come from the OpenAPI `operationId`s, so collection-specific tools embed the collection name (the demo configuration yields 27 tools). For example:
 
-| Tool             | Description                                                  |
-| ---------------- | ------------------------------------------------------------ |
-| `getLandingPage` | Get the API landing page                                     |
-| `getConformance` | Get OGC API conformance classes                              |
-| `getCollections` | List all feature collections                                 |
-| `getCollection`  | Get metadata for a specific collection                       |
-| `getItems`       | Query features from a collection                             |
-| `getItem`        | Get a specific feature by ID                                 |
-| `getProcesses`   | List available processes (if OGC API - Processes is enabled) |
+| Tool                        | Description                                                  |
+| --------------------------- | ------------------------------------------------------------ |
+| `getLandingPage`            | Get the API landing page                                     |
+| `getConformanceDeclaration` | Get OGC API conformance classes                              |
+| `getCollections`            | List all feature collections                                 |
+| `describeLakesCollection`   | Get metadata for the `lakes` collection                      |
+| `getLakesFeatures`          | Query features from the `lakes` collection                   |
+| `getLakesFeature`           | Get a specific `lakes` feature by ID                         |
+| `getProcesses`              | List available processes (if OGC API - Processes is enabled) |
 
 ### OAuth Discovery Endpoints
 
 When OAuth is enabled, the following RFC-compliant endpoints are available:
 
-| Endpoint                                      | Description                              |
-| --------------------------------------------- | ---------------------------------------- |
-| `/.well-known/oauth-protected-resource/mcp/`  | Protected resource metadata (RFC 9728)   |
-| `/mcp/.well-known/oauth-authorization-server` | Authorization server metadata (RFC 8414) |
+| Endpoint                                      | Description                                          |
+| --------------------------------------------- | ---------------------------------------------------- |
+| `/.well-known/oauth-protected-resource/mcp/`  | Protected resource metadata (RFC 9728)               |
+| `/.well-known/oauth-authorization-server/mcp` | Authorization server metadata (RFC 8414, path-aware) |
+| `/.well-known/openid-configuration`           | OIDC discovery alias (fastmcp >= 3.4)                |
 
 ### Architecture
 
@@ -516,14 +525,14 @@ When OAuth is enabled, the following RFC-compliant endpoints are available:
 │                    Claude Desktop                        │
 │                    or MCP Client                         │
 └─────────────────────┬───────────────────────────────────┘
-                      │ MCP Protocol (SSE/HTTP)
+                      │ MCP Protocol (Streamable HTTP)
                       ▼
 ┌─────────────────────────────────────────────────────────┐
 │                   fastgeoapi                             │
 │  ┌───────────────────────────────────────────────────┐  │
 │  │              MCP Server (/mcp)                     │  │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌───────────┐  │  │
-│  │  │ OAuth Proxy │  │ Tool Router │  │ SSE/HTTP  │  │  │
+│  │  │ OAuth Proxy │  │ Tool Router │  │ HTTP      │  │  │
 │  │  └─────────────┘  └─────────────┘  └───────────┘  │  │
 │  └───────────────────────────────────────────────────┘  │
 │                          │                               │

@@ -20,7 +20,7 @@ The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is an open 
 | **RFC 9728 Compliant**          | Implements OAuth 2.0 Protected Resource Metadata                                    |
 | **Dynamic Client Registration** | Compatible with mcp-remote and other MCP clients                                    |
 | **Provider Agnostic**           | Uses [mcpauth](https://github.com/alonsosilvaallende/mcpauth) for multi-IdP support |
-| **SSE Transport**               | Server-Sent Events for real-time communication                                      |
+| **Streamable HTTP Transport**   | Single-endpoint MCP transport with streaming responses (fastmcp 3.x)                |
 
 ## Enable the MCP Server
 
@@ -229,8 +229,8 @@ When OAuth is enabled, the MCP server acts as an **OAuth Proxy**. This architect
         │  6. Token Exchange    │                       │
         │◀──────────────────────│                       │
         │                       │                       │
-        │  7. MCP Requests      │  8. Internal API call │
-        │  (with Bearer token)  │  (bypasses auth)      │
+        │  7. MCP Requests      │  8. In-process ASGI   │
+        │  (with Bearer token)  │     call to pygeoapi  │
         │──────────────────────▶│──────────────────────▶│
 ```
 
@@ -243,7 +243,7 @@ When OAuth is enabled, the MCP server acts as an **OAuth Proxy**. This architect
 5. **Auth Code Return**: The IdP returns an authorization code
 6. **Token Exchange**: The OAuth proxy exchanges the code for tokens and issues its own JWT
 7. **MCP Requests**: The client makes authenticated MCP requests with the Bearer token
-8. **Internal API Calls**: The MCP server calls pygeoapi with an internal bypass key
+8. **Internal API Calls**: The MCP server reaches pygeoapi in-process through `httpx.ASGITransport` against a raw sub-app — no network hop and no shared secret; the OAuth middleware chain is simply not mounted on this internal path
 
 ### RFC Compliance
 
@@ -259,14 +259,14 @@ The MCP server implements several OAuth-related RFCs:
 
 ### Security Features
 
-| Feature                  | Description                                                                 |
-| ------------------------ | --------------------------------------------------------------------------- |
-| **JWT Validation**       | Tokens are validated using JWKS from the IdP                                |
-| **Opaque Token Support** | Supports IdPs that return opaque tokens (e.g., Logto without API Resources) |
-| **RFC 6750 Compliance**  | Proper error handling distinguishing "no token" vs "invalid token"          |
-| **Internal API Bypass**  | MCP-to-pygeoapi calls use an internal key to bypass authentication          |
-| **Scope Validation**     | Configurable required scopes for access control                             |
-| **PKCE Support**         | Prevents authorization code interception in public clients                  |
+| Feature                       | Description                                                                                                                    |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **JWT Validation**            | Tokens are validated using JWKS from the IdP                                                                                   |
+| **Opaque Token Support**      | Supports IdPs that return opaque tokens (e.g., Logto without API Resources)                                                    |
+| **RFC 6750 Compliance**       | Proper error handling distinguishing "no token" vs "invalid token"                                                             |
+| **In-Process Internal Calls** | MCP-to-pygeoapi calls run in-process via `httpx.ASGITransport` on a non-routable virtual host — no bypass key or header exists |
+| **Scope Validation**          | Configurable required scopes for access control                                                                                |
+| **PKCE Support**              | Prevents authorization code interception in public clients                                                                     |
 
 ### Supported Identity Providers
 
@@ -337,18 +337,18 @@ For production deployments with HTTPS:
 }
 ```
 
-### Connect via Direct SSE
+### Connect via Streamable HTTP
 
-For clients that support Server-Sent Events directly, connect to:
+fastmcp 3.x serves MCP over the Streamable HTTP transport (the legacy `/mcp/sse` endpoint no longer exists). Clients with native remote MCP support connect directly to:
 
 ```
-http://localhost:5000/mcp/sse
+http://localhost:5000/mcp/
 ```
 
 Or with HTTPS in production:
 
 ```
-https://your-domain.com/mcp/sse
+https://your-domain.com/mcp/
 ```
 
 ### Test the MCP Server
@@ -356,14 +356,15 @@ https://your-domain.com/mcp/sse
 You can test the MCP server endpoints directly:
 
 ```shell
-# Check if MCP server is running (SSE endpoint)
-curl -N http://localhost:5000/mcp/sse
+# Check the MCP endpoint is alive (Streamable HTTP): expect 401 with OAuth
+# enabled, 406 without the proper Accept headers — both mean it is up
+curl -i http://localhost:5000/mcp/
 
 # Get OAuth metadata (when OAuth is enabled)
 curl http://localhost:5000/.well-known/oauth-protected-resource/mcp/
 
-# Get authorization server metadata
-curl http://localhost:5000/mcp/.well-known/oauth-authorization-server
+# Get authorization server metadata (RFC 8414 path-aware)
+curl http://localhost:5000/.well-known/oauth-authorization-server/mcp
 ```
 
 ## Available MCP Tools
@@ -372,27 +373,30 @@ The MCP server automatically generates tools from the pygeoapi OpenAPI specifica
 
 ### Core OGC API Tools
 
-| Tool             | Description                                          | OGC API  |
-| ---------------- | ---------------------------------------------------- | -------- |
-| `getLandingPage` | Get the API landing page with links to all resources | Common   |
-| `getConformance` | Get OGC API conformance classes                      | Common   |
-| `getCollections` | List all available feature collections               | Features |
-| `getCollection`  | Get metadata for a specific collection               | Features |
-| `getItems`       | Query features from a collection with filters        | Features |
-| `getItem`        | Get a specific feature by ID                         | Features |
-| `getQueryables`  | Get queryable properties for a collection            | Features |
+Tool names come from the OpenAPI `operationId`s, so collection-specific tools embed the collection name (the demo configuration with the `lakes` and `obs` collections yields 27 tools). For example:
+
+| Tool                        | Description                                          | OGC API  |
+| --------------------------- | ---------------------------------------------------- | -------- |
+| `getLandingPage`            | Get the API landing page with links to all resources | Common   |
+| `getConformanceDeclaration` | Get OGC API conformance classes                      | Common   |
+| `getCollections`            | List all available feature collections               | Features |
+| `describeLakesCollection`   | Get metadata for the `lakes` collection              | Features |
+| `getLakesFeatures`          | Query features from `lakes` with filters             | Features |
+| `getLakesFeature`           | Get a specific `lakes` feature by ID                 | Features |
+| `getLakesQueryables`        | Get queryable properties of the `lakes` collection   | Features |
+| `getLakesSchema`            | Get the JSON Schema of the `lakes` collection        | Features |
 
 ### OGC API - Processes Tools
 
-If OGC API - Processes is enabled in your pygeoapi configuration:
+If OGC API - Processes is enabled in your pygeoapi configuration (names below are for the demo `hello-world` process; note that fastmcp sanitizes `-` to `_`):
 
-| Tool             | Description                             |
-| ---------------- | --------------------------------------- |
-| `getProcesses`   | List all available processes            |
-| `getProcess`     | Get details about a specific process    |
-| `executeProcess` | Execute a process with input parameters |
-| `getJob`         | Get the status of a job                 |
-| `getJobResults`  | Get the results of a completed job      |
+| Tool                         | Description                               |
+| ---------------------------- | ----------------------------------------- |
+| `getProcesses`               | List all available processes              |
+| `describeHello_worldProcess` | Get details about the process             |
+| `executeHello_worldJob`      | Execute the process with input parameters |
+| `getJobs` / `getJob`         | List jobs / get the status of a job       |
+| `getJobResults`              | Get the results of a completed job        |
 
 ### Example Tool Usage
 
@@ -409,13 +413,14 @@ Claude will automatically use the appropriate MCP tools to fulfill these request
 
 When OAuth is enabled, the following RFC-compliant endpoints are available:
 
-| Endpoint                                      | RFC       | Description                   |
-| --------------------------------------------- | --------- | ----------------------------- |
-| `/.well-known/oauth-protected-resource/mcp/`  | RFC 9728  | Protected resource metadata   |
-| `/mcp/.well-known/oauth-authorization-server` | RFC 8414  | Authorization server metadata |
-| `/mcp/register`                               | RFC 7591  | Dynamic client registration   |
-| `/mcp/authorize`                              | OAuth 2.0 | Authorization endpoint        |
-| `/mcp/token`                                  | OAuth 2.0 | Token endpoint                |
+| Endpoint                                      | RFC       | Description                                |
+| --------------------------------------------- | --------- | ------------------------------------------ |
+| `/.well-known/oauth-protected-resource/mcp/`  | RFC 9728  | Protected resource metadata                |
+| `/.well-known/oauth-authorization-server/mcp` | RFC 8414  | Authorization server metadata (path-aware) |
+| `/.well-known/openid-configuration`           | OIDC 1.0  | OIDC discovery alias (fastmcp >= 3.4)      |
+| `/mcp/register`                               | RFC 7591  | Dynamic client registration                |
+| `/mcp/authorize`                              | OAuth 2.0 | Authorization endpoint                     |
+| `/mcp/token`                                  | OAuth 2.0 | Token endpoint                             |
 
 ## Architecture
 
@@ -426,7 +431,7 @@ The following diagram shows how the MCP server integrates with the fastgeoapi ar
 │                      Claude Desktop                              │
 │                      or MCP Client                               │
 └─────────────────────────────┬───────────────────────────────────┘
-                              │ MCP Protocol (SSE/HTTP)
+                              │ MCP Protocol (Streamable HTTP)
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                        fastgeoapi                                │
@@ -435,16 +440,16 @@ The following diagram shows how the MCP server integrates with the fastgeoapi ar
 │  │                   MCP Server (/mcp)                         │ │
 │  │                                                             │ │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │ │
-│  │  │ OAuth Proxy  │  │ Tool Router  │  │ SSE Transport    │  │ │
+│  │  │ OAuth Proxy  │  │ Tool Router  │  │ HTTP Transport   │  │ │
 │  │  │              │  │              │  │                  │  │ │
-│  │  │ - DCR        │  │ - OpenAPI    │  │ - Bidirectional  │  │ │
-│  │  │ - PKCE       │  │   parsing    │  │   communication  │  │ │
-│  │  │ - Token mgmt │  │ - Tool gen   │  │ - Event stream   │  │ │
+│  │  │ - DCR        │  │ - OpenAPI    │  │ - Single /mcp/   │  │ │
+│  │  │ - PKCE       │  │   parsing    │  │   endpoint       │  │ │
+│  │  │ - Token mgmt │  │ - Tool gen   │  │ - Event streaming│  │ │
 │  │  └──────────────┘  └──────────────┘  └──────────────────┘  │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │                              │                                   │
-│                              │ Internal API calls                │
-│                              │ (X-MCP-Internal-Key header)       │
+│                              │ In-process internal calls         │
+│                              │ (httpx.ASGITransport, no key)     │
 │                              ▼                                   │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │              pygeoapi OGC API (/geoapi)                     │ │
@@ -458,12 +463,12 @@ The following diagram shows how the MCP server integrates with the fastgeoapi ar
 
 **Component Responsibilities:**
 
-| Component         | Responsibility                                             |
-| ----------------- | ---------------------------------------------------------- |
-| **OAuth Proxy**   | Handles OAuth flows, DCR, PKCE, and token management       |
-| **Tool Router**   | Parses OpenAPI spec and routes tool calls to API endpoints |
-| **SSE Transport** | Manages bidirectional communication with MCP clients       |
-| **Internal Key**  | Bypasses authentication for MCP-to-pygeoapi calls          |
+| Component          | Responsibility                                                                                |
+| ------------------ | --------------------------------------------------------------------------------------------- |
+| **OAuth Proxy**    | Handles OAuth flows, DCR, PKCE, and token management                                          |
+| **Tool Router**    | Parses OpenAPI spec and routes tool calls to API endpoints                                    |
+| **HTTP Transport** | Streamable HTTP communication with MCP clients                                                |
+| **ASGI Transport** | Routes MCP-to-pygeoapi calls in-process to a raw sub-app (no auth chain on the internal path) |
 
 ## Troubleshooting
 
@@ -496,8 +501,8 @@ If OAuth authentication fails:
 2. Check that client ID and secret are correct
 
 3. Ensure the redirect URI is configured in your IdP:
-   - For local development: `http://localhost:5000/mcp/callback`
-   - For production: `https://your-domain.com/mcp/callback`
+   - For local development: `http://localhost:5000/mcp/auth/callback`
+   - For production: `https://your-domain.com/mcp/auth/callback`
 
 ### mcp-remote Connection Issues
 
