@@ -9,6 +9,32 @@ from app.config.logging import create_logger
 logger = create_logger("app.middleware.proxy")
 
 
+class MCPMountRootRewriteMiddleware:
+    """Serve a bare ``/mcp`` as ``/mcp/`` without a redirect (pure ASGI).
+
+    Starlette's ``Mount("/mcp")`` only matches ``/mcp/...`` paths, so a
+    request to the bare mount root falls through to the router's
+    ``redirect_slashes`` 307. Behind a reverse proxy that hasn't
+    rewritten the request scheme, the ``Location`` header downgrades to
+    ``http://`` — clients that strip the trailing slash from the server
+    URL (e.g. Claude Desktop's connector UI) then lose the POST on the
+    cross-scheme redirect chain. Rewriting the path before routing
+    serves both variants identically.
+
+    Implemented as pure ASGI (not ``BaseHTTPMiddleware``) so MCP's
+    streaming responses pass through unbuffered.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        """Rewrite the bare mount-root path and delegate downstream."""
+        if scope["type"] == "http" and scope.get("path") == "/mcp":
+            scope = {**scope, "path": "/mcp/"}
+        await self.app(scope, receive, send)
+
+
 class ForwardedLinksMiddleware(BaseHTTPMiddleware):
     """Pygeoapi links behind a proxy middleware."""
 

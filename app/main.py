@@ -26,7 +26,7 @@ from starlette.middleware.cors import CORSMiddleware
 from app.config.app import configuration as cfg
 from app.config.logging import create_logger
 from app.middleware.oauth2 import Oauth2Middleware
-from app.middleware.proxy import ForwardedLinksMiddleware
+from app.middleware.proxy import ForwardedLinksMiddleware, MCPMountRootRewriteMiddleware
 from app.middleware.pygeoapi import OpenapiSecurityMiddleware
 from app.utils.app_exceptions import AppExceptionError, app_exception_handler
 from app.utils.openapi_generator import ensure_openapi_file_exists
@@ -368,13 +368,34 @@ if cfg.FASTGEOAPI_WITH_MCP:
         # These routes must be accessible at /.well-known/* not /mcp/.well-known/*
         # Mount these BEFORE /mcp to ensure they take precedence
         if well_known_routes:
+            from starlette.routing import Route
+
             # Add well-known routes directly to the app's router
             # The routes have paths like /.well-known/oauth-authorization-server/mcp
             for route in well_known_routes:
                 app.router.routes.insert(0, route)
                 logger.info(f"Mounted OAuth route at root: {route.path}")
+                # Clients that strip the trailing slash from the server URL
+                # (e.g. Claude Desktop's connector UI) derive slash-less
+                # discovery URLs. Serve those directly: relying on
+                # redirect_slashes emits a Location that downgrades to
+                # http:// when the proxy scheme isn't rewritten.
+                if isinstance(route, Route) and route.path.endswith("/"):
+                    alias = Route(
+                        route.path.rstrip("/"),
+                        endpoint=route.endpoint,
+                        methods=list(route.methods or []),
+                    )
+                    app.router.routes.insert(0, alias)
+                    logger.info(f"Mounted OAuth route alias at root: {alias.path}")
 
         app.mount("/mcp", mcp_app)
+        # Starlette's Mount only matches "/mcp/..." — a bare "/mcp" falls
+        # through to the outer router's redirect_slashes, whose Location
+        # downgrades to http:// behind an unrewritten reverse proxy and
+        # breaks POSTs from clients that strip the trailing slash (e.g.
+        # Claude Desktop's connector UI). Rewrite the path before routing.
+        app.add_middleware(MCPMountRootRewriteMiddleware)
         logger.info("MCP server mounted at /mcp")
     else:
         app = create_app()
