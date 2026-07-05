@@ -48,6 +48,11 @@ ENV PATH="$PATH:/home/appuser/.local/bin" \
     UV_SYSTEM_PYTHON=1 \
     UV_BREAK_SYSTEM_PACKAGES=1
 
+# Trust X-Forwarded-* from the Fly proxy (it connects from the private
+# 6PN network, not loopback). Without this, uvicorn keeps scheme=http
+# and any generated redirect Location downgrades https -> http.
+ENV FORWARDED_ALLOW_IPS="*"
+
 # Write git commit identifier into the image
 ARG GIT_COMMIT
 ENV GIT_COMMIT=$GIT_COMMIT
@@ -60,4 +65,4 @@ RUN python -c "import compileall; compileall.compile_path(maxlevels=10)"
 ENTRYPOINT ["tini", "-g", "--"]
 
 # Run using fastapi CLI directly
-CMD ["fastapi", "run", "app/main.py", "--app", "app", "--host", "0.0.0.0", "--port", "5000"]
+CMD ["fastapi", "run", "app/main.py", "--app", "app", "--host", "0.0.0.0", "--port", "5000", "--proxy-headers"]
