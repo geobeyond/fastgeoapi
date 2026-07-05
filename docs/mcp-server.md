@@ -110,12 +110,12 @@ provider is configured; otherwise it is ignored.
 DEV_FASTGEOAPI_MCP_CONSENT_MODE=remember
 ```
 
-| Value        | Consent screen                                  | Consent binding cookie check | When to use                                                                 |
-| ------------ | ----------------------------------------------- | ---------------------------- | --------------------------------------------------------------------------- |
-| `always`     | Shown on **every** authorization                | Enforced                     | Strongest protection; re-prompts the user on each fresh authorization       |
-| `remember`   | Shown once per browser, then silently approved  | Enforced                     | **Default.** Balances UX and protection for multi-user / shared deployments |
-| `external`   | Skipped (consent handled outside fastgeoapi)    | Skipped                      | You manage consent in a separate layer                                      |
-| `never`      | Skipped entirely                                | **Skipped**                  | Single-tenant / single trusted user (see risks below)                       |
+| Value      | Consent screen                                 | Consent binding cookie check | When to use                                                                 |
+| ---------- | ---------------------------------------------- | ---------------------------- | --------------------------------------------------------------------------- |
+| `always`   | Shown on **every** authorization               | Enforced                     | Strongest protection; re-prompts the user on each fresh authorization       |
+| `remember` | Shown once per browser, then silently approved | Enforced                     | **Default.** Balances UX and protection for multi-user / shared deployments |
+| `external` | Skipped (consent handled outside fastgeoapi)   | Skipped                      | You manage consent in a separate layer                                      |
+| `never`    | Skipped entirely                               | **Skipped**                  | Single-tenant / single trusted user (see risks below)                       |
 
 Unknown or unset values fall back to `remember`.
 
@@ -175,13 +175,13 @@ lifetime from the upstream one. It defaults to **86400 (24 hours)** when unset.
 DEV_FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS=86400
 ```
 
-| Value           | Behaviour                                                            |
-| --------------- | -------------------------------------------------------------------- |
-| unset           | Client-facing token lives 24 hours                                    |
-| `N > 0`         | Client-facing token lives `N` seconds                                 |
-| `0` (or `< 0`)  | Opt out: mirror the upstream IdP `expires_in` (fastmcp default)       |
+| Value          | Behaviour                                                       |
+| -------------- | --------------------------------------------------------------- |
+| unset          | Client-facing token lives 24 hours                              |
+| `N > 0`        | Client-facing token lives `N` seconds                           |
+| `0` (or `< 0`) | Opt out: mirror the upstream IdP `expires_in` (fastmcp default) |
 
-This is **not** a security relaxation: the FastMCP token is a *reference*
+This is **not** a security relaxation: the FastMCP token is a _reference_
 token. On every request the proxy re-validates the underlying upstream token
 against the IdP and transparently refreshes it when expired. A revoked or
 expired upstream session therefore fails immediately, regardless of how much

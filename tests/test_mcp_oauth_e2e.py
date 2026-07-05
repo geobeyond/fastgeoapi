@@ -106,6 +106,11 @@ def fastgeoapi_with_iam(
         "DEV_APP_URI": f"http://localhost:{fastgeoapi_port}",
         "DEV_FASTGEOAPI_CONTEXT": "/geoapi",
         "DEV_FASTGEOAPI_WITH_MCP": "true",
+        # Pin the consent mode: the full-dance test walks the fastmcp
+        # consent interstitial (CSRF double-submit included), so it must
+        # not inherit whatever deployment default the repo `.env` carries
+        # (lowered to "never" for the single-tenant fly deploy).
+        "DEV_FASTGEOAPI_MCP_CONSENT_MODE": "remember",
         "DEV_FASTGEOAPI_REVERSE_PROXY": "false",
         "DEV_API_KEY_ENABLED": "false",
         "DEV_JWKS_ENABLED": "true",
