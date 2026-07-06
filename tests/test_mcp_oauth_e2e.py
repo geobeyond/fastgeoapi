@@ -253,8 +253,16 @@ def _follow_until(
     """
     for _ in range(max_hops):
         if response.status_code not in (301, 302, 303, 307, 308):
+            body = response.text
+            # fastmcp OAuth error pages bury the actual message under ~2KB
+            # of inline CSS; surface <title> + first <p> so CI failures show
+            # the real reason (e.g. "Token exchange with identity provider
+            # failed: ...") instead of HTML boilerplate.
+            title = re.search(r"<title>([^<]+)</title>", body)
+            message = re.search(r"<p>([^<]+)</p>", body)
+            detail = " — ".join(m.group(1).strip() for m in (title, message) if m)
             raise AssertionError(
-                f"Expected redirect, got {response.status_code}: {response.text[:300]}"
+                f"Expected redirect, got {response.status_code}: {detail or body[:300]}"
             )
         location = response.headers.get("location", "")
         if not location:

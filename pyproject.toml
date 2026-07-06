@@ -76,6 +76,10 @@ dev = [
     "nox[uv]>=2025.11.12",
     "pytest-iam>=0.2.0",
     "canaille[sqlite]>=0.0.74",
+    # joserfc >= 1.7 rejects canaille's signing key ("Invalid key_op 'sign'
+    # for public key") and 500s the test IdP token endpoint; pin until the
+    # canaille/joserfc incompatibility is fixed upstream.
+    "joserfc>=1.6,<1.7",
 ]
 
 [tool.uv]

@@ -195,6 +195,10 @@ def ty(session: Session) -> None:
         # in tests/test_mcp_oauth_e2e.py (pytest-iam pulls in portpicker).
         "pytest-iam",
         "canaille[sqlite]",
+        # joserfc >= 1.7 rejects canaille's signing key ("Invalid key_op
+        # 'sign' for public key") and 500s the test IdP token endpoint;
+        # pin until the canaille/joserfc incompatibility is fixed upstream.
+        "joserfc>=1.6,<1.7",
         "faker",
     )
     session.run("ty", *args)
@@ -212,6 +216,10 @@ def tests(session: Session) -> None:
         "pytest-asyncio",
         "pytest-iam",
         "canaille[sqlite]",
+        # joserfc >= 1.7 rejects canaille's signing key ("Invalid key_op
+        # 'sign' for public key") and 500s the test IdP token endpoint;
+        # pin until the canaille/joserfc incompatibility is fixed upstream.
+        "joserfc>=1.6,<1.7",
         "faker",
     )
     try:
@@ -246,6 +254,10 @@ def typeguard(session: Session) -> None:
         "pytest-asyncio",
         "pytest-iam",
         "canaille[sqlite]",
+        # joserfc >= 1.7 rejects canaille's signing key ("Invalid key_op
+        # 'sign' for public key") and 500s the test IdP token endpoint;
+        # pin until the canaille/joserfc incompatibility is fixed upstream.
+        "joserfc>=1.6,<1.7",
         "faker",
     )
     session.run("pytest", f"--typeguard-packages={package}", *session.posargs)
