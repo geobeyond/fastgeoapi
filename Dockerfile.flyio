@@ -19,11 +19,18 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 WORKDIR /app
 
 # Copy dependency files
-COPY pyproject.toml pygeoapi-config.yml ./
+COPY pyproject.toml uv.lock pygeoapi-config.yml ./
 
-# Install dependencies as root (with system-wide access)
+# Install dependencies as root (with system-wide access), pinned to
+# uv.lock. `uv export --frozen` only transcribes the lockfile (it fails
+# if the lock is stale) with git sources pinned to exact commits — no
+# fresh resolution. Resolving from pyproject.toml here meant every image
+# rebuild silently picked up brand-new upstream releases: fastmcp 3.4.3
+# broke /mcp in production with its new Host validation the day after
+# its release.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system --break-system-packages -r pyproject.toml
+    uv export --frozen --no-dev --no-emit-project --no-hashes -o /tmp/requirements.lock && \
+    uv pip install --system --break-system-packages -r /tmp/requirements.lock
 
 # Create a normal non-root user to run the app
 RUN useradd --create-home appuser
