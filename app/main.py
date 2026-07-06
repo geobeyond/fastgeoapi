@@ -320,7 +320,14 @@ def create_mcp_server(api_client: httpx.AsyncClient | None = None):
 
     return (
         mcp_server,
-        mcp_server.http_app(path="/"),
+        # Stateless Streamable HTTP: every request is self-contained (a
+        # fresh transport per request), so fly.io auto-suspend and image
+        # redeploys can't strand clients on dead server-side sessions
+        # (Claude Desktop kept a stale mcp-session-id and failed tool
+        # approvals after each idle suspend). The trade-off — no
+        # server-initiated notifications — is irrelevant for this
+        # tools-only, OpenAPI-generated server.
+        mcp_server.http_app(path="/", stateless_http=True),
         well_known_routes,
         api_client,
     )
