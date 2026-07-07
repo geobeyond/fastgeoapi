@@ -17,6 +17,16 @@ primary_region = 'cdg'
   min_machines_running = 0
   processes = ['app']
 
+# Persist the fastmcp OIDCProxy storage (DCR registrations + wrapped
+# tokens, lives under ~/.local/share/fastmcp/oauth-proxy/) across image
+# redeploys, so MCP clients authorize once instead of re-running the
+# OAuth dance after every deploy. One-time after first mount:
+#   fly ssh console -C "chown -R appuser:appuser /home/appuser/.local/share/fastmcp"
+# (the volume is root-owned on first mount; ownership persists after).
+[mounts]
+  source = "fastmcp_oauth"
+  destination = "/home/appuser/.local/share/fastmcp"
+
 [[vm]]
   memory = '1gb'
   cpus = 1
