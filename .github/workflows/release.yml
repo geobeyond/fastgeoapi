@@ -41,18 +41,32 @@ jobs:
           uv pip install pip==25.1.1
           uv pip install hatch tomli tomli-w --system --break-system-packages
 
-      - name: Check if there is a parent commit
-        id: check-parent-commit
-        run: |
-          echo "sha=$(git rev-parse --verify --quiet HEAD^)" >> $GITHUB_OUTPUT
-
-      - name: Detect and tag new version
+      # Tag-if-missing semantics: the previous diff-based detection
+      # (salsify/action-detect-and-tag-new-version) only tagged when the
+      # version changed between HEAD^ and HEAD of a single push, so a bump
+      # landing mid-batch (PR merge, history rewrite) was silently missed
+      # forever — 0.0.9 sat unpublished while the job stayed green.
+      # `git ls-remote` checks the remote, so no local tag fetch is needed.
+      - name: Detect unreleased version
         id: check-version
-        if: steps.check-parent-commit.outputs.sha && github.ref != 'refs/heads/develop'
-        uses: salsify/action-detect-and-tag-new-version@v2.0.3
-        with:
-          version-command: |
-            bash -o pipefail -c "python -c \"import tomli; print(tomli.load(open('pyproject.toml', 'rb'))['project']['version'])\""
+        if: github.ref != 'refs/heads/develop'
+        run: |
+          set -euo pipefail
+          version=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null 2>&1; then
+            echo "Tag v$version already exists — nothing to release."
+          else
+            echo "Tag v$version missing — will tag and publish."
+            echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Tag new version
+        if: steps.check-version.outputs.tag
+        run: |
+          set -euo pipefail
+          git tag "${{ steps.check-version.outputs.tag }}"
+          git push origin "${{ steps.check-version.outputs.tag }}"
 
       - name: Bump version for developmental release
         if: github.ref == 'refs/heads/develop'
