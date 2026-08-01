@@ -170,7 +170,17 @@ def safety(session: Session) -> None:
     #   Invalid value for '--output': <ScanOutput.SCREEN: 'screen'> is not one of ...
     # Passing the string explicitly avoids the enum-default code path.
     cmd.extend(["scan", "--output", "screen"])
-    session.run(*cmd)
+    # nltk 3.10.1 (pulled in by safety's typosquatting protection) ships
+    # an import guard (nltk/inisec.py) that blocks any nltk-initiated
+    # import RESOLVING to a path under the current working directory —
+    # which false-positives on virtualenvs nested inside the project
+    # (our `.nox/safety` env: regex loads from .nox/.../site-packages,
+    # a CWD subdirectory) and aborts the CLI at startup. PYTHONSAFEPATH
+    # does NOT help (verified: the guard checks the resolved location,
+    # not sys.path). Use the documented kill switch; the CWD here is
+    # our own repo, not untrusted input. Upstream report tracked in
+    # .claude/TODO.md.
+    session.run(*cmd, env={"NLTK_DISABLE_IMPORT_SECURITY": "1"})
 
 
 @session(python=python_versions)
