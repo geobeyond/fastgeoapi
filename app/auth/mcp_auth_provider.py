@@ -1,10 +1,9 @@
-"""MCP Authentication Provider using mcpauth for multi-IdP support.
+"""MCP Authentication Provider built on fastmcp's OIDCProxy.
 
-This module provides a provider-agnostic authentication setup for MCP servers
-using the mcpauth library for OIDC configuration and JWT validation.
-
-It supports multiple identity providers (Logto, Auth0, Keycloak, etc.) without
-requiring custom code for each provider.
+This module provides a provider-agnostic authentication setup for MCP
+servers: fastmcp's OIDCProxy handles OIDC discovery, DCR, PKCE and token
+proxying against any OIDC-compliant identity provider (Logto, Auth0,
+Keycloak, etc.) without custom per-provider code.
 """
 
 import json
@@ -21,92 +20,10 @@ from mcp.server.auth.middleware.bearer_auth import (
     RequireAuthMiddleware as SDKRequireAuthMiddleware,
 )
 from mcp.server.auth.provider import AccessToken
-from mcpauth.config import AuthServerType
-from mcpauth.utils import fetch_server_config
 from pydantic import AnyHttpUrl
 from starlette.middleware import Middleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.types import Receive, Scope, Send
-
-
-class MCPAuthTokenVerifier:
-    """Token verifier that uses mcpauth for JWT validation.
-
-    This provides provider-agnostic token validation using mcpauth's
-    built-in JWT verification with automatic JWKS fetching.
-
-    Returns AccessToken objects as required by FastMCP's auth system.
-    """
-
-    def __init__(
-        self,
-        verify_fn,
-        client_id: str,
-        client_secret: str,
-        base_url: str,
-        required_scopes: list[str] | None = None,
-    ):
-        """Initialize the token verifier.
-
-        Parameters
-        ----------
-        verify_fn : callable
-            The JWT verification function from mcpauth.
-        client_id : str
-            The OAuth client ID.
-        client_secret : str
-            The OAuth client secret.
-        base_url : str
-            The base URL for the MCP server.
-        required_scopes : list[str], optional
-            The required scopes for token validation.
-        """
-        self.verify_fn = verify_fn
-        self.base_url = base_url
-        # Required by FastMCP's OIDCProxy
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.introspection_url = None  # Not used for JWT validation
-        self.required_scopes = required_scopes or []
-
-    async def verify_token(self, token: str) -> AccessToken | None:
-        """Verify token using mcpauth's JWT validation.
-
-        Parameters
-        ----------
-        token : str
-            The JWT token to verify.
-
-        Returns
-        -------
-        AccessToken | None
-            AccessToken object if valid, None if invalid or expired.
-        """
-        try:
-            auth_info = self.verify_fn(token)
-            claims = auth_info.claims
-
-            # Extract client_id from claims or use configured client_id
-            client_id = claims.get("client_id") or claims.get("azp") or self.client_id
-
-            # Extract scopes as a list
-            scope_str = claims.get("scope", "")
-            scopes = scope_str.split() if scope_str else []
-
-            # Get expiration time
-            expires_at = claims.get("exp")
-            if expires_at is not None:
-                expires_at = int(expires_at)
-
-            return AccessToken(
-                token=token,
-                client_id=client_id,
-                scopes=scopes,
-                expires_at=expires_at,
-            )
-        except Exception as e:
-            logger.warning(f"Token verification failed: {e}")
-            return None
 
 
 class TrustingUpstreamTokenVerifier:
@@ -414,9 +331,9 @@ def configure_mcp_auth(
     consent_mode: str | None = "remember",
     access_token_expiry_seconds: int | None = None,
 ):
-    """Configure MCP authentication using mcpauth for multi-provider support.
+    """Configure MCP authentication via fastmcp's OIDCProxy.
 
-    This function uses mcpauth to:
+    This function:
     1. Fetch OIDC provider configuration automatically
     2. Configure JWT token validation
     3. Generate RFC 9728 compliant resource metadata endpoints
@@ -480,29 +397,17 @@ def configure_mcp_auth(
 
     logger.info(f"Configuring MCP auth with issuer: {issuer}")
 
-    # Fetch OIDC server configuration using mcpauth to validate the endpoint
-    # This automatically handles different provider formats
-    try:
-        # We fetch the config to validate the OIDC endpoint is accessible,
-        # but we don't use it directly since FastMCP's OIDCProxy handles OAuth
-        _auth_server_config = fetch_server_config(issuer, AuthServerType.OIDC)
-        logger.info(f"Fetched OIDC configuration from {issuer}")
-    except Exception as e:
-        logger.error(f"Failed to fetch OIDC configuration: {e}")
-        raise
-
-    # NOTE: We intentionally do NOT use mcpauth's resource_metadata_router() here.
-    #
-    # The problem: mcpauth generates routes for /.well-known/oauth-protected-resource/{path}
-    # that point to the upstream IdP (e.g., Logto) as authorization_server.
-    # But FastMCP's OIDCProxy acts as an OAuth proxy, so the authorization_server
-    # should be the MCP server itself (e.g., http://localhost:5000/mcp/).
+    # NOTE: Only fastmcp's own well-known routes are mounted here. An
+    # external resource-metadata router (mcpauth's, removed 2026-08-01)
+    # used to advertise the upstream IdP as authorization_server, while
+    # the OIDCProxy needs the MCP server itself to be advertised
+    # (e.g., http://localhost:5000/mcp/).
     #
     # mcp-remote behavior:
     # 1. Initial discovery: GET /.well-known/oauth-protected-resource/mcp/ (with slash)
     #    -> FastMCP route responds with authorization_servers: [mcp_base_url]
     # 2. finishAuth: GET /.well-known/oauth-protected-resource/mcp (no slash)
-    #    -> mcpauth route responds with authorization_servers: [Logto URL]
+    #    -> the external route responded with authorization_servers: [Logto URL]
     #
     # This mismatch causes mcp-remote to register with localhost but exchange tokens
     # with Logto, resulting in InvalidClientError and credential deletion.
@@ -510,7 +415,7 @@ def configure_mcp_auth(
     # Solution: Only use FastMCP's well-known routes which correctly point to the
     # OAuth proxy endpoints on the MCP server itself.
     mcp_auth_routes = []
-    logger.info("Skipping mcpauth resource metadata routes to avoid trailing slash inconsistency")
+    logger.info("Using only fastmcp well-known routes (single source for RFC 9728 metadata)")
 
     # Create a TrustingUpstreamTokenVerifier for IdPs that return opaque tokens
     # (like Logto when no API Resource is requested).

@@ -19,7 +19,7 @@ The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is an open 
 | **OAuth Authentication**        | Supports OIDC authentication with any OAuth provider                                   |
 | **RFC 9728 Compliant**          | Implements OAuth 2.0 Protected Resource Metadata                                       |
 | **Dynamic Client Registration** | Compatible with mcp-remote and other MCP clients                                       |
-| **Provider Agnostic**           | Uses [mcpauth](https://github.com/alonsosilvaallende/mcpauth) for multi-IdP support    |
+| **Provider Agnostic**           | Works with any OIDC-compliant IdP via fastmcp's OIDCProxy                              |
 | **Stateless Streamable HTTP**   | Single-endpoint transport; every request is self-contained (suspend/redeploy friendly) |
 
 ## Enable the MCP Server
@@ -540,7 +540,6 @@ This will show:
 
 - [Model Context Protocol Specification](https://modelcontextprotocol.io/)
 - [FastMCP Documentation](https://github.com/jlowin/fastmcp)
-- [mcpauth Library](https://github.com/alonsosilvaallende/mcpauth)
 - [OAuth 2.0 RFC 6749](https://datatracker.ietf.org/doc/html/rfc6749)
 - [OAuth 2.0 Protected Resource Metadata RFC 9728](https://datatracker.ietf.org/doc/html/rfc9728)
 - [OGC API Standards](https://ogcapi.ogc.org/)

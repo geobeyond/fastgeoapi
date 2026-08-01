@@ -32,7 +32,6 @@ dependencies = [
     "pyyaml>=6.0.2,<7",
     "scalar-fastapi>=1.4.3,<2",
     "fastmcp>=3.2.4,<4",
-    "mcpauth==0.2.0b1",
 ]
 
 [project.urls]
