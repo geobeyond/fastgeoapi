@@ -790,7 +790,7 @@ class TestStartupWorkflowMCPAuth:
 
             FactoryConfig.get_config.cache_clear()
 
-            # Mock requests.get for mcpauth and httpx.get for FastMCP
+            # Mock httpx.get for FastMCP OIDC discovery (requests.get patch kept as harmless leftover)
             mock_response = mock.MagicMock()
             mock_response.json.return_value = mock_oidc_config
             mock_response.raise_for_status = mock.MagicMock()
@@ -847,7 +847,7 @@ class TestStartupWorkflowMCPAuth:
 
             FactoryConfig.get_config.cache_clear()
 
-            # Mock requests.get for mcpauth and httpx.get for FastMCP
+            # Mock httpx.get for FastMCP OIDC discovery (requests.get patch kept as harmless leftover)
             mock_response = mock.MagicMock()
             mock_response.json.return_value = mock_oidc_config
             mock_response.raise_for_status = mock.MagicMock()
@@ -904,7 +904,7 @@ class TestStartupWorkflowMCPAuth:
 
             FactoryConfig.get_config.cache_clear()
 
-            # Mock requests.get for mcpauth and httpx.get for FastMCP
+            # Mock httpx.get for FastMCP OIDC discovery (requests.get patch kept as harmless leftover)
             mock_response = mock.MagicMock()
             mock_response.json.return_value = mock_oidc_config
             mock_response.raise_for_status = mock.MagicMock()
@@ -960,7 +960,7 @@ class TestStartupWorkflowMCPAuth:
 
             FactoryConfig.get_config.cache_clear()
 
-            # Mock requests.get for mcpauth and httpx.get for FastMCP
+            # Mock httpx.get for FastMCP OIDC discovery (requests.get patch kept as harmless leftover)
             mock_response = mock.MagicMock()
             mock_response.json.return_value = mock_oidc_config
             mock_response.raise_for_status = mock.MagicMock()

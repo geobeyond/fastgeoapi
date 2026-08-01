@@ -2,8 +2,7 @@
 
 These tests verify that:
 1. OIDCProxyWithoutResource correctly filters the 'resource' parameter for Logto/DCR compatibility
-2. MCPAuthTokenVerifier handles JWT validation correctly via mcpauth
-3. mcpauth integration configures providers correctly
+2. fastmcp OIDCProxy integration configures providers correctly
 """
 
 import hashlib
@@ -399,148 +398,6 @@ class TestIntrospectionTokenVerifier:
             idp_issuer = well_known.replace("/oidc/.well-known/openid-configuration", "")
             introspection_url = f"{idp_issuer}/oidc/token/introspection"
             assert introspection_url == expected_introspection, f"Failed for {well_known}"
-
-
-class TestMCPAuthTokenVerifierReturnsAccessToken:
-    """Test MCPAuthTokenVerifier returns AccessToken object, not dict.
-
-    FastMCP expects verify_token() to return an AccessToken object with
-    an expires_at attribute. Returning a dict causes AttributeError.
-    """
-
-    @pytest.fixture
-    def mock_verify_fn(self):
-        """Mock JWT verification function from mcpauth."""
-        mock_auth_info = MagicMock()
-        mock_auth_info.claims = {
-            "sub": "user123",
-            "iss": "https://example.logto.app/oidc",
-            "aud": "http://localhost:5000/mcp/",
-            "exp": 1766865000,
-            "scope": "openid profile email",
-            "client_id": "test-client-id",
-        }
-        return MagicMock(return_value=mock_auth_info)
-
-    @pytest.mark.asyncio
-    async def test_verify_token_returns_access_token_object(self, mock_verify_fn):
-        """Test that verify_token returns AccessToken object, not dict."""
-        from mcp.server.auth.provider import AccessToken
-
-        from app.auth.mcp_auth_provider import MCPAuthTokenVerifier
-
-        verifier = MCPAuthTokenVerifier(
-            verify_fn=mock_verify_fn,
-            client_id="test-client-id",
-            client_secret="test-client-secret",
-            base_url="http://localhost:5000/mcp/",
-            required_scopes=["openid", "profile", "email"],
-        )
-
-        result = await verifier.verify_token("valid-jwt-token")
-
-        # This should be an AccessToken object, not a dict
-        assert isinstance(result, AccessToken), (
-            f"verify_token should return AccessToken, got {type(result).__name__}"
-        )
-
-    @pytest.mark.asyncio
-    async def test_verify_token_has_expires_at_attribute(self, mock_verify_fn):
-        """Test that verify_token result has expires_at attribute."""
-        from app.auth.mcp_auth_provider import MCPAuthTokenVerifier
-
-        verifier = MCPAuthTokenVerifier(
-            verify_fn=mock_verify_fn,
-            client_id="test-client-id",
-            client_secret="test-client-secret",
-            base_url="http://localhost:5000/mcp/",
-            required_scopes=["openid", "profile", "email"],
-        )
-
-        result = await verifier.verify_token("valid-jwt-token")
-
-        # Must have expires_at attribute (not dict key)
-        assert hasattr(result, "expires_at"), "verify_token result must have expires_at attribute"
-        assert result.expires_at == 1766865000
-
-    @pytest.mark.asyncio
-    async def test_verify_token_has_client_id_attribute(self, mock_verify_fn):
-        """Test that verify_token result has client_id attribute."""
-        from app.auth.mcp_auth_provider import MCPAuthTokenVerifier
-
-        verifier = MCPAuthTokenVerifier(
-            verify_fn=mock_verify_fn,
-            client_id="test-client-id",
-            client_secret="test-client-secret",
-            base_url="http://localhost:5000/mcp/",
-            required_scopes=["openid", "profile", "email"],
-        )
-
-        result = await verifier.verify_token("valid-jwt-token")
-
-        assert hasattr(result, "client_id"), "verify_token result must have client_id attribute"
-        assert result.client_id == "test-client-id"
-
-    @pytest.mark.asyncio
-    async def test_verify_token_has_scopes_attribute(self, mock_verify_fn):
-        """Test that verify_token result has scopes attribute as list."""
-        from app.auth.mcp_auth_provider import MCPAuthTokenVerifier
-
-        verifier = MCPAuthTokenVerifier(
-            verify_fn=mock_verify_fn,
-            client_id="test-client-id",
-            client_secret="test-client-secret",
-            base_url="http://localhost:5000/mcp/",
-            required_scopes=["openid", "profile", "email"],
-        )
-
-        result = await verifier.verify_token("valid-jwt-token")
-
-        assert hasattr(result, "scopes"), "verify_token result must have scopes attribute"
-        assert isinstance(result.scopes, list)
-        assert "openid" in result.scopes
-        assert "profile" in result.scopes
-        assert "email" in result.scopes
-
-    @pytest.mark.asyncio
-    async def test_verify_token_has_token_attribute(self, mock_verify_fn):
-        """Test that verify_token result has token attribute."""
-        from app.auth.mcp_auth_provider import MCPAuthTokenVerifier
-
-        verifier = MCPAuthTokenVerifier(
-            verify_fn=mock_verify_fn,
-            client_id="test-client-id",
-            client_secret="test-client-secret",
-            base_url="http://localhost:5000/mcp/",
-            required_scopes=["openid", "profile", "email"],
-        )
-
-        result = await verifier.verify_token("valid-jwt-token")
-
-        assert hasattr(result, "token"), "verify_token result must have token attribute"
-        assert result.token == "valid-jwt-token"
-
-    @pytest.mark.asyncio
-    async def test_verify_token_returns_none_for_invalid_token(self):
-        """Test that verify_token returns None for invalid tokens."""
-        from app.auth.mcp_auth_provider import MCPAuthTokenVerifier
-
-        # Mock verify function that raises an exception
-        def failing_verify_fn(token):
-            raise ValueError("Invalid token")
-
-        verifier = MCPAuthTokenVerifier(
-            verify_fn=failing_verify_fn,
-            client_id="test-client-id",
-            client_secret="test-client-secret",
-            base_url="http://localhost:5000/mcp/",
-            required_scopes=["openid", "profile", "email"],
-        )
-
-        result = await verifier.verify_token("invalid-token")
-
-        # Should return None for invalid tokens, not a dict with active=False
-        assert result is None
 
 
 class TestTrustingUpstreamTokenVerifier:
@@ -990,7 +847,7 @@ class TestCustomOIDCProxyIntegration:
 
             FactoryConfig.get_config.cache_clear()
 
-            # Mock requests.get for mcpauth and httpx.get for FastMCP
+            # Mock httpx.get for FastMCP OIDC discovery (requests.get patch kept as harmless leftover)
             mock_response = mock.MagicMock()
             mock_response.json.return_value = mock_oidc_config
             mock_response.raise_for_status = mock.MagicMock()

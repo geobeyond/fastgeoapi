@@ -334,7 +334,7 @@ fastgeoapi includes an optional integrated MCP server that exposes OGC API endpo
 - **OAuth Authentication** - Supports OIDC authentication with any OAuth provider (Logto, Auth0, Keycloak, etc.)
 - **RFC 9728 Compliant** - Implements OAuth 2.0 Protected Resource Metadata
 - **Dynamic Client Registration** - Compatible with mcp-remote and other MCP clients
-- **Provider Agnostic** - Uses [mcpauth](https://github.com/alonsosilvaallende/mcpauth) for multi-IdP support
+- **Provider Agnostic** - Works with any OIDC-compliant IdP via fastmcp's OIDCProxy (Logto, Auth0, Keycloak, etc.)
 - **Stateless Streamable HTTP** - Every request is self-contained: machine suspends and redeploys are transparent to connected clients
 
 ### Enabling the MCP Server

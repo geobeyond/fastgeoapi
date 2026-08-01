@@ -275,7 +275,7 @@ def create_mcp_server(api_client: httpx.AsyncClient | None = None):
         )
 
     # Configure OIDC authentication if JWKS is enabled
-    # Uses mcpauth for provider-agnostic configuration and JWT validation
+    # fastmcp's OIDCProxy provides provider-agnostic OIDC configuration
     auth = None
     well_known_routes = []
     if cfg.JWKS_ENABLED and cfg.OIDC_WELL_KNOWN_ENDPOINT:
@@ -288,8 +288,8 @@ def create_mcp_server(api_client: httpx.AsyncClient | None = None):
 
         logger.info(f"Configuring MCP with OIDC authentication via {cfg.OIDC_WELL_KNOWN_ENDPOINT}")
 
-        # Use mcpauth for provider-agnostic OIDC configuration
-        # This handles Logto, Auth0, Keycloak, and other IdPs without custom code
+        # Provider-agnostic OIDC via fastmcp's OIDCProxy
+        # (Logto, Auth0, Keycloak and any OIDC IdP without custom code)
         auth, well_known_routes = configure_mcp_auth(
             oidc_well_known_endpoint=cfg.OIDC_WELL_KNOWN_ENDPOINT,
             client_id=cfg.OIDC_CLIENT_ID,
