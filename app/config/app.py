@@ -1,5 +1,6 @@
 """App configuration module."""
 
+import tempfile
 from functools import lru_cache
 
 from pydantic import Field
@@ -37,8 +38,10 @@ class DevConfig(GlobalConfig):
     AWS_LAMBDA_DEPLOY: bool | None = None
     # 12-factor defaults: a container must boot from environment
     # variables alone, with no .env on disk (create_logger builds
-    # Path(LOG_PATH)/LOG_FILENAME at import time).
-    LOG_PATH: str = "/tmp"  # noqa: S108
+    # Path(LOG_PATH)/LOG_FILENAME at import time). The temp dir is
+    # resolved via tempfile so TMPDIR is honored (and bandit B108
+    # stays quiet for the right reason).
+    LOG_PATH: str = tempfile.gettempdir()
     LOG_FILENAME: str = "fastgeoapi.log"
     LOG_LEVEL: str = "info"
     LOG_ENQUEUE: bool = True
@@ -93,8 +96,10 @@ class ProdConfig(GlobalConfig):
     AWS_LAMBDA_DEPLOY: bool | None = None
     # 12-factor defaults: a container must boot from environment
     # variables alone, with no .env on disk (create_logger builds
-    # Path(LOG_PATH)/LOG_FILENAME at import time).
-    LOG_PATH: str = "/tmp"  # noqa: S108
+    # Path(LOG_PATH)/LOG_FILENAME at import time). The temp dir is
+    # resolved via tempfile so TMPDIR is honored (and bandit B108
+    # stays quiet for the right reason).
+    LOG_PATH: str = tempfile.gettempdir()
     LOG_FILENAME: str = "fastgeoapi.log"
     LOG_LEVEL: str = "info"
     LOG_ENQUEUE: bool = True

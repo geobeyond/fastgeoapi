@@ -86,4 +86,9 @@ ENTRYPOINT ["tini", "-g", "--"]
 # uvicorn directly rather than the `fastapi run` CLI: the CLI expects a
 # project layout (pyproject.toml) that a runtime-only image has no
 # reason to carry, and resolving the app by import path is unambiguous.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+# Proxy-header trust is NOT baked in: by default uvicorn only trusts
+# loopback. Deployers behind a reverse proxy set FORWARDED_ALLOW_IPS
+# to their proxy's address range (e.g. the fly.io deployment uses
+# 172.16.0.0/16) — a wildcard here would let any direct client spoof
+# its IP and scheme.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5000", "--proxy-headers"]
