@@ -91,7 +91,7 @@ jobs:
         run: docker rm -f smoke || true
 
       - name: Scan image for vulnerabilities (gate)
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: fastgeoapi:scan-target
           format: table
@@ -101,7 +101,7 @@ jobs:
 
       - name: Scan image (SARIF for code scanning)
         if: always()
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: fastgeoapi:scan-target
           format: sarif
