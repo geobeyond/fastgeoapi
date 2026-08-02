@@ -26,6 +26,19 @@ from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.types import Receive, Scope, Send
 
 
+class MCPAuthMisconfiguredError(RuntimeError):
+    """MCP is enabled but no authentication is configured.
+
+    Raised at startup (fail-closed by design): booting the MCP server
+    with ``auth=None`` exposes every generated tool unauthenticated,
+    and the MCP-to-pygeoapi hop targets the raw sub-app with no
+    middleware — so the whole API would leak through MCP even when
+    the regular HTTP surface is protected. The only way to run MCP
+    without authentication is the explicit first-class passthrough
+    opt-in ``FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED=true``.
+    """
+
+
 class TrustingUpstreamTokenVerifier:
     """Token verifier for IdPs that return opaque tokens (not JWTs).
 

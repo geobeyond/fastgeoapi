@@ -56,6 +56,7 @@ def mcp_app_no_auth():
     env = {
         "ENV_STATE": "dev",
         "DEV_FASTGEOAPI_WITH_MCP": "true",
+        "DEV_FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED": "true",
         "DEV_API_KEY_ENABLED": "false",
         "DEV_JWKS_ENABLED": "false",
         "DEV_OPA_ENABLED": "false",

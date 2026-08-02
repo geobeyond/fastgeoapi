@@ -359,6 +359,9 @@ The MCP server will be mounted at `/mcp` endpoint.
 # .env file
 ENV_STATE=dev
 DEV_FASTGEOAPI_WITH_MCP=true
+# Explicit opt-in: without authentication configured, MCP refuses to
+# start unless you acknowledge the unauthenticated (passthrough) mode.
+DEV_FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED=true
 DEV_PYGEOAPI_CONFIG=pygeoapi-config.yml
 DEV_PYGEOAPI_OPENAPI=pygeoapi-openapi.yml
 ```

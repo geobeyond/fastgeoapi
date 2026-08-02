@@ -52,6 +52,9 @@ PORT=5000
 
 # Enable MCP
 DEV_FASTGEOAPI_WITH_MCP=true
+# Explicit opt-in: without authentication configured, MCP refuses to
+# start unless you acknowledge the unauthenticated (passthrough) mode.
+DEV_FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED=true
 
 # Pygeoapi configuration
 DEV_PYGEOAPI_CONFIG=pygeoapi-config.yml
@@ -96,6 +99,19 @@ DEV_FASTGEOAPI_CONTEXT=/geoapi
 DEV_API_KEY_ENABLED=false
 DEV_OPA_ENABLED=false
 ```
+
+### Fail-Closed Authentication Guard (`FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED`)
+
+When `FASTGEOAPI_WITH_MCP=true` and no MCP authentication is configured (`JWKS_ENABLED` and `OIDC_WELL_KNOWN_ENDPOINT`), the server **refuses to start** instead of silently exposing every generated MCP tool without authentication. This is fail-closed by design: the MCP-to-pygeoapi hop runs in-process against a raw sub-app with no auth middleware, so an unauthenticated MCP endpoint would leak the entire API even when the regular HTTP surface is protected — and a single typo'd OIDC environment variable in production would otherwise do exactly that, silently.
+
+The only way to run MCP without authentication is the explicit first-class **passthrough mode**:
+
+```shell
+# .env file — explicit opt-in, defaults to false
+DEV_FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED=true
+```
+
+On boot in passthrough mode the server logs a loud warning stating that every MCP tool and the pygeoapi API behind them are publicly accessible. Use it for local development and for intentionally-anonymous deployments; never as a workaround for a misconfigured IdP.
 
 ### Consent Mode (`FASTGEOAPI_MCP_CONSENT_MODE`)
 

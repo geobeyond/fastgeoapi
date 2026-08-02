@@ -516,6 +516,7 @@ class TestStartupWorkflowMCP:
             "DEV_PYGEOAPI_OPENAPI": "pygeoapi-openapi.yml",
             "DEV_FASTGEOAPI_CONTEXT": "/geoapi",
             "DEV_FASTGEOAPI_WITH_MCP": "true",
+            "DEV_FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED": "true",
             "DEV_API_KEY_ENABLED": "false",
             "DEV_JWKS_ENABLED": "false",
             "DEV_OPA_ENABLED": "false",
@@ -682,6 +683,7 @@ class TestStartupWorkflowMCPAuth:
             "DEV_PYGEOAPI_OPENAPI": "pygeoapi-openapi.yml",
             "DEV_FASTGEOAPI_CONTEXT": "/geoapi",
             "DEV_FASTGEOAPI_WITH_MCP": "true",
+            "DEV_FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED": "true",
             "DEV_API_KEY_ENABLED": "false",
             "DEV_JWKS_ENABLED": "false",
             "DEV_OPA_ENABLED": "false",
@@ -709,8 +711,14 @@ class TestStartupWorkflowMCPAuth:
             response = client.get("/geoapi/openapi?f=json")
             assert response.status_code == 200
 
-    def test_mcp_with_oidc_auth_requires_config(self):
-        """Test that MCP with JWKS enabled starts without OIDC if config is missing."""
+    def test_mcp_with_incomplete_oidc_config_fails_closed(self):
+        """MCP with JWKS on but OIDC config missing must REFUSE to start.
+
+        This replaces the pre-guard expectation ("starts without OIDC
+        if config is missing"): that silent fallback booted every MCP
+        tool unauthenticated on a config typo. Fail-closed by design;
+        the explicit opt-in is FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED.
+        """
         env_vars = {
             "ENV_STATE": "dev",
             "HOST": "0.0.0.0",
@@ -724,10 +732,11 @@ class TestStartupWorkflowMCPAuth:
             "DEV_JWKS_ENABLED": "true",
             "DEV_OPA_ENABLED": "false",
             "DEV_OAUTH2_JWKS_ENDPOINT": "https://example.com/.well-known/jwks.json",
-            # Explicitly unset OIDC config - MCP should start without OIDC auth
+            # The production-typo scenario: OIDC config left empty.
             "DEV_OIDC_WELL_KNOWN_ENDPOINT": "",
             "DEV_OIDC_CLIENT_ID": "",
             "DEV_OIDC_CLIENT_SECRET": "",
+            "DEV_FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED": "false",
         }
 
         with mock.patch.dict(os.environ, env_vars, clear=False):
@@ -739,14 +748,11 @@ class TestStartupWorkflowMCPAuth:
 
             FactoryConfig.get_config.cache_clear()
 
-            from app.main import create_mcp_server
-
-            mcp_server, mcp_app, well_known_routes, _ = create_mcp_server()
-
-            assert mcp_server is not None
-            assert mcp_app is not None
-            # No OIDC config, so no well-known routes
-            assert well_known_routes == []
+            # The guard fires during app.main's module-level bootstrap,
+            # so the import itself must raise.
+            with pytest.raises(RuntimeError, match="unauthenticated") as exc:
+                from app.main import create_mcp_server  # noqa: F401
+            assert type(exc.value).__name__ == "MCPAuthMisconfiguredError"
 
     def test_mcp_oidc_auth_config_creation(self):
         """Test that OIDCProxy auth is created when all OIDC vars are set."""
