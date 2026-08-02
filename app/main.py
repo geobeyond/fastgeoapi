@@ -115,6 +115,18 @@ def _build_pygeoapi_subapp() -> Starlette:
         raise e
 
 
+def _openapi_cache_dir() -> Path:
+    """Resolve the external-refs schema cache directory.
+
+    Overridable via ``FASTGEOAPI_CACHE_DIR`` (fastgeoapi.cloud P0.a:
+    no hardcoded cwd dependency in containerized layouts); defaults to
+    the historical ``<cwd>/.cache`` root.
+    """
+    root = getattr(cfg, "FASTGEOAPI_CACHE_DIR", None)
+    base = Path(root) if root else Path.cwd() / ".cache"
+    return base / "openapi_refs"
+
+
 def create_app(lifespan=None):
     """Handle application creation.
 
@@ -148,6 +160,30 @@ def create_app(lifespan=None):
     @app.exception_handler(AppExceptionError)
     async def custom_app_exception_handler(request, e):
         return await app_exception_handler(request, e)
+
+    # Liveness/readiness probes (fastgeoapi.cloud P0.a): registered on
+    # the ROOT app, outside FASTGEOAPI_CONTEXT and outside every auth
+    # middleware (those wrap the pygeoapi sub-app only), so orchestrators
+    # can probe without credentials in any auth mode.
+    @app.get("/healthz", include_in_schema=False)
+    async def healthz() -> dict[str, str]:
+        """Liveness probe: the process is up and serving."""
+        return {"status": "ok"}
+
+    @app.get("/readyz", include_in_schema=False)
+    async def readyz():
+        """Readiness probe: pygeoapi is mounted and its OpenAPI exists."""
+        from starlette.responses import JSONResponse
+
+        openapi_path = Path(cfg.PYGEOAPI_OPENAPI)
+        if not openapi_path.is_absolute():
+            openapi_path = Path.cwd() / openapi_path
+        if not openapi_path.exists():
+            return JSONResponse(
+                {"status": "not-ready", "reason": "pygeoapi OpenAPI document missing"},
+                status_code=503,
+            )
+        return {"status": "ready"}
 
     # Build the externally-mounted pygeoapi sub-app and wrap it with the
     # middleware stack appropriate to the current auth mode.
@@ -252,7 +288,7 @@ def create_mcp_server(api_client: httpx.AsyncClient | None = None):
         base_spec = yaml.safe_load(f)
 
     # Resolve external $ref references with disk caching
-    cache_dir = Path.cwd() / ".cache" / "openapi_refs"
+    cache_dir = _openapi_cache_dir()
     logger.info("Resolving external OpenAPI references...")
     openapi_spec = resolve_external_refs(base_spec, cache_dir=cache_dir)
     logger.info("OpenAPI references resolved successfully")

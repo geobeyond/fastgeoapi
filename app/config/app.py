@@ -64,6 +64,7 @@ class DevConfig(GlobalConfig):
     FASTGEOAPI_WITH_MCP: bool = False
     FASTGEOAPI_MCP_CONSENT_MODE: str | None = None
     FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED: bool = False
+    FASTGEOAPI_CACHE_DIR: str | None = None
     FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS: int | None = None
 
     model_config = SettingsConfigDict(
@@ -111,6 +112,7 @@ class ProdConfig(GlobalConfig):
     FASTGEOAPI_WITH_MCP: bool = False
     FASTGEOAPI_MCP_CONSENT_MODE: str | None = None
     FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED: bool = False
+    FASTGEOAPI_CACHE_DIR: str | None = None
     FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS: int | None = None
 
     model_config = SettingsConfigDict(
