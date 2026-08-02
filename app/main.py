@@ -278,6 +278,28 @@ def create_mcp_server(api_client: httpx.AsyncClient | None = None):
     # fastmcp's OIDCProxy provides provider-agnostic OIDC configuration
     auth = None
     well_known_routes = []
+    # Fail-closed by design: MCP without authentication exposes every
+    # generated tool AND the raw pygeoapi sub-app behind it (the internal
+    # ASGI hop carries no auth middleware). A typo'd OIDC env var must
+    # abort startup, not silently publish an open API. The explicit
+    # opt-in below is the first-class passthrough mode (dev flows and
+    # the fastgeoapi.cloud anonymous tiers).
+    if not (cfg.JWKS_ENABLED and cfg.OIDC_WELL_KNOWN_ENDPOINT):
+        from app.auth.mcp_auth_provider import MCPAuthMisconfiguredError
+
+        if not getattr(cfg, "FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED", False):
+            raise MCPAuthMisconfiguredError(
+                "FASTGEOAPI_WITH_MCP is enabled but no MCP authentication is "
+                "configured (JWKS_ENABLED and OIDC_WELL_KNOWN_ENDPOINT are "
+                "required): refusing to start rather than exposing every MCP "
+                "tool unauthenticated. Set FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED"
+                "=true to opt in to first-class passthrough mode."
+            )
+        logger.warning(
+            "MCP is running UNAUTHENTICATED by explicit opt-in "
+            "(FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED=true): every MCP tool and "
+            "the pygeoapi API behind them are publicly accessible."
+        )
     if cfg.JWKS_ENABLED and cfg.OIDC_WELL_KNOWN_ENDPOINT:
         from app.auth.mcp_auth_provider import configure_mcp_auth
 
