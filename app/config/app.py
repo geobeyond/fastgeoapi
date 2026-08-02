@@ -35,13 +35,21 @@ class DevConfig(GlobalConfig):
 
     ROOT_PATH: str | None = None
     AWS_LAMBDA_DEPLOY: bool | None = None
-    LOG_PATH: str | None = None
-    LOG_FILENAME: str | None = None
-    LOG_LEVEL: str | None = None
-    LOG_ENQUEUE: bool | None = None
-    LOG_ROTATION: str | None = None
-    LOG_RETENTION: str | None = None
-    LOG_FORMAT: str | None = None
+    # 12-factor defaults: a container must boot from environment
+    # variables alone, with no .env on disk (create_logger builds
+    # Path(LOG_PATH)/LOG_FILENAME at import time).
+    LOG_PATH: str = "/tmp"  # noqa: S108
+    LOG_FILENAME: str = "fastgeoapi.log"
+    LOG_LEVEL: str = "info"
+    LOG_ENQUEUE: bool = True
+    LOG_ROTATION: str = "1 days"
+    LOG_RETENTION: str = "1 months"
+    LOG_FORMAT: str = (
+        "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
+        "<level>{level: <8}</level> | "
+        "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> "
+        "[id:{extra[request_id]}] - <level>{message}</level>"
+    )
     OPA_ENABLED: bool | None = None
     OPA_URL: str | None = None
     APP_URI: str | None = None
@@ -83,13 +91,21 @@ class ProdConfig(GlobalConfig):
 
     ROOT_PATH: str | None = None
     AWS_LAMBDA_DEPLOY: bool | None = None
-    LOG_PATH: str | None = None
-    LOG_FILENAME: str | None = None
-    LOG_LEVEL: str | None = None
-    LOG_ENQUEUE: bool | None = None
-    LOG_ROTATION: str | None = None
-    LOG_RETENTION: str | None = None
-    LOG_FORMAT: str | None = None
+    # 12-factor defaults: a container must boot from environment
+    # variables alone, with no .env on disk (create_logger builds
+    # Path(LOG_PATH)/LOG_FILENAME at import time).
+    LOG_PATH: str = "/tmp"  # noqa: S108
+    LOG_FILENAME: str = "fastgeoapi.log"
+    LOG_LEVEL: str = "info"
+    LOG_ENQUEUE: bool = True
+    LOG_ROTATION: str = "1 days"
+    LOG_RETENTION: str = "1 months"
+    LOG_FORMAT: str = (
+        "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
+        "<level>{level: <8}</level> | "
+        "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> "
+        "[id:{extra[request_id]}] - <level>{message}</level>"
+    )
     OPA_ENABLED: bool | None = None
     OPA_URL: str | None = None
     APP_URI: str | None = None
