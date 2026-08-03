@@ -108,28 +108,34 @@ def create_app():
 
 
 @pytest.fixture
-def create_protected_with_apikey_app(create_app):
-    """Return a protected app with an API key."""
+def create_protected_with_apikey_app(create_app, monkeypatch):
+    """Return a protected app with an API key.
+
+    The env vars are set via monkeypatch (restored at fixture teardown,
+    i.e. AFTER the test) instead of a `mock.patch.dict` context manager:
+    fastapi-key-auth's AuthorizerMiddleware reads the PYGEOAPI_KEY_*
+    variables from os.environ at REQUEST time, and the context-manager
+    version restored the environment as soon as the app was built —
+    wiping the key and turning every request into a 401 for the whole
+    test. The contract suite fuzzed the 401 handler for months without
+    noticing, until the `not_unauthorized` check exposed it.
+    """
 
     def _protected_app():
-        with mock.patch.dict(
-            os.environ,
-            {
-                "ENV_STATE": "dev",
-                "HOST": "0.0.0.0",
-                "PORT": "5000",
-                "API_KEY_ENABLED": "true",
-                "DEV_API_KEY_ENABLED": "true",
-                "DEV_PYGEOAPI_KEY_GLOBAL": "pygeoapi",
-                "DEV_JWKS_ENABLED": "false",
-                "DEV_OPA_ENABLED": "false",
-                # Disable MCP to avoid StreamableHTTPSessionManager reuse issues
-                "DEV_FASTGEOAPI_WITH_MCP": "false",
-            },
-            clear=False,
-        ):
-            app = create_app()
-        return app
+        for key, value in {
+            "ENV_STATE": "dev",
+            "HOST": "0.0.0.0",
+            "PORT": "5000",
+            "API_KEY_ENABLED": "true",
+            "DEV_API_KEY_ENABLED": "true",
+            "DEV_PYGEOAPI_KEY_GLOBAL": "pygeoapi",
+            "DEV_JWKS_ENABLED": "false",
+            "DEV_OPA_ENABLED": "false",
+            # Disable MCP to avoid StreamableHTTPSessionManager reuse issues
+            "DEV_FASTGEOAPI_WITH_MCP": "false",
+        }.items():
+            monkeypatch.setenv(key, value)
+        return create_app()
 
     yield _protected_app
 
@@ -221,7 +227,27 @@ def protected_bearer_schema(create_protected_with_bearer_app):
     See test_openapi_contract.py for filter configuration.
     """
     app = create_protected_with_bearer_app()
-    return schemathesis.openapi.from_asgi("/geoapi/openapi?f=json", app=app)
+    schema = schemathesis.openapi.from_asgi("/geoapi/openapi?f=json", app=app)
+
+    # Schema-level dynamic auth (schemathesis 4.24+): the token endpoint
+    # lives on an external IdP, so the config-based `auth.dynamic` (which
+    # fetches from a path on the app under test) does not apply — a
+    # Python provider does. Schemathesis caches the token between
+    # examples (default 300s) and, on a 401, refetches it and replays
+    # the request once before failing.
+    @schema.auth(retry_on=[401])
+    class OAuth2ClientCredentialsProvider:
+        """Fetch an access token via client_credentials against the IdP."""
+
+        def get(self, case, context):
+            """Return a fresh access token (skips the test if IdP is down)."""
+            return get_access_token()
+
+        def set(self, case, data, context):
+            """Attach the token as a bearer Authorization header."""
+            case.headers["Authorization"] = f"Bearer {data}"
+
+    return schema
 
 
 @pytest.fixture
