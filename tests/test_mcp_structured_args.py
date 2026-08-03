@@ -70,9 +70,7 @@ async def test_execute_process_body_forwarded_as_json_object(mcp_main):
     from fastmcp import Client
 
     async with Client(mcp_main.mcp) as client:
-        res = await client.call_tool(
-            "executeHello_worldJob", {"inputs": {"name": "World"}}
-        )
+        res = await client.call_tool("executeHello_worldJob", {"inputs": {"name": "World"}})
 
     payload = _result(res)
     assert payload.get("id") == "echo", payload
@@ -94,9 +92,7 @@ async def test_execute_process_with_flat_args_rejected_cleanly(mcp_main):
             await client.call_tool("executeHello_worldJob", {"name": "World"})
 
     message = str(exc_info.value)
-    assert (
-        "MissingParameterValue" in message or "missing request data" in message
-    ), message
+    assert "MissingParameterValue" in message or "missing request data" in message, message
     assert "has no attribute" not in message, message
 
 
@@ -115,12 +111,8 @@ async def test_array_query_params_forwarded_intact(mcp_main):
 
     # Direct HTTP baseline on the raw sub-app (no MCP in the path).
     transport = httpx.ASGITransport(app=mcp_main._build_pygeoapi_subapp())
-    async with httpx.AsyncClient(
-        transport=transport, base_url="http://baseline"
-    ) as http:
-        unfiltered = (
-            await http.get("/collections/lakes/items?f=json&limit=2")
-        ).json()
+    async with httpx.AsyncClient(transport=transport, base_url="http://baseline") as http:
+        unfiltered = (await http.get("/collections/lakes/items?f=json&limit=2")).json()
         filtered = (
             await http.get(
                 f"/collections/lakes/items?f=json&limit=2&bbox={','.join(map(str, bbox))}"
@@ -133,18 +125,10 @@ async def test_array_query_params_forwarded_intact(mcp_main):
 
     async with Client(mcp_main.mcp) as client:
         res_plain = await client.call_tool("getLakesFeatures", {"limit": 2})
-        res_bbox = await client.call_tool(
-            "getLakesFeatures", {"limit": 2, "bbox": bbox}
-        )
-        res_props = await client.call_tool(
-            "getLakesFeatures", {"limit": 2, "properties": ["name"]}
-        )
+        res_bbox = await client.call_tool("getLakesFeatures", {"limit": 2, "bbox": bbox})
+        res_props = await client.call_tool("getLakesFeatures", {"limit": 2, "properties": ["name"]})
 
-    assert (
-        _result(res_plain).get("numberMatched") == unfiltered["numberMatched"]
-    )
+    assert _result(res_plain).get("numberMatched") == unfiltered["numberMatched"]
     assert _result(res_bbox).get("numberMatched") == filtered["numberMatched"]
     # properties selects fields, it must not change the match count
-    assert (
-        _result(res_props).get("numberMatched") == unfiltered["numberMatched"]
-    )
+    assert _result(res_props).get("numberMatched") == unfiltered["numberMatched"]
