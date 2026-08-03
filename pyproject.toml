@@ -64,7 +64,6 @@ dev = [
     "mkdocstrings[python]>=1.0.0",
     "bandit>=1.9.2,<2",
     "ipython<9.12",
-    "safety>=3.0,<4",
     "ty>=0.0.8",
     "commitizen>=4.11,<5",
     "openapi-resolver>=0.0.6,<0.0.7",
