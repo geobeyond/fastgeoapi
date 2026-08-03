@@ -150,10 +150,13 @@ def safety(session: Session) -> None:
     Get a free API key at https://safetycli.com
     """
     _install_project(session)
-    # safety 3.8.x stable now pins `typer<0.26.0,>=0.16.0` itself (the
-    # `typer 0.26` "no active click context" bootstrap break is handled
-    # upstream), so the manual cap we used to mirror is no longer needed.
-    session.install("safety")
+    # safety 3.8.x pins `typer<0.26.0,>=0.16.0` while the project ships
+    # typer 0.27+: co-install an explicit compatible typer so pip builds
+    # a consistent tool venv (safety monkey-patches typer.rich_utils,
+    # gone from typer's namespace in 0.26+) instead of backtracking to a
+    # broken safety/typer combination. Only this tool venv is affected —
+    # the scanned project keeps the locked typer.
+    session.install("safety", "typer>=0.16,<0.26")
     # Build command with API key if available
     cmd = ["safety"]
     if "SAFETY_API_KEY" in os.environ:
