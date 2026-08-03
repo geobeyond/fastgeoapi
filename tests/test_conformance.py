@@ -38,8 +38,10 @@ FEATURES_CONFORMANCE = {
     "http://www.opengis.net/spec/ogcapi-features-3/1.0/conf/queryables",
     "http://www.opengis.net/spec/ogcapi-features-3/1.0/conf/queryables-query-parameters",
     "http://www.opengis.net/spec/ogcapi-features-4/1.0/conf/create-replace-delete",
-    "http://www.opengis.net/spec/ogcapi-features-5/1.0/conf/schemas",
-    "http://www.opengis.net/spec/ogcapi-features-5/1.0/conf/core-roles-features",
+    "http://www.opengis.net/spec/ogcapi-common-3/1.0/conf/schemas",
+    "http://www.opengis.net/spec/ogcapi-common-3/1.0/conf/advanced-property-roles",
+    "http://www.opengis.net/spec/cql2/1.0/conf/cql2-text",
+    "http://www.opengis.net/spec/cql2/1.0/conf/basic-cql2",
 }
 
 # OGC API Processes conformance classes
