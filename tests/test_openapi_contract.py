@@ -143,7 +143,13 @@ schema_bearer = (
     reason="Skipping API key tests when API_KEY is not enabled",
 )
 @schema_apikey.parametrize()
-@settings(max_examples=50, deadline=10000, phases=[Phase.generate])
+# deadline=None on purpose: these are integration-level contract tests —
+# schemathesis itself recommends disabling hypothesis's per-example
+# deadline for API tests, where response times are not deterministic
+# (CI showed intermittent ~30s stalls that pass on replay, turning the
+# deadline into a flake generator). Genuine hangs still fail through
+# the test client's 30s transport timeout (conftest), as a ReadTimeout.
+@settings(max_examples=50, deadline=None, phases=[Phase.generate])
 def test_api_with_apikey(case):
     """Test the API with API-KEY protection."""
     # Provide valid data for process execution endpoints
@@ -166,7 +172,13 @@ def test_api_with_apikey(case):
     reason="Skipping bearer token tests when JWKS is not enabled",
 )
 @schema_bearer.parametrize()
-@settings(max_examples=50, deadline=10000, phases=[Phase.generate])
+# deadline=None on purpose: these are integration-level contract tests —
+# schemathesis itself recommends disabling hypothesis's per-example
+# deadline for API tests, where response times are not deterministic
+# (CI showed intermittent ~30s stalls that pass on replay, turning the
+# deadline into a flake generator). Genuine hangs still fail through
+# the test client's 30s transport timeout (conftest), as a ReadTimeout.
+@settings(max_examples=50, deadline=None, phases=[Phase.generate])
 def test_api_with_bearer(case, access_token):
     """Test the API with Authorization Bearer token protection."""
     # Provide valid data for process execution endpoints
