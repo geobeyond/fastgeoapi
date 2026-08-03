@@ -150,13 +150,14 @@ def safety(session: Session) -> None:
     Get a free API key at https://safetycli.com
     """
     _install_project(session)
-    # safety 3.8.x pins `typer<0.26.0,>=0.16.0` while the project ships
-    # typer 0.27+: co-install an explicit compatible typer so pip builds
-    # a consistent tool venv (safety monkey-patches typer.rich_utils,
-    # gone from typer's namespace in 0.26+) instead of backtracking to a
-    # broken safety/typer combination. Only this tool venv is affected —
-    # the scanned project keeps the locked typer.
-    session.install("safety", "typer>=0.16,<0.26")
+    # safety is deliberately NOT in the dev dependency-group: inside the
+    # project's resolution universe its typer caps (3.3+ wants
+    # >=0.16,<0.26 while the app ships 0.27+) silently freeze it at an
+    # ancient capless release (3.2.11) whose CLI crashes on any modern
+    # typer. Install it here with explicit floors instead: the tool venv
+    # gets a current safety plus the newest typer it supports; only this
+    # venv sees the downgraded typer, the scanned project keeps the lock.
+    session.install("safety>=3.8,<4", "typer>=0.16,<0.26")
     # Build command with API key if available
     cmd = ["safety"]
     if "SAFETY_API_KEY" in os.environ:
