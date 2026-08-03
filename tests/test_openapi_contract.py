@@ -138,6 +138,25 @@ schema_bearer = (
 )
 
 
+def not_unauthorized(ctx, response, case):
+    """Fail the fuzz run on 401 Unauthorized for positive cases.
+
+    A valid credential is always attached to positive cases: the bearer
+    schema carries a schemathesis auth provider (conftest) and the
+    API-key test sets the header explicitly. A 401 there means
+    authentication broke — and without this check the run would pass
+    vacuously, with every fuzzed request bouncing off the guard instead
+    of reaching the API. Negative cases are exempt: schemathesis
+    deliberately mutates security parameters (e.g. a garbage
+    Authorization value, which the auth provider must not override),
+    and rejecting those with a 401 is exactly the correct behaviour.
+    """
+    meta = case.meta
+    if meta is not None and meta.generation.mode.is_negative:
+        return None
+    assert response.status_code != 401, "Unexpected 401: authentication is broken"
+
+
 @pytest.mark.skipif(
     os.environ.get("API_KEY_ENABLED", "").lower() not in ("true", "1"),
     reason="Skipping API key tests when API_KEY is not enabled",
@@ -164,7 +183,7 @@ def test_api_with_apikey(case):
     case.headers = {"X-API-KEY": "pygeoapi"}
     # response = case.call()
     # Only check for server errors, skip schema validation due to pygeoapi issues
-    case.call_and_validate(checks=(schemathesis.checks.not_a_server_error,))
+    case.call_and_validate(checks=(schemathesis.checks.not_a_server_error, not_unauthorized))
 
 
 @pytest.mark.skipif(
@@ -179,7 +198,7 @@ def test_api_with_apikey(case):
 # deadline into a flake generator). Genuine hangs still fail through
 # the test client's 30s transport timeout (conftest), as a ReadTimeout.
 @settings(max_examples=50, deadline=None, phases=[Phase.generate])
-def test_api_with_bearer(case, access_token):
+def test_api_with_bearer(case):
     """Test the API with Authorization Bearer token protection."""
     # Provide valid data for process execution endpoints
     if case.method.upper() == "POST" and "/execution" in case.path:
@@ -190,7 +209,8 @@ def test_api_with_bearer(case, access_token):
         case.path_parameters["jobId"] = (
             job_id.replace("\n", "").replace("\r", "").replace("%0A", "").replace("%0D", "")
         )
-    case.headers = {"Authorization": f"Bearer {access_token}"}
-    # response = case.call()
+    # The Authorization header is attached by the schema-level auth
+    # provider registered in conftest (schemathesis dynamic auth:
+    # cached token, refetched and replayed on 401).
     # Only check for server errors, skip schema validation due to pygeoapi issues
-    case.call_and_validate(checks=(schemathesis.checks.not_a_server_error,))
+    case.call_and_validate(checks=(schemathesis.checks.not_a_server_error, not_unauthorized))
