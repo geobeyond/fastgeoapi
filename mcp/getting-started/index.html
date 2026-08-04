@@ -1,0 +1,1049 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      <link rel="icon" href="../../images/fastgeoapi_logo.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-8.2.16">
+    
+    
+      
+        <title>Getting started - fastgeoapi</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.1c3799f8.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.cc9b2e1e.min.css">
+        
+      
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+      <link rel="stylesheet" href="../../termynal.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="red">
+  
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&"object"==typeof palette.color)for(var key of Object.keys(palette.color))document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#getting-started" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="fastgeoapi" class="md-header__button md-logo" aria-label="fastgeoapi" data-md-component="logo">
+      
+  <img src="../../images/fastgeoapi_logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            fastgeoapi
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Getting started
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      <form class="md-header__option" data-md-component="palette">
+        
+          
+          
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="red"  aria-label="Switch to Dark Mode"  type="radio" name="__palette" id="__palette_1">
+          
+            <label class="md-header__button md-icon" title="Switch to Dark Mode" for="__palette_2" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6zm0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4zM7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+            </label>
+          
+        
+          
+          
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="blue-grey"  aria-label="Switch to Light Mode"  type="radio" name="__palette" id="__palette_2">
+          
+            <label class="md-header__button md-icon" title="Switch to Light Mode" for="__palette_1" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3Z"/></svg>
+            </label>
+          
+        
+      </form>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-tabs__inner md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../.." class="md-tabs__link">
+      Home
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../../getting-started/" class="md-tabs__link">
+      Getting started
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../howto-guides/" class="md-tabs__link">
+        How-to Guides
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+    
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../" class="md-tabs__link md-tabs__link--active">
+        MCP
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../../tutorials/" class="md-tabs__link">
+      Tutorials
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../../openapi/" class="md-tabs__link">
+      OpenAPI
+    </a>
+  </li>
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="fastgeoapi" class="md-nav__button md-logo" aria-label="fastgeoapi" data-md-component="logo">
+      
+  <img src="../../images/fastgeoapi_logo.png" alt="logo">
+
+    </a>
+    fastgeoapi
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        Home
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        Getting started
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" >
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3">
+          How-to Guides
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="How-to Guides" data-md-level="1">
+        <label class="md-nav__title" for="__nav_3">
+          <span class="md-nav__icon md-icon"></span>
+          How-to Guides
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../howto-guides/" class="md-nav__link">
+        Overview
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4">
+          MCP
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="MCP" data-md-level="1">
+        <label class="md-nav__title" for="__nav_4">
+          <span class="md-nav__icon md-icon"></span>
+          MCP
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        Overview
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        Configuration
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specifications/" class="md-nav__link">
+        Supported specifications
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Getting started
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        Getting started
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#connect-claude-desktop-native-connector" class="md-nav__link">
+    Connect Claude Desktop (native connector)
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connect-stdio-only-clients-mcp-remote" class="md-nav__link">
+    Connect stdio-only clients (mcp-remote)
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connect-via-streamable-http" class="md-nav__link">
+    Connect via Streamable HTTP
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-the-mcp-server" class="md-nav__link">
+    Test the MCP Server
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#available-mcp-tools" class="md-nav__link">
+    Available MCP Tools
+  </a>
+  
+    <nav class="md-nav" aria-label="Available MCP Tools">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#core-ogc-api-tools" class="md-nav__link">
+    Core OGC API Tools
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ogc-api-processes-tools" class="md-nav__link">
+    OGC API - Processes Tools
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-tool-usage" class="md-nav__link">
+    Example Tool Usage
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#oauth-discovery-endpoints" class="md-nav__link">
+    OAuth Discovery Endpoints
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    Troubleshooting
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mcp-server-not-starting" class="md-nav__link">
+    MCP Server Not Starting
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oauth-authentication-failing" class="md-nav__link">
+    OAuth Authentication Failing
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mcp-remote-connection-issues" class="md-nav__link">
+    mcp-remote Connection Issues
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#client-shows-connected-but-tool-calls-fail" class="md-nav__link">
+    Client Shows "Connected" but Tool Calls Fail
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#enable-debug-logging" class="md-nav__link">
+    Enable Debug Logging
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    References
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/" class="md-nav__link">
+        Tutorials
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../openapi/" class="md-nav__link">
+        OpenAPI
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          <div class="md-content" data-md-component="content">
+            <article class="md-content__inner md-typeset">
+              
+                
+
+
+<h1 id="getting-started">Getting started</h1>
+<p>Connect an MCP client and call your first tool.</p>
+<h3 id="connect-claude-desktop-native-connector">Connect Claude Desktop (native connector)</h3>
+<p><a href="https://claude.ai/desktop">Claude Desktop</a> supports remote MCP servers natively as <strong>custom connectors</strong> — no local shim or config-file edit required. This is the recommended path:</p>
+<ol>
+<li>Open <strong>Settings → Connectors → Add custom connector</strong></li>
+<li>Paste the server URL: <code>https://your-domain.com/mcp/</code> (the trailing slash is optional — both variants are served)</li>
+<li>On first use, complete the OAuth login in the browser popup; the connector then refreshes tokens silently</li>
+</ol>
+<div class="admonition warning">
+<p class="admonition-title">Avoid running mcp-remote alongside the connector</p>
+</div>
+<p>If an older <code>mcp-remote</code>-based entry for the same server is still present in <code>claude_desktop_config.json</code>, remove it: the two clients race through the OAuth flow and the mcp-remote process can wedge on its fixed callback port (43711), leaving the tools list stuck.</p>
+<h3 id="connect-stdio-only-clients-mcp-remote">Connect stdio-only clients (mcp-remote)</h3>
+<p>For MCP clients that only speak stdio, front the server with <a href="https://www.npmjs.com/package/mcp-remote">mcp-remote</a> in the client configuration file (for Claude Desktop: <code>~/Library/Application Support/Claude/claude_desktop_config.json</code> on macOS, <code>%APPDATA%\Claude\claude_desktop_config.json</code> on Windows):</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">&quot;mcpServers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">&quot;fastgeoapi&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">      </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;npx&quot;</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">      </span><span class="nt">&quot;args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;mcp-remote&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;https://your-domain.com/mcp/&quot;</span><span class="p">]</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>For local development over plain HTTP, add the <code>--allow-http</code> flag:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">&quot;mcpServers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">&quot;fastgeoapi&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">      </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;npx&quot;</span><span class="p">,</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">      </span><span class="nt">&quot;args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;mcp-remote&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;http://localhost:5000/mcp/&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;--allow-http&quot;</span><span class="p">]</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">}</span>
+</span></code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">mcp-remote caveats</p>
+</div>
+<p>mcp-remote keeps tokens only in process memory (every restart re-runs the full OAuth dance) and binds a fixed OAuth callback port. If the client loops on authentication, check for zombie processes with <code>lsof -i :43711</code> and kill them.</p>
+<h3 id="connect-via-streamable-http">Connect via Streamable HTTP</h3>
+<p>fastmcp 3.x serves MCP over the Streamable HTTP transport (the legacy <code>/mcp/sse</code> endpoint no longer exists). Clients with native remote MCP support connect directly to:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>http://localhost:5000/mcp/
+</span></code></pre></div>
+<p>Or with HTTPS in production:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>https://your-domain.com/mcp/
+</span></code></pre></div>
+<h3 id="test-the-mcp-server">Test the MCP Server</h3>
+<p>You can test the MCP server endpoints directly:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Check the MCP endpoint is alive (Streamable HTTP): expect 401 with OAuth</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1"># enabled, 406 without the proper Accept headers — both mean it is up</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>curl<span class="w"> </span>-i<span class="w"> </span>http://localhost:5000/mcp/
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1"># Get OAuth metadata (when OAuth is enabled)</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>curl<span class="w"> </span>http://localhost:5000/.well-known/oauth-protected-resource/mcp/
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="c1"># Get authorization server metadata (RFC 8414 path-aware)</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>curl<span class="w"> </span>http://localhost:5000/.well-known/oauth-authorization-server/mcp
+</span></code></pre></div>
+<h2 id="available-mcp-tools">Available MCP Tools</h2>
+<p>The MCP server automatically generates tools from the pygeoapi OpenAPI specification. The available tools depend on your pygeoapi configuration and enabled OGC API standards.</p>
+<h3 id="core-ogc-api-tools">Core OGC API Tools</h3>
+<p>Tool names come from the OpenAPI <code>operationId</code>s, so collection-specific tools embed the collection name (the demo configuration with the <code>lakes</code> and <code>obs</code> collections yields 27 tools). For example:</p>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Description</th>
+<th>OGC API</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>getLandingPage</code></td>
+<td>Get the API landing page with links to all resources</td>
+<td>Common</td>
+</tr>
+<tr>
+<td><code>getConformanceDeclaration</code></td>
+<td>Get OGC API conformance classes</td>
+<td>Common</td>
+</tr>
+<tr>
+<td><code>getCollections</code></td>
+<td>List all available feature collections</td>
+<td>Features</td>
+</tr>
+<tr>
+<td><code>describeLakesCollection</code></td>
+<td>Get metadata for the <code>lakes</code> collection</td>
+<td>Features</td>
+</tr>
+<tr>
+<td><code>getLakesFeatures</code></td>
+<td>Query features from <code>lakes</code> with filters</td>
+<td>Features</td>
+</tr>
+<tr>
+<td><code>getLakesFeature</code></td>
+<td>Get a specific <code>lakes</code> feature by ID</td>
+<td>Features</td>
+</tr>
+<tr>
+<td><code>getLakesQueryables</code></td>
+<td>Get queryable properties of the <code>lakes</code> collection</td>
+<td>Features</td>
+</tr>
+<tr>
+<td><code>getLakesSchema</code></td>
+<td>Get the JSON Schema of the <code>lakes</code> collection</td>
+<td>Features</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ogc-api-processes-tools">OGC API - Processes Tools</h3>
+<p>If OGC API - Processes is enabled in your pygeoapi configuration (names below are for the demo <code>hello-world</code> process; note that fastmcp sanitizes <code>-</code> to <code>_</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>getProcesses</code></td>
+<td>List all available processes</td>
+</tr>
+<tr>
+<td><code>describeHello_worldProcess</code></td>
+<td>Get details about the process</td>
+</tr>
+<tr>
+<td><code>executeHello_worldJob</code></td>
+<td>Execute the process with input parameters</td>
+</tr>
+<tr>
+<td><code>getJobs</code> / <code>getJob</code></td>
+<td>List jobs / get the status of a job</td>
+</tr>
+<tr>
+<td><code>getJobResults</code></td>
+<td>Get the results of a completed job</td>
+</tr>
+</tbody>
+</table>
+<h3 id="example-tool-usage">Example Tool Usage</h3>
+<p>When using Claude Desktop with the MCP server, you can ask questions like:</p>
+<ul>
+<li>"What feature collections are available?"</li>
+<li>"Show me the first 10 features from the 'lakes' collection"</li>
+<li>"What are the queryable properties for the 'buildings' collection?"</li>
+<li>"Get the feature with ID 'building-123' from the buildings collection"</li>
+</ul>
+<p>Claude will automatically use the appropriate MCP tools to fulfill these requests.</p>
+<h2 id="oauth-discovery-endpoints">OAuth Discovery Endpoints</h2>
+<p>When OAuth is enabled, the following RFC-compliant endpoints are available:</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>RFC</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/.well-known/oauth-protected-resource/mcp/</code></td>
+<td>RFC 9728</td>
+<td>Protected resource metadata</td>
+</tr>
+<tr>
+<td><code>/.well-known/oauth-authorization-server/mcp</code></td>
+<td>RFC 8414</td>
+<td>Authorization server metadata (path-aware)</td>
+</tr>
+<tr>
+<td><code>/.well-known/openid-configuration</code></td>
+<td>OIDC 1.0</td>
+<td>OIDC discovery alias (fastmcp &gt;= 3.4)</td>
+</tr>
+<tr>
+<td><code>/mcp/register</code></td>
+<td>RFC 7591</td>
+<td>Dynamic client registration</td>
+</tr>
+<tr>
+<td><code>/mcp/authorize</code></td>
+<td>OAuth 2.0</td>
+<td>Authorization endpoint</td>
+</tr>
+<tr>
+<td><code>/mcp/token</code></td>
+<td>OAuth 2.0</td>
+<td>Token endpoint</td>
+</tr>
+</tbody>
+</table>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="mcp-server-not-starting">MCP Server Not Starting</h3>
+<p>If the MCP server doesn't start, check:</p>
+<ol>
+<li><code>FASTGEOAPI_WITH_MCP=true</code> is set in your <code>.env</code> file</li>
+<li>The <code>pygeoapi-openapi.yml</code> file exists and is valid</li>
+<li>Check the logs for any OpenAPI parsing errors</li>
+</ol>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Check if OpenAPI file exists</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>ls<span class="w"> </span>-la<span class="w"> </span>pygeoapi-openapi.yml
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Start with debug logging</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="nv">DEV_LOG_LEVEL</span><span class="o">=</span>debug<span class="w"> </span>fastgeoapi<span class="w"> </span>run
+</span></code></pre></div>
+<h3 id="oauth-authentication-failing">OAuth Authentication Failing</h3>
+<p>If OAuth authentication fails:</p>
+<ol>
+<li>Verify your OIDC well-known endpoint is accessible:</li>
+</ol>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>curl<span class="w"> </span>https://your-idp.example.com/.well-known/openid-configuration
+</span></code></pre></div>
+<ol>
+<li>
+<p>Check that client ID and secret are correct</p>
+</li>
+<li>
+<p>Ensure the redirect URI is configured in your IdP:</p>
+</li>
+<li>For local development: <code>http://localhost:5000/mcp/auth/callback</code></li>
+<li>For production: <code>https://your-domain.com/mcp/auth/callback</code></li>
+</ol>
+<h3 id="mcp-remote-connection-issues">mcp-remote Connection Issues</h3>
+<p>If mcp-remote can't connect:</p>
+<ol>
+<li>Ensure the MCP server is running and accessible</li>
+<li>Check that the URL ends with a trailing slash: <code>http://localhost:5000/mcp/</code></li>
+<li>For HTTP (non-HTTPS), use the <code>--allow-http</code> flag</li>
+<li>Check for CORS issues in browser-based clients</li>
+</ol>
+<h3 id="client-shows-connected-but-tool-calls-fail">Client Shows "Connected" but Tool Calls Fail</h3>
+<p>If the client UI reports the server as connected but tool invocations error out (Claude Desktop: "couldn't send tool approval"), the client is usually holding a stale connection or session from before a server suspend/redeploy:</p>
+<ol>
+<li>Start a <strong>new conversation</strong> (MCP sessions are per-conversation in Claude Desktop)</li>
+<li>If that's not enough, disable and re-enable the connector (or restart the client)</li>
+</ol>
+<p>Server-side this class of problem is mitigated by the <a href="../#stateless-transport">stateless transport</a>: requests never depend on prior server state, so once the client opens a fresh connection everything works without re-authentication.</p>
+<h3 id="enable-debug-logging">Enable Debug Logging</h3>
+<p>Enable debug logging to see detailed MCP server activity:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># In .env file</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nv">DEV_LOG_LEVEL</span><span class="o">=</span>debug
+</span></code></pre></div>
+<p>This will show:</p>
+<ul>
+<li>OAuth flow steps</li>
+<li>Tool invocations</li>
+<li>API calls to pygeoapi</li>
+<li>Token validation results</li>
+</ul>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://modelcontextprotocol.io/">Model Context Protocol Specification</a></li>
+<li><a href="https://github.com/jlowin/fastmcp">FastMCP Documentation</a></li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc6749">OAuth 2.0 RFC 6749</a></li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc9728">OAuth 2.0 Protected Resource Metadata RFC 9728</a></li>
+<li><a href="https://ogcapi.ogc.org/">OGC API Standards</a></li>
+</ul>
+
+              
+            </article>
+          </div>
+        </div>
+        
+          <a href="#" class="md-top md-icon" data-md-component="top" data-md-state="hidden">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+            Back to top
+          </a>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    <nav class="md-footer__inner md-grid" aria-label="Footer">
+      
+        
+        <a href="../specifications/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Supported specifications" rel="prev">
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+          </div>
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              Supported specifications
+            </div>
+          </div>
+        </a>
+      
+      
+        
+        <a href="../../tutorials/" class="md-footer__link md-footer__link--next" aria-label="Next: Tutorials" rel="next">
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              Tutorials
+            </div>
+          </div>
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+          </div>
+        </a>
+      
+    </nav>
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      &copy; Copyright 2025 <a href="https://github.com/geobeyond">Geobeyond team</a>.
+
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+      
+      
+    
+    <a href="https://github.com/geobeyond" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M186.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1zM480 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2zm-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3zm-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1z"/></svg>
+    </a>
+  
+    
+    
+      
+      
+    
+    <a href="https://twitter.com/geobeyond" target="_blank" rel="noopener" title="twitter.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z"/></svg>
+    </a>
+  
+    
+    
+      
+      
+    
+    <a href="https://www.linkedin.com/company/geobeyond" target="_blank" rel="noopener" title="www.linkedin.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3zM135.4 416H69V202.2h66.5V416zm-33.2-243c-21.3 0-38.5-17.3-38.5-38.5S80.9 96 102.2 96c21.2 0 38.5 17.3 38.5 38.5 0 21.3-17.2 38.5-38.5 38.5zm282.1 243h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9V416z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "navigation.top", "search.suggest", "search.highlight", "content.tabs.link", "content.code.annotation", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2a1c317c.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.3a4b43e5.min.js"></script>
+      
+        <script src="../../termynal.js"></script>
+      
+    
+  </body>
+</html>
