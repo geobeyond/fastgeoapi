@@ -379,7 +379,7 @@ DEV_OIDC_WELL_KNOWN_ENDPOINT=https://your-idp.example.com/.well-known/openid-con
 DEV_OIDC_CLIENT_ID=your-client-id
 DEV_OIDC_CLIENT_SECRET=your-client-secret
 
-# Optional MCP OAuth tuning (see docs/mcp-server.md for details)
+# Optional MCP OAuth tuning (see docs/mcp/configuration.md for details)
 # Consent screen behavior: always | remember | external | never
 DEV_FASTGEOAPI_MCP_CONSENT_MODE=remember
 # Client-facing access-token lifetime, decoupled from the IdP expires_in
