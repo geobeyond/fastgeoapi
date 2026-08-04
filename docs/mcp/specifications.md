@@ -33,19 +33,21 @@ upstream, end-to-end verification in progress · 🗺️ on the roadmap ·
 | Dynamic Client Registration (RFC 7591)                                                                                                                                  | ✅     | With redirect-URI validation (unsafe schemes and unregistered URIs rejected)                                                                |
 | Refresh token rotation                                                                                                                                                  | ✅     | One-time-use refresh tokens; `offline_access` supported                                                                                     |
 | Client-facing token TTL decoupled from IdP `expires_in`                                                                                                                 | ✅     | `FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS`                                                                                                |
-| **CIMD** — Client ID Metadata Document ([draft-ietf-oauth-client-id-metadata-document](https://datatracker.ietf.org/doc/draft-ietf-oauth-client-id-metadata-document/)) | 🧪     | Enabled and advertised (`client_id_metadata_document_supported: true`); see the CIMD detail below                                           |
+| **CIMD** — Client ID Metadata Document ([draft-ietf-oauth-client-id-metadata-document](https://datatracker.ietf.org/doc/draft-ietf-oauth-client-id-metadata-document/)) | ✅     | Advertised (`client_id_metadata_document_supported: true`) and covered end to end; see the CIMD detail below                                |
 | Mixed-key JWKS validation (RSA / EC / Ed25519)                                                                                                                          | ✅     | Unsupported key types in an IdP's JWKS are skipped instead of failing the whole set — pairs with Keycloak, Ory Hydra, Rauthy out of the box |
 | **EMA** — Enterprise Managed Authorization ([ID-JAG](https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-assertion-authz-grant/))                                | 🗺️     | Accepting the Identity Assertion JWT Authorization Grant at the embedded AS is on the roadmap (tracking FastMCP 4 / SEP-990)                |
 | MTLS client authentication (RFC 8705)                                                                                                                                   | ❌     | Not supported                                                                                                                               |
 
 ### CIMD feature detail
 
-| CIMD feature                                         | Status       | Notes                                                                                             |
-| ---------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------- |
-| Client ID as URL, metadata document fetch            | 🧪           | SSRF-hardened fetcher (loopback and private ranges rejected, including IPv6 transition addresses) |
-| `redirect_uris` from the metadata document           | 🧪           | Redirects validated against the document                                                          |
-| `jwks_uri` / `jwks` from the metadata document       | 🧪           | End-to-end verification in progress                                                               |
-| Shared-secret client authentication for CIMD clients | ❌ by design | URL-identified clients cannot hold a usable shared secret; key-based methods only                 |
+| CIMD feature                                         | Status       | Notes                                                                                              |
+| ---------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------- |
+| Client ID as URL, metadata document fetch            | ✅           | SSRF-hardened fetcher (loopback and private ranges rejected, including IPv6 transition addresses)  |
+| `redirect_uris` from the metadata document           | ✅           | Enforced: a redirect the document does not list is refused                                         |
+| Authorization code + PKCE, `none` client auth        | ✅           | Public URL-identified client completes the flow with no prior registration                         |
+| Authorization code + PKCE, `private_key_jwt`         | ✅           | Assertion verified against the inline `jwks` published in the document                             |
+| `jwks_uri` (remote key set) in the document          | 🧪           | Supported upstream; our coverage currently exercises the inline `jwks` variant                     |
+| Shared-secret client authentication for CIMD clients | ❌ by design | A URL-identified client cannot hold a usable secret: such documents are refused and yield no token |
 
 ## Supported OAuth flows
 
