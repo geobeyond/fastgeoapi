@@ -16,36 +16,36 @@ upstream, end-to-end verification in progress · 🗺️ on the roadmap ·
 
 ### As MCP Server (protected resource)
 
-| Specification | Status | Notes |
-| --- | --- | --- |
-| MCP Streamable HTTP transport (stateless) | ✅ | Every request is self-contained: restarts, redeploys and autosuspend are transparent to clients |
-| OAuth 2.0 Protected Resource Metadata (RFC 9728) | ✅ | `/.well-known/oauth-protected-resource/mcp/`, advertised in the `WWW-Authenticate` challenge |
-| Bearer token usage and error semantics (RFC 6750) | ✅ | Distinguishes missing vs invalid token in challenges |
-| `scope` parameter in `WWW-Authenticate` | 🧪 | Under verification |
-| OAuth token based access with own Resource AS | ✅ | The embedded OAuth proxy issues the tokens this server accepts |
+| Specification                                     | Status | Notes                                                                                           |
+| ------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------- |
+| MCP Streamable HTTP transport (stateless)         | ✅     | Every request is self-contained: restarts, redeploys and autosuspend are transparent to clients |
+| OAuth 2.0 Protected Resource Metadata (RFC 9728)  | ✅     | `/.well-known/oauth-protected-resource/mcp/`, advertised in the `WWW-Authenticate` challenge    |
+| Bearer token usage and error semantics (RFC 6750) | ✅     | Distinguishes missing vs invalid token in challenges                                            |
+| `scope` parameter in `WWW-Authenticate`           | 🧪     | Under verification                                                                              |
+| OAuth token based access with own Resource AS     | ✅     | The embedded OAuth proxy issues the tokens this server accepts                                  |
 
 ### As OAuth Authorization Server (embedded OIDC proxy)
 
-| Specification | Status | Notes |
-| --- | --- | --- |
-| OAuth 2.1-style authorization code + PKCE (RFC 7636) | ✅ | S256; the proxy fronts any OIDC-compliant upstream IdP |
-| Authorization Server Metadata (RFC 8414) | ✅ | Path-aware, with the `openid-configuration` alias and no-trailing-slash variants |
-| Dynamic Client Registration (RFC 7591) | ✅ | With redirect-URI validation (unsafe schemes and unregistered URIs rejected) |
-| Refresh token rotation | ✅ | One-time-use refresh tokens; `offline_access` supported |
-| Client-facing token TTL decoupled from IdP `expires_in` | ✅ | `FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS` |
-| **CIMD** — Client ID Metadata Document ([draft-ietf-oauth-client-id-metadata-document](https://datatracker.ietf.org/doc/draft-ietf-oauth-client-id-metadata-document/)) | 🧪 | Enabled and advertised (`client_id_metadata_document_supported: true`); see the CIMD detail below |
-| Mixed-key JWKS validation (RSA / EC / Ed25519) | ✅ | Unsupported key types in an IdP's JWKS are skipped instead of failing the whole set — pairs with Keycloak, Ory Hydra, Rauthy out of the box |
-| **EMA** — Enterprise Managed Authorization ([ID-JAG](https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-assertion-authz-grant/)) | 🗺️ | Accepting the Identity Assertion JWT Authorization Grant at the embedded AS is on the roadmap (tracking FastMCP 4 / SEP-990) |
-| MTLS client authentication (RFC 8705) | ❌ | Not supported |
+| Specification                                                                                                                                                           | Status | Notes                                                                                                                                       |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| OAuth 2.1-style authorization code + PKCE (RFC 7636)                                                                                                                    | ✅     | S256; the proxy fronts any OIDC-compliant upstream IdP                                                                                      |
+| Authorization Server Metadata (RFC 8414)                                                                                                                                | ✅     | Path-aware, with the `openid-configuration` alias and no-trailing-slash variants                                                            |
+| Dynamic Client Registration (RFC 7591)                                                                                                                                  | ✅     | With redirect-URI validation (unsafe schemes and unregistered URIs rejected)                                                                |
+| Refresh token rotation                                                                                                                                                  | ✅     | One-time-use refresh tokens; `offline_access` supported                                                                                     |
+| Client-facing token TTL decoupled from IdP `expires_in`                                                                                                                 | ✅     | `FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS`                                                                                                |
+| **CIMD** — Client ID Metadata Document ([draft-ietf-oauth-client-id-metadata-document](https://datatracker.ietf.org/doc/draft-ietf-oauth-client-id-metadata-document/)) | 🧪     | Enabled and advertised (`client_id_metadata_document_supported: true`); see the CIMD detail below                                           |
+| Mixed-key JWKS validation (RSA / EC / Ed25519)                                                                                                                          | ✅     | Unsupported key types in an IdP's JWKS are skipped instead of failing the whole set — pairs with Keycloak, Ory Hydra, Rauthy out of the box |
+| **EMA** — Enterprise Managed Authorization ([ID-JAG](https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-assertion-authz-grant/))                                | 🗺️     | Accepting the Identity Assertion JWT Authorization Grant at the embedded AS is on the roadmap (tracking FastMCP 4 / SEP-990)                |
+| MTLS client authentication (RFC 8705)                                                                                                                                   | ❌     | Not supported                                                                                                                               |
 
 ### CIMD feature detail
 
-| CIMD feature | Status | Notes |
-| --- | --- | --- |
-| Client ID as URL, metadata document fetch | 🧪 | SSRF-hardened fetcher (loopback and private ranges rejected, including IPv6 transition addresses) |
-| `redirect_uris` from the metadata document | 🧪 | Redirects validated against the document |
-| `jwks_uri` / `jwks` from the metadata document | 🧪 | End-to-end verification in progress |
-| Shared-secret client authentication for CIMD clients | ❌ by design | URL-identified clients cannot hold a usable shared secret; key-based methods only |
+| CIMD feature                                         | Status       | Notes                                                                                             |
+| ---------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------- |
+| Client ID as URL, metadata document fetch            | 🧪           | SSRF-hardened fetcher (loopback and private ranges rejected, including IPv6 transition addresses) |
+| `redirect_uris` from the metadata document           | 🧪           | Redirects validated against the document                                                          |
+| `jwks_uri` / `jwks` from the metadata document       | 🧪           | End-to-end verification in progress                                                               |
+| Shared-secret client authentication for CIMD clients | ❌ by design | URL-identified clients cannot hold a usable shared secret; key-based methods only                 |
 
 ## Supported OAuth flows
 
@@ -100,7 +100,7 @@ When OAuth is enabled, the MCP server acts as an **OAuth Proxy**. This architect
 
 | Feature                       | Description                                                                                                                    |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **Fail-closed startup guard** | With MCP enabled and no authentication configured, the server refuses to start unless passthrough mode is explicitly opted in |
+| **Fail-closed startup guard** | With MCP enabled and no authentication configured, the server refuses to start unless passthrough mode is explicitly opted in  |
 | **JWT Validation**            | Tokens are validated using JWKS from the IdP                                                                                   |
 | **Opaque Token Support**      | Supports IdPs that return opaque tokens (e.g., Logto without API Resources)                                                    |
 | **RFC 6750 Compliance**       | Proper error handling distinguishing "no token" vs "invalid token"                                                             |

@@ -129,7 +129,6 @@ When OAuth is enabled, the following RFC-compliant endpoints are available:
 | `/mcp/authorize`                              | OAuth 2.0 | Authorization endpoint                     |
 | `/mcp/token`                                  | OAuth 2.0 | Token endpoint                             |
 
-
 ## Troubleshooting
 
 ### MCP Server Not Starting

@@ -187,4 +187,3 @@ anyway.
 
 > Requires fastmcp >= 3.4 (`fastmcp_access_token_expiry_seconds` on the OAuth
 > proxy).
-

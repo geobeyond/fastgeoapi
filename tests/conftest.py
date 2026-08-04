@@ -340,6 +340,7 @@ def access_token():
 # uvicorn, both in background threads.
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def fastgeoapi_port() -> int:
     """Pre-pick a free port so the OAuth client and the fastgeoapi instance
