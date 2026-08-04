@@ -260,6 +260,40 @@ def patch_fastmcp_auth_middleware():
     logger.debug("Patched FastMCP RequireAuthMiddleware for RFC 6750 compliance")
 
 
+def patch_private_key_jwt_audience():
+    """Normalize the audience the CIMD token endpoint expects.
+
+    fastmcp builds the expected ``aud`` for ``private_key_jwt`` client
+    assertions as ``f"{base_url}/token"``. Our MCP base URL ends with a
+    slash (IdPs require it), so the expected audience becomes
+    ``…/mcp//token`` — while the route, and the ``token_endpoint`` the
+    authorization server metadata advertises, are ``…/mcp/token``.
+
+    A conforming client signs its assertion with the advertised
+    ``token_endpoint`` as audience, so it can never match: CIMD clients
+    using key-based authentication are rejected with
+    ``invalid_client``. Collapsing the duplicate slash restores
+    interoperability. Remove once fixed upstream in fastmcp.
+    """
+    from fastmcp.server.auth.auth import PrivateKeyJWTClientAuthenticator
+
+    if getattr(PrivateKeyJWTClientAuthenticator, "_fastgeoapi_audience_patched", False):
+        return
+
+    original_init = PrivateKeyJWTClientAuthenticator.__init__
+
+    def patched_init(self, provider, cimd_manager, token_endpoint_url: str, **kwargs):
+        scheme, separator, rest = token_endpoint_url.partition("://")
+        if separator:
+            token_endpoint_url = f"{scheme}{separator}{rest.replace('//', '/')}"
+        original_init(self, provider, cimd_manager, token_endpoint_url, **kwargs)
+
+    setattr(PrivateKeyJWTClientAuthenticator, "__init__", patched_init)  # noqa: B010
+    setattr(PrivateKeyJWTClientAuthenticator, "_fastgeoapi_audience_patched", True)  # noqa: B010
+
+    logger.debug("Patched FastMCP private_key_jwt audience normalization")
+
+
 class OIDCProxyWithoutResource(OIDCProxy):
     """OIDC Proxy with RFC 6750 compliant auth error middleware.
 
@@ -399,6 +433,9 @@ def configure_mcp_auth(
     # Patch FastMCP's auth middleware to be RFC 6750 compliant
     # This must be done before creating any FastMCP servers
     patch_fastmcp_auth_middleware()
+    # …and make the CIMD private_key_jwt audience match the advertised
+    # token endpoint, so key-based clients can authenticate at all.
+    patch_private_key_jwt_audience()
 
     if scopes is None:
         scopes = ["openid", "profile", "email", "offline_access"]
