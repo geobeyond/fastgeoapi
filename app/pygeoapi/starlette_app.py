@@ -10,6 +10,12 @@ from pygeoapi.starlette_app import api_ as geoapi
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response
 
+from app.pygeoapi.api import patch_validate_datetime_overflow
+
+# Every pygeoapi request path goes through this module: apply the
+# runtime patches before any route is served.
+patch_validate_datetime_overflow()
+
 
 def call_api_threadsafe(loop: asyncio.AbstractEventLoop, api_call: Callable, *args) -> tuple:
     """Call api in a safe thread.
