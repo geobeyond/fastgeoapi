@@ -46,8 +46,9 @@ upstream, end-to-end verification in progress · 🗺️ on the roadmap ·
 | `redirect_uris` from the metadata document           | ✅           | Enforced: a redirect the document does not list is refused                                         |
 | Authorization code + PKCE, `none` client auth        | ✅           | Public URL-identified client completes the flow with no prior registration                         |
 | Authorization code + PKCE, `private_key_jwt`         | ✅           | Assertion verified against the inline `jwks` published in the document                             |
-| `jwks_uri` (remote key set) in the document          | 🧪           | Supported upstream; our coverage currently exercises the inline `jwks` variant                     |
+| `jwks_uri` (remote key set) in the document          | ✅           | Keys fetched from the URL the document publishes, SSRF-guarded on that hop too                     |
 | Shared-secret client authentication for CIMD clients | ❌ by design | A URL-identified client cannot hold a usable secret: such documents are refused and yield no token |
+| Key enforcement                                      | ✅           | An assertion signed with a key the document does not publish is rejected, even with a matching kid |
 
 ## Supported OAuth flows
 
