@@ -35,12 +35,14 @@ import contextlib
 import json
 import secrets
 import time
+from typing import Any
 
 import httpx
 import pytest
 from authlib.jose import JsonWebKey, jwt
 
 from tests.mcp_e2e_client import CLIENT_REDIRECT_URI, MCPOAuthClient, pkce_pair
+
 
 # CIMD requires https, a host and a non-root path. The host is never
 # resolved (the fetch is patched). Each document gets a unique URL:
@@ -51,6 +53,7 @@ from tests.mcp_e2e_client import CLIENT_REDIRECT_URI, MCPOAuthClient, pkce_pair
 def cimd_client_id() -> str:
     """Return a unique CIMD document URL."""
     return f"https://clients.example.test/fastgeoapi/{secrets.token_hex(6)}.json"
+
 
 CIMD_SCOPE = "openid profile email"
 
@@ -74,19 +77,26 @@ def cimd_document(**overrides) -> dict:
 
 @pytest.fixture
 def serve_cimd_documents(monkeypatch):
-    """Serve CIMD documents in-process, bypassing the SSRF guard.
+    """Serve CIMD documents and remote key sets in-process.
 
-    Returns a callable that publishes a document at its own ``client_id``
-    URL. Unpublished URLs raise the same error the real fetcher would.
+    Every SSRF-guarded hop is replaced against one registry: the CIMD
+    document fetch (``cimd.ssrf_safe_fetch_response``), the ``jwks_uri``
+    pre-validation the document check performs (``cimd.validate_url``),
+    and the remote JWKS fetch itself (``providers.jwt.ssrf_safe_fetch``).
+    Unpublished URLs raise the same errors the real guards would.
+
+    Returns a callable that publishes a payload at a URL (defaulting to
+    the document's own ``client_id``).
     """
     from fastmcp.server.auth import cimd as cimd_module
-    from fastmcp.server.auth.ssrf import SSRFFetchError, SSRFFetchResponse
+    from fastmcp.server.auth.providers import jwt as jwt_module
+    from fastmcp.server.auth.ssrf import SSRFError, SSRFFetchError, SSRFFetchResponse
 
     published: dict[str, dict] = {}
 
-    async def fake_fetch(url: str, **_kwargs) -> SSRFFetchResponse:
+    async def fake_fetch_response(url: str, **_kwargs) -> SSRFFetchResponse:
         if url not in published:
-            raise SSRFFetchError(f"no CIMD document published at {url}")
+            raise SSRFFetchError(f"nothing published at {url}")
         return SSRFFetchResponse(
             content=json.dumps(published[url]).encode(),
             status_code=200,
@@ -94,15 +104,79 @@ def serve_cimd_documents(monkeypatch):
             headers={"Cache-Control": "no-store"},
         )
 
-    monkeypatch.setattr(cimd_module, "ssrf_safe_fetch_response", fake_fetch)
+    async def fake_fetch_bytes(url: str, **_kwargs) -> bytes:
+        if url not in published:
+            raise SSRFFetchError(f"nothing published at {url}")
+        return json.dumps(published[url]).encode()
 
-    def publish(document: dict, at: str | None = None) -> str:
-        """Publish a document, optionally at a URL other than its client_id."""
-        url = at or str(document["client_id"])
-        published[url] = document
+    async def fake_validate_url(url: str, **_kwargs) -> None:
+        """Accept published test URLs in the document's own jwks_uri check."""
+        if url not in published:
+            raise SSRFError(f"nothing published at {url}")
+
+    monkeypatch.setattr(cimd_module, "ssrf_safe_fetch_response", fake_fetch_response)
+    monkeypatch.setattr(cimd_module, "validate_url", fake_validate_url)
+    monkeypatch.setattr(jwt_module, "ssrf_safe_fetch", fake_fetch_bytes)
+
+    def publish(payload: dict, at: str | None = None) -> str:
+        """Publish a payload, optionally at a URL other than its client_id."""
+        url = at or str(payload["client_id"])
+        published[url] = payload
         return url
 
     return publish
+
+
+def signing_key(kid: str = "cimd-e2e") -> tuple[Any, dict]:
+    """Return an RSA key and its public JWK, ready for a document."""
+    key = JsonWebKey.generate_key("RSA", 2048, is_private=True)
+    return key, key.as_dict(is_private=False, alg="RS256", use="sig", kid=kid)
+
+
+def client_assertion(key, kid: str, client_id: str, token_endpoint: str) -> str:
+    """Sign an RFC 7523 client assertion for ``private_key_jwt``.
+
+    The audience is the token endpoint the authorization server
+    advertises: a conforming client has no other value to sign.
+    """
+    now = int(time.time())
+    return jwt.encode(
+        {"alg": "RS256", "kid": kid, "typ": "JWT"},
+        {
+            "iss": client_id,
+            "sub": client_id,
+            "aud": token_endpoint,
+            "jti": secrets.token_urlsafe(16),
+            "iat": now,
+            "exp": now + 120,
+        },
+        key,
+    ).decode()
+
+
+def advertised_token_endpoint(base_url: str) -> str:
+    """Read the token endpoint out of the authorization server metadata."""
+    metadata = httpx.get(f"{base_url}/.well-known/oauth-authorization-server/mcp").json()
+    return metadata["token_endpoint"]
+
+
+def exchange_with_assertion(base_url: str, oauth: MCPOAuthClient, assertion: str) -> httpx.Response:
+    """Authorize, then exchange the code using a client assertion."""
+    verifier, challenge = pkce_pair()
+    with httpx.Client(timeout=10.0) as http:
+        code = oauth.authorize(http, challenge, secrets.token_urlsafe(16))
+        return http.post(
+            advertised_token_endpoint(base_url),
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": CLIENT_REDIRECT_URI,
+                "client_id": oauth.client_id,
+                "code_verifier": verifier,
+                "client_assertion_type": ASSERTION_TYPE,
+                "client_assertion": assertion,
+            },
+        )
 
 
 @pytest.fixture
@@ -240,19 +314,18 @@ def test_cimd_client_id_must_match_the_document_url(
     assert oauth.access_token is None, "a mismatched CIMD document must not yield a token"
 
 
-def test_cimd_private_key_jwt_authenticates_the_token_request(
+def test_cimd_private_key_jwt_with_inline_jwks(
     fastgeoapi_with_iam: str,
     serve_cimd_documents,
     logged_in_user,
 ):
-    """``private_key_jwt`` with keys from the document authenticates /token.
+    """``private_key_jwt`` with the key published inline in the document.
 
     Matrix row: *Authorization code grant with PKCE / JWT*. The client
-    proves possession of the key published in its own metadata document
-    (inline ``jwks``) instead of presenting a secret.
+    proves possession of the key in its own metadata document instead of
+    presenting a secret.
     """
-    key = JsonWebKey.generate_key("RSA", 2048, is_private=True)
-    public_jwk = key.as_dict(is_private=False, alg="RS256", use="sig", kid="cimd-e2e")
+    key, public_jwk = signing_key()
     client_id = serve_cimd_documents(
         cimd_document(
             token_endpoint_auth_method="private_key_jwt",
@@ -260,45 +333,83 @@ def test_cimd_private_key_jwt_authenticates_the_token_request(
         )
     )
 
-    # The audience is the token endpoint the authorization server
-    # advertises: a conforming client has no other value to sign.
-    metadata = httpx.get(
-        f"{fastgeoapi_with_iam}/.well-known/oauth-authorization-server/mcp"
-    ).json()
-    token_endpoint = metadata["token_endpoint"]
-    now = int(time.time())
-    assertion = jwt.encode(
-        {"alg": "RS256", "kid": "cimd-e2e", "typ": "JWT"},
-        {
-            "iss": client_id,
-            "sub": client_id,
-            "aud": token_endpoint,
-            "jti": secrets.token_urlsafe(16),
-            "iat": now,
-            "exp": now + 120,
-        },
-        key,
-    ).decode()
-
     oauth = MCPOAuthClient(base_url=fastgeoapi_with_iam, client_id=client_id, scope=CIMD_SCOPE)
-    verifier, challenge = pkce_pair()
-
-    with httpx.Client(timeout=10.0) as http:
-        code = oauth.authorize(http, challenge, secrets.token_urlsafe(16))
-        response = http.post(
-            token_endpoint,
-            data={
-                "grant_type": "authorization_code",
-                "code": code,
-                "redirect_uri": CLIENT_REDIRECT_URI,
-                "client_id": client_id,
-                "code_verifier": verifier,
-                "client_assertion_type": ASSERTION_TYPE,
-                "client_assertion": assertion,
-            },
-        )
+    assertion = client_assertion(
+        key, "cimd-e2e", client_id, advertised_token_endpoint(fastgeoapi_with_iam)
+    )
+    response = exchange_with_assertion(fastgeoapi_with_iam, oauth, assertion)
 
     assert response.status_code == 200, response.text[:400]
     body = response.json()
     assert body.get("token_type", "").lower() == "bearer", body
     assert body.get("access_token"), body
+
+
+@pytest.mark.asyncio
+async def test_cimd_private_key_jwt_with_remote_jwks_uri(
+    fastgeoapi_with_iam: str,
+    serve_cimd_documents,
+    logged_in_user,
+):
+    """``private_key_jwt`` with keys fetched from the document's ``jwks_uri``.
+
+    The remote variant of the same matrix row, and the realistic one:
+    clients rotate keys by republishing a key set rather than editing
+    their metadata document. The fetch goes through a second SSRF-guarded
+    path, so this exercises code the inline variant never touches. The
+    resulting token is then used on a real MCP session.
+    """
+    from tests.mcp_e2e_client import authenticated_mcp_client
+
+    key, public_jwk = signing_key(kid="cimd-remote")
+    jwks_uri = f"https://clients.example.test/keys/{secrets.token_hex(6)}.json"
+    serve_cimd_documents({"keys": [public_jwk]}, at=jwks_uri)
+    client_id = serve_cimd_documents(
+        cimd_document(
+            token_endpoint_auth_method="private_key_jwt",
+            jwks_uri=jwks_uri,
+        )
+    )
+
+    oauth = MCPOAuthClient(base_url=fastgeoapi_with_iam, client_id=client_id, scope=CIMD_SCOPE)
+    assertion = client_assertion(
+        key, "cimd-remote", client_id, advertised_token_endpoint(fastgeoapi_with_iam)
+    )
+    response = exchange_with_assertion(fastgeoapi_with_iam, oauth, assertion)
+
+    assert response.status_code == 200, response.text[:400]
+    oauth.access_token = response.json()["access_token"]
+
+    async with authenticated_mcp_client(fastgeoapi_with_iam, oauth=oauth) as client:
+        assert await client.list_tools()
+
+
+def test_cimd_assertion_signed_with_an_unpublished_key_is_rejected(
+    fastgeoapi_with_iam: str,
+    serve_cimd_documents,
+    logged_in_user,
+):
+    """A key that is not in the document's key set must not authenticate.
+
+    Key-based client authentication is only worth a matrix checkmark if
+    it is *enforced*: possession of any key must not do — it has to be a
+    key the client published.
+    """
+    _published_key, public_jwk = signing_key(kid="cimd-published")
+    attacker_key, _attacker_jwk = signing_key(kid="cimd-published")
+    client_id = serve_cimd_documents(
+        cimd_document(
+            token_endpoint_auth_method="private_key_jwt",
+            jwks={"keys": [public_jwk]},
+        )
+    )
+
+    oauth = MCPOAuthClient(base_url=fastgeoapi_with_iam, client_id=client_id, scope=CIMD_SCOPE)
+    # Same kid, different key material.
+    assertion = client_assertion(
+        attacker_key, "cimd-published", client_id, advertised_token_endpoint(fastgeoapi_with_iam)
+    )
+    response = exchange_with_assertion(fastgeoapi_with_iam, oauth, assertion)
+
+    assert response.status_code >= 400, response.text[:300]
+    assert "access_token" not in response.text, response.text[:300]
