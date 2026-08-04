@@ -173,6 +173,9 @@ convention = "numpy"
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "S104", "S105", "S106", "S108", "N802", "D", "E501"]
 "app/pygeoapi/*" = ["D", "DOC"]  # Temporarily ignored, tracked in #315
+# Mirrors upstream pygeoapi/api/__init__.py, where validate_datetime lives:
+# the patch must sit in the same-named module, which upstream made a package init.
+"app/pygeoapi/api/__init__.py" = ["RUF067"]
 "noxfile.py" = ["S404", "S603", "S607"]  # subprocess calls to git are safe
 
 [tool.ruff.format]
