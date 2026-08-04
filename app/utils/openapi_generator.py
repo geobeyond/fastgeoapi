@@ -4,9 +4,13 @@ import os
 from pathlib import Path
 
 from loguru import logger
-from pygeoapi.openapi import generate_openapi_document
 
 from app.config.app import configuration as cfg
+
+# The mirror module wraps upstream generation with fastgeoapi's
+# document-level corrections: the standard generation path produces an
+# already-corrected file for every consumer.
+from app.pygeoapi.openapi import generate_openapi_document
 from app.utils.pygeoapi_exceptions import PygeoapiEnvError
 
 
