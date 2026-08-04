@@ -35,7 +35,6 @@ The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is an open 
 | **Provider Agnostic**           | Works with any OIDC-compliant IdP via fastmcp's OIDCProxy                              |
 | **Stateless Streamable HTTP**   | Single-endpoint transport; every request is self-contained (suspend/redeploy friendly) |
 
-
 ## Architecture
 
 The following diagram shows how the MCP server integrates with the fastgeoapi architecture:
@@ -93,4 +92,3 @@ This is a deliberate choice for ephemeral deployments. With the default _statefu
 In stateless mode those events are transparent: the next request simply works, whether or not the process was suspended, resumed, or rebuilt in between.
 
 The trade-off is that the server cannot push server-initiated messages (progress notifications, sampling, subscriptions). For this server — a tools-only surface generated from the pygeoapi OpenAPI document — nothing is lost.
-
