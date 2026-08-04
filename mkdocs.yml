@@ -98,7 +98,11 @@ nav:
   - Getting started: getting-started.md
   - How-to Guides:
       - Overview: howto-guides.md
-      - MCP Server: mcp-server.md
+  - MCP:
+      - Overview: mcp/index.md
+      - Configuration: mcp/configuration.md
+      - Supported specifications: mcp/specifications.md
+      - Getting started: mcp/getting-started.md
   - Tutorials: tutorials.md
   - OpenAPI: openapi.md
 
