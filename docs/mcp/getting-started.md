@@ -181,6 +181,32 @@ If the client UI reports the server as connected but tool invocations error out 
 
 Server-side this class of problem is mitigated by the [stateless transport](index.md#stateless-transport): requests never depend on prior server state, so once the client opens a fresh connection everything works without re-authentication.
 
+### Exploring with third-party clients
+
+Two failure modes look identical from a generic MCP CLI — an opaque
+"server returned an error" — but have different causes.
+
+**The server requires authentication.** With OAuth enabled every MCP
+request without a token is answered `401` plus the RFC 6750 challenge.
+Tools that cannot authenticate simply cannot list tools. Use a client
+that performs the OAuth flow:
+
+```bash
+npx @modelcontextprotocol/inspector
+# then point it at https://your-host/mcp/ and complete the browser flow
+```
+
+**The client speaks a newer protocol.** Recent tooling defaults to the
+sessionless protocol `2026-07-28`, which this build does not negotiate
+yet (see [Protocol versions](specifications.md#protocol-versions)).
+Clients that expose a legacy mode work in full:
+
+```bash
+# against a server running without authentication
+uvx mcp-explorer list --legacy http://127.0.0.1:5000/mcp/
+uvx mcp-explorer info --legacy http://127.0.0.1:5000/mcp/
+```
+
 ### Enable Debug Logging
 
 Enable debug logging to see detailed MCP server activity:
