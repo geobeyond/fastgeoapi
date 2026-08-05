@@ -16,13 +16,15 @@ upstream, end-to-end verification in progress · 🗺️ on the roadmap ·
 
 ### As MCP Server (protected resource)
 
-| Specification                                     | Status | Notes                                                                                           |
-| ------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------- |
-| MCP Streamable HTTP transport (stateless)         | ✅     | Every request is self-contained: restarts, redeploys and autosuspend are transparent to clients |
-| OAuth 2.0 Protected Resource Metadata (RFC 9728)  | ✅     | `/.well-known/oauth-protected-resource/mcp/`, advertised in the `WWW-Authenticate` challenge    |
-| Bearer token usage and error semantics (RFC 6750) | ✅     | Distinguishes missing vs invalid token in challenges                                            |
-| `scope` parameter in `WWW-Authenticate`           | 🧪     | Under verification                                                                              |
-| OAuth token based access with own Resource AS     | ✅     | The embedded OAuth proxy issues the tokens this server accepts                                  |
+| Specification                                     | Status | Notes                                                                                            |
+| ------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------ |
+| MCP Streamable HTTP transport (stateless)         | ✅     | Every request is self-contained: restarts, redeploys and autosuspend are transparent to clients  |
+| MCP protocol versions up to `2025-11-25`          | ✅     | Negotiated with the `initialize` handshake                                                       |
+| Sessionless protocol `2026-07-28` (MCP SDK v2)    | 🗺️     | Not yet: clients that default to it must fall back — see [Protocol versions](#protocol-versions) |
+| OAuth 2.0 Protected Resource Metadata (RFC 9728)  | ✅     | `/.well-known/oauth-protected-resource/mcp/`, advertised in the `WWW-Authenticate` challenge     |
+| Bearer token usage and error semantics (RFC 6750) | ✅     | Distinguishes missing vs invalid token in challenges                                             |
+| `scope` parameter in `WWW-Authenticate`           | 🧪     | Under verification                                                                               |
+| OAuth token based access with own Resource AS     | ✅     | The embedded OAuth proxy issues the tokens this server accepts                                   |
 
 ### As OAuth Authorization Server (embedded OIDC proxy)
 
@@ -49,6 +51,31 @@ upstream, end-to-end verification in progress · 🗺️ on the roadmap ·
 | `jwks_uri` (remote key set) in the document          | ✅           | Keys fetched from the URL the document publishes, SSRF-guarded on that hop too                     |
 | Shared-secret client authentication for CIMD clients | ❌ by design | A URL-identified client cannot hold a usable secret: such documents are refused and yield no token |
 | Key enforcement                                      | ✅           | An assertion signed with a key the document does not publish is rejected, even with a matching kid |
+
+## Protocol versions
+
+The server currently negotiates MCP protocol versions up to
+`2025-11-25`, using the `initialize` handshake.
+
+Newer client tooling defaults to the **sessionless protocol
+`2026-07-28`** introduced with MCP SDK v2. Against this server such a
+client is answered with:
+
+```
+Bad Request: Unsupported protocol version: 2026-07-28.
+Supported versions: 2024-11-05, 2025-03-26, 2025-06-18, 2025-11-25
+```
+
+That message is easy to misread as "the server is broken" — it is not:
+the client asked for a protocol this build does not speak yet. Clients
+that offer a legacy mode work in full (see
+[Getting started](getting-started.md#exploring-with-third-party-clients)).
+
+**Planned**: the FastMCP 4 migration moves the server onto MCP SDK v2,
+where the protocol mode is negotiated per connection — the server will
+answer both the sessionless protocol and the `initialize` handshake, so
+clients on either side of the change work without configuration. Until
+then, a client stuck on `2026-07-28` with no fallback cannot connect.
 
 ## Supported OAuth flows
 
