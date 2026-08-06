@@ -28,17 +28,17 @@ upstream, end-to-end verification in progress · 🗺️ on the roadmap ·
 
 ### As OAuth Authorization Server (embedded OIDC proxy)
 
-| Specification                                                                                                                                                           | Status | Notes                                                                                                                                       |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| OAuth 2.1-style authorization code + PKCE (RFC 7636)                                                                                                                    | ✅     | S256; the proxy fronts any OIDC-compliant upstream IdP                                                                                      |
-| Authorization Server Metadata (RFC 8414)                                                                                                                                | ✅     | Path-aware, with the `openid-configuration` alias and no-trailing-slash variants                                                            |
-| Dynamic Client Registration (RFC 7591)                                                                                                                                  | ✅     | With redirect-URI validation (unsafe schemes and unregistered URIs rejected)                                                                |
-| Refresh token rotation                                                                                                                                                  | ✅     | One-time-use refresh tokens; `offline_access` supported                                                                                     |
-| Client-facing token TTL decoupled from IdP `expires_in`                                                                                                                 | ✅     | `FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS`                                                                                                |
-| **CIMD** — Client ID Metadata Document ([draft-ietf-oauth-client-id-metadata-document](https://datatracker.ietf.org/doc/draft-ietf-oauth-client-id-metadata-document/)) | ✅     | Advertised (`client_id_metadata_document_supported: true`) and covered end to end; see the CIMD detail below                                |
-| Mixed-key JWKS validation (RSA / EC / Ed25519)                                                                                                                          | ✅     | Unsupported key types in an IdP's JWKS are skipped instead of failing the whole set — pairs with Keycloak, Ory Hydra, Rauthy out of the box |
-| **EMA** — Enterprise Managed Authorization ([ID-JAG](https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-assertion-authz-grant/))                                | 🗺️     | Accepting the Identity Assertion JWT Authorization Grant at the embedded AS is on the roadmap (tracking FastMCP 4 / SEP-990)                |
-| MTLS client authentication (RFC 8705)                                                                                                                                   | ❌     | Not supported                                                                                                                               |
+| Specification                                                                                                                                                           | Status | Notes                                                                                                                                                |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OAuth 2.1-style authorization code + PKCE (RFC 7636)                                                                                                                    | ✅     | S256; the proxy fronts any OIDC-compliant upstream IdP                                                                                               |
+| Authorization Server Metadata (RFC 8414)                                                                                                                                | ✅     | Path-aware, with the `openid-configuration` alias and no-trailing-slash variants                                                                     |
+| Dynamic Client Registration (RFC 7591)                                                                                                                                  | ✅     | With redirect-URI validation (unsafe schemes and unregistered URIs rejected)                                                                         |
+| Refresh token rotation                                                                                                                                                  | ✅     | One-time-use refresh tokens; `offline_access` supported                                                                                              |
+| Client-facing token TTL decoupled from IdP `expires_in`                                                                                                                 | ✅     | `FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS`                                                                                                         |
+| **CIMD** — Client ID Metadata Document ([draft-ietf-oauth-client-id-metadata-document](https://datatracker.ietf.org/doc/draft-ietf-oauth-client-id-metadata-document/)) | ✅     | Advertised (`client_id_metadata_document_supported: true`) and covered end to end; see the CIMD detail below                                         |
+| Mixed-key JWKS validation (RSA / EC / Ed25519)                                                                                                                          | ✅     | Unsupported key types in an IdP's JWKS are skipped instead of failing the whole set — pairs with Keycloak, Ory Hydra, Rauthy out of the box          |
+| **EMA** — Enterprise Managed Authorization ([ID-JAG](https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-assertion-authz-grant/))                                | 🧪     | The `jwt-bearer` grant accepts assertions from configured enterprise IdPs; see [Enterprise-Managed Authorization](#enterprise-managed-authorization) |
+| MTLS client authentication (RFC 8705)                                                                                                                                   | ❌     | Not supported                                                                                                                                        |
 
 ### CIMD feature detail
 
@@ -51,6 +51,30 @@ upstream, end-to-end verification in progress · 🗺️ on the roadmap ·
 | `jwks_uri` (remote key set) in the document          | ✅           | Keys fetched from the URL the document publishes, SSRF-guarded on that hop too                     |
 | Shared-secret client authentication for CIMD clients | ❌ by design | A URL-identified client cannot hold a usable secret: such documents are refused and yield no token |
 | Key enforcement                                      | ✅           | An assertion signed with a key the document does not publish is rejected, even with a matching kid |
+
+## Enterprise-Managed Authorization
+
+In the default flow each user authorises this server themselves, through
+a browser. EMA ([SEP-990](https://modelcontextprotocol.io/extensions/auth/enterprise-managed-authorization))
+moves that decision to the organisation: the client asks its own
+enterprise identity provider for an **ID-JAG** — a signed assertion that
+this employee may reach this server — and exchanges it here for an
+access token. No browser, no consent screen, and access is revoked
+centrally at the IdP rather than per client registration.
+
+Configure the issuers whose assertions are honoured (see
+[Configuration](configuration.md#enterprise-managed-authorization-fastgeoapi_mcp_trusted_issuers));
+with none configured the grant answers `unsupported_grant_type` and the
+surface does not exist.
+
+| Feature                                             | Status       | Notes                                                                                                                                                        |
+| --------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `urn:ietf:params:oauth:grant-type:jwt-bearer` grant | 🧪           | Advertised in the authorization server metadata, together with the `id-jag` grant profile, only when issuers are configured                                  |
+| Assertion validation                                | 🧪           | Signature against the issuer's JWKS (discovered via OIDC), trusted issuer, `aud`, `typ` (`oauth-id-jag+jwt`), `exp`/`nbf`/`iat`, and `jti` replay protection |
+| Client binding                                      | 🧪           | The assertion's signed `client_id` must match the authenticated client — an assertion minted for one client cannot be presented by another                   |
+| `resource` support                                  | 🧪           | The issued token is bound to the MCP server the assertion names                                                                                              |
+| `scope` support                                     | 🧪           | The scopes the IdP put in the assertion are carried into the issued token                                                                                    |
+| Refresh tokens                                      | ❌ by design | EMA clients re-exchange their assertion instead; the renewable credential stays with the IdP, which is what makes central revocation meaningful              |
 
 ## Protocol versions
 
