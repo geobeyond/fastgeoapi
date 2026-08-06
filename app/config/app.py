@@ -77,6 +77,11 @@ class DevConfig(GlobalConfig):
     FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED: bool = False
     FASTGEOAPI_CACHE_DIR: str | None = None
     FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS: int | None = None
+    # Comma-separated issuers whose ID-JAG assertions this authorization
+    # server accepts (Enterprise-Managed Authorization). Empty by default:
+    # the grant stays off until an operator names the enterprise IdPs it
+    # trusts, so nobody can mint tokens with an assertion we never vetted.
+    FASTGEOAPI_MCP_TRUSTED_ISSUERS: str | None = None
 
     model_config = SettingsConfigDict(
         env_prefix="DEV_",
@@ -135,6 +140,11 @@ class ProdConfig(GlobalConfig):
     FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED: bool = False
     FASTGEOAPI_CACHE_DIR: str | None = None
     FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS: int | None = None
+    # Comma-separated issuers whose ID-JAG assertions this authorization
+    # server accepts (Enterprise-Managed Authorization). Empty by default:
+    # the grant stays off until an operator names the enterprise IdPs it
+    # trusts, so nobody can mint tokens with an assertion we never vetted.
+    FASTGEOAPI_MCP_TRUSTED_ISSUERS: str | None = None
 
     model_config = SettingsConfigDict(
         env_prefix="PROD_",

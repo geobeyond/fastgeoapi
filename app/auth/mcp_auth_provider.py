@@ -136,6 +136,7 @@ def configure_mcp_auth(
     scopes: list[str] | None = None,
     consent_mode: str | None = "remember",
     access_token_expiry_seconds: int | None = None,
+    trusted_issuers: list[str] | None = None,
 ):
     """Configure MCP authentication via fastmcp's OIDCProxy.
 
@@ -223,10 +224,16 @@ def configure_mcp_auth(
     # (like Logto when no API Resource is requested).
     # This verifier accepts opaque tokens as valid because they were already
     # validated during the OAuth code exchange with the IdP.
+    # What we REQUEST upstream and what we REQUIRE on an inbound token are
+    # different things. `offline_access` is a request-time scope that asks
+    # the IdP for a refresh token; demanding it back on every access token
+    # would reject perfectly valid ones — in particular EMA tokens, which
+    # by design carry no refresh (the client re-exchanges its assertion).
+    # `openid` is the one scope that must actually be present.
     token_verifier = TrustingUpstreamTokenVerifier(
         client_id=client_id,
         client_secret=client_secret,
-        required_scopes=scopes,
+        required_scopes=[scope for scope in scopes if scope == "openid"],
     )
 
     # Create the OIDC proxy. `forward_resource=False` makes fastmcp skip the
@@ -238,7 +245,20 @@ def configure_mcp_auth(
         access_token_expiry_seconds = DEFAULT_MCP_ACCESS_TOKEN_EXPIRY_SECONDS
     client_token_ttl = access_token_expiry_seconds if access_token_expiry_seconds > 0 else None
 
+    # Enterprise-Managed Authorization (SEP-990): with trusted issuers
+    # configured, the token endpoint also accepts an ID-JAG — an assertion
+    # the enterprise IdP mints for an employee — and exchanges it for an
+    # access token, no browser and no per-user consent. Left unset the
+    # grant answers `unsupported_grant_type`, so the surface only exists
+    # for operators who named the identity providers they trust.
+    identity_assertion = None
+    if trusted_issuers:
+        from fastmcp.server.auth import IdentityAssertion
+
+        identity_assertion = IdentityAssertion(trusted_issuers=list(trusted_issuers))
+
     auth = OIDCProxy(
+        identity_assertion=identity_assertion,
         config_url=oidc_well_known_endpoint,
         client_id=client_id,
         client_secret=client_secret,
@@ -250,6 +270,10 @@ def configure_mcp_auth(
         fastmcp_access_token_expiry_seconds=client_token_ttl,
     )
     logger.info(f"MCP consent mode: {consent_mode or 'remember'}")
+    logger.info(
+        "MCP identity assertion (EMA): "
+        f"{f'enabled for {len(trusted_issuers)} issuer(s)' if trusted_issuers else 'disabled'}"
+    )
     logger.info(
         "MCP client access-token TTL: "
         f"{f'{client_token_ttl}s' if client_token_ttl else 'mirror upstream expires_in'}"

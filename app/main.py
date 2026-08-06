@@ -366,6 +366,14 @@ def create_mcp_server(api_client: httpx.AsyncClient | None = None):
             access_token_expiry_seconds=getattr(
                 cfg, "FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS", None
             ),
+            # Enterprise IdPs whose ID-JAG assertions we honour (EMA).
+            trusted_issuers=[
+                issuer.strip()
+                for issuer in (getattr(cfg, "FASTGEOAPI_MCP_TRUSTED_ISSUERS", None) or "").split(
+                    ","
+                )
+                if issuer.strip()
+            ],
         )
 
     # Create MCP server from OpenAPI spec
