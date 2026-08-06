@@ -50,16 +50,13 @@ def mcp_test_app(mock_oidc_config):
     mock_response.json.return_value = mock_oidc_config
     mock_response.raise_for_status = MagicMock()
 
-    with patch("fastmcp.server.auth.oidc_proxy.httpx.get", return_value=mock_response):
+    with patch("fastmcp.server.auth.oidc_proxy.httpx2.get", return_value=mock_response):
         with patch("requests.get", return_value=mock_response):
-            from app.auth.mcp_auth_provider import (
-                OIDCProxyWithoutResource,
-                TrustingUpstreamTokenVerifier,
-                patch_fastmcp_auth_middleware,
-            )
+            from fastmcp.server.auth.oidc_proxy import OIDCProxy
 
-            # Patch FastMCP's middleware for RFC 6750 compliance
-            patch_fastmcp_auth_middleware()
+            from app.auth.mcp_auth_provider import (
+                TrustingUpstreamTokenVerifier,
+            )
 
             token_verifier = TrustingUpstreamTokenVerifier(
                 client_id="test-client",
@@ -67,7 +64,7 @@ def mcp_test_app(mock_oidc_config):
                 required_scopes=["openid", "profile", "email"],
             )
 
-            auth = OIDCProxyWithoutResource(
+            auth = OIDCProxy(
                 config_url="https://example.logto.app/oidc/.well-known/openid-configuration",
                 client_id="test-client",
                 client_secret="test-secret",
@@ -155,11 +152,12 @@ class TestMCPRemoteOAuthFlowE2E:
         assert response.status_code in [200, 201]
         data = response.json()
 
-        # Verify client credentials are returned
+        # Registered clients are public: fastmcp issues an identifier and no
+        # secret, and the flow is protected by PKCE instead (a secret shipped
+        # to a desktop client would not be a secret anyway).
         assert "client_id" in data
-        assert "client_secret" in data
         assert len(data["client_id"]) > 0
-        assert len(data["client_secret"]) > 0
+        assert "client_secret" not in data, data
 
         # Verify redirect_uris are echoed back
         assert "redirect_uris" in data
@@ -194,10 +192,8 @@ class TestMCPRemoteOAuthFlowE2E:
 
         assert response.status_code == 401
 
-        # Check response body
-        body = response.json()
-        assert body.get("error") == "unauthorized"
-
+        # The challenge lives in the header, not the body: a 401 for a request
+        # that carried no credentials at all has nothing to describe in JSON.
         # CRITICAL: Verify invalid_token is NOT in the response
         # This is the key fix for mcp-remote compatibility
         www_auth = response.headers.get("WWW-Authenticate", "")
@@ -398,16 +394,19 @@ class TestMCPRemoteCompatibility:
         assert "code_challenge_methods_supported" in data
         assert "S256" in data["code_challenge_methods_supported"]
 
-    def test_client_secret_post_auth_method_supported(self, mcp_test_app):
-        """Test that client_secret_post auth method is supported.
+    def test_public_client_auth_method_advertised(self, mcp_test_app):
+        """The token endpoint must advertise an auth method public clients can use.
 
-        mcp-remote typically uses client_secret_post for token exchange.
+        Clients registered through DCR hold no secret, so ``none`` (with
+        PKCE) is what they present at the token endpoint; ``private_key_jwt``
+        covers CIMD clients that authenticate with a published key.
         """
         discovery = mcp_test_app.get("/.well-known/oauth-authorization-server/mcp")
         data = discovery.json()
 
         assert "token_endpoint_auth_methods_supported" in data
-        assert "client_secret_post" in data["token_endpoint_auth_methods_supported"]
+        methods = data["token_endpoint_auth_methods_supported"]
+        assert "none" in methods, methods
 
     def test_refresh_token_grant_supported(self, mcp_test_app):
         """Test that refresh_token grant is supported.
@@ -474,5 +473,6 @@ class TestRFC6750Compliance:
         # Must start with Bearer
         assert www_auth.startswith("Bearer")
 
-        # Should include realm
-        assert "realm=" in www_auth
+        # `realm` is optional in RFC 6750 and fastmcp does not emit it; what
+        # the client actually needs is the pointer to the resource metadata.
+        assert "resource_metadata=" in www_auth, www_auth

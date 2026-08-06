@@ -96,7 +96,7 @@ def mcp_app_with_oauth():
     with mock.patch.dict(os.environ, env, clear=False):
         with (
             mock.patch("requests.get", return_value=mock_response),
-            mock.patch("httpx.get", return_value=mock_response),
+            mock.patch("httpx2.get", return_value=mock_response),
         ):
             yield _reload_app_main().app
 

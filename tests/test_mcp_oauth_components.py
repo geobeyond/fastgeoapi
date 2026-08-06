@@ -1,7 +1,7 @@
 """Test MCP OAuth components.
 
 These tests verify that:
-1. OIDCProxyWithoutResource correctly filters the 'resource' parameter for Logto/DCR compatibility
+1. The OIDC proxy omits the 'resource' parameter for Logto/DCR compatibility
 2. fastmcp OIDCProxy integration configures providers correctly
 """
 
@@ -10,14 +10,15 @@ from base64 import urlsafe_b64encode
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastmcp.server.auth.oidc_proxy import OIDCProxy
 
 
-class TestOIDCProxyWithoutResourceFiltering:
-    """Test OIDCProxyWithoutResource filters the resource parameter for Logto/DCR compatibility.
+class TestResourceParameterFiltering:
+    """The OIDC proxy must omit the resource parameter for Logto/DCR compatibility.
 
     Logto and similar IdPs return access_denied for third-party apps (like mcp-remote
     using Dynamic Client Registration) that request API Resources without explicit
-    permission grants. The OIDCProxyWithoutResource solves this by filtering out the
+    permission grants. `forward_resource=False` solves this by omitting the
     'resource' parameter from authorization requests.
     """
 
@@ -49,7 +50,7 @@ class TestOIDCProxyWithoutResourceFiltering:
         mock_response.raise_for_status = MagicMock()
 
         with patch(
-            "fastmcp.server.auth.oidc_proxy.httpx.get",
+            "fastmcp.server.auth.oidc_proxy.httpx2.get",
             return_value=mock_response,
         ):
 
@@ -128,7 +129,7 @@ class TestOIDCProxyWithoutResourceFiltering:
         mock_response.json.return_value = mock_oidc_config
         mock_response.raise_for_status = MagicMock()
 
-        with patch("httpx.get", return_value=mock_response):
+        with patch("httpx2.get", return_value=mock_response):
 
             class CustomOIDCProxy(OIDCProxy):
                 """Custom OIDC Proxy for testing."""
@@ -189,7 +190,7 @@ class TestOIDCProxyWithoutResourceFiltering:
         mock_response.json.return_value = mock_oidc_config
         mock_response.raise_for_status = MagicMock()
 
-        with patch("httpx.get", return_value=mock_response):
+        with patch("httpx2.get", return_value=mock_response):
 
             class CustomOIDCProxy(OIDCProxy):
                 """Custom OIDC Proxy for testing."""
@@ -257,7 +258,7 @@ class TestOIDCProxyWithoutResourceFiltering:
             assert params["code_challenge"][0] == expected_challenge
 
     def test_real_proxy_does_not_forward_resource(self, mock_oidc_config):
-        """`OIDCProxyWithoutResource` with `forward_resource=False` strips the
+        """`OIDCProxy` with `forward_resource=False` strips the
         `resource` parameter that the MCP downstream client (e.g. mcp-remote)
         passes via the transaction (per RFC 8707).
 
@@ -273,17 +274,16 @@ class TestOIDCProxyWithoutResourceFiltering:
         the OAuth transaction, and that's what `forward_resource=False`
         suppresses.
         """
-        from app.auth.mcp_auth_provider import OIDCProxyWithoutResource
 
         mock_response = MagicMock()
         mock_response.json.return_value = mock_oidc_config
         mock_response.raise_for_status = MagicMock()
 
         with patch(
-            "fastmcp.server.auth.oidc_proxy.httpx.get",
+            "fastmcp.server.auth.oidc_proxy.httpx2.get",
             return_value=mock_response,
         ):
-            proxy = OIDCProxyWithoutResource(
+            proxy = OIDCProxy(
                 config_url="https://example.logto.app/oidc/.well-known/openid-configuration",
                 client_id="test-client-id",
                 client_secret="test-client-secret",
@@ -519,6 +519,8 @@ class TestOIDCProxyWithTrustingVerifier:
         """Test that OIDCProxy accepts TrustingUpstreamTokenVerifier."""
         from unittest.mock import MagicMock, patch
 
+        from fastmcp.server.auth.oidc_proxy import OIDCProxy
+
         from app.auth.mcp_auth_provider import TrustingUpstreamTokenVerifier
 
         mock_oidc_config = {
@@ -535,9 +537,7 @@ class TestOIDCProxyWithTrustingVerifier:
         mock_response.json.return_value = mock_oidc_config
         mock_response.raise_for_status = MagicMock()
 
-        with patch("httpx.get", return_value=mock_response):
-            from app.auth.mcp_auth_provider import OIDCProxyWithoutResource
-
+        with patch("httpx2.get", return_value=mock_response):
             token_verifier = TrustingUpstreamTokenVerifier(
                 client_id="test-client",
                 client_secret="test-secret",
@@ -545,7 +545,7 @@ class TestOIDCProxyWithTrustingVerifier:
             )
 
             # This should not raise an exception
-            proxy = OIDCProxyWithoutResource(
+            proxy = OIDCProxy(
                 config_url="https://example.logto.app/oidc/.well-known/openid-configuration",
                 client_id="test-client",
                 client_secret="test-secret",
@@ -615,21 +615,16 @@ class TestMCPRemoteOAuthFlow:
         mock_response.json.return_value = mock_oidc_config
         mock_response.raise_for_status = MagicMock()
 
-        with patch("httpx.get", return_value=mock_response):
+        with patch("httpx2.get", return_value=mock_response):
             with patch("requests.get", return_value=mock_response):
                 # Create a minimal test app with MCP auth
+                from fastmcp.server.auth.oidc_proxy import OIDCProxy
                 from starlette.applications import Starlette
                 from starlette.routing import Mount
 
                 from app.auth.mcp_auth_provider import (
-                    OIDCProxyWithoutResource,
                     TrustingUpstreamTokenVerifier,
-                    patch_fastmcp_auth_middleware,
                 )
-
-                # IMPORTANT: Patch FastMCP's middleware BEFORE creating the server
-                # This replaces RequireAuthMiddleware with our RFC 6750 compliant version
-                patch_fastmcp_auth_middleware()
 
                 token_verifier = TrustingUpstreamTokenVerifier(
                     client_id="test-client",
@@ -637,7 +632,7 @@ class TestMCPRemoteOAuthFlow:
                     required_scopes=["openid", "profile", "email"],
                 )
 
-                auth = OIDCProxyWithoutResource(
+                auth = OIDCProxy(
                     config_url="https://example.logto.app/oidc/.well-known/openid-configuration",
                     client_id="test-client",
                     client_secret="test-secret",
@@ -728,19 +723,17 @@ class TestMCPRemoteOAuthFlow:
         mock_response.json.return_value = mock_oidc_config
         mock_response.raise_for_status = MagicMock()
 
-        with patch("httpx.get", return_value=mock_response):
+        with patch("httpx2.get", return_value=mock_response):
             with patch("requests.get", return_value=mock_response):
+                from fastmcp.server.auth.oidc_proxy import OIDCProxy
                 from starlette.applications import Starlette
                 from starlette.routing import Mount
 
                 from app.auth.mcp_auth_provider import (
-                    OIDCProxyWithoutResource,
                     TrustingUpstreamTokenVerifier,
-                    patch_fastmcp_auth_middleware,
                 )
 
                 # IMPORTANT: Patch FastMCP's middleware BEFORE creating the server
-                patch_fastmcp_auth_middleware()
 
                 token_verifier = TrustingUpstreamTokenVerifier(
                     client_id="test-client",
@@ -748,7 +741,7 @@ class TestMCPRemoteOAuthFlow:
                     required_scopes=["openid", "profile", "email"],
                 )
 
-                auth = OIDCProxyWithoutResource(
+                auth = OIDCProxy(
                     config_url="https://example.logto.app/oidc/.well-known/openid-configuration",
                     client_id="test-client",
                     client_secret="test-secret",
@@ -854,7 +847,7 @@ class TestCustomOIDCProxyIntegration:
 
             with mock.patch("requests.get", return_value=mock_response):
                 with mock.patch(
-                    "fastmcp.server.auth.oidc_proxy.httpx.get",
+                    "fastmcp.server.auth.oidc_proxy.httpx2.get",
                     return_value=mock_response,
                 ):
                     from app.main import create_mcp_server
@@ -917,7 +910,7 @@ class TestCustomOIDCProxyIntegration:
             mock_response.raise_for_status = mock.MagicMock()
 
             with mock.patch(
-                "fastmcp.server.auth.oidc_proxy.httpx.get",
+                "fastmcp.server.auth.oidc_proxy.httpx2.get",
                 return_value=mock_response,
             ):
                 # Import the CustomOIDCProxy class definition from main
@@ -981,17 +974,14 @@ class TestOAuthEndpointURLConsistency:
         mock_response.json.return_value = mock_oidc_config
         mock_response.raise_for_status = MagicMock()
 
-        with patch("httpx.get", return_value=mock_response):
+        with patch("httpx2.get", return_value=mock_response):
             with patch("requests.get", return_value=mock_response):
                 from starlette.applications import Starlette
                 from starlette.routing import Mount
 
                 from app.auth.mcp_auth_provider import (
                     configure_mcp_auth,
-                    patch_fastmcp_auth_middleware,
                 )
-
-                patch_fastmcp_auth_middleware()
 
                 # Configure auth as done in create_mcp_server
                 auth, mcp_auth_routes = configure_mcp_auth(
@@ -1054,17 +1044,14 @@ class TestOAuthEndpointURLConsistency:
         mock_response.json.return_value = mock_oidc_config
         mock_response.raise_for_status = MagicMock()
 
-        with patch("httpx.get", return_value=mock_response):
+        with patch("httpx2.get", return_value=mock_response):
             with patch("requests.get", return_value=mock_response):
                 from starlette.applications import Starlette
                 from starlette.routing import Mount
 
                 from app.auth.mcp_auth_provider import (
                     configure_mcp_auth,
-                    patch_fastmcp_auth_middleware,
                 )
-
-                patch_fastmcp_auth_middleware()
 
                 auth, mcp_auth_routes = configure_mcp_auth(
                     oidc_well_known_endpoint="https://example.logto.app/oidc/.well-known/openid-configuration",
@@ -1130,17 +1117,14 @@ class TestOAuthEndpointURLConsistency:
         mock_response.json.return_value = mock_oidc_config
         mock_response.raise_for_status = MagicMock()
 
-        with patch("httpx.get", return_value=mock_response):
+        with patch("httpx2.get", return_value=mock_response):
             with patch("requests.get", return_value=mock_response):
                 from starlette.applications import Starlette
                 from starlette.routing import Mount
 
                 from app.auth.mcp_auth_provider import (
                     configure_mcp_auth,
-                    patch_fastmcp_auth_middleware,
                 )
-
-                patch_fastmcp_auth_middleware()
 
                 auth, mcp_auth_routes = configure_mcp_auth(
                     oidc_well_known_endpoint="https://example.logto.app/oidc/.well-known/openid-configuration",
@@ -1273,9 +1257,9 @@ class TestConsentMode:
         mock_response.raise_for_status = MagicMock()
 
         with (
-            patch("httpx.get", return_value=mock_response),
+            patch("httpx2.get", return_value=mock_response),
             patch("requests.get", return_value=mock_response),
-            patch("fastmcp.server.auth.oidc_proxy.httpx.get", return_value=mock_response),
+            patch("fastmcp.server.auth.oidc_proxy.httpx2.get", return_value=mock_response),
         ):
             auth, _routes = configure_mcp_auth(
                 oidc_well_known_endpoint="https://example.logto.app/oidc/.well-known/openid-configuration",
@@ -1296,9 +1280,9 @@ class TestConsentMode:
         mock_response.raise_for_status = MagicMock()
 
         with (
-            patch("httpx.get", return_value=mock_response),
+            patch("httpx2.get", return_value=mock_response),
             patch("requests.get", return_value=mock_response),
-            patch("fastmcp.server.auth.oidc_proxy.httpx.get", return_value=mock_response),
+            patch("fastmcp.server.auth.oidc_proxy.httpx2.get", return_value=mock_response),
         ):
             auth, _routes = configure_mcp_auth(
                 oidc_well_known_endpoint="https://example.logto.app/oidc/.well-known/openid-configuration",
@@ -1326,9 +1310,9 @@ class TestConsentMode:
         mock_response.raise_for_status = MagicMock()
 
         with (
-            patch("httpx.get", return_value=mock_response),
+            patch("httpx2.get", return_value=mock_response),
             patch("requests.get", return_value=mock_response),
-            patch("fastmcp.server.auth.oidc_proxy.httpx.get", return_value=mock_response),
+            patch("fastmcp.server.auth.oidc_proxy.httpx2.get", return_value=mock_response),
         ):
             # No `scopes` argument -> exercises the default.
             auth, _routes = configure_mcp_auth(
@@ -1381,9 +1365,9 @@ class TestAccessTokenTTL:
         mock_response.raise_for_status = MagicMock()
 
         with (
-            patch("httpx.get", return_value=mock_response),
+            patch("httpx2.get", return_value=mock_response),
             patch("requests.get", return_value=mock_response),
-            patch("fastmcp.server.auth.oidc_proxy.httpx.get", return_value=mock_response),
+            patch("fastmcp.server.auth.oidc_proxy.httpx2.get", return_value=mock_response),
         ):
             auth, _routes = configure_mcp_auth(
                 oidc_well_known_endpoint="https://example.logto.app/oidc/.well-known/openid-configuration",

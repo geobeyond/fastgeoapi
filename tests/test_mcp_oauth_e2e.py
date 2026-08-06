@@ -52,8 +52,10 @@ def test_mcp_unauthenticated_request_is_rfc6750_compliant(fastgeoapi_with_iam: s
     """No-token MCP request returns 401 with the canonical WWW-Authenticate
     header and *without* ``error="invalid_token"`` (RFC 6750 §3.1).
 
-    This guards the local ``RFC6750CompliantAuthMiddleware`` patch — the
-    bug exists in the upstream MCP SDK and the patch must keep masking it.
+    RFC 6750 §3.1 says a request with no authentication at all must not
+    carry an ``error`` attribute, so clients can start the OAuth flow
+    during discovery. fastmcp implements this natively since 4.x (we
+    used to patch it); this test pins the behaviour, not the mechanism.
     """
     base_url = fastgeoapi_with_iam
     r = httpx.post(
@@ -75,8 +77,8 @@ def test_mcp_unauthenticated_request_is_rfc6750_compliant(fastgeoapi_with_iam: s
     )
     assert r.status_code == 401
     www_auth = r.headers.get("www-authenticate", "")
-    assert 'Bearer realm="mcp"' in www_auth
-    assert "resource_metadata=" in www_auth
+    assert www_auth.startswith("Bearer"), www_auth
+    assert "resource_metadata=" in www_auth, www_auth
     # Crucially: no token == no `error="invalid_token"` per RFC 6750 §3.1.
     assert 'error="invalid_token"' not in www_auth
 
