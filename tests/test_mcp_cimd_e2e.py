@@ -61,7 +61,11 @@ ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
 
 
 def cimd_document(**overrides) -> dict:
-    """Build a minimal valid CIMD document, overridable per test."""
+    """Build a minimal valid CIMD document, overridable per test.
+
+    Passing ``scope=None`` drops the field entirely, which is how real
+    clients publish it: Claude's document declares no scopes at all.
+    """
     document = {
         "client_id": cimd_client_id(),
         "client_name": "fastgeoapi CIMD e2e client",
@@ -72,7 +76,7 @@ def cimd_document(**overrides) -> dict:
         "scope": CIMD_SCOPE,
     }
     document.update(overrides)
-    return document
+    return {key: value for key, value in document.items() if value is not None}
 
 
 @pytest.fixture
@@ -413,3 +417,34 @@ def test_cimd_assertion_signed_with_an_unpublished_key_is_rejected(
 
     assert response.status_code >= 400, response.text[:300]
     assert "access_token" not in response.text, response.text[:300]
+
+
+@pytest.mark.asyncio
+async def test_cimd_document_without_scope_may_request_offline_access(
+    fastgeoapi_with_iam: str,
+    serve_cimd_documents,
+    logged_in_user,
+):
+    """A document that declares no scopes still gets the full default set.
+
+    Real CIMD documents often omit ``scope`` — Claude's does — in which
+    case the synthetic client inherits the authorization server's default
+    scopes. If that default is narrower than what the client asks for, the
+    request dies as ``invalid_scope`` at the authorize step, before the
+    user ever sees a login screen. This regression pins the case that
+    broke the live connector: no ``scope`` in the document, and
+    ``offline_access`` requested.
+    """
+    from tests.mcp_e2e_client import authenticated_mcp_client
+
+    client_id = serve_cimd_documents(cimd_document(scope=None))
+
+    oauth = MCPOAuthClient(
+        base_url=fastgeoapi_with_iam,
+        client_id=client_id,
+        scope="openid offline_access",
+    )
+    assert oauth.run_dance()
+
+    async with authenticated_mcp_client(fastgeoapi_with_iam, oauth=oauth) as client:
+        assert await client.list_tools()
