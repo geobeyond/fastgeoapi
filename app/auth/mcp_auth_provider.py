@@ -279,9 +279,17 @@ def configure_mcp_auth(
         f"{f'{client_token_ttl}s' if client_token_ttl else 'mirror upstream expires_in'}"
     )
 
-    # Configure valid scopes for mcp-remote compatibility
-    if auth.client_registration_options:
-        auth.client_registration_options.valid_scopes = scopes
+    # Scopes a client may REQUEST (distinct from the scopes we require back
+    # on a token, above). This must include the full set — `offline_access`
+    # included — because it is also the fallback for clients that identify
+    # by URL without declaring scopes: Claude's CIMD document has no `scope`
+    # field, so its synthetic client inherits this default, and requesting
+    # `offline_access` against a narrower default is rejected as
+    # `invalid_scope` before the user ever sees a login screen.
+    # `update_default_scopes` is the upstream API that keeps every derived
+    # place in sync (DCR registration options *and* the CIMD manager);
+    # setting `valid_scopes` alone left the CIMD path behind.
+    auth.update_default_scopes(scopes)
 
     # Get FastMCP's well-known routes for OAuth proxy
     well_known_routes = auth.get_well_known_routes(mcp_path="/")
