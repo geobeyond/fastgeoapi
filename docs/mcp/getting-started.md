@@ -13,6 +13,11 @@ Connect an MCP client and call your first tool.
 !!! warning "Avoid running mcp-remote alongside the connector"
 If an older `mcp-remote`-based entry for the same server is still present in `claude_desktop_config.json`, remove it: the two clients race through the OAuth flow and the mcp-remote process can wedge on its fixed callback port (43711), leaving the tools list stuck.
 
+!!! info "Claude identifies itself with CIMD, not Dynamic Client Registration"
+Claude presents a URL as its `client_id` (`https://claude.ai/oauth/mcp-oauth-client-metadata`) and publishes its own metadata there, rather than registering through DCR. Two practical consequences: the authorization server must have CIMD enabled (it is, by default), and the connector never holds a client secret — the flow is protected by PKCE.
+
+    Worth knowing when debugging: a failure on the CIMD path is invisible to a DCR-based test. If the connector cannot authorize while a manually registered client can, replay Claude's exact request — the `client_id` URL is in the server access log — instead of assuming the two paths behave alike.
+
 ### Connect stdio-only clients (mcp-remote)
 
 For MCP clients that only speak stdio, front the server with [mcp-remote](https://www.npmjs.com/package/mcp-remote) in the client configuration file (for Claude Desktop: `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
