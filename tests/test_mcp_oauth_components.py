@@ -1296,7 +1296,7 @@ class TestConsentMode:
         assert auth._require_authorization_consent is True
 
     def test_configure_mcp_auth_default_scopes_request_offline_access(self, mock_oidc_config):
-        """The default scopes must request ``offline_access``.
+        """``offline_access`` must be requested upstream but not required back.
 
         Without it the IdP issues no refresh token, so the MCP client cannot
         refresh silently and re-runs the full authorization (browser + consent)
@@ -1325,8 +1325,14 @@ class TestConsentMode:
         # The scope forwarded to the upstream IdP authorize endpoint.
         requested_scope = auth._extra_authorize_params.get("scope", "")
         assert "offline_access" in requested_scope.split()
-        # And it propagates to the token verifier's required scopes.
-        assert "offline_access" in auth._token_validator.required_scopes
+        # But it is NOT required back on inbound tokens: `offline_access` asks
+        # the IdP for a refresh token, it does not describe what an access
+        # token may do. Requiring it would reject valid tokens that carry no
+        # refresh — including EMA tokens, where the client re-exchanges its
+        # assertion instead of refreshing.
+        required = auth._token_validator.required_scopes
+        assert "offline_access" not in required, required
+        assert required == ["openid"], required
 
 
 class TestAccessTokenTTL:

@@ -393,6 +393,7 @@ def iam_oauth_client(iam_server, fastgeoapi_port: int):
 
 @pytest.fixture
 def fastgeoapi_with_iam(
+    request,
     iam_server,
     iam_oauth_client,
     fastgeoapi_port: int,
@@ -430,6 +431,9 @@ def fastgeoapi_with_iam(
         "DEV_PYGEOAPI_BASEURL": f"http://localhost:{fastgeoapi_port}",
         "DEV_PYGEOAPI_CONFIG": "pygeoapi-config.yml",
         "DEV_PYGEOAPI_OPENAPI": "pygeoapi-openapi.yml",
+        # Per-test extras (e.g. the EMA trusted issuers) are injected by
+        # the `fastgeoapi_env_extra` fixture; empty by default.
+        **request.getfixturevalue("fastgeoapi_env_extra"),
     }
 
     with mock.patch.dict(os.environ, env, clear=False):
@@ -475,3 +479,103 @@ def fastgeoapi_with_iam(
         finally:
             server.should_exit = True
             thread.join(timeout=5)
+
+
+@pytest.fixture
+def fastgeoapi_env_extra() -> dict[str, str]:
+    """Extra environment for the live instance; overridden per test module."""
+    return {}
+
+
+class _EnterpriseIdP:
+    """A minimal enterprise IdP: OIDC discovery plus a JWKS, nothing else.
+
+    Enough for an authorization server to verify an ID-JAG the way it
+    would verify a real partner's: discover the issuer's ``jwks_uri``,
+    fetch the key set, check the signature. We hold the private key, so
+    tests can mint assertions that IdP would have minted.
+    """
+
+    def __init__(self, issuer: str, key, kid: str):
+        self.issuer = issuer
+        self.key = key
+        self.kid = kid
+
+
+@pytest.fixture
+def ema_issuer() -> Iterator[_EnterpriseIdP]:
+    """Run a throwaway enterprise IdP and yield its issuer and signing key."""
+    from authlib.jose import JsonWebKey
+    from starlette.applications import Starlette
+    from starlette.responses import JSONResponse
+    from starlette.routing import Route
+
+    port = portpicker.pick_unused_port()
+    issuer = f"http://localhost:{port}"
+    kid = "ema-e2e"
+    key = JsonWebKey.generate_key("RSA", 2048, is_private=True)
+    public_jwk = key.as_dict(is_private=False, alg="RS256", use="sig", kid=kid)
+
+    async def discovery(_request):
+        return JSONResponse(
+            {
+                "issuer": issuer,
+                "jwks_uri": f"{issuer}/jwks.json",
+                "authorization_endpoint": f"{issuer}/authorize",
+                "token_endpoint": f"{issuer}/token",
+            }
+        )
+
+    async def jwks(_request):
+        return JSONResponse({"keys": [public_jwk]})
+
+    idp = Starlette(
+        routes=[
+            Route("/.well-known/openid-configuration", discovery),
+            Route("/jwks.json", jwks),
+        ]
+    )
+    config = uvicorn.Config(idp, host="localhost", port=port, log_level="warning")
+    server = uvicorn.Server(config)
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+
+    for _ in range(40):
+        try:
+            if httpx.get(f"{issuer}/jwks.json", timeout=1.0).status_code == 200:
+                break
+        except httpx.HTTPError:
+            pass
+        time.sleep(0.25)
+    else:  # pragma: no cover - only on a broken environment
+        server.should_exit = True
+        thread.join(timeout=5)
+        pytest.fail(f"enterprise IdP did not become ready on {issuer}")
+
+    try:
+        yield _EnterpriseIdP(issuer=issuer, key=key, kid=kid)
+    finally:
+        server.should_exit = True
+        thread.join(timeout=5)
+
+
+@pytest.fixture
+def ema_client_id(fastgeoapi_with_ema: str) -> str:
+    """Register a public client that will present the ID-JAG.
+
+    EMA still authenticates the *client*: the assertion carries the
+    employee's identity, not the client's, so the exchange is only
+    honoured for a client the authorization server already knows.
+    """
+    from tests.mcp_e2e_client import MCPOAuthClient
+
+    oauth = MCPOAuthClient(base_url=fastgeoapi_with_ema)
+    with httpx.Client(timeout=10.0) as http:
+        return oauth.register_via_dcr(http, client_name="fastgeoapi EMA e2e client")
+
+
+@pytest.fixture
+def fastgeoapi_with_ema(ema_issuer, request) -> Iterator[str]:
+    """Boot the live instance trusting the throwaway enterprise IdP."""
+    request.node.add_marker(pytest.mark.usefixtures("ema_issuer"))
+    yield request.getfixturevalue("fastgeoapi_with_iam")
