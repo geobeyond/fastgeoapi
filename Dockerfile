@@ -12,7 +12,7 @@
 # no build toolchain, no repository checkout, no baked .env.
 
 # ---------- builder ----------
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.10.9 /uv /bin/uv
 
@@ -36,7 +36,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     && VIRTUAL_ENV=/opt/venv uv pip install -r /tmp/requirements.lock
 
 # ---------- runtime ----------
-FROM python:3.12-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 # tini reaps zombies and forwards signals for a clean shutdown
 RUN apt-get update \
