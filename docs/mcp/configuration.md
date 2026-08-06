@@ -187,3 +187,26 @@ anyway.
 
 > Requires fastmcp >= 3.4 (`fastmcp_access_token_expiry_seconds` on the OAuth
 > proxy).
+
+### Enterprise-Managed Authorization (`FASTGEOAPI_MCP_TRUSTED_ISSUERS`)
+
+Names the enterprise identity providers whose ID-JAG assertions this
+server accepts, enabling the EMA flow (see
+[Supported specifications](specifications.md#enterprise-managed-authorization)).
+Comma-separated; unset by default, in which case the grant answers
+`unsupported_grant_type`.
+
+```bash
+# .env file — optional, empty by default
+DEV_FASTGEOAPI_MCP_TRUSTED_ISSUERS=https://login.partner-corp.example,https://sso.other-org.example
+```
+
+Each issuer must publish an OIDC discovery document, since its
+`jwks_uri` is what verifies assertion signatures. Treat this list as a
+trust decision, not a convenience setting: an issuer named here can
+mint credentials that reach your data on any employee's behalf, so it
+belongs to the same review as adding an identity provider.
+
+Access remains governed on both sides — the IdP decides who may reach
+this server, and this server still enforces its own scope requirements
+on the resulting token.
