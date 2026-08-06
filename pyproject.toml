@@ -31,7 +31,7 @@ dependencies = [
     "json-ref-dict>=0.7.2,<=1.0",
     "pyyaml>=6.0.2,<7",
     "scalar-fastapi>=1.4.3,<2",
-    "fastmcp>=3.4.5,<4",
+    "fastmcp>=4.0.0b1,<5",
 ]
 
 [project.urls]
@@ -81,6 +81,10 @@ dev = [
 ]
 
 [tool.uv]
+# fastmcp 4 is still in pre-release; without this every `uv lock`/`uv sync`
+# re-resolves (and CI/Docker would silently fall back to 3.x). Drop once
+# 4.0 is stable.
+prerelease = "allow"
 
 [tool.uv.sources]
 fencer = { git = "https://github.com/abunuwas/fencer.git", branch = "main" }

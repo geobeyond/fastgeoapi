@@ -796,13 +796,13 @@ class TestStartupWorkflowMCPAuth:
 
             FactoryConfig.get_config.cache_clear()
 
-            # Mock httpx.get for FastMCP OIDC discovery (requests.get patch kept as harmless leftover)
+            # Mock httpx2.get for FastMCP OIDC discovery (requests.get patch kept as harmless leftover)
             mock_response = mock.MagicMock()
             mock_response.json.return_value = mock_oidc_config
             mock_response.raise_for_status = mock.MagicMock()
 
             with mock.patch("requests.get", return_value=mock_response):
-                with mock.patch("httpx.get", return_value=mock_response):
+                with mock.patch("httpx2.get", return_value=mock_response):
                     from app.main import create_mcp_server
 
                     mcp_server, mcp_app, well_known_routes, _ = create_mcp_server()
@@ -853,13 +853,13 @@ class TestStartupWorkflowMCPAuth:
 
             FactoryConfig.get_config.cache_clear()
 
-            # Mock httpx.get for FastMCP OIDC discovery (requests.get patch kept as harmless leftover)
+            # Mock httpx2.get for FastMCP OIDC discovery (requests.get patch kept as harmless leftover)
             mock_response = mock.MagicMock()
             mock_response.json.return_value = mock_oidc_config
             mock_response.raise_for_status = mock.MagicMock()
 
             with mock.patch("requests.get", return_value=mock_response):
-                with mock.patch("httpx.get", return_value=mock_response):
+                with mock.patch("httpx2.get", return_value=mock_response):
                     from app.main import create_mcp_server
 
                     mcp_server, _, well_known_routes, _ = create_mcp_server()
@@ -910,13 +910,13 @@ class TestStartupWorkflowMCPAuth:
 
             FactoryConfig.get_config.cache_clear()
 
-            # Mock httpx.get for FastMCP OIDC discovery (requests.get patch kept as harmless leftover)
+            # Mock httpx2.get for FastMCP OIDC discovery (requests.get patch kept as harmless leftover)
             mock_response = mock.MagicMock()
             mock_response.json.return_value = mock_oidc_config
             mock_response.raise_for_status = mock.MagicMock()
 
             with mock.patch("requests.get", return_value=mock_response):
-                with mock.patch("httpx.get", return_value=mock_response):
+                with mock.patch("httpx2.get", return_value=mock_response):
                     from app.main import create_mcp_server
 
                     mcp_server, _, well_known_routes, _ = create_mcp_server()
@@ -966,13 +966,13 @@ class TestStartupWorkflowMCPAuth:
 
             FactoryConfig.get_config.cache_clear()
 
-            # Mock httpx.get for FastMCP OIDC discovery (requests.get patch kept as harmless leftover)
+            # Mock httpx2.get for FastMCP OIDC discovery (requests.get patch kept as harmless leftover)
             mock_response = mock.MagicMock()
             mock_response.json.return_value = mock_oidc_config
             mock_response.raise_for_status = mock.MagicMock()
 
             with mock.patch("requests.get", return_value=mock_response):
-                with mock.patch("httpx.get", return_value=mock_response):
+                with mock.patch("httpx2.get", return_value=mock_response):
                     from app.main import create_mcp_server
 
                     _, _, well_known_routes, _ = create_mcp_server()

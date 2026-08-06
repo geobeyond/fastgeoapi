@@ -6,24 +6,9 @@ proxying against any OIDC-compliant identity provider (Logto, Auth0,
 Keycloak, etc.) without custom per-provider code.
 """
 
-import json
-from typing import Any
-
 from fastmcp.server.auth.oidc_proxy import OIDCProxy
 from loguru import logger
-from mcp.server.auth.middleware.auth_context import AuthContextMiddleware
-from mcp.server.auth.middleware.bearer_auth import (
-    AuthenticatedUser,
-    BearerAuthBackend,
-)
-from mcp.server.auth.middleware.bearer_auth import (
-    RequireAuthMiddleware as SDKRequireAuthMiddleware,
-)
 from mcp.server.auth.provider import AccessToken
-from pydantic import AnyHttpUrl
-from starlette.middleware import Middleware
-from starlette.middleware.authentication import AuthenticationMiddleware
-from starlette.types import Receive, Scope, Send
 
 
 class MCPAuthMisconfiguredError(RuntimeError):
@@ -103,232 +88,6 @@ class TrustingUpstreamTokenVerifier:
         )
 
 
-class RFC6750CompliantAuthMiddleware(SDKRequireAuthMiddleware):
-    """Authentication middleware compliant with RFC 6750.
-
-    This middleware fixes a bug in the MCP SDK where it returns 'invalid_token'
-    error even when NO token is provided. Per RFC 6750 Section 3.1:
-
-    - "invalid_token": The access token provided is expired, revoked,
-      malformed, or invalid for other reasons.
-
-    When no token is provided, the response should be a simple 401 with
-    WWW-Authenticate header, without the 'invalid_token' error code.
-
-    This distinction matters for mcp-remote because:
-    1. When it receives 'invalid_token', the SDK interprets this as InvalidClientError
-    2. This triggers invalidateCredentials("all") which DELETES client_info.json
-    3. After browser auth completes, mcp-remote has no client info to exchange the code
-
-    By returning a proper response for missing tokens, mcp-remote correctly
-    initiates the OAuth flow without deleting its client registration.
-    """
-
-    def __init__(
-        self,
-        app: Any,
-        required_scopes: list[str],
-        resource_metadata_url: AnyHttpUrl | None = None,
-    ):
-        """Initialize the middleware.
-
-        Parameters
-        ----------
-        app : Any
-            The ASGI application to wrap.
-        required_scopes : list[str]
-            List of scopes required for authenticated requests.
-        resource_metadata_url : AnyHttpUrl | None
-            URL to the protected resource metadata for WWW-Authenticate header.
-        """
-        super().__init__(app, required_scopes, resource_metadata_url)
-        self._token_was_provided = False
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        """Process the request and check authentication.
-
-        This method checks if a token was provided before delegating to
-        the parent class. This allows us to return different errors for
-        "no token" vs "invalid token".
-        """
-        if scope["type"] == "http":
-            # Check if Authorization header with Bearer token was provided
-            headers = dict(scope.get("headers", []))
-            auth_header = headers.get(b"authorization", b"").decode()
-            self._token_was_provided = auth_header.lower().startswith("bearer ")
-
-        # Get auth info from scope (set by BearerAuthBackend)
-        auth_user = scope.get("user")
-
-        if not isinstance(auth_user, AuthenticatedUser):
-            # Authentication failed - determine the right error
-            if self._token_was_provided:
-                # Token was provided but invalid -> invalid_token
-                await self._send_auth_error(
-                    send,
-                    status_code=401,
-                    error="invalid_token",
-                    description="The provided bearer token is invalid, expired, or revoked.",
-                )
-            else:
-                # No token provided -> simple 401 without error code
-                # This prevents mcp-remote from invalidating credentials
-                await self._send_missing_token_error(send)
-            return
-
-        # Check required scopes
-        auth_credentials = scope.get("auth")
-        for required_scope in self.required_scopes:
-            if auth_credentials is None or required_scope not in auth_credentials.scopes:
-                await self._send_auth_error(
-                    send,
-                    status_code=403,
-                    error="insufficient_scope",
-                    description=f"Required scope: {required_scope}",
-                )
-                return
-
-        await self.app(scope, receive, send)
-
-    async def _send_missing_token_error(self, send: Send) -> None:
-        """Send a 401 response for missing token WITHOUT invalid_token error.
-
-        Per RFC 6750 Section 3, when the request lacks any authentication info,
-        the resource server SHOULD NOT include an error code. It should include
-        a WWW-Authenticate header pointing to where to get a token.
-
-        This is crucial for mcp-remote compatibility because the SDK treats
-        'invalid_token' as InvalidClientError which deletes client credentials.
-        """
-        # Build WWW-Authenticate header without error code
-        www_auth_parts = ['realm="mcp"']
-        if self.resource_metadata_url:
-            www_auth_parts.append(f'resource_metadata="{self.resource_metadata_url}"')
-
-        www_authenticate = f"Bearer {', '.join(www_auth_parts)}"
-
-        # Response body
-        body = {
-            "error": "unauthorized",
-            "error_description": (
-                "Authentication required. Please authenticate to access this resource."
-            ),
-        }
-        body_bytes = json.dumps(body).encode()
-
-        await send(
-            {
-                "type": "http.response.start",
-                "status": 401,
-                "headers": [
-                    (b"content-type", b"application/json"),
-                    (b"content-length", str(len(body_bytes)).encode()),
-                    (b"www-authenticate", www_authenticate.encode()),
-                ],
-            }
-        )
-
-        await send(
-            {
-                "type": "http.response.body",
-                "body": body_bytes,
-            }
-        )
-
-        logger.debug("Auth error returned: missing_token (no Bearer token provided)")
-
-
-def patch_fastmcp_auth_middleware():
-    """Patch FastMCP's RequireAuthMiddleware to be RFC 6750 compliant.
-
-    This function replaces FastMCP's RequireAuthMiddleware with our
-    RFC6750CompliantAuthMiddleware. This must be called BEFORE creating
-    any FastMCP servers.
-
-    The patch is necessary because FastMCP's middleware returns 'invalid_token'
-    error even when no token is provided, which causes mcp-remote to delete
-    its client credentials.
-    """
-    import fastmcp.server.auth.middleware as fastmcp_middleware
-    import fastmcp.server.http as fastmcp_http
-
-    # Intentional monkey-patching for RFC 6750 compliance — setattr signals
-    # the dynamic intent and keeps type checkers from flagging the assignment.
-    setattr(fastmcp_middleware, "RequireAuthMiddleware", RFC6750CompliantAuthMiddleware)  # noqa: B010
-    setattr(fastmcp_http, "RequireAuthMiddleware", RFC6750CompliantAuthMiddleware)  # noqa: B010
-
-    logger.debug("Patched FastMCP RequireAuthMiddleware for RFC 6750 compliance")
-
-
-def patch_private_key_jwt_audience():
-    """Normalize the audience the CIMD token endpoint expects.
-
-    fastmcp builds the expected ``aud`` for ``private_key_jwt`` client
-    assertions as ``f"{base_url}/token"``. Our MCP base URL ends with a
-    slash (IdPs require it), so the expected audience becomes
-    ``…/mcp//token`` — while the route, and the ``token_endpoint`` the
-    authorization server metadata advertises, are ``…/mcp/token``.
-
-    A conforming client signs its assertion with the advertised
-    ``token_endpoint`` as audience, so it can never match: CIMD clients
-    using key-based authentication are rejected with
-    ``invalid_client``. Collapsing the duplicate slash restores
-    interoperability. Remove once fixed upstream in fastmcp.
-    """
-    from fastmcp.server.auth.auth import PrivateKeyJWTClientAuthenticator
-
-    if getattr(PrivateKeyJWTClientAuthenticator, "_fastgeoapi_audience_patched", False):
-        return
-
-    original_init = PrivateKeyJWTClientAuthenticator.__init__
-
-    def patched_init(self, provider, cimd_manager, token_endpoint_url: str, **kwargs):
-        scheme, separator, rest = token_endpoint_url.partition("://")
-        if separator:
-            token_endpoint_url = f"{scheme}{separator}{rest.replace('//', '/')}"
-        original_init(self, provider, cimd_manager, token_endpoint_url, **kwargs)
-
-    setattr(PrivateKeyJWTClientAuthenticator, "__init__", patched_init)  # noqa: B010
-    setattr(PrivateKeyJWTClientAuthenticator, "_fastgeoapi_audience_patched", True)  # noqa: B010
-
-    logger.debug("Patched FastMCP private_key_jwt audience normalization")
-
-
-class OIDCProxyWithoutResource(OIDCProxy):
-    """OIDC Proxy with RFC 6750 compliant auth error middleware.
-
-    The class exists solely to override `get_middleware()` and inject
-    `RFC6750CompliantAuthMiddleware`, which fixes the MCP SDK bug at
-    `mcp/server/auth/middleware/bearer_auth.py` where `invalid_token` is
-    returned even when no Bearer token is provided.
-
-    The historical second purpose of this subclass — stripping the
-    `resource` parameter from the upstream `/authorize` URL for IdPs
-    like Logto that don't allow third-party API Resource requests — is
-    now handled by passing `forward_resource=False` to the parent
-    `OIDCProxy` constructor (see `configure_mcp_auth`).
-    """
-
-    def get_middleware(self) -> list:
-        """Get HTTP middleware with RFC 6750 compliant auth error handling.
-
-        This overrides the parent's get_middleware() to use our custom
-        RFC6750CompliantAuthMiddleware instead of the SDK's RequireAuthMiddleware.
-
-        Returns
-        -------
-        list
-            List of Starlette Middleware instances.
-        """
-        return [
-            Middleware(
-                AuthenticationMiddleware,
-                backend=BearerAuthBackend(self),
-            ),
-            Middleware(AuthContextMiddleware),
-        ]
-
-
 def _coerce_consent_mode(consent_mode: str | None) -> bool | str:
     """Map a human-friendly consent string to FastMCP's expected value.
 
@@ -386,7 +145,7 @@ def configure_mcp_auth(
     3. Generate RFC 9728 compliant resource metadata endpoints
 
     For providers that don't support DCR (like Logto for third-party apps),
-    we use the OIDCProxyWithoutResource with resource parameter filtering.
+    the proxy is configured with `forward_resource=False`.
 
     Parameters
     ----------
@@ -430,13 +189,6 @@ def configure_mcp_auth(
         A tuple of (auth, routes) where auth is the FastMCP auth provider and
         routes are the metadata routes to mount.
     """
-    # Patch FastMCP's auth middleware to be RFC 6750 compliant
-    # This must be done before creating any FastMCP servers
-    patch_fastmcp_auth_middleware()
-    # …and make the CIMD private_key_jwt audience match the advertised
-    # token endpoint, so key-based clients can authenticate at all.
-    patch_private_key_jwt_audience()
-
     if scopes is None:
         scopes = ["openid", "profile", "email", "offline_access"]
 
@@ -477,18 +229,16 @@ def configure_mcp_auth(
         required_scopes=scopes,
     )
 
-    # Create the OIDC proxy. `forward_resource=False` makes fastmcp 3.x skip
-    # the `resource` parameter on the upstream `/authorize` URL — necessary
-    # for IdPs like Logto that reject third-party resource indicators.
-    # `OIDCProxyWithoutResource` is our subclass solely for the RFC 6750
-    # compliant middleware (`get_middleware()` override).
+    # Create the OIDC proxy. `forward_resource=False` makes fastmcp skip the
+    # `resource` parameter on the upstream `/authorize` URL — necessary for
+    # IdPs like Logto that reject third-party resource indicators.
     # Note: required_scopes is not passed here because FastMCP doesn't allow it
     # when using a custom token_verifier. Scopes are configured on the verifier.
     if access_token_expiry_seconds is None:
         access_token_expiry_seconds = DEFAULT_MCP_ACCESS_TOKEN_EXPIRY_SECONDS
     client_token_ttl = access_token_expiry_seconds if access_token_expiry_seconds > 0 else None
 
-    auth = OIDCProxyWithoutResource(
+    auth = OIDCProxy(
         config_url=oidc_well_known_endpoint,
         client_id=client_id,
         client_secret=client_secret,
