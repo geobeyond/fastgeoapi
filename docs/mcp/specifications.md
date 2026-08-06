@@ -42,15 +42,20 @@ upstream, end-to-end verification in progress · 🗺️ on the roadmap ·
 
 ### CIMD feature detail
 
-| CIMD feature                                         | Status       | Notes                                                                                              |
-| ---------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------- |
-| Client ID as URL, metadata document fetch            | ✅           | SSRF-hardened fetcher (loopback and private ranges rejected, including IPv6 transition addresses)  |
-| `redirect_uris` from the metadata document           | ✅           | Enforced: a redirect the document does not list is refused                                         |
-| Authorization code + PKCE, `none` client auth        | ✅           | Public URL-identified client completes the flow with no prior registration                         |
-| Authorization code + PKCE, `private_key_jwt`         | ✅           | Assertion verified against the inline `jwks` published in the document                             |
-| `jwks_uri` (remote key set) in the document          | ✅           | Keys fetched from the URL the document publishes, SSRF-guarded on that hop too                     |
-| Shared-secret client authentication for CIMD clients | ❌ by design | A URL-identified client cannot hold a usable secret: such documents are refused and yield no token |
-| Key enforcement                                      | ✅           | An assertion signed with a key the document does not publish is rejected, even with a matching kid |
+CIMD is not theoretical here: Claude identifies itself this way against
+this server in production, with a document that declares no `scope`
+field.
+
+| CIMD feature                                         | Status       | Notes                                                                                                                                                               |
+| ---------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Client ID as URL, metadata document fetch            | ✅           | SSRF-hardened fetcher (loopback and private ranges rejected, including IPv6 transition addresses)                                                                   |
+| `redirect_uris` from the metadata document           | ✅           | Enforced: a redirect the document does not list is refused                                                                                                          |
+| Authorization code + PKCE, `none` client auth        | ✅           | Public URL-identified client completes the flow with no prior registration                                                                                          |
+| Authorization code + PKCE, `private_key_jwt`         | ✅           | Assertion verified against the inline `jwks` published in the document                                                                                              |
+| `jwks_uri` (remote key set) in the document          | ✅           | Keys fetched from the URL the document publishes, SSRF-guarded on that hop too                                                                                      |
+| Documents that omit `scope`                          | ✅           | Real documents often do (Claude's declares none): the client then inherits the authorization server's default scopes, so those must cover what such clients request |
+| Shared-secret client authentication for CIMD clients | ❌ by design | A URL-identified client cannot hold a usable secret: such documents are refused and yield no token                                                                  |
+| Key enforcement                                      | ✅           | An assertion signed with a key the document does not publish is rejected, even with a matching kid                                                                  |
 
 ## Enterprise-Managed Authorization
 
