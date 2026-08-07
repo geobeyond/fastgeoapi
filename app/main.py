@@ -24,7 +24,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
 
 from app.config.app import configuration as cfg
-from app.config.logging import create_logger
+from app.config.logging import create_logger, silence_probe_access_logs
 from app.middleware.oauth2 import Oauth2Middleware
 from app.middleware.proxy import ForwardedLinksMiddleware, MCPMountRootRewriteMiddleware
 from app.middleware.pygeoapi import OpenapiSecurityMiddleware
@@ -133,11 +133,27 @@ def create_app(lifespan=None):
     Args:
         lifespan: Optional lifespan context manager for the app.
     """
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def _lifespan(app: FastAPI):
+        """Install the probe log filter, then defer to the caller's lifespan.
+
+        Startup is the earliest point at which uvicorn is done configuring
+        logging, so a filter attached here survives.
+        """
+        silence_probe_access_logs()
+        if lifespan is None:
+            yield
+        else:
+            async with lifespan(app) as state:
+                yield state
+
     app = FastGeoAPI(
         title="fastgeoapi",
         root_path=cfg.ROOT_PATH,
         debug=True,
-        lifespan=lifespan,
+        lifespan=_lifespan,
     )
 
     # Set all CORS enabled origins
