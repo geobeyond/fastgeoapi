@@ -103,6 +103,39 @@ class CustomizeLogger:
         return logger.bind(request_id=None, method=None)
 
 
+# Paths whose access-log lines carry no diagnostic value. On hosts that keep a
+# short log buffer (fly.io retains roughly the last hundred lines) the probes —
+# which fire every 15-30s once wired into `fly.toml` — are the only thing left
+# visible exactly when something has gone wrong and the buffer matters.
+PROBE_PATHS = frozenset({"/healthz", "/readyz"})
+
+
+class ProbeAccessLogFilter(logging.Filter):
+    """Drop uvicorn access records for the liveness/readiness probes."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Return False for probe requests, True for everything else."""
+        args = record.args
+        # uvicorn.access always formats with the 5-tuple
+        # (client_addr, method, full_path, http_version, status_code).
+        if isinstance(args, tuple) and len(args) == 5:
+            return str(args[2]).split("?", 1)[0] not in PROBE_PATHS
+        return True
+
+
+def silence_probe_access_logs() -> None:
+    """Attach the probe filter to uvicorn's access logger, idempotently.
+
+    Call this from the application lifespan, not at import time: uvicorn
+    applies its own ``dictConfig`` around the app import, and a filter
+    attached before that runs is discarded with the rest of the logger
+    configuration.
+    """
+    access_logger = logging.getLogger("uvicorn.access")
+    if not any(isinstance(f, ProbeAccessLogFilter) for f in access_logger.filters):
+        access_logger.addFilter(ProbeAccessLogFilter())
+
+
 def create_logger(name: str):
     """Create a logger instance."""
     logger = logging.getLogger(name)

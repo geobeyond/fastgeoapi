@@ -177,6 +177,22 @@ If mcp-remote can't connect:
 3. For HTTP (non-HTTPS), use the `--allow-http` flag
 4. Check for CORS issues in browser-based clients
 
+### Client Shows "Connected" but the Tool List Is Empty
+
+Different symptom, different cause: the connector is green and there is nothing to call — the tools simply aren't listed.
+
+"Connected" reflects the OAuth grant the client has stored, not a live capability check. If that access token is no longer accepted — it outlived its TTL and the refresh failed, or it was minted by a previous server build — the client's `tools/list` is answered `401` and it keeps an **empty** tool registry rather than re-running authorization. Nothing recovers on its own.
+
+Server-side the signature is unmistakable: repeated
+
+```
+POST /mcp HTTP/1.1" 401 Unauthorized
+```
+
+from the client's address, with **no** `POST /mcp/token` in between — the client is retrying with the dead token instead of refreshing it.
+
+The fix is to disable and re-enable the connector, which re-runs the authorization dance. If it comes back on a regular cadence, raise `FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS` (see [Configuration](configuration.md)): a longer client-facing TTL is safe here because the token is a reference token — the upstream session is re-validated on every request regardless.
+
 ### Client Shows "Connected" but Tool Calls Fail
 
 If the client UI reports the server as connected but tool invocations error out (Claude Desktop: "couldn't send tool approval"), the client is usually holding a stale connection or session from before a server suspend/redeploy:
