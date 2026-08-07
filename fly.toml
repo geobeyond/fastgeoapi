@@ -21,6 +21,11 @@ primary_region = 'cdg'
   # a connector that reports itself connected with no tools until the
   # user toggles it by hand. Measured 2026-08-07, see
   # adr 0002-deterministic-openapi-schema-resolution.md
+  #
+  # Caveat learned the hard way: this only stops autostop from taking the
+  # last machine down — it does NOT start one that a deploy left stopped.
+  # After deploying, check `fly machine list`; if the state is `stopped`,
+  # `fly machine start <id>`, or the next visitor pays the cold start.
   min_machines_running = 1
   processes = ['app']
 
