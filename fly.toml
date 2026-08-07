@@ -14,8 +14,33 @@ primary_region = 'cdg'
   force_https = true
   auto_stop_machines = 'suspend'
   auto_start_machines = true
-  min_machines_running = 0
+  # Keep one machine warm. A full boot takes ~15s (Python imports and
+  # pygeoapi init dominate) and the proxy needs ~24s before it routes
+  # successfully; an MCP client that asks for the tool list inside that
+  # window gets an error and — in Claude's case — never retries, leaving
+  # a connector that reports itself connected with no tools until the
+  # user toggles it by hand. Measured 2026-08-07, see
+  # adr 0002-deterministic-openapi-schema-resolution.md
+  min_machines_running = 1
   processes = ['app']
+
+  # Tell the proxy when the app is actually able to serve, instead of
+  # letting it discover this by getting connections refused. /healthz
+  # and /readyz are unauthenticated by design and mounted on the root
+  # app, outside the auth middleware.
+  [[http_service.checks]]
+    grace_period = "20s"
+    interval = "15s"
+    method = "GET"
+    timeout = "5s"
+    path = "/healthz"
+
+  [[http_service.checks]]
+    grace_period = "30s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/readyz"
 
 # Persist the fastmcp OIDCProxy storage (DCR registrations + wrapped
 # tokens, lives under ~/.local/share/fastmcp/oauth-proxy/) across image
