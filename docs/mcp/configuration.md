@@ -181,12 +181,48 @@ This is **not** a security relaxation: the FastMCP token is a _reference_
 token. On every request the proxy re-validates the underlying upstream token
 against the IdP and transparently refreshes it when expired. A revoked or
 expired upstream session therefore fails immediately, regardless of how much
-lifetime is left on the client-facing token. When the IdP issues no refresh
-token, fastmcp caps the client-facing lifetime at the upstream `expires_in`
-anyway.
+lifetime is left on the client-facing token.
 
 > Requires fastmcp >= 3.4 (`fastmcp_access_token_expiry_seconds` on the OAuth
 > proxy).
+
+#### This setting is silently capped without an upstream refresh token
+
+If the IdP returns no `refresh_token`, fastmcp clamps the client-facing
+lifetime back to the upstream `expires_in` — typically one hour — no matter what
+you configure here:
+
+```python
+if not idp_tokens.get("refresh_token"):
+    fastmcp_access_expires_in = min(configured_value, expires_in)
+```
+
+The cap is deliberate, not a defect: a reference token must not claim to outlive
+the upstream token it points at when there is no way to renew that token. But it
+is silent, so a server configured for seven days can behave as if configured for
+one hour, and the symptom appears only after the first expiry — the client stops
+working while its connector still reports "connected" (see
+[Getting started](getting-started.md#client-shows-connected-but-the-tool-list-is-empty)).
+
+Requesting `offline_access` is necessary but **not sufficient**: the IdP must
+also be willing to issue the refresh token to that application.
+
+- **Logto** — the application's _Always issue Refresh Token_ setting. With it
+  off, Logto issues a refresh token only when the authorization request carries
+  `prompt=consent`, which this server does not forward upstream. Turn it on, or
+  add `{"prompt": "consent"}` to `extra_authorize_params`.
+- **Google** — needs both `access_type=offline` and `prompt=consent`.
+- **Keycloak, Auth0** — issue one with `offline_access` by default.
+
+Changing that setting invalidates the consent grant already stored for the user:
+the next authorization fails with `invalid_grant` ("grant request is invalid")
+until the IdP session is ended and a fresh grant is created.
+
+To verify what the server actually granted, read the token store rather than
+trusting the configuration. Entries whose lifetime equals the upstream
+`expires_in` mean no refresh token arrived; entries reaching fastmcp's
+refresh-expiry fallback (one year, when the IdP does not send
+`refresh_expires_in`) mean one did.
 
 ### Enterprise-Managed Authorization (`FASTGEOAPI_MCP_TRUSTED_ISSUERS`)
 
