@@ -350,7 +350,19 @@ def fastgeoapi_port() -> int:
 
 
 @pytest.fixture
-def iam_oauth_client(iam_server, fastgeoapi_port: int):
+def iam_client_grant_types() -> list[str]:
+    """Grant types the upstream IdP client is allowed to use.
+
+    Whether the IdP hands back a refresh token turns on this list, not on
+    the ``offline_access`` scope: authlib (and so canaille) issues one
+    whenever ``refresh_token`` is permitted here. Modules that need to
+    reproduce an IdP which issues *no* refresh token override this.
+    """
+    return ["authorization_code", "refresh_token"]
+
+
+@pytest.fixture
+def iam_oauth_client(request, iam_server, fastgeoapi_port: int):
     """Register an OAuth client in canaille that mirrors the redirect URI
     of the in-process fastgeoapi MCP server.
 
@@ -372,7 +384,7 @@ def iam_oauth_client(iam_server, fastgeoapi_port: int):
             client_secret="test-secret-do-not-use-in-prod",
             client_name="MCP Test Client",
             redirect_uris=[redirect_uri],
-            grant_types=["authorization_code", "refresh_token"],
+            grant_types=list(request.getfixturevalue("iam_client_grant_types")),
             response_types=["code"],
             scope=["openid", "profile", "email"],
             client_id_issued_at=int(time.time()),

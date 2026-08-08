@@ -202,6 +202,30 @@ class MCPOAuthClient:
         self.refresh_token = body.get("refresh_token")
         return self.access_token
 
+    def refresh(self, http: httpx.Client) -> httpx.Response:
+        """Redeem the stored refresh token for a fresh access token.
+
+        Returns the raw response so callers can assert on the whole body
+        (``expires_in``, refresh-token rotation) and not just the happy
+        path. On success the stored tokens are replaced.
+        """
+        assert self.refresh_token, "no refresh token: the IdP issued none"
+        response = http.post(
+            f"{self.base_url}/mcp/token",
+            data={
+                "grant_type": "refresh_token",
+                "refresh_token": self.refresh_token,
+                "client_id": self.client_id,
+            },
+        )
+        if response.status_code == 200:
+            body = response.json()
+            self.access_token = body["access_token"]
+            # Rotation is one-time-use: keeping the old value would make
+            # the next refresh fail in a way that looks like a server bug.
+            self.refresh_token = body.get("refresh_token", self.refresh_token)
+        return response
+
     def run_dance(self, http: httpx.Client | None = None) -> str:
         """Run the whole dance (DCR when needed) and return the access token."""
         owns_client = http is None
