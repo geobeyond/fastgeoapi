@@ -191,7 +191,9 @@ POST /mcp HTTP/1.1" 401 Unauthorized
 
 from the client's address, with **no** `POST /mcp/token` in between — the client is retrying with the dead token instead of refreshing it.
 
-The fix is to disable and re-enable the connector, which re-runs the authorization dance. If it comes back on a regular cadence, raise `FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS` (see [Configuration](configuration.md)): a longer client-facing TTL is safe here because the token is a reference token — the upstream session is re-validated on every request regardless.
+The immediate fix is to disable and re-enable the connector, which re-runs the authorization dance.
+
+If it comes back on a regular cadence, the cause is the token lifetime, and the first thing to check is **not** `FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS` but whether the IdP is issuing a refresh token at all: without one that setting is silently capped at the upstream lifetime, so a server configured for days behaves as if configured for an hour. [Configuration](configuration.md#this-setting-is-silently-capped-without-an-upstream-refresh-token) covers how to tell the two apart and what each IdP needs.
 
 ### Client Shows "Connected" but Tool Calls Fail
 
