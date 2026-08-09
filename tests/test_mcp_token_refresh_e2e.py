@@ -57,6 +57,59 @@ def _authenticated(
     return oauth, http
 
 
+def test_openid_alone_is_enough_and_still_yields_a_refresh_token(
+    fastgeoapi_with_iam: str,
+    iam_server,
+    iam_oauth_client,
+):
+    """``openid`` is the whole requirement, and it does not cost the refresh.
+
+    Answering an interop partner's question (11 AI Blockchain, 2026-08-08:
+    "what scope should we request for the MCP endpoint itself?"), so this
+    pins a contract someone outside the project now depends on.
+
+    ``scopes_supported`` advertises four scopes because that is the set a
+    client *may* request — it must stay complete or CIMD documents that
+    declare no ``scope`` are rejected — and reading it as a list of
+    requirements is the natural mistake. Only ``openid`` is enforced on an
+    inbound token, and a client that asks for nothing else still receives
+    a refresh token: issuance is governed by the upstream IdP, not by what
+    the client requested of us.
+    """
+    user = iam_server.random_user()
+    iam_server.login(user)
+    iam_server.consent(user, iam_oauth_client)
+
+    http = httpx.Client(timeout=10.0)
+    try:
+        oauth = MCPOAuthClient(base_url=fastgeoapi_with_iam, scope="openid")
+        oauth.run_dance(http)
+        assert oauth.refresh_token, "a minimal-scope client was denied a refresh token"
+    finally:
+        http.close()
+
+    response = httpx.post(
+        f"{fastgeoapi_with_iam}/mcp",
+        headers={
+            "Authorization": f"Bearer {oauth.access_token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+        },
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-11-25",
+                "capabilities": {},
+                "clientInfo": {"name": "scope-contract", "version": "1"},
+            },
+        },
+        timeout=10.0,
+    )
+    assert response.status_code == 200, response.text
+
+
 def test_refresh_token_is_issued_and_lifetime_is_honoured(
     fastgeoapi_with_iam: str,
     iam_server,
