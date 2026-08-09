@@ -25,7 +25,7 @@ import base64
 import hashlib
 import re
 import secrets
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
 from urllib.parse import parse_qs, urlparse
 
@@ -83,6 +83,81 @@ def follow_until(
             return response
         response = client.get(next_url, follow_redirects=False)
     raise AssertionError(f"Too many redirects before reaching {stop_prefix}")
+
+
+def is_consent_form(response: httpx.Response) -> bool:
+    """True when the response is fastmcp's consent interstitial."""
+    return response.status_code == 200 and 'name="txn_id"' in response.text
+
+
+def submit_consent_form(
+    http: httpx.Client, form: httpx.Response, consent_url: str
+) -> httpx.Response:
+    """Approve a fastmcp consent form, honouring its CSRF double-submit."""
+    csrf = re.search(r'name="csrf_token"\s+value="([^"]+)"', form.text)
+    txn = re.search(r'name="txn_id"\s+value="([^"]+)"', form.text)
+    assert csrf and txn, "consent form missing csrf_token/txn_id"
+    return http.post(
+        consent_url,
+        data={"txn_id": txn.group(1), "action": "approve", "csrf_token": csrf.group(1)},
+        follow_redirects=False,
+    )
+
+
+@contextmanager
+def headless_browser(monkeypatch, max_hops: int = 20):
+    """Stand in for the browser fastmcp's OAuth client tries to open.
+
+    ``OAuth.redirect_handler`` calls ``webbrowser.open(url)`` directly —
+    there is no injectable hook — so the seam is the module-level import.
+    The walk runs on a **thread**: ``webbrowser.open`` is called from
+    async code without being awaited, and the OAuth callback server lives
+    in that same event loop, so doing blocking HTTP inline would deadlock
+    the flow it is supposed to complete.
+
+    Yields the list of exceptions raised inside the thread. Failures there
+    surface as a callback timeout, several seconds and one unhelpful
+    message later, so tests should assert the list is empty and get the
+    real cause instead.
+    """
+    import threading
+    import webbrowser
+
+    errors: list[Exception] = []
+    threads: list[threading.Thread] = []
+
+    def walk(url: str) -> None:
+        try:
+            with httpx.Client(timeout=15.0, follow_redirects=False) as http:
+                response = http.get(url)
+                for _ in range(max_hops):
+                    if response.status_code in (301, 302, 303, 307, 308):
+                        location = response.headers.get("location", "")
+                        if not location:
+                            raise AssertionError(f"redirect without Location from {response.url}")
+                        response = http.get(str(httpx.URL(str(response.url)).join(location)))
+                    elif is_consent_form(response):
+                        origin = httpx.URL(str(response.url))
+                        consent_url = str(origin.copy_with(query=None, path="/mcp/consent"))
+                        response = submit_consent_form(http, response, consent_url)
+                    else:
+                        return
+                raise AssertionError(f"too many hops, stuck at {response.url}")
+        except Exception as exc:
+            errors.append(exc)
+
+    def fake_open(url: str, *_args, **_kwargs) -> bool:
+        thread = threading.Thread(target=walk, args=(url,), daemon=True)
+        thread.start()
+        threads.append(thread)
+        return True
+
+    monkeypatch.setattr(webbrowser, "open", fake_open)
+    try:
+        yield errors
+    finally:
+        for thread in threads:
+            thread.join(timeout=15)
 
 
 @dataclass
@@ -172,14 +247,7 @@ class MCPOAuthClient:
         """Submit the fastmcp consent form, honouring its CSRF double-submit."""
         form = http.get(str(httpx.URL(str(response.url)).join(location)), follow_redirects=False)
         assert form.status_code == 200, form.text[:300]
-        csrf = re.search(r'name="csrf_token"\s+value="([^"]+)"', form.text)
-        txn = re.search(r'name="txn_id"\s+value="([^"]+)"', form.text)
-        assert csrf and txn, "consent form missing csrf_token/txn_id"
-        approved = http.post(
-            f"{self.base_url}/mcp/consent",
-            data={"txn_id": txn.group(1), "action": "approve", "csrf_token": csrf.group(1)},
-            follow_redirects=False,
-        )
+        approved = submit_consent_form(http, form, f"{self.base_url}/mcp/consent")
         assert approved.status_code in (302, 303), approved.text[:300]
         return approved
 
