@@ -1,5 +1,6 @@
 """Configuration for tests."""
 
+import json
 import os
 import sys
 import threading
@@ -347,6 +348,64 @@ def fastgeoapi_port() -> int:
     can be configured with the same redirect URI before either is started.
     """
     return portpicker.pick_unused_port()
+
+
+@pytest.fixture
+def serve_cimd_documents(monkeypatch):
+    """Serve CIMD documents and remote key sets in-process.
+
+    ``CIMDFetcher`` deliberately refuses loopback and private addresses —
+    it fetches a URL the client supplies, an SSRF sink by definition — so
+    a document served from the test process is unreachable by design.
+    Every SSRF-guarded hop is replaced against one registry: the document
+    fetch (``cimd.ssrf_safe_fetch_response``), the ``jwks_uri``
+    pre-validation the document check performs (``cimd.validate_url``),
+    and the remote JWKS fetch itself (``providers.jwt.ssrf_safe_fetch``).
+    Unpublished URLs raise the same errors the real guards would, and
+    every layer above the socket stays real: URL detection, document
+    validation, client_id matching, client synthesis, redirect
+    validation, PKCE and the token endpoint's client authentication.
+
+    Returns a callable that publishes a payload at a URL (defaulting to
+    the document's own ``client_id``).
+    """
+    from fastmcp.server.auth import cimd as cimd_module
+    from fastmcp.server.auth.providers import jwt as jwt_module
+    from fastmcp.server.auth.ssrf import SSRFError, SSRFFetchError, SSRFFetchResponse
+
+    published: dict[str, dict] = {}
+
+    async def fake_fetch_response(url: str, **_kwargs) -> SSRFFetchResponse:
+        if url not in published:
+            raise SSRFFetchError(f"nothing published at {url}")
+        return SSRFFetchResponse(
+            content=json.dumps(published[url]).encode(),
+            status_code=200,
+            # No caching: each test gets its own document for the same URL.
+            headers={"Cache-Control": "no-store"},
+        )
+
+    async def fake_fetch_bytes(url: str, **_kwargs) -> bytes:
+        if url not in published:
+            raise SSRFFetchError(f"nothing published at {url}")
+        return json.dumps(published[url]).encode()
+
+    async def fake_validate_url(url: str, **_kwargs) -> None:
+        """Accept published test URLs in the document's own jwks_uri check."""
+        if url not in published:
+            raise SSRFError(f"nothing published at {url}")
+
+    monkeypatch.setattr(cimd_module, "ssrf_safe_fetch_response", fake_fetch_response)
+    monkeypatch.setattr(cimd_module, "validate_url", fake_validate_url)
+    monkeypatch.setattr(jwt_module, "ssrf_safe_fetch", fake_fetch_bytes)
+
+    def publish(payload: dict, at: str | None = None) -> str:
+        """Publish a payload, optionally at a URL other than its client_id."""
+        url = at or str(payload["client_id"])
+        published[url] = payload
+        return url
+
+    return publish
 
 
 @pytest.fixture

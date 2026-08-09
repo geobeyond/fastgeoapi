@@ -32,7 +32,6 @@ authentication. Only the socket is faked.
 from __future__ import annotations
 
 import contextlib
-import json
 import secrets
 import time
 from typing import Any
@@ -41,94 +40,19 @@ import httpx
 import pytest
 from authlib.jose import JsonWebKey, jwt
 
-from tests.mcp_e2e_client import CLIENT_REDIRECT_URI, MCPOAuthClient, pkce_pair
-
-
-# CIMD requires https, a host and a non-root path. The host is never
-# resolved (the fetch is patched). Each document gets a unique URL:
-# fastmcp's OAuth proxy persists registered clients on disk (the reason
-# the fly deployment mounts a volume for it), and a stored client
-# short-circuits document re-validation — reusing one URL across tests
-# would leak a previous test's client into the next.
-def cimd_client_id() -> str:
-    """Return a unique CIMD document URL."""
-    return f"https://clients.example.test/fastgeoapi/{secrets.token_hex(6)}.json"
-
-
-CIMD_SCOPE = "openid profile email"
+from tests.mcp_e2e_client import (
+    CIMD_SCOPE,
+    CLIENT_REDIRECT_URI,
+    MCPOAuthClient,
+    cimd_client_id,
+    cimd_document,
+    pkce_pair,
+)
 
 ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
 
-
-def cimd_document(**overrides) -> dict:
-    """Build a minimal valid CIMD document, overridable per test.
-
-    Passing ``scope=None`` drops the field entirely, which is how real
-    clients publish it: Claude's document declares no scopes at all.
-    """
-    document = {
-        "client_id": cimd_client_id(),
-        "client_name": "fastgeoapi CIMD e2e client",
-        "redirect_uris": [CLIENT_REDIRECT_URI],
-        "token_endpoint_auth_method": "none",
-        "grant_types": ["authorization_code", "refresh_token"],
-        "response_types": ["code"],
-        "scope": CIMD_SCOPE,
-    }
-    document.update(overrides)
-    return {key: value for key, value in document.items() if value is not None}
-
-
-@pytest.fixture
-def serve_cimd_documents(monkeypatch):
-    """Serve CIMD documents and remote key sets in-process.
-
-    Every SSRF-guarded hop is replaced against one registry: the CIMD
-    document fetch (``cimd.ssrf_safe_fetch_response``), the ``jwks_uri``
-    pre-validation the document check performs (``cimd.validate_url``),
-    and the remote JWKS fetch itself (``providers.jwt.ssrf_safe_fetch``).
-    Unpublished URLs raise the same errors the real guards would.
-
-    Returns a callable that publishes a payload at a URL (defaulting to
-    the document's own ``client_id``).
-    """
-    from fastmcp.server.auth import cimd as cimd_module
-    from fastmcp.server.auth.providers import jwt as jwt_module
-    from fastmcp.server.auth.ssrf import SSRFError, SSRFFetchError, SSRFFetchResponse
-
-    published: dict[str, dict] = {}
-
-    async def fake_fetch_response(url: str, **_kwargs) -> SSRFFetchResponse:
-        if url not in published:
-            raise SSRFFetchError(f"nothing published at {url}")
-        return SSRFFetchResponse(
-            content=json.dumps(published[url]).encode(),
-            status_code=200,
-            # No caching: each test gets its own document for the same URL.
-            headers={"Cache-Control": "no-store"},
-        )
-
-    async def fake_fetch_bytes(url: str, **_kwargs) -> bytes:
-        if url not in published:
-            raise SSRFFetchError(f"nothing published at {url}")
-        return json.dumps(published[url]).encode()
-
-    async def fake_validate_url(url: str, **_kwargs) -> None:
-        """Accept published test URLs in the document's own jwks_uri check."""
-        if url not in published:
-            raise SSRFError(f"nothing published at {url}")
-
-    monkeypatch.setattr(cimd_module, "ssrf_safe_fetch_response", fake_fetch_response)
-    monkeypatch.setattr(cimd_module, "validate_url", fake_validate_url)
-    monkeypatch.setattr(jwt_module, "ssrf_safe_fetch", fake_fetch_bytes)
-
-    def publish(payload: dict, at: str | None = None) -> str:
-        """Publish a payload, optionally at a URL other than its client_id."""
-        url = at or str(payload["client_id"])
-        published[url] = payload
-        return url
-
-    return publish
+# `serve_cimd_documents` lives in conftest.py: the stock-client tests in
+# `test_mcp_stock_client_e2e` need the same in-process publisher.
 
 
 def signing_key(kid: str = "cimd-e2e") -> tuple[Any, dict]:

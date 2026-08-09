@@ -38,6 +38,40 @@ CLIENT_REDIRECT_URI = "http://localhost:1/cb"
 DEFAULT_SCOPE = "openid profile email"
 
 
+# CIMD requires https, a host and a non-root path. The host is never
+# resolved (the fetch is patched by `serve_cimd_documents`). Each document
+# gets a unique URL: fastmcp's OAuth proxy persists registered clients on
+# disk (the reason the fly deployment mounts a volume for it), and a stored
+# client short-circuits document re-validation — reusing one URL across
+# tests would leak a previous test's client into the next.
+def cimd_client_id() -> str:
+    """Return a unique CIMD document URL."""
+    return f"https://clients.example.test/fastgeoapi/{secrets.token_hex(6)}.json"
+
+
+CIMD_SCOPE = "openid profile email"
+
+
+def cimd_document(**overrides) -> dict:
+    """Build a minimal valid CIMD document, overridable per test.
+
+    Passing ``scope=None`` drops the field entirely, which is how real
+    clients publish it: Claude's document declares no scopes at all, and
+    so does the one our first interop partner published.
+    """
+    document = {
+        "client_id": cimd_client_id(),
+        "client_name": "fastgeoapi CIMD e2e client",
+        "redirect_uris": [CLIENT_REDIRECT_URI],
+        "token_endpoint_auth_method": "none",
+        "grant_types": ["authorization_code", "refresh_token"],
+        "response_types": ["code"],
+        "scope": CIMD_SCOPE,
+    }
+    document.update(overrides)
+    return {key: value for key, value in document.items() if value is not None}
+
+
 def pkce_pair() -> tuple[str, str]:
     """Return a ``(code_verifier, code_challenge)`` pair for PKCE S256."""
     verifier = secrets.token_urlsafe(64)
