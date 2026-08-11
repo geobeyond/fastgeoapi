@@ -25,8 +25,12 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.config.app import configuration as cfg
 from app.config.logging import create_logger, silence_probe_access_logs
+from app.middleware.mcp_identity import MCPClientIdentityMiddleware
 from app.middleware.oauth2 import Oauth2Middleware
-from app.middleware.proxy import ForwardedLinksMiddleware, MCPMountRootRewriteMiddleware
+from app.middleware.proxy import (
+    ForwardedLinksMiddleware,
+    MCPMountRootRewriteMiddleware,
+)
 from app.middleware.pygeoapi import OpenapiSecurityMiddleware
 from app.utils.app_exceptions import AppExceptionError, app_exception_handler
 from app.utils.openapi_generator import ensure_openapi_file_exists
@@ -196,7 +200,10 @@ def create_app(lifespan=None):
             openapi_path = Path.cwd() / openapi_path
         if not openapi_path.exists():
             return JSONResponse(
-                {"status": "not-ready", "reason": "pygeoapi OpenAPI document missing"},
+                {
+                    "status": "not-ready",
+                    "reason": "pygeoapi OpenAPI document missing",
+                },
                 status_code=503,
             )
         return {"status": "ready"}
@@ -399,6 +406,10 @@ def create_mcp_server(api_client: httpx.AsyncClient | None = None):
         name="OGC API MCP",
         auth=auth,
     )
+
+    # Make requests attributable to a client. Neither the User-Agent nor
+    # the source address can do it — see the middleware module for why.
+    mcp_server.add_middleware(MCPClientIdentityMiddleware())
 
     return (
         mcp_server,
