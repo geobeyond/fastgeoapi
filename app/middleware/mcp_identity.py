@@ -20,16 +20,46 @@ logger = logging.getLogger("fastgeoapi.mcp.client")
 UNKNOWN = "unknown"
 
 
+def _params_from_session(context: Any) -> Any | None:
+    """Initialize params the session kept, or None if it kept none."""
+    try:
+        return context.fastmcp_context.session.client_params
+    except AttributeError:
+        return None
+
+
+def _params_from_message(context: Any) -> Any | None:
+    """Initialize params carried by the message currently in flight.
+
+    Only an ``initialize`` message has them, and the middleware chain
+    receives it as either the request or its params depending on the
+    transport, so both shapes are tried.
+    """
+    message = getattr(context, "message", None)
+    if message is None:
+        return None
+    params = getattr(message, "params", message)
+    return params if hasattr(params, "client_info") else None
+
+
 class MCPClientIdentityMiddleware(Middleware):
     """Log the declared identity of the client behind each MCP message.
 
-    Hooked on ``on_message`` rather than ``on_initialize``: that hook
-    exists on the base class but is never invoked for the protocol
-    ``initialize`` in fastmcp 4+ — the handshake is served by the
-    lower-level MCP server before the middleware chain runs. Verified
-    against an in-memory server, so it is not an artefact of the stateless
-    HTTP transport. The identity is still reachable afterwards, because
-    the session keeps the initialize params for the whole of its life.
+    Two sources, because one alone covers only half the deployments.
+
+    Under the sessionless protocol (``2026-07-28``) the session keeps the
+    client's initialize params for its whole life, so any message can be
+    attributed. Under the older handshake — which is what Claude Desktop
+    still negotiates — combined with our stateless HTTP transport, every
+    request builds a fresh session that never saw an ``initialize``, and
+    the session holds nothing. There the identity exists exactly once, in
+    the ``initialize`` message itself, so that message is read directly.
+
+    The consequence is worth stating plainly: on the older handshake we
+    can name the client when it connects, and only then. Subsequent calls
+    are correlated by time. That is a property of a stateless server
+    talking a session-oriented protocol, not something this middleware
+    can recover.
 
     What is deliberately *not* logged: tool arguments. Which tool ran is
     already visible from the upstream request line the MCP-to-pygeoapi
@@ -39,17 +69,14 @@ class MCPClientIdentityMiddleware(Middleware):
 
     async def on_message(self, context: Any, call_next: Any) -> Any:
         """Emit one line naming the client, then continue the chain."""
+        params = _params_from_session(context) or _params_from_message(context)
+
         name = version = protocol = UNKNOWN
-        try:
-            params = context.fastmcp_context.session.client_params
-            info = params.client_info
-            name = info.name or UNKNOWN
-            version = info.version or UNKNOWN
-            protocol = params.protocol_version or UNKNOWN
-        except AttributeError:
-            # No session yet, or a message shape without initialize params.
-            # Never let observability break the request it observes.
-            pass
+        info = getattr(params, "client_info", None)
+        if info is not None:
+            name = getattr(info, "name", None) or UNKNOWN
+            version = getattr(info, "version", None) or UNKNOWN
+            protocol = getattr(params, "protocol_version", None) or UNKNOWN
 
         logger.info(
             "MCP %s from client=%s version=%s protocol=%s",
