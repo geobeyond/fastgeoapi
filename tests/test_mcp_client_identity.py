@@ -93,6 +93,66 @@ async def test_client_identity_reaches_the_logs(
     )
 
 
+def test_identity_is_recorded_on_the_legacy_handshake(
+    fastgeoapi_with_iam: str,
+    iam_server,
+    iam_oauth_client,
+    captured_middleware_logs,
+):
+    """A client on the pre-sessionless protocol is still named.
+
+    This is the case that matters in production and the one a stock
+    fastmcp client cannot exercise: it negotiates `2026-07-28`, where the
+    session retains the initialize params so any message can be
+    attributed. Claude Desktop negotiates `2025-11-25`, and against our
+    stateless transport every request builds a session that never saw an
+    `initialize` — so the identity has to be read from that message
+    itself, or everything logs as `unknown`.
+
+    It did log as `unknown`, in production, while this module's other
+    tests passed. Hence the raw handshake here rather than a client
+    library: the protocol version is the variable under test, and no
+    client we have on hand speaks the old one.
+    """
+    import httpx
+
+    from tests.mcp_e2e_client import MCPOAuthClient
+
+    user = iam_server.random_user()
+    iam_server.login(user)
+    iam_server.consent(user, iam_oauth_client)
+
+    oauth = MCPOAuthClient(base_url=fastgeoapi_with_iam)
+    token = oauth.run_dance()
+
+    response = httpx.post(
+        f"{fastgeoapi_with_iam}/mcp/",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+        },
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-11-25",
+                "capabilities": {},
+                "clientInfo": {"name": CLIENT_NAME, "version": CLIENT_VERSION},
+            },
+        },
+        timeout=15.0,
+    )
+    assert response.status_code == 200, response.text[:300]
+
+    logged = "\n".join(record.getMessage() for record in captured_middleware_logs)
+    assert CLIENT_NAME in logged, (
+        "a client on the legacy handshake logged as unknown — the identity "
+        f"was not read from the initialize message. Captured:\n{logged or '(nothing)'}"
+    )
+
+
 @pytest.mark.asyncio
 async def test_tool_arguments_are_not_logged(
     fastgeoapi_with_iam: str,
