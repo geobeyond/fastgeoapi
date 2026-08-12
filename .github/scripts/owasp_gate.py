@@ -70,6 +70,7 @@ def emit(summary: list[str]) -> None:
 
 
 def main() -> int:
+    """Parse the Spectral report, print the summary, and gate on our errors."""
     if not REPORT.exists() or not REPORT.stat().st_size:
         emit(
             [
@@ -123,7 +124,7 @@ def main() -> int:
         summary += ["## Errors in our document", ""]
         for code, count in Counter(f["code"] for f in our_errors).most_common():
             mark = "✅ accepted" if code in ACCEPTED else "❌ **new**"
-            summary.append(f"- `{code}` ×{count} — {mark}")
+            summary.append(f"- `{code}` x{count} — {mark}")
             if code in ACCEPTED:
                 summary.append(f"  - {ACCEPTED[code]}")
         summary.append("")
