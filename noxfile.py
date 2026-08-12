@@ -31,12 +31,23 @@ def _get_current_branch() -> str:
             check=True,
         )
         branch = result.stdout.strip()
-        # Handle detached HEAD state (common in CI)
+        # Detached HEAD: for `pull_request` events GitHub checks out a
+        # merge commit, so the event's refs are the only source of truth.
+        #
+        # What decides is where the work is *going*. A pull request into
+        # develop is development and must resolve from `uv.lock`; one into
+        # main is release validation and should resolve from PyPI.
+        #
+        # This condition used to read `github_base_ref == "main"`, i.e.
+        # exactly backwards, and it held only because every open PR
+        # happened to target main. Retargeting one to develop flipped a
+        # whole suite from locked to unlocked dependencies, and the
+        # resulting failure looked like a defect in the change under
+        # review rather than in the branch detection.
         if branch == "HEAD":
-            # Check GitHub Actions environment variables
             github_head_ref = os.environ.get("GITHUB_HEAD_REF", "")
             github_base_ref = os.environ.get("GITHUB_BASE_REF", "")
-            if github_head_ref == "develop" or github_base_ref == "main":
+            if github_head_ref == "develop" or github_base_ref == "develop":
                 return "develop"
             return "main"
         return branch

@@ -1,5 +1,6 @@
 """Configuration for tests."""
 
+import datetime
 import json
 import os
 import sys
@@ -446,8 +447,17 @@ def iam_oauth_client(request, iam_server, fastgeoapi_port: int):
             grant_types=list(request.getfixturevalue("iam_client_grant_types")),
             response_types=["code"],
             scope=["openid", "profile", "email"],
-            client_id_issued_at=int(time.time()),
-            client_secret_expires_at=0,
+            # Both fields are `datetime | None` in canaille's model, not the
+            # epoch integers RFC 7591 describes. The seconds-since-epoch
+            # habit is what the spec invites, and canaille 0.2.x tolerated
+            # it because it never read the values back; 0.3 added a
+            # `secret_expired` property that checks `is not None` and then
+            # compares against `datetime.now()`, so the RFC's "0 means it
+            # never expires" became `0 < datetime` — a TypeError that
+            # surfaces as a 500 from the IdP's token endpoint and takes
+            # every live OAuth test down with it.
+            client_id_issued_at=datetime.datetime.now(datetime.UTC),
+            client_secret_expires_at=None,  # never expires
             # fastmcp's OIDCProxy sends upstream client creds via HTTP Basic.
             token_endpoint_auth_method="client_secret_basic",
         )
