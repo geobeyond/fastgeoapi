@@ -13,6 +13,62 @@ from app.pygeoapi.models import not_found
 logger = create_logger("app.pygeoapi.openapi")
 
 
+def describe_servers(content: dict) -> None:
+    """State each server's audience and environment in the document.
+
+    pygeoapi emits a bare ``url`` plus a generic description, which leaves
+    a consumer guessing whether they are looking at a staging box or the
+    real thing — and raises OWASP API9:2023 (improper inventory
+    management) on both counts.
+
+    ``x-internal`` is set to ``False`` because the surface pygeoapi serves
+    is meant for external consumers; an operator running it behind a
+    perimeter can override it. The environment is taken from
+    ``ENV_STATE`` rather than guessed from the URL, so it says what the
+    deployment was configured to be.
+    """
+    servers = content.get("servers")
+    if not servers:
+        return
+    environment = "production" if str(cfg.ENV_STATE).lower().startswith("prod") else "local"
+    for server in servers:
+        server.setdefault("x-internal", False)
+        description = server.get("description") or "pygeoapi"
+        if environment not in description:
+            server["description"] = f"{description} — {environment} environment"
+
+
+def describe_jwt_validation(content: dict) -> None:
+    """Describe what JWT validation actually enforces.
+
+    OWASP API2:2023 asks a scheme declaring ``bearerFormat: JWT`` to say
+    what it does about RFC 8725. The tempting move is to write "supports
+    RFC 8725" and satisfy the linter, but our conformance is conditional:
+    issuer and audience are only checked when configured, and one IdP
+    (Cognito) gets its audience back-filled from ``client_id``. Declaring
+    flat support would be the same dishonesty as a check that cannot
+    fail — a reader would take it as a guarantee.
+
+    So this states the part that always holds (the algorithm comes from
+    the provider's key set, never from the token header, which is the
+    RFC 8725 §3.1 defence against algorithm confusion) and marks the rest
+    as conditional.
+    """
+    schemes = (content.get("components") or {}).get("securitySchemes") or {}
+    for scheme in schemes.values():
+        if not isinstance(scheme, dict) or scheme.get("bearerFormat") != "JWT":
+            continue
+        scheme.setdefault(
+            "description",
+            "Bearer JWT verified against the identity provider's published JWKS. "
+            "The signing algorithm is taken from that key set and never from the "
+            "token header, which is the RFC8725 section 3.1 defence against "
+            "algorithm confusion. Issuer and audience are enforced as essential "
+            "claims when OAUTH2_EXPECTED_ISSUER and OAUTH2_EXPECTED_AUDIENCE are "
+            "configured; without them those claims are not checked.",
+        )
+
+
 def augment_security(doc: str, security_schemes: list[SecurityScheme]) -> OpenAPI:
     """Augment openapi document with security sections."""
     try:
@@ -41,6 +97,8 @@ def augment_security(doc: str, security_schemes: list[SecurityScheme]) -> OpenAP
     # The served spec must be as honest as the one handed to fastmcp:
     # correct pygeoapi's queryables wrapper here too (Bug 3b).
     fix_queryables_response_schema(content)
+    describe_servers(content)
+    describe_jwt_validation(content)
     paths = openapi.paths
     secured_paths = {}
     if paths:

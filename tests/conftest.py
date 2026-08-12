@@ -3,6 +3,7 @@
 import datetime
 import json
 import os
+import socket
 import sys
 import threading
 import time
@@ -344,11 +345,34 @@ def access_token():
 
 
 @pytest.fixture
-def fastgeoapi_port() -> int:
-    """Pre-pick a free port so the OAuth client and the fastgeoapi instance
-    can be configured with the same redirect URI before either is started.
+def fastgeoapi_socket() -> Iterator[socket.socket]:
+    """Bind a listening socket now and hand it to uvicorn later.
+
+    The port has to be known before anything starts, because the upstream
+    OAuth client is registered with a redirect URI that contains it. The
+    obvious way — ask `portpicker` for a free port, then bind it when the
+    server starts — leaves a window of several seconds, since importing
+    the application sits between the two, and importing pygeoapi is slow.
+    Something else can take the port in the meantime, and the suite fails
+    at fixture setup with `[Errno 48] address already in use`.
+
+    Binding here and passing the same socket to `uvicorn.Server.run`
+    removes the window rather than narrowing it.
     """
-    return portpicker.pick_unused_port()
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind(("127.0.0.1", 0))
+    sock.listen(128)
+    try:
+        yield sock
+    finally:
+        sock.close()
+
+
+@pytest.fixture
+def fastgeoapi_port(fastgeoapi_socket: socket.socket) -> int:
+    """The port the pre-bound socket is listening on."""
+    return int(fastgeoapi_socket.getsockname()[1])
 
 
 @pytest.fixture
@@ -478,6 +502,7 @@ def fastgeoapi_with_iam(
     iam_server,
     iam_oauth_client,
     fastgeoapi_port: int,
+    fastgeoapi_socket: socket.socket,
 ) -> Iterator[str]:
     """Boot fastgeoapi in a uvicorn thread, configured against the local IdP.
 
@@ -537,7 +562,13 @@ def fastgeoapi_with_iam(
             loop="asyncio",
         )
         server = uvicorn.Server(config)
-        thread = threading.Thread(target=server.run, daemon=True)
+        # Serve on the socket the fixture already holds, so nothing can
+        # take the port between picking it and listening on it.
+        thread = threading.Thread(
+            target=server.run,
+            kwargs={"sockets": [fastgeoapi_socket]},
+            daemon=True,
+        )
         thread.start()
 
         base_url = f"http://localhost:{fastgeoapi_port}"

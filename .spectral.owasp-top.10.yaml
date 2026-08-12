@@ -1,13 +1,37 @@
+# OWASP API Security Top 10 ruleset for the generated pygeoapi document.
+#
+# The ruleset version is PINNED. It used to track `@latest` while this file
+# named rules from an older release, and the drift silenced the whole check:
+# `owasp:api4:2023-define-cors-origin` moved to `api8` and
+# `owasp:api4:2023-integer-limit` became `integer-limit-legacy`, so Spectral
+# aborted with "Cannot extend non-existing rule" before validating anything.
+# The failure was swallowed by `continue-on-error`, and the job reported a
+# clean run it had never performed. Bump this pin deliberately, reading the
+# changelog, rather than letting it float.
 extends:
-  ["https://unpkg.com/@stoplight/spectral-owasp-ruleset/dist/ruleset.mjs"]
+  ["https://unpkg.com/@stoplight/spectral-owasp-ruleset@2.0.1/dist/ruleset.mjs"]
 
-# Downgrade OWASP rules to warnings to prevent failures from external OGC schemas
-# External schemas (schemas.opengis.net) don't comply with strict OWASP rules
-# but are outside our control
 rules:
+  # --- Noise from the OGC schemas we resolve, not from our contract -------
+  #
+  # Spectral follows `$ref`s into schemas.opengis.net, and those documents
+  # predate these rules. They are outside our control, and every one of
+  # these findings sits in a remote file — verified, not assumed.
   owasp:api4:2023-string-limit: warn
   owasp:api4:2023-string-restricted: warn
   owasp:api4:2023-array-limit: warn
-  owasp:api4:2023-integer-limit: warn
+  owasp:api4:2023-integer-limit-legacy: warn
+  owasp:api4:2023-integer-format: warn
+
+  # --- Real, and ours, but not actionable here ----------------------------
+  #
+  # Rate limiting is a deployment concern (reverse proxy / platform), not a
+  # property of the document. Keeping it as a warning records the gap
+  # instead of pretending it does not exist.
   owasp:api4:2023-rate-limit: warn
-  owasp:api4:2023-define-cors-origin: warn
+
+  # CORS is configured in the application, not declared in the document, so
+  # this rule cannot see the real setting. Tracked separately: the root app
+  # currently allows every origin *with* credentials, which deserves its own
+  # look rather than a linter annotation.
+  owasp:api8:2023-define-cors-origin: warn

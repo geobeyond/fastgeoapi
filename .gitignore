@@ -143,3 +143,6 @@ dmypy.json
 /pygeoapi-openapi.json
 pygeoapi-openapi.yml
 canaille.sqlite
+
+# Report generato dal gate OWASP in CI
+spectral-owasp.json
