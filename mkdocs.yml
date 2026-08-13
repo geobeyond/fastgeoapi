@@ -103,6 +103,7 @@ nav:
       - Configuration: mcp/configuration.md
       - Supported specifications: mcp/specifications.md
       - Getting started: mcp/getting-started.md
+      - Verifying with the MCP Inspector: mcp/inspector.md
   - Tutorials: tutorials.md
   - OpenAPI: openapi.md
 
