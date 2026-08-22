@@ -32,6 +32,14 @@ dependencies = [
     "pyyaml>=6.0.2,<7",
     "scalar-fastapi>=1.4.3,<2",
     "fastmcp>=4.0.0b1,<5",
+    # fastmcp's own dependency, declared here only to name a pre-release
+    # explicitly: resolvers enable pre-releases per package named with
+    # one, and without this the unlocked CI lane cannot see the b-series
+    # of fastmcp-slim and resolution fails. Replaces the previous GLOBAL
+    # `[tool.uv] prerelease = "allow"`, which was quietly pulling rc/alpha
+    # versions of unrelated packages into the lock (wrapt, sentry-sdk).
+    # Drop together with the beta specifiers once fastmcp 4.0 is stable.
+    "fastmcp-slim[client]>=4.0.0b1,<5",
 ]
 
 [project.urls]
