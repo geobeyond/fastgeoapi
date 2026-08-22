@@ -23,7 +23,7 @@ dependencies = [
     "shapely>=2.0,<3",
     "psycopg2-binary>=2.9.10,<3",
     "openapi-pydantic>=0.5.1,<=1.0",
-    "pygeofilter>=0.3.3,<0.4",
+    "pygeofilter>=0.4,<0.5",
     "pydantic-settings>=2.9.1,<3",
     "authlib>=1.7.2,<2",
     "cachetools>=7,<8",
@@ -81,10 +81,6 @@ dev = [
 ]
 
 [tool.uv]
-# fastmcp 4 is still in pre-release; without this every `uv lock`/`uv sync`
-# re-resolves (and CI/Docker would silently fall back to 3.x). Drop once
-# 4.0 is stable.
-prerelease = "allow"
 
 [tool.uv.sources]
 fencer = { git = "https://github.com/abunuwas/fencer.git", branch = "main" }
@@ -156,31 +152,31 @@ select = [
     "RUF",    # ruff-specific rules
 ]
 ignore = [
-    "D100",   # Missing docstring in public module
-    "D104",   # Missing docstring in public package
-    "D107",   # Missing docstring in __init__
-    "S101",   # Use of assert detected (needed for tests)
-    "D400",   # First line should end with a period (tracked in #315)
-    "D401",   # First line should be in imperative mood (tracked in #315)
-    "D404",   # First word of docstring should not be "This" (tracked in #315)
-    "DOC201", # Return not documented in docstring (tracked in #315)
-    "DOC402", # Yield not documented in docstring (tracked in #315)
-    "DOC501", # Raised exception missing from docstring (tracked in #315)
-    "RUF012", # Mutable class attributes should use ClassVar (tracked in #315)
-    "RUF029", # Async function without await (tracked in #315)
-    "RUF052", # Local variable with leading underscore shadowing (tracked in #315)
+    "undocumented-public-module",   # Missing docstring in public module
+    "undocumented-public-package",   # Missing docstring in public package
+    "undocumented-public-init",   # Missing docstring in __init__
+    "assert",   # Use of assert detected (needed for tests)
+    "missing-trailing-period",   # First line should end with a period (tracked in #315)
+    "non-imperative-mood",   # First line should be in imperative mood (tracked in #315)
+    "docstring-starts-with-this",   # First word of docstring should not be "This" (tracked in #315)
+    "docstring-missing-returns", # Return not documented in docstring (tracked in #315)
+    "docstring-missing-yields", # Yield not documented in docstring (tracked in #315)
+    "docstring-missing-exception", # Raised exception missing from docstring (tracked in #315)
+    "mutable-class-default", # Mutable class attributes should use ClassVar (tracked in #315)
+    "unused-async", # Async function without await (tracked in #315)
+    "used-dummy-variable", # Local variable with leading underscore shadowing (tracked in #315)
 ]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101", "S104", "S105", "S106", "S108", "N802", "D", "E501"]
+"tests/*" = ["assert", "hardcoded-bind-all-interfaces", "hardcoded-password-string", "hardcoded-password-func-arg", "hardcoded-temp-file", "invalid-function-name", "D", "line-too-long"]
 "app/pygeoapi/*" = ["D", "DOC"]  # Temporarily ignored, tracked in #315
 # Mirrors upstream pygeoapi/api/__init__.py, where validate_datetime lives:
 # the patch must sit in the same-named module, which upstream made a package init.
-"app/pygeoapi/api/__init__.py" = ["RUF067"]
-"noxfile.py" = ["S404", "S603", "S607"]  # subprocess calls to git are safe
+"app/pygeoapi/api/__init__.py" = ["non-empty-init-module"]
+"noxfile.py" = ["suspicious-subprocess-import", "subprocess-without-shell-equals-true", "start-process-with-partial-path"]  # subprocess calls to git are safe
 
 [tool.ruff.format]
 quote-style = "double"

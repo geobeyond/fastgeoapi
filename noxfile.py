@@ -78,7 +78,7 @@ def _install_project(session: Session) -> None:
         session.install(".")
 
 
-nox.options.sessions = (
+nox.options.sessions = [
     "pre-commit",
     "safety",
     "bandit",
@@ -87,7 +87,7 @@ nox.options.sessions = (
     "typeguard",
     "xdoctest",
     "docs-build",
-)
+]
 
 
 def activate_virtualenv_in_precommit_hooks(session: Session) -> None:

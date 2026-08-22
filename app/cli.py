@@ -39,7 +39,7 @@ def run(
     host: Annotated[
         str,
         typer.Option("--host", "-h", help="Host to bind the server to"),
-    ] = "0.0.0.0",  # noqa: S104  # nosec B104
+    ] = "0.0.0.0",  # ruff: ignore[hardcoded-bind-all-interfaces]  # nosec B104
     port: Annotated[
         int,
         typer.Option("--port", "-p", help="Port to bind the server to"),

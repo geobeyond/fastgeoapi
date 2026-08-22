@@ -751,7 +751,7 @@ class TestStartupWorkflowMCPAuth:
             # The guard fires during app.main's module-level bootstrap,
             # so the import itself must raise.
             with pytest.raises(RuntimeError, match="unauthenticated") as exc:
-                from app.main import create_mcp_server  # noqa: F401
+                from app.main import create_mcp_server  # ruff: ignore[unused-import]
             assert type(exc.value).__name__ == "MCPAuthMisconfiguredError"
 
     def test_mcp_oidc_auth_config_creation(self):
