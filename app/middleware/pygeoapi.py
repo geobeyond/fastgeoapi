@@ -45,7 +45,7 @@ class OpenAPIResponder:
         self,
         app: ASGIApp,
         security_schemes: list[SecurityScheme],
-        headers: dict[Any, Any] = {},  # noqa: B006
+        headers: dict[Any, Any] = {},  # ruff: ignore[mutable-argument-default]
     ):
         """Initialize the OpenAPI responder class."""
         self.app = app

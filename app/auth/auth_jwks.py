@@ -128,15 +128,15 @@ class JWKSAuthentication(AuthInterface):
             claims.validate()
         except KeyError:
             logger.error("Unable to find an algorithm in the key")
-            raise Oauth2Error(  # noqa
+            raise Oauth2Error(  # ruff: ignore[raise-without-from-inside-except]
                 "Unable to decode the token with a missing algorithm"
             )
         except errors.ExpiredTokenError:
             logger.error("Unable to validate an expired token")
-            raise Oauth2Error("Unable to validate an expired token")  # noqa
+            raise Oauth2Error("Unable to validate an expired token")  # ruff: ignore[raise-without-from-inside-except]
         except errors.JoseError:
             logger.error("Unable to decode token")
-            raise Oauth2Error("Unable to decode token")  # noqa
+            raise Oauth2Error("Unable to decode token")  # ruff: ignore[raise-without-from-inside-except]
         except Exception as e:
             logger.error(f"Generic decode exception: f{e}")
             raise e
@@ -146,7 +146,7 @@ class JWKSAuthentication(AuthInterface):
     async def authenticate(
         self,
         request: Request,
-        accepted_methods: typing.List[str] = ["access_token"],  # noqa
+        accepted_methods: typing.List[str] = ["access_token"],  # ruff: ignore[mutable-argument-default, non-pep585-annotation]
     ) -> RedirectResponse | dict:
         """Authenticate the caller with the incoming request."""
         bearer = request.headers.get("Authorization")
@@ -158,4 +158,4 @@ class JWKSAuthentication(AuthInterface):
             claims = await self.decode_token(access_token)
             return claims
         except Exception:
-            raise Oauth2Error("Authentication error")  # noqa
+            raise Oauth2Error("Authentication error")  # ruff: ignore[raise-without-from-inside-except]

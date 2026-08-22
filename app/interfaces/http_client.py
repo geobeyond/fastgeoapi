@@ -39,7 +39,7 @@ class AsyncHTTPClient(Protocol):
 
     @property
     def headers(self) -> httpx.Headers:
-        """Return the default headers for requests."""
+        """The default headers for requests."""
         ...
 
     async def get(
@@ -240,7 +240,7 @@ class AsyncHTTPClient(Protocol):
 
     @property
     def is_closed(self) -> bool:
-        """Return whether the client has been closed.
+        """Whether the client has been closed.
 
         Returns
         -------

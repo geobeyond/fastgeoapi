@@ -3,7 +3,7 @@
 import logging
 import shlex
 import shutil
-import subprocess  # noqa: S404
+import subprocess  # ruff: ignore[suspicious-subprocess-import]
 from pathlib import Path
 
 import typer
@@ -80,7 +80,7 @@ def main(
                 build_command = " ".join((build_command, "--build-arg 'BUILDKIT_INLINE_CACHE=1'"))
                 build_command = " ".join((build_command, f"--cache-from {cache_image}"))
         else:
-            build_command = " ".join((build_command, f"--no-cache"))  # noqa
+            build_command = " ".join((build_command, f"--no-cache"))  # ruff: ignore[f-string-missing-placeholders]
         build_command = " ".join((build_command, build_context_path))
         logger.info(f"build_command: {build_command}")
         _run_external_command(build_command, capture_output=False)
@@ -100,7 +100,7 @@ def _run_external_command(
     kwargs = {"text": True}
     if capture_output:
         kwargs["capture_output"] = True
-    process_result = subprocess.run(  # noqa: S603  # ty: ignore[no-matching-overload]
+    process_result = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true]  # ty: ignore[no-matching-overload]
         shlex.split(command),
         **kwargs,
     )
