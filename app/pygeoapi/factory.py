@@ -53,9 +53,7 @@ def build_api(config: dict, openapi: dict) -> API:
     return API(config, openapi)
 
 
-def _call_threadsafe(
-    loop: asyncio.AbstractEventLoop, api_call: Callable, *args
-) -> tuple:
+def _call_threadsafe(loop: asyncio.AbstractEventLoop, api_call: Callable, *args) -> tuple:
     asyncio.set_event_loop(loop)
     return api_call(*args)
 
@@ -185,10 +183,7 @@ def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
         item_id = _path_param(request, "item_id")
         if item_id is None:
             if request.method == "POST":
-                if (
-                    request.headers.get("content-type")
-                    == "application/geo+json"
-                ):
+                if request.headers.get("content-type") == "application/geo+json":
                     return await execute(
                         api,
                         itemtypes_api.manage_collection_item,
@@ -301,9 +296,7 @@ def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
         collection_id = _path_param(request, "collection_id")
         instance_id = _path_param(request, "instance_id")
         if collection_id and "/instances/" in collection_id:
-            collection_id, _, instance_id = collection_id.partition(
-                "/instances/"
-            )
+            collection_id, _, instance_id = collection_id.partition("/instances/")
         if request.url.path.endswith("instances") or (
             instance_id is not None and request.url.path.endswith(instance_id)
         ):
@@ -315,11 +308,7 @@ def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
                 instance_id,
             )
         location_id = _path_param(request, "location_id")
-        query_type = (
-            "locations"
-            if location_id is not None
-            else request["path"].split("/")[-1]
-        )
+        query_type = "locations" if location_id is not None else request["path"].split("/")[-1]
         return await execute(
             api,
             edr_api.get_collection_edr_query,
@@ -343,9 +332,7 @@ def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
         return await execute(api, stac_api.get_stac_root, request)
 
     async def stac_catalog_path(request: Request) -> Response:
-        return await execute(
-            api, stac_api.get_stac_path, request, _path_param(request, "path")
-        )
+        return await execute(api, stac_api.get_stac_path, request, _path_param(request, "path"))
 
     async def stac_landing_page(request: Request) -> Response:
         return await execute(api, stac_api.landing_page, request)
@@ -362,9 +349,7 @@ def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
         ("tiles", Route("/TileMatrixSets", tilematrixsets)),
         (
             "core",
-            Route(
-                "/collections/{collection_id:path}/schema", collection_schema
-            ),
+            Route("/collections/{collection_id:path}/schema", collection_schema),
         ),
         (
             "core",

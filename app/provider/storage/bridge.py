@@ -42,3 +42,15 @@ class StorageBridge:
         if hasattr(self._backend, "ahead"):
             return await self._backend.ahead(path)
         return await asyncio.to_thread(self._backend.head, path)
+
+    def write(self, path: str, data: bytes) -> None:
+        """Sync write; bridges like :meth:`read`."""
+        if hasattr(self._backend, "put"):
+            return self._backend.put(path, data)
+        return asyncio.run(self._backend.aput(path, data))
+
+    async def awrite(self, path: str, data: bytes) -> None:
+        """Async write; bridges like :meth:`aread`."""
+        if hasattr(self._backend, "aput"):
+            return await self._backend.aput(path, data)
+        return await asyncio.to_thread(self._backend.put, path, data)

@@ -36,6 +36,12 @@ class _FakeStore:
     async def ahead(self, path: str) -> ObjectMeta:
         return self.head(path)
 
+    def put(self, path: str, data: bytes) -> None:
+        self._objects[path] = data
+
+    async def aput(self, path: str, data: bytes) -> None:
+        self._objects[path] = data
+
 
 def test_structural_conformance_is_runtime_checkable():
     store = _FakeStore({"cfg.yml": b"server: {}"})
@@ -50,3 +56,24 @@ def test_meta_is_immutable():
     meta = ObjectMeta(path="x", size=1, etag=None, last_modified=None)
     with pytest.raises(dataclasses.FrozenInstanceError):
         meta.etag = "nuovo"  # ty: ignore[invalid-assignment]
+
+
+class _ReaderOnly:
+    """The four read operations, no write: NOT a valid backend anymore."""
+
+    def get(self, path: str) -> bytes:
+        return b""
+
+    async def aget(self, path: str) -> bytes:
+        return b""
+
+    def head(self, path: str) -> ObjectMeta:
+        return ObjectMeta(path=path, size=0, etag=None, last_modified=None)
+
+    async def ahead(self, path: str) -> ObjectMeta:
+        return self.head(path)
+
+
+def test_protocol_requires_write_primitives():
+    """ADR-0005 follow-up: the openapi artifact needs ``put``/``aput``."""
+    assert not isinstance(_ReaderOnly(), ObjectStore)

@@ -23,6 +23,24 @@ in-memory dictionary: no temporary file is written, and `${VAR}`
 placeholders inside the config are resolved with the same semantics as
 vanilla pygeoapi.
 
+## The OpenAPI artifact
+
+`PYGEOAPI_OPENAPI` is an **output** target and accepts the same set of
+sources — local path or bucket URL. The runtime never reads it back
+(everything is built in memory); it exists for external consumers such
+as the control plane or CLI tooling.
+
+- Startup writes it only when it is missing.
+- An applied reload always rewrites it, so the artifact never goes
+  stale against the config that is serving.
+- A failed write is logged as a warning and never aborts startup or a
+  reload.
+- Writing to a bucket needs read-write credentials; reading the config
+  alone works with read-only ones.
+
+`fastgeoapi openapi` writes the security-enriched JSON document to the
+same target (with a `.json` suffix), through the same layer.
+
 ## Hot reload
 
 After updating the config object, call the reload webhook:
@@ -37,6 +55,10 @@ curl -X POST https://example.org/admin/config/reload
   no rebuild.
 - A broken config never replaces the running one: the outcome is
   `failed` and the previous config keeps serving.
+- The mounted OGC API surface follows the config: only the
+  specifications the configured resources actually expose are served
+  (a deployment without EDR resources answers 404 on the EDR paths),
+  and the set is recomputed on every applied reload.
 - `GET /admin/config/reload` returns the last outcome:
 
 ```json

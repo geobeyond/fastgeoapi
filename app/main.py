@@ -64,16 +64,31 @@ def _write_openapi_artifact(openapi: dict) -> None:
     """Persist the generated OpenAPI document as an output artifact.
 
     The runtime never reads it back (ADR-0003: everything is built from
-    in-memory dicts); the file exists for external consumers — CLI
-    tooling, inspection, CI diffing — and is only written when missing,
-    matching the historical ``ensure_openapi_file_exists`` behaviour.
+    in-memory dicts); the artifact exists for external consumers — the
+    control plane, CLI tooling, inspection. The target follows the
+    config (``PYGEOAPI_OPENAPI``: local path or storage URL) and goes
+    through the storage Protocol — one code path, local and cloud.
+
+    Boot writes it only when missing (the reload webhook refreshes it
+    on every applied reload) and the write is NEVER fatal: an output
+    must not kill the boot. Bucket targets need RW credentials; the
+    config read alone works with RO.
     """
-    path = Path(cfg.PYGEOAPI_OPENAPI)
-    if not path.is_absolute():
-        path = Path.cwd() / path
-    if not path.exists():
-        logger.info(f"Writing generated OpenAPI artifact: {path}")
-        path.write_text(yaml.safe_dump(openapi, sort_keys=False))
+    target = cfg.PYGEOAPI_OPENAPI
+    try:
+        from app.provider.storage import StorageBridge, load_store, split_source
+
+        base, key = split_source(target)
+        bridge = StorageBridge(load_store(base))
+        try:
+            bridge.stat(key)
+            return  # already present: boot never clobbers
+        except FileNotFoundError:
+            pass
+        bridge.write(key, yaml.safe_dump(openapi, sort_keys=False).encode("utf-8"))
+        logger.info(f"OpenAPI artifact written to {target}")
+    except Exception as e:
+        logger.warning(f"Could not write the OpenAPI artifact to {target}: {e}")
 
 
 def _bootstrap_pygeoapi() -> tuple[PygeoapiHolder, dict]:
@@ -296,7 +311,11 @@ def create_app(lifespan=None):
     # pygeoapi surface — "security according to the configuration".
     from app.interfaces.reload import ReloadManager, build_admin_app
 
-    reload_manager = ReloadManager(_pygeoapi_holder, cfg.PYGEOAPI_CONFIG)
+    reload_manager = ReloadManager(
+        _pygeoapi_holder,
+        cfg.PYGEOAPI_CONFIG,
+        artifact_target=cfg.PYGEOAPI_OPENAPI,
+    )
     wrapped_admin, _ = _wrap_pygeoapi_asgi(build_admin_app(reload_manager))
     app.mount("/admin", wrapped_admin)
     app.state.reload_manager = reload_manager

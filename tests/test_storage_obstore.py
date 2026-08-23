@@ -71,3 +71,16 @@ def test_load_store_builds_s3_store_without_network():
     # Store construction contacts no network and needs no credentials.
     store = load_store("s3://no-such-bucket/prefix/")
     assert isinstance(store, ObjectStore)
+
+
+def test_put_roundtrip(tmp_path):
+    store = load_store(str(tmp_path))
+    store.put("artifact.yml", b"openapi: 3.0.2\n")
+    assert store.get("artifact.yml") == b"openapi: 3.0.2\n"
+
+
+@pytest.mark.asyncio
+async def test_aput_roundtrip(tmp_path):
+    store = load_store(str(tmp_path))
+    await store.aput("artifact.yml", b"openapi: 3.0.2\n")
+    assert await store.aget("artifact.yml") == b"openapi: 3.0.2\n"
