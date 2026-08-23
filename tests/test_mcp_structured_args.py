@@ -109,8 +109,9 @@ async def test_array_query_params_forwarded_intact(mcp_main):
 
     bbox = [-90, -45, 90, 45]
 
-    # Direct HTTP baseline on the raw sub-app (no MCP in the path).
-    transport = httpx.ASGITransport(app=mcp_main._build_pygeoapi_subapp())
+    # Direct HTTP baseline on the raw sub-app (no MCP in the path):
+    # the holder is the same target the MCP transport uses.
+    transport = httpx.ASGITransport(app=mcp_main._pygeoapi_holder)
     async with httpx.AsyncClient(transport=transport, base_url="http://baseline") as http:
         unfiltered = (await http.get("/collections/lakes/items?f=json&limit=2")).json()
         filtered = (

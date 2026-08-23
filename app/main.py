@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import httpx
 import loguru
@@ -32,13 +32,9 @@ from app.middleware.proxy import (
     MCPMountRootRewriteMiddleware,
 )
 from app.middleware.pygeoapi import OpenapiSecurityMiddleware
+from app.pygeoapi.holder import PygeoapiHolder
 from app.utils.app_exceptions import AppExceptionError, app_exception_handler
-from app.utils.openapi_generator import ensure_openapi_file_exists
-
-if TYPE_CHECKING:
-    from starlette.applications import Starlette
 from app.utils.pygeoapi_exceptions import (
-    PygeoapiEnvError,
     PygeoapiLanguageError,
 )
 from app.utils.request_exceptions import (
@@ -64,59 +60,140 @@ class FastGeoAPI(FastAPI):
         self.logger: loguru.Logger = logger
 
 
-def _build_pygeoapi_subapp() -> Starlette:
-    """Build the raw pygeoapi Starlette sub-app with no middleware.
+def _write_openapi_artifact(openapi: dict) -> None:
+    """Persist the generated OpenAPI document as an output artifact.
 
-    Used by two callers:
-
-    - :func:`create_app` as the starting point for the externally-mounted
-      pygeoapi instance, which then has auth/security middleware wrapped
-      around it.
-    - :func:`create_mcp_server` (when no ``api_client`` is provided) as
-      the target of an ``httpx.ASGITransport``, so the MCP server can
-      issue in-process requests to pygeoapi without going through the
-      network or any middleware. This replaces the previous
-      ``X-MCP-Internal-Key`` header bypass.
-
-    The function is intentionally lean: it only assembles the routing,
-    leaving every middleware concern to the caller.
+    The runtime never reads it back (ADR-0003: everything is built from
+    in-memory dicts); the file exists for external consumers — CLI
+    tooling, inspection, CI diffing — and is only written when missing,
+    matching the historical ``ensure_openapi_file_exists`` behaviour.
     """
+    path = Path(cfg.PYGEOAPI_OPENAPI)
+    if not path.is_absolute():
+        path = Path.cwd() / path
+    if not path.exists():
+        logger.info(f"Writing generated OpenAPI artifact: {path}")
+        path.write_text(yaml.safe_dump(openapi, sort_keys=False))
+
+
+def _bootstrap_pygeoapi() -> tuple[PygeoapiHolder, dict]:
+    """Config from the storage source → in-memory dicts → sub-app in a holder.
+
+    One code path for local paths and cloud URLs (ADR-0003): the config
+    never touches disk nor env vars. The holder is the single target for
+    both the externally-mounted (auth-wrapped) surface and the MCP
+    ``ASGITransport``, so a reload swap reaches every consumer at once.
+    """
+    from app.config.source import ConfigSourceError, load_config_source
+    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
+
+    # Interpolation inputs for ``${VAR}`` placeholders inside the pygeoapi
+    # config (resolved by pygeoapi's yaml_load, same as upstream). These
+    # env vars are NOT the config transport — the config itself travels
+    # as bytes through the storage layer — they only feed placeholder
+    # substitution, exactly as the historical startup did.
+    os.environ["PYGEOAPI_CONFIG"] = cfg.PYGEOAPI_CONFIG
+    os.environ["PYGEOAPI_OPENAPI"] = cfg.PYGEOAPI_OPENAPI
+    os.environ["HOST"] = cfg.HOST
+    os.environ["PORT"] = cfg.PORT
+    os.environ["PYGEOAPI_BASEURL"] = cfg.PYGEOAPI_BASEURL
+    os.environ["FASTGEOAPI_CONTEXT"] = cfg.FASTGEOAPI_CONTEXT
+
     try:
-        pygeoapi_conf = Path.cwd() / cfg.PYGEOAPI_CONFIG
-
-        from pygeoapi.starlette_app import APP as PYGEOAPI_APP
-        from pygeoapi.starlette_app import url_prefix
-        from starlette.applications import Starlette
-        from starlette.routing import Mount
-
-        from app.utils.pygeoapi_utils import patch_route
-
-        static_route = PYGEOAPI_APP.routes[0]
-        api_app = PYGEOAPI_APP.routes[1].app
-        api_routes = api_app.routes
-
-        patched_routes = tuple(patch_route(r) for r in api_routes)
-
-        return Starlette(
-            routes=[
-                static_route,
-                Mount(url_prefix or "/", routes=list(patched_routes)),
-            ],
-        )
+        document = load_config_source(cfg.PYGEOAPI_CONFIG)
     except FileNotFoundError:
         logger.error("Please configure pygeoapi settings in .env properly")
         raise
-    except OSError as e:
-        logger.error(f"Runtime environment variables: \n{cfg}")
-        raise PygeoapiEnvError from e
+    except ConfigSourceError as e:
+        logger.error(f"Invalid pygeoapi configuration from {cfg.PYGEOAPI_CONFIG}: {e}")
+        raise
+    try:
+        openapi = build_openapi(document.config)
+        subapp = build_pygeoapi_subapp(document.config, openapi)
     except LocaleError as e:
         logger.error(f"Locale error during pygeoapi initialization: {e}")
         raise PygeoapiLanguageError from e
     except ProviderConnectionError as e:
         logger.error(f"Runtime environment variables: \n{cfg}")
-        logger.error(f"pygeoapi configuration: \n{pygeoapi_conf}")
         logger.error(e)
-        raise e
+        raise
+    _write_openapi_artifact(openapi)
+    holder = PygeoapiHolder()
+    holder.swap(subapp, etag=document.etag)
+    return holder, openapi
+
+
+def _wrap_pygeoapi_asgi(asgi_app):
+    """Wrap an ASGI app with the auth stack of the configured mode.
+
+    Manual composition equivalent to the previous ``add_middleware``
+    calls (the last one added was outermost):
+    ``OpenapiSecurity(auth(Forwarded(app)))``. Used both for the
+    pygeoapi mount and for the ``/admin`` mount: "security according to
+    the configuration" means the very same chain.
+    """
+    wrapped = asgi_app
+    if cfg.FASTGEOAPI_REVERSE_PROXY:
+        wrapped = ForwardedLinksMiddleware(wrapped)
+
+    security_schemes: list[SecurityScheme] = []
+    if cfg.OPA_ENABLED:
+        if cfg.API_KEY_ENABLED or cfg.JWKS_ENABLED:
+            raise ValueError("OPA_ENABLED, JWKS_ENABLED and API_KEY_ENABLED are mutually exclusive")
+        from app.config.auth import auth_config
+
+        wrapped = OPAMiddleware(wrapped, config=auth_config)
+
+        security_schemes = [
+            SecurityScheme(
+                type="openIdConnect",
+                openIdConnectUrl=cfg.OIDC_WELL_KNOWN_ENDPOINT,
+            )
+        ]
+    elif cfg.JWKS_ENABLED:
+        if cfg.API_KEY_ENABLED or cfg.OPA_ENABLED:
+            raise ValueError("OPA_ENABLED, JWKS_ENABLED and API_KEY_ENABLED are mutually exclusive")
+        from app.config.auth import auth_config
+
+        wrapped = Oauth2Middleware(wrapped, config=auth_config)
+
+        security_schemes = [
+            SecurityScheme(
+                type="oauth2",
+                name="pygeoapi",
+                flows=OAuthFlows(
+                    clientCredentials=OAuthFlow(tokenUrl=cfg.OAUTH2_TOKEN_ENDPOINT, scopes={})
+                ),
+            ),
+            SecurityScheme(
+                type="http",
+                name="pygeoapi",
+                scheme="bearer",
+                bearerFormat="JWT",
+            ),
+        ]
+    elif cfg.API_KEY_ENABLED:
+        if cfg.OPA_ENABLED:
+            raise ValueError("OPA_ENABLED and API_KEY_ENABLED are mutually exclusive")
+        if not cfg.PYGEOAPI_KEY_GLOBAL:
+            raise ValueError("pygeoapi API KEY is missing")
+        from fastapi_key_auth import AuthorizerMiddleware
+
+        os.environ["PYGEOAPI_KEY_GLOBAL"] = cfg.PYGEOAPI_KEY_GLOBAL
+
+        wrapped = AuthorizerMiddleware(
+            wrapped,
+            public_paths=[f"{cfg.FASTGEOAPI_CONTEXT}/openapi"],
+            key_pattern="PYGEOAPI_KEY_",
+        )
+
+        security_schemes = [
+            SecurityScheme(type="apiKey", name="X-API-KEY", security_scheme_in="header")
+        ]
+
+    if security_schemes:
+        wrapped = OpenapiSecurityMiddleware(wrapped, security_schemes=security_schemes)
+    return wrapped, security_schemes
 
 
 def _openapi_cache_dir() -> Path:
@@ -192,98 +269,48 @@ def create_app(lifespan=None):
 
     @app.get("/readyz", include_in_schema=False)
     async def readyz():
-        """Readiness probe: pygeoapi is mounted and its OpenAPI exists."""
+        """Readiness probe: the programmatic pygeoapi sub-app is built."""
         from starlette.responses import JSONResponse
 
-        openapi_path = Path(cfg.PYGEOAPI_OPENAPI)
-        if not openapi_path.is_absolute():
-            openapi_path = Path.cwd() / openapi_path
-        if not openapi_path.exists():
+        holder = getattr(app.state, "pygeoapi_holder", None)
+        if holder is None or holder.current is None:
             return JSONResponse(
                 {
                     "status": "not-ready",
-                    "reason": "pygeoapi OpenAPI document missing",
+                    "reason": "pygeoapi sub-app not built",
                 },
                 status_code=503,
             )
         return {"status": "ready"}
 
-    # Build the externally-mounted pygeoapi sub-app and wrap it with the
-    # middleware stack appropriate to the current auth mode.
-    patched_app = _build_pygeoapi_subapp()
-    if cfg.FASTGEOAPI_REVERSE_PROXY:
-        patched_app.add_middleware(ForwardedLinksMiddleware)
+    # Mount the holder wrapped with the middleware stack appropriate to
+    # the current auth mode. Wrapping the HOLDER (not the concrete
+    # sub-app) keeps the auth chain in place across reload swaps.
+    wrapped, _ = _wrap_pygeoapi_asgi(_pygeoapi_holder)
+    app.mount(path=cfg.FASTGEOAPI_CONTEXT, app=wrapped)
+    app.state.pygeoapi_holder = _pygeoapi_holder
+    app.state.pygeoapi_openapi = _pygeoapi_openapi
+    app.state.pygeoapi_source = cfg.PYGEOAPI_CONFIG
 
-    # Add OPAMiddleware to the pygeoapi app
-    security_schemes = []
-    if cfg.OPA_ENABLED:
-        if cfg.API_KEY_ENABLED or cfg.JWKS_ENABLED:
-            raise ValueError("OPA_ENABLED, JWKS_ENABLED and API_KEY_ENABLED are mutually exclusive")
-        from app.config.auth import auth_config
+    # Reload webhook (ADR-0003): protected by the SAME auth chain as the
+    # pygeoapi surface — "security according to the configuration".
+    from app.interfaces.reload import ReloadManager, build_admin_app
 
-        patched_app.add_middleware(OPAMiddleware, config=auth_config)
-
-        security_schemes = [
-            SecurityScheme(
-                type="openIdConnect",
-                openIdConnectUrl=cfg.OIDC_WELL_KNOWN_ENDPOINT,
-            )
-        ]
-    # Add Oauth2Middleware to the pygeoapi app
-    elif cfg.JWKS_ENABLED:
-        if cfg.API_KEY_ENABLED or cfg.OPA_ENABLED:
-            raise ValueError("OPA_ENABLED, JWKS_ENABLED and API_KEY_ENABLED are mutually exclusive")
-        from app.config.auth import auth_config
-
-        patched_app.add_middleware(Oauth2Middleware, config=auth_config)
-
-        security_schemes = [
-            SecurityScheme(
-                type="oauth2",
-                name="pygeoapi",
-                flows=OAuthFlows(
-                    clientCredentials=OAuthFlow(tokenUrl=cfg.OAUTH2_TOKEN_ENDPOINT, scopes={})
-                ),
-            ),
-            SecurityScheme(
-                type="http",
-                name="pygeoapi",
-                scheme="bearer",
-                bearerFormat="JWT",
-            ),
-        ]
-    # Add AuthorizerMiddleware to the pygeoapi app
-    elif cfg.API_KEY_ENABLED:
-        if cfg.OPA_ENABLED:
-            raise ValueError("OPA_ENABLED and API_KEY_ENABLED are mutually exclusive")
-        if not cfg.PYGEOAPI_KEY_GLOBAL:
-            raise ValueError("pygeoapi API KEY is missing")
-        from fastapi_key_auth import AuthorizerMiddleware
-
-        os.environ["PYGEOAPI_KEY_GLOBAL"] = cfg.PYGEOAPI_KEY_GLOBAL
-
-        patched_app.add_middleware(
-            AuthorizerMiddleware,
-            public_paths=[f"{cfg.FASTGEOAPI_CONTEXT}/openapi"],
-            key_pattern="PYGEOAPI_KEY_",
-        )
-
-        security_schemes = [
-            SecurityScheme(type="apiKey", name="X-API-KEY", security_scheme_in="header")
-        ]
-
-    if security_schemes:
-        patched_app.add_middleware(OpenapiSecurityMiddleware, security_schemes=security_schemes)
-
-    app.mount(path=cfg.FASTGEOAPI_CONTEXT, app=patched_app)
+    reload_manager = ReloadManager(_pygeoapi_holder, cfg.PYGEOAPI_CONFIG)
+    wrapped_admin, _ = _wrap_pygeoapi_asgi(build_admin_app(reload_manager))
+    app.mount("/admin", wrapped_admin)
+    app.state.reload_manager = reload_manager
 
     app.logger = create_logger(name="app.main")
 
     return app
 
 
-# MCP Server setup using OpenAPI spec from pygeoapi YAML file
-def create_mcp_server(api_client: httpx.AsyncClient | None = None):
+# MCP Server setup from the in-memory OpenAPI document (ADR-0003)
+def create_mcp_server(
+    api_client: httpx.AsyncClient | None = None,
+    openapi_spec: dict | None = None,
+):
     """Create MCP server from the OGC API OpenAPI specification.
 
     Parameters
@@ -292,6 +319,9 @@ def create_mcp_server(api_client: httpx.AsyncClient | None = None):
         Optional async client for MCP to make API requests. If not provided,
         a new client will be created. When provided, the caller is responsible
         for managing the client lifecycle (closing it when done).
+    openapi_spec : dict | None
+        The OpenAPI document to generate tools from. Defaults to the
+        document built programmatically at bootstrap — no file is read.
 
     Returns
     -------
@@ -301,14 +331,7 @@ def create_mcp_server(api_client: httpx.AsyncClient | None = None):
     """
     from app.utils.openapi_resolver import resolve_external_refs
 
-    # Load OpenAPI spec from the pygeoapi-generated YAML file
-    pygeoapi_openapi_path = Path.cwd() / cfg.PYGEOAPI_OPENAPI
-    if not pygeoapi_openapi_path.exists():
-        logger.warning(f"OpenAPI file not found: {pygeoapi_openapi_path}. MCP disabled.")
-        return None, None, [], None
-
-    with pygeoapi_openapi_path.open() as f:
-        base_spec = yaml.safe_load(f)
+    base_spec = openapi_spec if openapi_spec is not None else _pygeoapi_openapi
 
     # Resolve external $ref references with disk caching
     cache_dir = _openapi_cache_dir()
@@ -328,7 +351,7 @@ def create_mcp_server(api_client: httpx.AsyncClient | None = None):
     # prefix), so the base URL must not include the context either.
     if api_client is None:
         api_client = httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=_build_pygeoapi_subapp()),
+            transport=httpx.ASGITransport(app=_pygeoapi_holder),
             base_url="http://mcp-internal",
             timeout=30.0,
         )
@@ -426,8 +449,10 @@ def create_mcp_server(api_client: httpx.AsyncClient | None = None):
     )
 
 
-# Ensure OpenAPI file exists
-ensure_openapi_file_exists()
+# Programmatic bootstrap (ADR-0003): config from the storage source,
+# openapi generated in memory, sub-app held for atomic swaps. The MCP
+# transport and the auth-wrapped mount both point at this holder.
+_pygeoapi_holder, _pygeoapi_openapi = _bootstrap_pygeoapi()
 
 # Create the main app, optionally with MCP server
 if cfg.FASTGEOAPI_WITH_MCP:
