@@ -1,5 +1,6 @@
 """Command-line interface."""
 
+import json
 import os
 from pathlib import Path
 from typing import Annotated
@@ -8,7 +9,6 @@ import typer
 import uvicorn
 from openapi_pydantic.v3.v3_0 import OAuthFlow, OAuthFlows, SecurityScheme
 from pygeoapi.l10n import LocaleError
-from pygeoapi.openapi import generate_openapi_document
 from pygeoapi.provider.base import ProviderConnectionError
 from rich.console import Console
 
@@ -81,26 +81,31 @@ def run(
 def openapi() -> None:
     """Generate openapi document enriched with security schemes."""
     try:
-        # override pygeoapi os variables
+        from app.config.source import load_config_source
+        from app.pygeoapi.factory import build_openapi
+
+        # Interpolation inputs for ``${VAR}`` placeholders inside the
+        # pygeoapi config (resolved by pygeoapi's yaml_load). The config
+        # itself travels as bytes through the storage layer (ADR-0003):
+        # local paths and s3://, gs://, az:// URLs share one code path.
         os.environ["PYGEOAPI_CONFIG"] = cfg.PYGEOAPI_CONFIG
         os.environ["PYGEOAPI_OPENAPI"] = cfg.PYGEOAPI_OPENAPI
         os.environ["PYGEOAPI_BASEURL"] = cfg.PYGEOAPI_BASEURL
         os.environ["FASTGEOAPI_CONTEXT"] = cfg.FASTGEOAPI_CONTEXT
-        if not (os.environ["PYGEOAPI_CONFIG"] and os.environ["PYGEOAPI_OPENAPI"]):
+        os.environ["HOST"] = cfg.HOST
+        os.environ["PORT"] = cfg.PORT
+
+        if not (cfg.PYGEOAPI_CONFIG and cfg.PYGEOAPI_OPENAPI):
             err_console.log("pygeoapi variables are not configured")
             raise PygeoapiEnvError("PYGEOAPI_CONFIG and PYGEOAPI_OPENAPI are not set")
         else:
-            # fill pygeoapi configuration with fastapi host and port
-            os.environ["HOST"] = cfg.HOST
-            os.environ["PORT"] = cfg.PORT
-
-            pygeoapi_conf = Path.cwd() / os.environ["PYGEOAPI_CONFIG"]
-            pygeoapi_oapi = Path.cwd() / os.environ["PYGEOAPI_OPENAPI"]
+            document = load_config_source(cfg.PYGEOAPI_CONFIG)
+            pygeoapi_conf = document.source
+            pygeoapi_oapi = Path(cfg.PYGEOAPI_OPENAPI)
+            if not pygeoapi_oapi.is_absolute():
+                pygeoapi_oapi = Path.cwd() / pygeoapi_oapi
             with pygeoapi_oapi.with_suffix(".json").open(mode="w") as oapi_file:
-                oapi_content = generate_openapi_document(
-                    pygeoapi_conf,
-                    output_format="json",
-                )
+                oapi_content = json.dumps(build_openapi(document.config), default=str)
                 log_console.log(f"OpenAPI content: {oapi_content}")
                 security_schemes = []
                 if cfg.OPA_ENABLED:
