@@ -6,9 +6,12 @@ fastmcp 3.x migration):
 
 1. The MCP server's httpx client uses an in-process ASGI transport
    (no loopback HTTP).
-2. The raw pygeoapi sub-app that the MCP transports into is a
-   distinct Python object from the publicly mounted sub-apps; it
-   never appears in ``FastGeoAPI.routes``.
+2. With ADR-0003 the transport target and the public mount share ONE
+   ``PygeoapiHolder`` by design (a reload swap must reach both) — the
+   invariant is therefore: whenever an auth mode is configured, the
+   BARE holder never appears on the public router; only the
+   auth-wrapped chain does. Without auth there is nothing to bypass
+   and the sharing is intentional.
 3. The public OpenAPI / Swagger description does not mention any
    internal-only path.
 4. The httpx client's ``base_url`` uses a non-routable virtual
@@ -77,21 +80,57 @@ def test_mcp_api_client_has_no_internal_key_header(fastgeoapi_with_mcp_enabled):
 # ---------------------------------------------------------------------------
 
 
-def test_internal_subapp_not_exposed_via_external_app(fastgeoapi_with_mcp_enabled):
-    """The raw pygeoapi sub-app used by the MCP transport must not be
-    reachable through any external mount.
+@pytest.fixture
+def fastgeoapi_with_mcp_and_apikey():
+    """Boot fastgeoapi with MCP (unauth by opt-in) and API-key on the public surface."""
+    env = {
+        "ENV_STATE": "dev",
+        "DEV_FASTGEOAPI_WITH_MCP": "true",
+        "DEV_FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED": "true",
+        "DEV_API_KEY_ENABLED": "true",
+        "DEV_JWKS_ENABLED": "false",
+        "DEV_OPA_ENABLED": "false",
+        "DEV_PYGEOAPI_KEY_GLOBAL": "test-api-key",
+        "PYGEOAPI_KEY_GLOBAL": "test-api-key",
+    }
+    with mock.patch.dict(os.environ, env, clear=False):
+        for key in list(sys.modules):
+            if key.startswith("app."):
+                del sys.modules[key]
+        from app.config.app import FactoryConfig
 
-    Asserts that no route on the FastAPI root delegates to the same
-    Python object that backs the MCP api_client's ASGITransport.
+        FactoryConfig.get_config.cache_clear()
+        import app.main as main_mod
+
+        yield main_mod.app, main_mod.mcp_api_client
+
+
+def test_bare_holder_never_public_when_auth_is_on(fastgeoapi_with_mcp_and_apikey):
+    """With an auth mode configured, the public router must expose only
+    the auth-wrapped chain — never the bare holder the MCP transport
+    uses (which is the auth-free internal path by design).
     """
-    app, api_client = fastgeoapi_with_mcp_enabled
+    app, api_client = fastgeoapi_with_mcp_and_apikey
 
-    internal_subapp = api_client._transport.app
+    internal_target = api_client._transport.app
     mounted_apps = [getattr(route, "app", None) for route in app.routes]
 
-    assert internal_subapp not in mounted_apps, (
-        "The MCP-internal raw pygeoapi sub-app must not be reachable via the public FastAPI router."
+    assert internal_target not in mounted_apps, (
+        "The bare PygeoapiHolder (auth-free internal path) must not be "
+        "reachable via the public FastAPI router when auth is configured."
     )
+
+
+def test_holder_is_shared_by_design_without_auth(fastgeoapi_with_mcp_enabled):
+    """Without any auth mode there is nothing to bypass: the public
+    mount and the MCP transport intentionally share the ONE holder
+    (ADR-0003 — a config reload swap must reach both at once)."""
+    app, api_client = fastgeoapi_with_mcp_enabled
+
+    internal_target = api_client._transport.app
+    mounted_apps = [getattr(route, "app", None) for route in app.routes]
+
+    assert internal_target in mounted_apps
 
 
 def test_internal_subapp_path_alias_not_mounted(fastgeoapi_with_mcp_enabled):

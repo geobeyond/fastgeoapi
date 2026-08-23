@@ -84,6 +84,19 @@ def test_readyz_returns_200_when_pygeoapi_is_mounted(app_no_auth):
     assert r.json()["status"] == "ready"
 
 
+def test_readyz_reflects_holder_state(app_no_auth):
+    """Ready = the programmatic sub-app exists, not 'the openapi file exists'."""
+    client = TestClient(app_no_auth, raise_server_exceptions=False)
+    holder = app_no_auth.state.pygeoapi_holder
+    saved = holder.current
+    try:
+        holder.current = None
+        assert client.get("/readyz").status_code == 503
+    finally:
+        holder.current = saved
+    assert client.get("/readyz").status_code == 200
+
+
 def test_health_endpoints_bypass_api_key_auth(app_with_api_key):
     """Probes must not require credentials in any auth mode.
 

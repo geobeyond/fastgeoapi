@@ -607,7 +607,8 @@ class TestStartupWorkflowMCP:
 
             FactoryConfig.get_config.cache_clear()
 
-            # Import triggers ensure_openapi_file_exists() at module level
+            # Import triggers the openapi artifact write at module level
+            # (_write_openapi_artifact in the programmatic bootstrap)
             from app.main import app
 
             assert app is not None
