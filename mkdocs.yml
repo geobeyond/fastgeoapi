@@ -98,6 +98,7 @@ nav:
   - Getting started: getting-started.md
   - How-to Guides:
       - Overview: howto-guides.md
+      - Config from cloud storage: cloud-config.md
   - MCP:
       - Overview: mcp/index.md
       - Configuration: mcp/configuration.md
