@@ -114,6 +114,29 @@ def test_broken_config_keeps_serving_the_old_one(app_with_tmp_config):
         assert client.get("/geoapi/collections?f=json").status_code == 200
 
 
+def test_route_set_follows_reload(app_with_tmp_config):
+    """ADR-0005: the mounted spec groups follow config updates.
+
+    Dropping the only process resource must unmount the processes
+    routes on the next reload — the route set is an output of the
+    reload like the served collections already are.
+    """
+    app, target, base = app_with_tmp_config
+    with TestClient(app) as client:
+        assert client.get("/geoapi/processes?f=json").status_code == 200
+        without_processes = {
+            "resources": {
+                name: res for name, res in base["resources"].items() if res.get("type") != "process"
+            }
+        }
+        _write_config(target, {**base, **without_processes})
+        client.post("/admin/config/reload")
+        assert _wait_outcome(client, {"applied"})["outcome"] == "applied"
+        assert client.get("/geoapi/processes?f=json").status_code == 404
+        # The feature surface is untouched.
+        assert client.get("/geoapi/collections?f=json").status_code == 200
+
+
 def test_reload_is_protected_by_the_configured_auth(tmp_path):
     """Security according to the configuration: with API key on, /admin requires it."""
     target = tmp_path / "pygeoapi-config.yml"
