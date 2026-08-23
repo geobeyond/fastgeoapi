@@ -23,9 +23,7 @@ class PygeoapiHolder:
         self.current = app
         self.etag = etag
 
-    async def __call__(
-        self, scope: Scope, receive: Receive, send: Send
-    ) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         app = self.current
         if app is None:
             response = JSONResponse(

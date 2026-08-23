@@ -53,7 +53,9 @@ def build_api(config: dict, openapi: dict) -> API:
     return API(config, openapi)
 
 
-def _call_threadsafe(loop: asyncio.AbstractEventLoop, api_call: Callable, *args) -> tuple:
+def _call_threadsafe(
+    loop: asyncio.AbstractEventLoop, api_call: Callable, *args
+) -> tuple:
     asyncio.set_event_loop(loop)
     return api_call(*args)
 
@@ -95,12 +97,14 @@ def _path_param(request: Request, name: str):
     return request.path_params.get(name)
 
 
-def build_routes(api: API) -> list[Route]:
+def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
     """The route table, closed over the ``api`` instance.
 
     Adapted 1:1 from ``pygeoapi/starlette_app.py`` (admin excluded: in
-    its place fastgeoapi has the reload webhook). The parity test
-    compares paths and methods with upstream on every release.
+    its place fastgeoapi has the reload webhook). Every entry is tagged
+    with its spec group (ADR-0005): ``specs=None`` returns the COMPLETE
+    table — the coverage contract the parity test checks against
+    upstream — while the sub-app mounts only the active groups.
     """
 
     async def landing_page(request: Request) -> Response:
@@ -181,7 +185,10 @@ def build_routes(api: API) -> list[Route]:
         item_id = _path_param(request, "item_id")
         if item_id is None:
             if request.method == "POST":
-                if request.headers.get("content-type") == "application/geo+json":
+                if (
+                    request.headers.get("content-type")
+                    == "application/geo+json"
+                ):
                     return await execute(
                         api,
                         itemtypes_api.manage_collection_item,
@@ -283,7 +290,10 @@ def build_routes(api: API) -> list[Route]:
         from app.pygeoapi.api.processes import patch_response
 
         response = await execute(
-            api, processes_api.get_job_result, request, _path_param(request, "job_id")
+            api,
+            processes_api.get_job_result,
+            request,
+            _path_param(request, "job_id"),
         )
         return patch_response(response=response)
 
@@ -291,7 +301,9 @@ def build_routes(api: API) -> list[Route]:
         collection_id = _path_param(request, "collection_id")
         instance_id = _path_param(request, "instance_id")
         if collection_id and "/instances/" in collection_id:
-            collection_id, _, instance_id = collection_id.partition("/instances/")
+            collection_id, _, instance_id = collection_id.partition(
+                "/instances/"
+            )
         if request.url.path.endswith("instances") or (
             instance_id is not None and request.url.path.endswith(instance_id)
         ):
@@ -303,7 +315,11 @@ def build_routes(api: API) -> list[Route]:
                 instance_id,
             )
         location_id = _path_param(request, "location_id")
-        query_type = "locations" if location_id is not None else request["path"].split("/")[-1]
+        query_type = (
+            "locations"
+            if location_id is not None
+            else request["path"].split("/")[-1]
+        )
         return await execute(
             api,
             edr_api.get_collection_edr_query,
@@ -327,7 +343,9 @@ def build_routes(api: API) -> list[Route]:
         return await execute(api, stac_api.get_stac_root, request)
 
     async def stac_catalog_path(request: Request) -> Response:
-        return await execute(api, stac_api.get_stac_path, request, _path_param(request, "path"))
+        return await execute(
+            api, stac_api.get_stac_path, request, _path_param(request, "path")
+        )
 
     async def stac_landing_page(request: Request) -> Response:
         return await execute(api, stac_api.landing_page, request)
@@ -335,116 +353,212 @@ def build_routes(api: API) -> list[Route]:
     async def stac_search(request: Request) -> Response:
         return await execute(api, stac_api.search, request)
 
-    return [
-        Route("/", landing_page),
-        Route("/openapi", openapi_),
-        Route("/asyncapi", asyncapi_),
-        Route("/conformance", conformance),
-        Route("/TileMatrixSets/{tileMatrixSetId}", tilematrixset),
-        Route("/TileMatrixSets", tilematrixsets),
-        Route("/collections/{collection_id:path}/schema", collection_schema),
-        Route(
-            "/collections/{collection_id:path}/queryables",
-            collection_queryables,
+    table: list[tuple[str, Route]] = [
+        ("core", Route("/", landing_page)),
+        ("core", Route("/openapi", openapi_)),
+        ("core", Route("/asyncapi", asyncapi_)),
+        ("core", Route("/conformance", conformance)),
+        ("tiles", Route("/TileMatrixSets/{tileMatrixSetId}", tilematrixset)),
+        ("tiles", Route("/TileMatrixSets", tilematrixsets)),
+        (
+            "core",
+            Route(
+                "/collections/{collection_id:path}/schema", collection_schema
+            ),
         ),
-        Route("/collections/{collection_id:path}/tiles", collection_tiles),
-        Route(
-            "/collections/{collection_id:path}/tiles/{tileMatrixSetId}",
-            collection_tiles_metadata,
+        (
+            "core",
+            Route(
+                "/collections/{collection_id:path}/queryables",
+                collection_queryables,
+            ),
         ),
-        Route(
-            "/collections/{collection_id:path}/tiles/{tileMatrixSetId}/metadata",
-            collection_tiles_metadata,
+        (
+            "tiles",
+            Route("/collections/{collection_id:path}/tiles", collection_tiles),
         ),
-        Route(
-            "/collections/{collection_id:path}/tiles/{tileMatrixSetId}/{tile_matrix}/{tileRow}/{tileCol}",
-            collection_items_tiles,
+        (
+            "tiles",
+            Route(
+                "/collections/{collection_id:path}/tiles/{tileMatrixSetId}",
+                collection_tiles_metadata,
+            ),
         ),
-        Route(
-            "/collections/{collection_id:path}/items",
-            collection_items,
-            methods=["GET", "POST", "OPTIONS"],
+        (
+            "tiles",
+            Route(
+                "/collections/{collection_id:path}/tiles/{tileMatrixSetId}/metadata",
+                collection_tiles_metadata,
+            ),
         ),
-        Route(
-            "/collections/{collection_id:path}/items/{item_id:path}",
-            collection_items,
-            methods=["GET", "PUT", "DELETE", "OPTIONS"],
+        (
+            "tiles",
+            Route(
+                "/collections/{collection_id:path}/tiles/{tileMatrixSetId}/{tile_matrix}/{tileRow}/{tileCol}",
+                collection_items_tiles,
+            ),
         ),
-        Route("/collections/{collection_id:path}/coverage", collection_coverage),
-        Route("/collections/{collection_id:path}/map", collection_map),
-        Route(
-            "/collections/{collection_id:path}/styles/{style_id:path}/map",
-            collection_map,
+        (
+            "features",
+            Route(
+                "/collections/{collection_id:path}/items",
+                collection_items,
+                methods=["GET", "POST", "OPTIONS"],
+            ),
         ),
-        Route("/processes", get_processes),
-        Route("/processes/{process_id}", get_processes),
-        Route("/jobs", get_jobs),
-        Route("/jobs/{job_id}", get_jobs, methods=["GET", "DELETE"]),
-        Route(
-            "/processes/{process_id}/execution",
-            execute_process_jobs,
-            methods=["POST"],
+        (
+            "features",
+            Route(
+                "/collections/{collection_id:path}/items/{item_id:path}",
+                collection_items,
+                methods=["GET", "PUT", "DELETE", "OPTIONS"],
+            ),
         ),
-        Route("/jobs/{job_id}/results", get_job_result),
-        Route("/collections/{collection_id:path}/position", edr_query),
-        Route("/collections/{collection_id:path}/area", edr_query),
-        Route("/collections/{collection_id:path}/cube", edr_query),
-        Route("/collections/{collection_id:path}/radius", edr_query),
-        Route("/collections/{collection_id:path}/trajectory", edr_query),
-        Route("/collections/{collection_id:path}/corridor", edr_query),
-        Route("/collections/{collection_id:path}/locations", edr_query),
-        Route(
-            "/collections/{collection_id:path}/locations/{location_id}",
-            edr_query,
+        (
+            "coverages",
+            Route(
+                "/collections/{collection_id:path}/coverage",
+                collection_coverage,
+            ),
         ),
-        Route("/collections/{collection_id:path}/instances", edr_query),
-        Route(
-            "/collections/{collection_id:path}/instances/{instance_id}",
-            edr_query,
+        (
+            "maps",
+            Route("/collections/{collection_id:path}/map", collection_map),
         ),
-        Route(
-            "/collections/{collection_id:path}/instances/{instance_id}/position",
-            edr_query,
+        (
+            "maps",
+            Route(
+                "/collections/{collection_id:path}/styles/{style_id:path}/map",
+                collection_map,
+            ),
         ),
-        Route(
-            "/collections/{collection_id:path}/instances/{instance_id}/area",
-            edr_query,
+        ("processes", Route("/processes", get_processes)),
+        ("processes", Route("/processes/{process_id}", get_processes)),
+        ("processes", Route("/jobs", get_jobs)),
+        (
+            "processes",
+            Route("/jobs/{job_id}", get_jobs, methods=["GET", "DELETE"]),
         ),
-        Route(
-            "/collections/{collection_id:path}/instances/{instance_id}/cube",
-            edr_query,
+        (
+            "processes",
+            Route(
+                "/processes/{process_id}/execution",
+                execute_process_jobs,
+                methods=["POST"],
+            ),
         ),
-        Route(
-            "/collections/{collection_id:path}/instances/{instance_id}/radius",
-            edr_query,
+        ("processes", Route("/jobs/{job_id}/results", get_job_result)),
+        ("edr", Route("/collections/{collection_id:path}/position", edr_query)),
+        ("edr", Route("/collections/{collection_id:path}/area", edr_query)),
+        ("edr", Route("/collections/{collection_id:path}/cube", edr_query)),
+        ("edr", Route("/collections/{collection_id:path}/radius", edr_query)),
+        (
+            "edr",
+            Route("/collections/{collection_id:path}/trajectory", edr_query),
         ),
-        Route(
-            "/collections/{collection_id:path}/instances/{instance_id}/trajectory",
-            edr_query,
+        ("edr", Route("/collections/{collection_id:path}/corridor", edr_query)),
+        (
+            "edr",
+            Route("/collections/{collection_id:path}/locations", edr_query),
         ),
-        Route(
-            "/collections/{collection_id:path}/instances/{instance_id}/corridor",
-            edr_query,
+        (
+            "edr",
+            Route(
+                "/collections/{collection_id:path}/locations/{location_id}",
+                edr_query,
+            ),
         ),
-        Route(
-            "/collections/{collection_id:path}/instances/{instance_id}/locations",
-            edr_query,
+        (
+            "edr",
+            Route("/collections/{collection_id:path}/instances", edr_query),
         ),
-        Route(
-            "/collections/{collection_id:path}/instances/{instance_id}/locations/{location_id}",
-            edr_query,
+        (
+            "edr",
+            Route(
+                "/collections/{collection_id:path}/instances/{instance_id}",
+                edr_query,
+            ),
         ),
-        Route("/collections", collections),
-        Route("/collections/{collection_id:path}", collections),
-        Route("/stac", stac_catalog_root),
-        Route("/stac/{path:path}", stac_catalog_path),
-        Route("/stac-api", stac_landing_page),
-        Route("/stac-api/search", stac_search, methods=["GET", "POST"]),
+        (
+            "edr",
+            Route(
+                "/collections/{collection_id:path}/instances/{instance_id}/position",
+                edr_query,
+            ),
+        ),
+        (
+            "edr",
+            Route(
+                "/collections/{collection_id:path}/instances/{instance_id}/area",
+                edr_query,
+            ),
+        ),
+        (
+            "edr",
+            Route(
+                "/collections/{collection_id:path}/instances/{instance_id}/cube",
+                edr_query,
+            ),
+        ),
+        (
+            "edr",
+            Route(
+                "/collections/{collection_id:path}/instances/{instance_id}/radius",
+                edr_query,
+            ),
+        ),
+        (
+            "edr",
+            Route(
+                "/collections/{collection_id:path}/instances/{instance_id}/trajectory",
+                edr_query,
+            ),
+        ),
+        (
+            "edr",
+            Route(
+                "/collections/{collection_id:path}/instances/{instance_id}/corridor",
+                edr_query,
+            ),
+        ),
+        (
+            "edr",
+            Route(
+                "/collections/{collection_id:path}/instances/{instance_id}/locations",
+                edr_query,
+            ),
+        ),
+        (
+            "edr",
+            Route(
+                "/collections/{collection_id:path}/instances/{instance_id}/locations/{location_id}",
+                edr_query,
+            ),
+        ),
+        ("core", Route("/collections", collections)),
+        ("core", Route("/collections/{collection_id:path}", collections)),
+        ("stac", Route("/stac", stac_catalog_root)),
+        ("stac", Route("/stac/{path:path}", stac_catalog_path)),
+        ("stac", Route("/stac-api", stac_landing_page)),
+        (
+            "stac",
+            Route("/stac-api/search", stac_search, methods=["GET", "POST"]),
+        ),
     ]
+    if specs is None:
+        return [route for _, route in table]
+    return [route for spec, route in table if spec in specs]
 
 
 def build_pygeoapi_subapp(config: dict, openapi: dict) -> Starlette:
-    """Complete Starlette sub-app, same shape as the former APP import."""
+    """Complete Starlette sub-app, same shape as the former APP import.
+
+    Mounts only the spec groups the config activates (ADR-0005): the
+    reload webhook rebuilds the sub-app, so the mounted set follows
+    every config update.
+    """
+    from app.pygeoapi.registry import active_specs
+
     api = build_api(config, openapi)
     static_dir = Path(pygeoapi.__file__).parent / "static"
     try:
@@ -455,6 +569,9 @@ def build_pygeoapi_subapp(config: dict, openapi: dict) -> Starlette:
     return Starlette(
         routes=[
             Mount("/static", StaticFiles(directory=static_dir)),
-            Mount(url_prefix or "/", routes=build_routes(api)),
+            Mount(
+                url_prefix or "/",
+                routes=build_routes(api, specs=active_specs(config)),
+            ),
         ],
     )
