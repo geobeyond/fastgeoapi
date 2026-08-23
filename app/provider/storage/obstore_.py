@@ -36,6 +36,14 @@ class ObstoreStore:
         """Object metadata as :class:`ObjectMeta`, asynchronously."""
         return self._meta(await self._store.head_async(path))
 
+    def put(self, path: str, data: bytes) -> None:
+        """Write the whole object."""
+        self._store.put(path, data)
+
+    async def aput(self, path: str, data: bytes) -> None:
+        """Write the whole object, asynchronously."""
+        await self._store.put_async(path, data)
+
     @staticmethod
     def _meta(raw: dict) -> ObjectMeta:
         return ObjectMeta(

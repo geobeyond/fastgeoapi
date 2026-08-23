@@ -2,7 +2,7 @@
 
 import json
 import os
-from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Annotated
 
 import typer
@@ -82,6 +82,7 @@ def openapi() -> None:
     """Generate openapi document enriched with security schemes."""
     try:
         from app.config.source import load_config_source
+        from app.provider.storage import StorageBridge, load_store, split_source
         from app.pygeoapi.factory import build_openapi
 
         # Interpolation inputs for ``${VAR}`` placeholders inside the
@@ -101,67 +102,67 @@ def openapi() -> None:
         else:
             document = load_config_source(cfg.PYGEOAPI_CONFIG)
             pygeoapi_conf = document.source
-            pygeoapi_oapi = Path(cfg.PYGEOAPI_OPENAPI)
-            if not pygeoapi_oapi.is_absolute():
-                pygeoapi_oapi = Path.cwd() / pygeoapi_oapi
-            with pygeoapi_oapi.with_suffix(".json").open(mode="w") as oapi_file:
-                oapi_content = json.dumps(build_openapi(document.config), default=str)
-                log_console.log(f"OpenAPI content: {oapi_content}")
-                security_schemes = []
+            oapi_content = json.dumps(build_openapi(document.config), default=str)
+            log_console.log(f"OpenAPI content: {oapi_content}")
+            security_schemes = []
+            if cfg.OPA_ENABLED:
+                if cfg.API_KEY_ENABLED or cfg.JWKS_ENABLED:
+                    raise ValueError(
+                        "OPA_ENABLED, JWKS_ENABLED and API_KEY_ENABLED are mutually exclusive"
+                    )
+                security_schemes = [
+                    SecurityScheme(
+                        type="openIdConnect",
+                        openIdConnectUrl=cfg.OIDC_WELL_KNOWN_ENDPOINT,
+                    )
+                ]
+            elif cfg.JWKS_ENABLED:
+                if cfg.API_KEY_ENABLED or cfg.OPA_ENABLED:
+                    raise ValueError(
+                        "OPA_ENABLED, JWKS_ENABLED and API_KEY_ENABLED are mutually exclusive"
+                    )
+                security_schemes = [
+                    SecurityScheme(
+                        type="oauth2",
+                        name="pygeoapi",
+                        flows=OAuthFlows(
+                            clientCredentials=OAuthFlow(
+                                tokenUrl=cfg.OAUTH2_TOKEN_ENDPOINT,
+                                scopes={},
+                            )
+                        ),
+                    ),
+                    SecurityScheme(
+                        type="http",
+                        name="pygeoapi",
+                        scheme="bearer",
+                        bearerFormat="JWT",
+                    ),
+                ]
+            elif cfg.API_KEY_ENABLED:
                 if cfg.OPA_ENABLED:
-                    if cfg.API_KEY_ENABLED or cfg.JWKS_ENABLED:
-                        raise ValueError(
-                            "OPA_ENABLED, JWKS_ENABLED and API_KEY_ENABLED are mutually exclusive"
-                        )
-                    security_schemes = [
-                        SecurityScheme(
-                            type="openIdConnect",
-                            openIdConnectUrl=cfg.OIDC_WELL_KNOWN_ENDPOINT,
-                        )
-                    ]
-                elif cfg.JWKS_ENABLED:
-                    if cfg.API_KEY_ENABLED or cfg.OPA_ENABLED:
-                        raise ValueError(
-                            "OPA_ENABLED, JWKS_ENABLED and API_KEY_ENABLED are mutually exclusive"
-                        )
-                    security_schemes = [
-                        SecurityScheme(
-                            type="oauth2",
-                            name="pygeoapi",
-                            flows=OAuthFlows(
-                                clientCredentials=OAuthFlow(
-                                    tokenUrl=cfg.OAUTH2_TOKEN_ENDPOINT,
-                                    scopes={},
-                                )
-                            ),
-                        ),
-                        SecurityScheme(
-                            type="http",
-                            name="pygeoapi",
-                            scheme="bearer",
-                            bearerFormat="JWT",
-                        ),
-                    ]
-                elif cfg.API_KEY_ENABLED:
-                    if cfg.OPA_ENABLED:
-                        raise ValueError("OPA_ENABLED and API_KEY_ENABLED are mutually exclusive")
-                    if not cfg.PYGEOAPI_KEY_GLOBAL:
-                        raise ValueError("pygeoapi API KEY is missing")
-                    os.environ["PYGEOAPI_KEY_GLOBAL"] = cfg.PYGEOAPI_KEY_GLOBAL
-                    security_schemes = [
-                        SecurityScheme(
-                            type="apiKey",
-                            name="X-API-KEY",
-                            security_scheme_in="header",
-                        )
-                    ]
-                enriched_openapi = augment_security(
-                    doc=oapi_content, security_schemes=security_schemes
-                )
-                openapi_string = enriched_openapi.model_dump_json(
-                    by_alias=True, exclude_none=True, indent=2
-                )
-                oapi_file.write(openapi_string)
+                    raise ValueError("OPA_ENABLED and API_KEY_ENABLED are mutually exclusive")
+                if not cfg.PYGEOAPI_KEY_GLOBAL:
+                    raise ValueError("pygeoapi API KEY is missing")
+                os.environ["PYGEOAPI_KEY_GLOBAL"] = cfg.PYGEOAPI_KEY_GLOBAL
+                security_schemes = [
+                    SecurityScheme(
+                        type="apiKey",
+                        name="X-API-KEY",
+                        security_scheme_in="header",
+                    )
+                ]
+            enriched_openapi = augment_security(doc=oapi_content, security_schemes=security_schemes)
+            openapi_string = enriched_openapi.model_dump_json(
+                by_alias=True, exclude_none=True, indent=2
+            )
+            # The output goes through the storage Protocol too, so the
+            # target can be a local path or a bucket URL. The historical
+            # ``.json`` suffix applies to the key, never to the base.
+            base, key = split_source(cfg.PYGEOAPI_OPENAPI)
+            json_key = str(PurePosixPath(key).with_suffix(".json"))
+            StorageBridge(load_store(base)).write(json_key, openapi_string.encode("utf-8"))
+            log_console.log(f"OpenAPI document written to {base}{json_key}")
 
     except FileNotFoundError:
         err_console.log("Please configure pygeoapi settings in .env properly")

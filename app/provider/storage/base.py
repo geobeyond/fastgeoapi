@@ -44,3 +44,11 @@ class ObjectStore(Protocol):
     async def ahead(self, path: str) -> ObjectMeta:
         """Object metadata, asynchronously."""
         ...
+
+    def put(self, path: str, data: bytes) -> None:
+        """Write the whole object synchronously."""
+        ...
+
+    async def aput(self, path: str, data: bytes) -> None:
+        """Write the whole object asynchronously."""
+        ...
