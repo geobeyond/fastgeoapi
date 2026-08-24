@@ -55,6 +55,14 @@ allow-direct-references = true
 [project.scripts]
 fastgeoapi = "app.cli:app"
 
+[project.optional-dependencies]
+geoparquet = [
+    "duckdb>=1.5,<2",
+    # obstore ships `obstore.fsspec` but declares neither an `fsspec`
+    # extra nor the dependency: `obstore[fsspec]` installs nothing.
+    "fsspec>=2024.6",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.2,<10",
@@ -180,7 +188,11 @@ ignore = [
 convention = "numpy"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["assert", "hardcoded-bind-all-interfaces", "hardcoded-password-string", "hardcoded-password-func-arg", "hardcoded-temp-file", "invalid-function-name", "D", "line-too-long"]
+# `hardcoded-sql-expression`: the GeoParquet tests build fixture datasets
+# and probe queries with f-string SQL over literals and tmp paths — no
+# request input is involved, and the provider's own SQL is reviewed at
+# the source (see app/provider/geoparquet.py).
+"tests/*" = ["assert", "hardcoded-bind-all-interfaces", "hardcoded-password-string", "hardcoded-password-func-arg", "hardcoded-temp-file", "hardcoded-sql-expression", "invalid-function-name", "D", "line-too-long"]
 "app/pygeoapi/*" = ["D", "DOC"]  # Temporarily ignored, tracked in #315
 # Mirrors upstream pygeoapi/api/__init__.py, where validate_datetime lives:
 # the patch must sit in the same-named module, which upstream made a package init.
