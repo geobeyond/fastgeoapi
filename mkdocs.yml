@@ -99,6 +99,7 @@ nav:
   - How-to Guides:
       - Overview: howto-guides.md
       - Config from cloud storage: cloud-config.md
+      - GeoParquet provider: geoparquet.md
   - MCP:
       - Overview: mcp/index.md
       - Configuration: mcp/configuration.md

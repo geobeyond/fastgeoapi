@@ -29,7 +29,8 @@ COPY pyproject.toml uv.lock pygeoapi-config.yml ./
 # broke /mcp in production with its new Host validation the day after
 # its release.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv export --frozen --no-dev --no-emit-project --no-hashes -o /tmp/requirements.lock && \
+    uv export --frozen --no-dev --no-emit-project --no-hashes \
+    --extra geoparquet -o /tmp/requirements.lock && \
     uv pip install --system --break-system-packages -r /tmp/requirements.lock
 
 # Create a normal non-root user to run the app
@@ -69,6 +70,13 @@ ENV FORWARDED_ALLOW_IPS="172.16.0.0/16,127.0.0.1"
 ARG GIT_COMMIT
 ENV GIT_COMMIT=$GIT_COMMIT
 RUN echo $GIT_COMMIT > /home/appuser/git-commit.txt
+
+# Vendor the DuckDB spatial extension at build time, into this user's
+# extension directory. The GeoParquet provider must never reach the
+# extension repository on a cold start: a machine woken by a request
+# would pay a download (or fail outright without egress) before it
+# could answer.
+RUN python -c "import duckdb; con = duckdb.connect(); con.install_extension('spatial'); con.load_extension('spatial')"
 
 # Compile python bytecode for faster startup times
 RUN python -c "import compileall; compileall.compile_path(maxlevels=10)"
