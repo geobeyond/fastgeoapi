@@ -158,3 +158,76 @@ def test_store_options_reach_the_filesystem():
 def test_store_options_are_optional():
     con = connect("s3://bucket/ds")
     assert con.execute("SELECT 1").fetchone()[0] == 1
+
+
+# --- Runtimes with a read-only filesystem (AWS Lambda and friends) ---------
+#
+# fastgeoapi ships a Lambda path (`AWS_LAMBDA_DEPLOY` + Mangum). There the
+# filesystem is read-only except /tmp, and DuckDB's defaults do not fit:
+# `temp_directory` is `.tmp` relative to the working directory, and a
+# missing extension triggers an install into ~/.duckdb.
+
+
+def test_temp_directory_is_writable():
+    """DuckDB must spill somewhere it is allowed to write.
+
+    The default is `.tmp` next to the working directory, which on a
+    read-only runtime fails the moment a query needs to spill.
+    """
+    import tempfile
+
+    con = connect("/tmp")
+    configured = con.execute("SELECT current_setting('temp_directory')").fetchone()[0]
+    assert configured
+    assert configured.startswith(tempfile.gettempdir()) or configured.startswith("/tmp")
+
+
+def test_temp_directory_honours_tmpdir(monkeypatch, tmp_path):
+    monkeypatch.setenv("TMPDIR", str(tmp_path))
+    con = connect("/tmp")
+    assert str(tmp_path) in con.execute("SELECT current_setting('temp_directory')").fetchone()[0]
+
+
+def test_a_missing_extension_that_cannot_be_installed_says_so(monkeypatch):
+    """The failure must name the cause and the remedy, not leak a raw error.
+
+    Today the fallback calls install_extension unconditionally: on a
+    read-only filesystem that raises something opaque about ~/.duckdb at
+    the first cold start.
+    """
+    import duckdb as duckdb_module
+
+    def refuse_load(self, *args, **kwargs):
+        raise duckdb_module.IOException("Extension not found")
+
+    def refuse_install(self, *args, **kwargs):
+        raise duckdb_module.IOException("Cannot write to extension directory")
+
+    monkeypatch.setattr(duckdb_module.DuckDBPyConnection, "load_extension", refuse_load)
+    monkeypatch.setattr(duckdb_module.DuckDBPyConnection, "install_extension", refuse_install)
+
+    with pytest.raises(DuckDBUnavailableError, match="read-only"):
+        connect("/tmp")
+
+
+def test_engine_options_from_the_provider_definition():
+    """Deployment-specific limits travel with the configuration."""
+    con = connect("/tmp", engine_options={"memory_limit": "256MB", "threads": 2})
+    # DuckDB normalises the unit, so 256MB reads back as "244.1 MiB":
+    # assert the magnitude rather than the spelling.
+    limit = con.execute("SELECT current_setting('memory_limit')").fetchone()[0]
+    assert limit.endswith("MiB"), limit
+    assert float(limit.split()[0]) < 1024, limit
+    assert con.execute("SELECT current_setting('threads')").fetchone()[0] == 2
+
+
+def test_an_unknown_engine_option_is_refused():
+    """A typo must fail loudly at startup, not silently do nothing."""
+    with pytest.raises(DuckDBUnavailableError, match="memory_limitt"):
+        connect("/tmp", engine_options={"memory_limitt": "256MB"})
+
+
+def test_engine_option_names_are_validated():
+    """The option name reaches SQL as an identifier, so it is constrained."""
+    with pytest.raises(DuckDBUnavailableError, match="invalid"):
+        connect("/tmp", engine_options={"memory_limit; DROP TABLE x": "1"})

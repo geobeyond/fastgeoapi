@@ -374,3 +374,23 @@ def test_count_can_be_disabled(covered_dataset):
 
 def test_count_is_on_by_default(covered_provider):
     assert covered_provider.query(limit=1)["numberMatched"] == 3
+
+
+def test_engine_options_reach_the_session(dataset):
+    """Deployment limits travel with the provider definition.
+
+    On a function runtime the engine must be sized against the function,
+    not the host it happens to land on.
+    """
+    provider = GeoParquetProvider(
+        {
+            "name": "app.provider.geoparquet.GeoParquetProvider",
+            "type": "feature",
+            "data": dataset,
+            "id_field": "id",
+            "geometry_column": "geom",
+            "engine_options": {"memory_limit": "256MB"},
+        }
+    )
+    limit = provider._cursor().execute("SELECT current_setting('memory_limit')").fetchone()[0]
+    assert limit.endswith("MiB"), limit

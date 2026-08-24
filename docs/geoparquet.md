@@ -47,6 +47,7 @@ resources:
 | `bbox_column`     | no       | Covering column to pre-filter on (auto-detected)       |
 | `count`           | no       | `false` drops `numberMatched` from item responses      |
 | `store_options`   | no       | Store settings: `region`, `skip_signature`, `endpoint` |
+| `engine_options`  | no       | DuckDB settings, e.g. `memory_limit`, `threads`        |
 
 ### Source shapes
 
@@ -120,11 +121,11 @@ filter=S_INTERSECTS(geom, POLYGON((11 41, 14 41, 14 43, 11 43, 11 41))) AND dept
 Measured against the public Overture Maps release (`theme=divisions`,
 one 578 MB file in `us-west-2`, read from Europe):
 
-| | Same file, remote | Same file, local disk | 7 MB regional extract |
-| --- | --- | --- | --- |
-| First page | ~15–20 s | 31 ms | 5 ms |
-| Warm page | ~15 s | 30 ms | 3 ms |
-| `bbox` window | ~20 s | 36 ms | 5 ms |
+|               | Same file, remote | Same file, local disk | 7 MB regional extract |
+| ------------- | ----------------- | --------------------- | --------------------- |
+| First page    | ~15–20 s          | 31 ms                 | 5 ms                  |
+| Warm page     | ~15 s             | 30 ms                 | 3 ms                  |
+| `bbox` window | ~20 s             | 36 ms                 | 5 ms                  |
 
 Two separate effects hide in those columns. **Locality is worth roughly
 500×** (the middle column is the very same file, only nearer), while
@@ -191,6 +192,43 @@ DuckDB can also produce a partitioned dataset directly:
 COPY (SELECT * FROM 'lakes.parquet')
 TO 'lakes' (FORMAT parquet, PARTITION_BY (country));
 ```
+
+## Running on a read-only runtime (AWS Lambda and friends)
+
+fastgeoapi can be deployed as a Lambda function (`AWS_LAMBDA_DEPLOY`,
+served through Mangum). There the filesystem is read-only except `/tmp`,
+and two DuckDB defaults do not fit:
+
+- **the spatial extension** must already be there. A missing extension
+  would otherwise be installed into `~/.duckdb`, which fails; the
+  provider now says so explicitly instead of leaking a path error.
+  Vendor it in the image (the `Dockerfile` does), or point
+  `DUCKDB_EXTENSION_DIRECTORY` at a writable path.
+- **the spill directory** defaults to `.tmp` next to the working
+  directory. The provider now sets it from `TMPDIR` (which such runtimes
+  set to `/tmp`), so a query that needs to spill has somewhere to go.
+
+Size the engine against the function rather than the host it lands on:
+
+```yaml
+engine_options:
+  memory_limit: 256MB
+  threads: 2
+```
+
+Two more things worth knowing about that deployment shape. Execution
+environments are reused across invocations, so the plugin cache means
+the engine is opened once per container rather than per request — but a
+cold start still pays it. And `/tmp` survives warm invocations, which
+makes it a reasonable place to materialise a dataset that would
+otherwise be read across a region boundary on every cold container.
+
+**The reload webhook does not fan out.** Each execution environment
+holds its own configuration, so `POST /admin/config/reload` reaches
+exactly one of them; the others keep serving the previous configuration
+until they are recycled. On a single long-lived instance this is a
+non-issue; on a function runtime, treat configuration as versioned and
+plan for eventual convergence.
 
 ## Limitations
 
