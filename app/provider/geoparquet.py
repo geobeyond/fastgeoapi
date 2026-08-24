@@ -79,7 +79,11 @@ class GeoParquetProvider(BaseProvider):
         # data, endpoint for an S3-compatible service) travel with the
         # provider definition — credentials themselves stay in the
         # standard environment variables.
-        self._connection = connect(self.data, store_options=provider_def.get("store_options"))
+        self._connection = connect(
+            self.data,
+            store_options=provider_def.get("store_options"),
+            engine_options=provider_def.get("engine_options"),
+        )
         self._types = self._describe()
         if self.geometry_column not in self._types:
             raise ProviderQueryError(

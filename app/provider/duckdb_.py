@@ -9,6 +9,10 @@ container image; outside it we fall back to installing on demand.
 
 from __future__ import annotations
 
+import os
+import re
+import tempfile
+
 from app.config.logging import create_logger
 
 logger = create_logger("app.provider.duckdb")
@@ -21,6 +25,12 @@ logger = create_logger("app.provider.duckdb")
 # those natively and a local dataset needs no filesystem at all.
 # `tests/test_duckdb_session.py` guards both invariants.
 _CLOUD_SCHEMES = frozenset({"s3", "s3a", "gs", "gcs", "az", "azure", "abfs", "abfss", "adl"})
+
+
+# Engine option names reach SQL as identifiers (`SET <name>=…`), so they
+# are constrained rather than trusted: a configuration file is not a
+# place to smuggle SQL from.
+_OPTION_NAME = re.compile(r"^[a-z_][a-z0-9_]*$")
 
 
 class DuckDBUnavailableError(RuntimeError):
@@ -40,7 +50,33 @@ def protocol_for(source: str) -> str | None:
     return scheme
 
 
-def connect(source: str, store_options: dict | None = None):
+def _writable_temp_directory() -> str:
+    """A directory DuckDB may spill into.
+
+    Its default is ``.tmp`` relative to the working directory, which is
+    read-only on Lambda-style runtimes; ``TMPDIR`` is what those runtimes
+    set (``/tmp``), and ``tempfile`` honours it everywhere else.
+    """
+    return os.environ.get("TMPDIR") or tempfile.gettempdir()
+
+
+def _apply_engine_options(con, engine_options: dict) -> None:
+    """Apply ``SET`` options, refusing names DuckDB does not know."""
+    for name, value in engine_options.items():
+        if not _OPTION_NAME.match(str(name)):
+            raise DuckDBUnavailableError(f"invalid DuckDB option name: {name!r}")
+        literal = value if isinstance(value, (int, float)) else f"'{value}'"
+        try:
+            con.execute(f"SET {name}={literal}")
+        except Exception as e:
+            raise DuckDBUnavailableError(f"DuckDB rejected the option {name!r}: {e}") from e
+
+
+def connect(
+    source: str,
+    store_options: dict | None = None,
+    engine_options: dict | None = None,
+):
     """Open a connection ready to scan ``source``.
 
     ``store_options`` is handed to obstore as the store configuration:
@@ -48,6 +84,11 @@ def connect(source: str, store_options: dict | None = None):
     an S3-compatible service. Without it obstore signs every request and
     goes looking for credentials — on a public bucket that means ~20s of
     EC2-metadata retries and then a failure.
+
+    ``engine_options`` are DuckDB settings for the deployment rather than
+    the dataset — ``memory_limit`` and ``threads`` matter on a function
+    runtime, where the engine would otherwise size itself against the
+    host's resources instead of the function's.
     """
     try:
         import duckdb
@@ -58,12 +99,32 @@ def connect(source: str, store_options: dict | None = None):
         ) from e
 
     con = duckdb.connect()
+    con.execute(f"SET temp_directory='{_writable_temp_directory()}'")
+    extension_directory = os.environ.get("DUCKDB_EXTENSION_DIRECTORY")
+    if extension_directory:
+        con.execute(f"SET extension_directory='{extension_directory}'")
+    if engine_options:
+        _apply_engine_options(con, engine_options)
+
     try:
         con.load_extension("spatial")
-    except duckdb.Error:
+    except duckdb.Error as load_error:
+        # Installing writes into the extension directory, which on a
+        # read-only runtime (Lambda and friends) is not writable at all:
+        # say what happened and what to do about it, instead of leaking
+        # an error about a path the operator never chose.
         logger.debug("spatial extension not vendored, installing on demand")
-        con.install_extension("spatial")
-        con.load_extension("spatial")
+        try:
+            con.install_extension("spatial")
+            con.load_extension("spatial")
+        except Exception as install_error:
+            raise DuckDBUnavailableError(
+                "the DuckDB spatial extension is unavailable and cannot be "
+                "installed here, which is what a read-only filesystem looks "
+                "like: vendor the extension in the image, or point "
+                "DUCKDB_EXTENSION_DIRECTORY at a writable path. "
+                f"(load: {load_error}; install: {install_error})"
+            ) from install_error
 
     protocol = protocol_for(source)
     if protocol is not None:
