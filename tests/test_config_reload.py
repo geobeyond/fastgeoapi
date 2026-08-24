@@ -159,3 +159,60 @@ def test_reload_is_protected_by_the_configured_auth(tmp_path):
                 ).status_code
                 == 202
             )
+
+
+def test_html_reflects_the_reloaded_config(app_with_tmp_config):
+    """HTML must not keep serving the config it rendered first.
+
+    ``pygeoapi.l10n.translate_struct(..., is_config=True)`` caches the
+    translated config in a MODULE-level dict keyed by locale, and the
+    items/collection templates render from that. Our reload swaps the
+    sub-app, but nothing invalidates that cache, so a browser keeps
+    seeing the previous title (or limits) until the process restarts —
+    which defeats the point of a reload webhook.
+    """
+    app, target, base = app_with_tmp_config
+    with TestClient(app) as client:
+        first = client.get("/geoapi/collections/lakes?f=html")
+        assert first.status_code == 200, first.text[:200]
+        assert "Large Lakes" in first.text
+
+        changed = copy.deepcopy(base)
+        changed["resources"]["lakes"]["title"] = {"en": "Renamed Lakes"}
+        _write_config(target, changed)
+        client.post("/admin/config/reload")
+        assert _wait_outcome(client, {"applied"})["outcome"] == "applied"
+
+        # JSON already follows the new config...
+        as_json = client.get("/geoapi/collections/lakes?f=json").json()
+        assert as_json["title"] == "Renamed Lakes"
+        # ...and HTML must too (this part comes from the response data).
+        after = client.get("/geoapi/collections/lakes?f=html")
+        assert after.status_code == 200, after.text[:200]
+        assert "Renamed Lakes" in after.text, "HTML still renders the cached config"
+
+
+def test_html_reflects_config_derived_values_after_reload(app_with_tmp_config):
+    """The parts a template reads from ``config`` must refresh too.
+
+    The collection title above travels in the response data, so it would
+    look fine even with a stale config. These values come from the
+    cached ``config`` object instead: the site title in the page header,
+    and the item-limit options built from ``server.limits``.
+    """
+    app, target, base = app_with_tmp_config
+    with TestClient(app) as client:
+        first = client.get("/geoapi/collections/lakes/items?f=html&limit=1")
+        assert first.status_code == 200, first.text[:200]
+
+        changed = copy.deepcopy(base)
+        changed["metadata"]["identification"]["title"] = {"en": "Renamed Service"}
+        changed["server"]["limits"] = {"default_items": 7, "max_items": 33}
+        _write_config(target, changed)
+        client.post("/admin/config/reload")
+        assert _wait_outcome(client, {"applied"})["outcome"] == "applied"
+
+        after = client.get("/geoapi/collections/lakes/items?f=html&limit=1")
+        assert after.status_code == 200, after.text[:200]
+        assert "Renamed Service" in after.text, "the site title is served from a stale config"
+        assert 'value="7"' in after.text, "the limit options come from a stale config"

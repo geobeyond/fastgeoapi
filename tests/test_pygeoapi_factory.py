@@ -103,3 +103,98 @@ def test_openapi_endpoint_serves_document(subapp_client):
 
 def test_unknown_route_is_404(subapp_client):
     assert subapp_client.get("/definitivamente-non-esiste").status_code == 404
+
+
+def test_served_links_honour_the_configured_base_url(monkeypatch):
+    """Link hrefs must carry the configured base URL, placeholders resolved.
+
+    This is the contract a reader notices first: a deployment on port
+    5001 whose links all say 5000 is broken even though every route
+    answers. The base URL travels from the config through the
+    interpolation into pygeoapi's link building, so pin it end to end
+    rather than trusting any single hop.
+    """
+    from starlette.testclient import TestClient
+
+    from app.config.source import load_config_source
+    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
+
+    monkeypatch.setenv("FASTGEOAPI_TEST_BASEURL", "http://links.example:5001")
+    monkeypatch.setenv("FASTGEOAPI_TEST_CONTEXT", "/geoapi")
+    # The repo config interpolates these too (server.bind).
+    monkeypatch.setenv("HOST", "0.0.0.0")
+    monkeypatch.setenv("PORT", "5001")
+
+    source = Path("pygeoapi-config.yml")
+    config_text = source.read_text().replace(
+        "${PYGEOAPI_BASEURL}${FASTGEOAPI_CONTEXT}",
+        "${FASTGEOAPI_TEST_BASEURL}${FASTGEOAPI_TEST_CONTEXT}",
+    )
+    target = Path("/tmp") / "fastgeoapi-links-config.yml"
+    target.write_text(config_text)
+
+    config = load_config_source(str(target)).config
+    assert config["server"]["url"] == "http://links.example:5001/geoapi"
+
+    client = TestClient(
+        build_pygeoapi_subapp(config, build_openapi(config)),
+        raise_server_exceptions=False,
+    )
+    body = client.get("/collections?f=json").json()
+    hrefs = [link["href"] for link in body["collections"][0]["links"]]
+    served = [href for href in hrefs if href.startswith("http://links.example:5001/geoapi")]
+    assert served, f"no link carries the configured base URL: {hrefs}"
+
+
+def test_missing_limits_get_the_schema_defaults():
+    """A config without ``server.limits`` must still be servable.
+
+    pygeoapi's JSON Schema documents ``default_items``/``max_items`` with
+    a default of 10 but requires neither, while its HTML template
+    dereferences them unconditionally. Filling the documented defaults
+    keeps "schema-valid config" and "the server works" the same
+    statement — including in a browser.
+    """
+    from app.pygeoapi.factory import build_api, build_openapi
+
+    config = {
+        "server": {
+            "bind": {"host": "0.0.0.0", "port": 5000},
+            "url": "http://localhost:5000",
+            "mimetype": "application/json; charset=UTF-8",
+            "encoding": "utf-8",
+            "language": "en-US",
+            "map": {"url": "https://tile.example/{z}/{x}/{y}.png", "attribution": "x"},
+        },
+        "logging": {"level": "ERROR"},
+        "metadata": {
+            "identification": {
+                "title": {"en": "t"},
+                "description": {"en": "d"},
+                "keywords": {"en": ["k"]},
+                "keywords_type": "theme",
+                "terms_of_service": "https://example.org",
+                "url": "https://example.org",
+            },
+            "license": {"name": "CC-BY 4.0", "url": "https://example.org"},
+            "provider": {"name": "geobeyond", "url": "https://geobeyond.it"},
+            "contact": {"name": "t", "email": "t@example.org"},
+        },
+        "resources": {},
+    }
+
+    api = build_api(config, build_openapi(config))
+
+    assert api.config["server"]["limits"]["default_items"] == 10
+    assert api.config["server"]["limits"]["max_items"] == 10
+    # The template reads the deepcopy, so that must carry them too.
+    assert api.tpl_config["server"]["limits"]["default_items"] == 10
+
+
+def test_configured_limits_are_left_alone():
+    """Only absent keys are filled — a tenant's own limits stay put."""
+    from app.pygeoapi.factory import normalize_config
+
+    config = {"server": {"limits": {"default_items": 25, "max_items": 500}}}
+    normalize_config(config)
+    assert config["server"]["limits"] == {"default_items": 25, "max_items": 500}
