@@ -34,23 +34,65 @@ from starlette.staticfiles import StaticFiles
 
 from app.pygeoapi.api import patch_validate_datetime_overflow
 from app.pygeoapi.openapi import fix_queryables_response_schema
+from app.pygeoapi.plugin import invalidate_plugin_cache, patch_load_plugin
 
 # The fastgeoapi runtime patches apply once, at factory import: every
 # sub-app built afterwards inherits them (the same moment the old
 # app/pygeoapi/starlette_app.py used to apply them).
 patch_validate_datetime_overflow()
+patch_load_plugin()
+
+
+# Documented defaults from pygeoapi's own config schema
+# (resources/schemas/config/pygeoapi-config-0.x.yml): both limit keys
+# default to 10. The schema requires neither, but the items HTML
+# template dereferences `config['server']['limits']['default_items']`
+# without a fallback — while pygeoapi's Python code reads the same
+# values with `.get('limits', {})`. A tenant config can therefore be
+# schema-valid, serve JSON happily, and 500 in a browser. Filling the
+# documented defaults keeps "valid config" and "working server" the
+# same statement.
+_LIMIT_DEFAULTS = {"default_items": 10, "max_items": 10}
+
+
+def normalize_config(config: dict) -> dict:
+    """Fill the optional config keys the runtime assumes are present.
+
+    Mutates and returns the given dict: callers (including the reload
+    path) share one config object, and pygeoapi copies it internally
+    anyway. Only absent keys are filled — a tenant's own values stay.
+    """
+    limits = config.setdefault("server", {}).setdefault("limits", {})
+    for key, value in _LIMIT_DEFAULTS.items():
+        limits.setdefault(key, value)
+    return config
 
 
 def build_openapi(config: dict) -> dict:
     """Generate the OpenAPI in memory, with the fastgeoapi fixes at the source."""
-    doc = get_oas(config)
+    doc = get_oas(normalize_config(config))
     fix_queryables_response_schema(doc)
     return doc
 
 
 def build_api(config: dict, openapi: dict) -> API:
-    """pygeoapi's API instance, with no file nor env var in between."""
-    return API(config, openapi)
+    """pygeoapi's API instance, with no file nor env var in between.
+
+    Also drops pygeoapi's translated-config cache. ``l10n.translate_struct``
+    memoises the config it hands to the HTML templates in a MODULE-level
+    dict keyed by locale, so after a reload swap the browser would keep
+    seeing config-derived values (the site title, the item-limit options)
+    from the previous config while JSON already served the new one. A new
+    API instance means a new config, so the cache must go with it.
+    """
+    from pygeoapi import l10n
+
+    l10n._cfg_cache.clear()
+    # Cached plugin instances were built from the previous config: a
+    # reload must not keep serving providers that point at data the new
+    # config no longer describes.
+    invalidate_plugin_cache()
+    return API(normalize_config(config), openapi)
 
 
 def _call_threadsafe(loop: asyncio.AbstractEventLoop, api_call: Callable, *args) -> tuple:
