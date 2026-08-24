@@ -225,6 +225,13 @@ def ty(session: Session) -> None:
         # pin until the canaille/joserfc incompatibility is fixed upstream.
         "joserfc>=1.6,<1.7",
         "faker",
+        # The `geoparquet` extra: the suite imports the provider directly,
+        # so both lanes need the engine and obstore's fsspec layer (the
+        # bridge DuckDB reads bucket URLs through).
+        "duckdb>=1.5,<2",
+        # obstore ships the fsspec adapter module but declares neither an
+        # `fsspec` extra nor the dependency, so name it explicitly.
+        "fsspec>=2024.6",
     )
     session.run("ty", *args)
 
@@ -246,6 +253,13 @@ def tests(session: Session) -> None:
         # pin until the canaille/joserfc incompatibility is fixed upstream.
         "joserfc>=1.6,<1.7",
         "faker",
+        # The `geoparquet` extra: the suite imports the provider directly,
+        # so both lanes need the engine and obstore's fsspec layer (the
+        # bridge DuckDB reads bucket URLs through).
+        "duckdb>=1.5,<2",
+        # obstore ships the fsspec adapter module but declares neither an
+        # `fsspec` extra nor the dependency, so name it explicitly.
+        "fsspec>=2024.6",
     )
     try:
         session.run("coverage", "run", "--parallel", "-m", "pytest", *session.posargs)
@@ -284,6 +298,13 @@ def typeguard(session: Session) -> None:
         # pin until the canaille/joserfc incompatibility is fixed upstream.
         "joserfc>=1.6,<1.7",
         "faker",
+        # The `geoparquet` extra: the suite imports the provider directly,
+        # so both lanes need the engine and obstore's fsspec layer (the
+        # bridge DuckDB reads bucket URLs through).
+        "duckdb>=1.5,<2",
+        # obstore ships the fsspec adapter module but declares neither an
+        # `fsspec` extra nor the dependency, so name it explicitly.
+        "fsspec>=2024.6",
     )
     session.run("pytest", f"--typeguard-packages={package}", *session.posargs)
 
