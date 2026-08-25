@@ -27,6 +27,30 @@
 [![Ruff](https://img.shields.io/badge/code%20style-ruff-000000?logo=ruff&logoColor=white&style=flat-square)](https://github.com/astral-sh/ruff)
 [![uv](https://img.shields.io/badge/package%20manager-uv-6366f1?logo=uv&logoColor=white&style=flat-square)](https://github.com/astral-sh/uv)
 
+## What fastgeoapi adds to pygeoapi
+
+fastgeoapi is **not a fork**: pygeoapi is the engine, and fastgeoapi tracks its
+releases. Everything you can serve with pygeoapi you can serve here, with the
+same responses. What changes is how the server is built, configured, secured
+and how fast it reads data from a bucket.
+
+| Area                      | pygeoapi                                | fastgeoapi                                                            |
+| ------------------------- | --------------------------------------- | --------------------------------------------------------------------- |
+| 🔐 **Authentication**     | not in scope                            | OIDC/JWT with JWKS, API keys, OPA policies                            |
+| 🤖 **AI agents**          | —                                       | MCP server over the same API, with its own OAuth authorization server |
+| ☁️ **Configuration**      | a local file named by `PYGEOAPI_CONFIG` | any object store: S3, GCS, Azure, Tigris, local                       |
+| ♻️ **Reconfiguration**    | restart the process                     | `POST /admin/config/reload`, atomic swap                              |
+| 🧭 **Route table**        | every route of every specification      | only the specifications your configuration exposes                    |
+| 🅿️ **GeoParquet**         | `s3://` via s3fs, no CQL2               | any cloud, full CQL2 pushed into DuckDB                               |
+| ⚡ **Provider instances** | rebuilt on every request                | reused, with an explicit thread-safety opt-in                         |
+
+Two numbers from the measurements behind those last rows: a bbox query on
+Overture's `division-areas` (4.47 GB, read from Europe) went from **44 s to
+0.9 s** once warm, and reusing provider instances took HTTP latency from
+**73 ms to 24 ms**.
+
+👉 **[What fastgeoapi adds to pygeoapi](https://geobeyond.github.io/fastgeoapi/why-fastgeoapi/)** explains each row, with links to the how-to guides.
+
 ## Architecture
 
 This diagram gives an overview of the basic architecture:
@@ -41,6 +65,14 @@ This diagram gives an overview of the basic architecture:
 - **API Key Authentication** - Flexible API key-based authentication for programmatic access
 - **Open Policy Agent (OPA)** - Policy-based authorization with fine-grained access control
 - **Multi-scheme Support** - Seamlessly switch between authentication methods based on your needs
+
+### 🤖 AI Agents (MCP)
+
+- **Integrated MCP Server** - Your OGC API exposed as Model Context Protocol tools, generated from the OpenAPI document — a new collection becomes callable with no tool definition to write
+- **In-process, not a second API** - MCP reaches pygeoapi over an ASGI transport: no network hop, no internal API key
+- **Own OAuth Authorization Server** - An OIDC proxy fronting any IdP: PKCE, Dynamic Client Registration (RFC 7591), Protected Resource Metadata (RFC 9728), refresh-token rotation
+- **CIMD & enterprise identity** - Client ID Metadata Document exercised in production by Claude; EMA/ID-JAG under verification
+- **Stateless transport** - Restarts, redeploys and autosuspend are transparent to connected clients
 
 ### 🚀 Performance & Modern Stack
 
