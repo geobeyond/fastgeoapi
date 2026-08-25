@@ -113,8 +113,10 @@ class GeoParquetProvider(BaseProvider):
 
     def _describe(self) -> dict[str, str]:
         """Column name → DuckDB type, straight from the dataset schema."""
-        # ruff: ignore[hardcoded-sql-expression]  # schema introspection only
-        describe_sql = f"DESCRIBE SELECT * FROM {self._scan}"
+        # `_scan` is derived from the provider definition's `data`, never
+        # from request input, and nothing else is interpolated here.
+        # ruff: ignore[hardcoded-sql-expression]
+        describe_sql = f"DESCRIBE SELECT * FROM {self._scan}"  # nosec B608
         rows = self._cursor().execute(describe_sql).fetchall()
         return {row[0]: str(row[1]).upper() for row in rows}
 
@@ -312,8 +314,12 @@ class GeoParquetProvider(BaseProvider):
         )
         clause = f" WHERE {' AND '.join(where)}" if where else ""
 
-        # ruff: ignore[hardcoded-sql-expression]  # clause from validated identifiers
-        count_sql = f"SELECT count(*) FROM {self._scan}{clause}"
+        # `clause` never carries raw request input: CQL2 properties pass
+        # through `field_mapping`, which doubles as an identifier allowlist,
+        # and our dialect escapes quotes in literals and LIKE patterns;
+        # bbox and datetime emit numeric or quoted values.
+        # ruff: ignore[hardcoded-sql-expression]
+        count_sql = f"SELECT count(*) FROM {self._scan}{clause}"  # nosec B608
         # Counting a remote dataset is not free: 15s on the Overture file.
         # `count: false` in the provider definition drops it, exactly as
         # upstream's SQL provider does — a hits request always counts,
@@ -334,9 +340,12 @@ class GeoParquetProvider(BaseProvider):
             columns = [self.id_field, *columns]
         projection = ", ".join(f'"{name}"' for name in columns)
         geometry = "NULL" if skip_geometry else f"ST_AsGeoJSON({self._geometry_expression()})"
+        # `projection` quotes column names taken from the dataset schema,
+        # `clause` is built as described in `_where_clauses`, and the paging
+        # values are cast to int before they reach the string.
         sql = (
             # ruff: ignore[hardcoded-sql-expression]
-            f"SELECT {projection}, {geometry} FROM {self._scan}{clause}"
+            f"SELECT {projection}, {geometry} FROM {self._scan}{clause}"  # nosec B608
             f"{self._order_by(sortby or [])} LIMIT {int(limit)} OFFSET {int(offset)}"
         )
         logger.debug(f"GeoParquet query: {sql}")
@@ -364,9 +373,11 @@ class GeoParquetProvider(BaseProvider):
         if self.id_field not in columns:
             columns = [self.id_field, *columns]
         projection = ", ".join(f'"{name}"' for name in columns)
+        # The identifier itself is bound as a parameter, not interpolated;
+        # only schema-derived column names reach the string.
         sql = (
             # ruff: ignore[hardcoded-sql-expression]
-            f"SELECT {projection}, ST_AsGeoJSON({self._geometry_expression()}) "
+            f"SELECT {projection}, ST_AsGeoJSON({self._geometry_expression()}) "  # nosec B608
             f'FROM {self._scan} WHERE CAST("{self.id_field}" AS VARCHAR) = ? LIMIT 1'
         )
         rows = self._cursor().execute(sql, [str(identifier)]).fetchall()
