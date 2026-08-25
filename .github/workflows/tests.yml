@@ -111,7 +111,11 @@ jobs:
 
       - name: Create virtual environment for pre-commit
         if: matrix.session == 'pre-commit'
-        run: uv sync --frozen
+        # `--all-extras`: the ty hook resolves imports against this
+        # environment, so an optional dependency that is missing here is
+        # reported as an unresolved import. The nox `tests` and `typeguard`
+        # sessions already install the extras for the same reason.
+        run: uv sync --frozen --all-extras
 
       - name: Run Nox
         run: |
