@@ -74,9 +74,28 @@ credentials come exclusively from each provider's standard environment
 variables. See [Config from cloud object storage](cloud-config.md); the
 same rules apply here.
 
-Cloud reads go through obstore's fsspec filesystem, registered in
-DuckDB, so credentials are resolved in exactly one place. Local paths
-are read by DuckDB directly.
+Bucket data is read by DuckDB itself — `httpfs` for S3-compatible
+stores and GCS, the `azure` extension for Azure — with the per-dataset
+settings carried in a DuckDB secret. Without explicit keys the secret
+uses DuckDB's credential chain, which reads the same standard
+environment variables listed above, so nothing changes for an operator.
+
+That choice is measured, not stylistic: reading through a Python
+filesystem bridge prevented DuckDB from caching the blocks it had
+already fetched, so every request repaid its bytes — the same query cost
+21 s on each repetition against 0.7 s natively, and a `bbox` window over
+a 4.5 GB dataset went from 44 s to 0.9 s once warm.
+
+The object store still lists the dataset (DuckDB cannot expand a glob
+through the bridge) and still loads the configuration and writes the
+artifact. If a deployment needs the previous path back:
+
+```yaml
+engine_options:
+  fastgeoapi_reader: obstore
+```
+
+Local paths are read by DuckDB directly, with no configuration at all.
 
 Per-dataset store settings travel in `store_options`. A public dataset
 must be read anonymously and name its region, otherwise obstore signs
