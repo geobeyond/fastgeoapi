@@ -279,3 +279,71 @@ def test_enumeration_covers_nested_layouts(tmp_path):
     )
     total = con.execute(f"SELECT count(*) FROM {scan_expression(f'{tmp_path}/ds')}").fetchone()[0]
     assert total == 2
+
+
+# --- Native reader (httpfs/azure) instead of the fsspec bridge --------------
+#
+# Measured on the public Overture file: the same query through the obstore
+# fsspec bridge cost ~12 s on every repetition, while DuckDB's own reader
+# answered the second and third in milliseconds. DuckDB caches the blocks it
+# already fetched, but only on its own I/O path. GDAL behaves the same way
+# through /vsis3/, which is what makes the block cache the variable rather
+# than a DuckDB peculiarity. See ADR-0004 § aggiornamento.
+
+
+def test_a_cloud_source_configures_the_native_reader():
+    """s3:// is read by DuckDB itself, with a secret carrying the settings."""
+    con = connect(
+        "s3://bucket/ds",
+        store_options={"region": "us-west-2", "skip_signature": True},
+    )
+    secrets = con.execute("SELECT name, type FROM duckdb_secrets()").fetchall()
+    assert any(t == "s3" for _, t in secrets), secrets
+
+
+def test_public_data_gets_a_secret_without_credentials():
+    """`skip_signature` means anonymous: a secret with a region and no keys.
+
+    Without it obstore (and DuckDB) sign every request and hunt for
+    credentials, which is how a public bucket became unreadable.
+    """
+    con = connect(
+        "s3://bucket/ds",
+        store_options={"region": "eu-central-1", "skip_signature": True},
+    )
+    secret = con.execute("SELECT * FROM duckdb_secrets()").fetchone()
+    rendered = str(secret)
+    assert "eu-central-1" in rendered
+    assert "key_id" not in rendered or "redacted" in rendered
+
+
+def test_an_s3_compatible_endpoint_reaches_the_secret():
+    """Tigris and MinIO are S3-compatible services behind their own endpoint."""
+    con = connect(
+        "s3://bucket/ds",
+        store_options={"endpoint": "fly.storage.tigris.dev", "region": "auto"},
+    )
+    rendered = str(con.execute("SELECT * FROM duckdb_secrets()").fetchone())
+    assert "tigris" in rendered
+
+
+def test_azure_and_gcs_use_their_own_secret_type():
+    for source, expected in (("gs://bucket/ds", "gcs"), ("az://container/ds", "azure")):
+        con = connect(source, store_options={})
+        types = {t for _, t in con.execute("SELECT name, type FROM duckdb_secrets()").fetchall()}
+        assert expected in types, (source, types)
+
+
+def test_the_obstore_bridge_stays_available_as_a_fallback():
+    """The escape hatch: a deployment can ask for the previous path."""
+    con = connect(
+        "s3://bucket/ds",
+        store_options={"region": "us-west-2"},
+        engine_options={"fastgeoapi_reader": "obstore"},
+    )
+    assert con.execute("SELECT count(*) FROM duckdb_secrets()").fetchone()[0] == 0
+
+
+def test_local_sources_need_no_reader_configuration(tmp_path):
+    con = connect(str(tmp_path))
+    assert con.execute("SELECT count(*) FROM duckdb_secrets()").fetchone()[0] == 0
