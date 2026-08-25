@@ -52,3 +52,12 @@ class ObjectStore(Protocol):
     async def aput(self, path: str, data: bytes) -> None:
         """Write the whole object asynchronously."""
         ...
+
+    def keys(self, prefix: str = "") -> list[str]:
+        """Object keys under a prefix, recursively.
+
+        Named ``keys`` rather than ``list``: a method called ``list``
+        shadows the builtin inside the class body, so every ``list[...]``
+        annotation after it stops resolving.
+        """
+        ...

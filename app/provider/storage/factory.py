@@ -37,11 +37,24 @@ def split_source(source: str) -> tuple[str, str]:
     return str(path.parent), path.name
 
 
-def load_store(base: str) -> ObjectStore:
-    """Build the backend for a base URL/directory."""
+def load_store(base: str, store_options: dict | None = None) -> ObjectStore:
+    """Build the backend for a base URL/directory.
+
+    ``store_options`` are the cloud store settings — ``region``,
+    ``skip_signature`` for public data, ``endpoint`` for an
+    S3-compatible service. They are meaningless for a local path and
+    ignored there.
+    """
     if base.startswith(_URL_SCHEMES):
         from obstore.store import from_url
 
+        if store_options:
+            # ty: `from_url` is overloaded per provider-specific config
+            # type, and ours is a plain mapping read from the tenant's
+            # configuration — the value is only known at runtime.
+            return ObstoreStore(
+                from_url(base, config=store_options)  # ty: ignore[no-matching-overload]
+            )
         return ObstoreStore(from_url(base))
     from obstore.store import LocalStore
 

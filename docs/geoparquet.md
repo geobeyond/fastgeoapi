@@ -60,6 +60,12 @@ resources:
 A directory root is read with hive partitioning enabled, so a query
 that filters on a partition column reads only the matching partitions.
 
+On a bucket the objects are **listed** rather than matched with a
+wildcard: DuckDB cannot expand a glob through the object-store bridge —
+an explicit file works while `*.parquet` raises "No files found" — so
+the provider enumerates the prefix and hands the engine explicit paths.
+The listing happens once, when the provider is built.
+
 ### Sources and credentials
 
 `data` accepts the same sources as the configuration itself — local

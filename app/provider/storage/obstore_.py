@@ -44,6 +44,10 @@ class ObstoreStore:
         """Write the whole object, asynchronously."""
         await self._store.put_async(path, data)
 
+    def keys(self, prefix: str = "") -> list[str]:
+        """Object keys under a prefix, recursively."""
+        return [entry["path"] for batch in self._store.list(prefix) for entry in batch]
+
     @staticmethod
     def _meta(raw: dict) -> ObjectMeta:
         return ObjectMeta(
