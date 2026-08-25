@@ -103,6 +103,8 @@ celerybeat.pid
 
 # Environments
 ./.env
+# Object-store credentials for the staging tool (scripts/stage_overture.py)
+.tigris.env
 .venv
 env/
 venv/
