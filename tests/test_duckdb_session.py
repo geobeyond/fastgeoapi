@@ -231,3 +231,51 @@ def test_engine_option_names_are_validated():
     """The option name reaches SQL as an identifier, so it is constrained."""
     with pytest.raises(DuckDBUnavailableError, match="invalid"):
         connect("/tmp", engine_options={"memory_limit; DROP TABLE x": "1"})
+
+
+def test_flat_directory_of_parquet_files_is_scannable(tmp_path):
+    """A dataset can be several files in one directory, with no partitions.
+
+    The scan pattern used to be `<dir>/**/*.parquet`, which matches a
+    hive layout but not files sitting directly in the directory — the
+    shape Overture publishes (`theme=base/type=bathymetry/part-*.parquet`).
+    Every fixture here was hive-partitioned, so nothing caught it.
+    """
+    con = connect(str(tmp_path))
+    for i in (1, 2):
+        con.execute(
+            f"COPY (SELECT {i} AS id, ST_Point({i}, {i}) AS geom) "
+            f"TO '{tmp_path}/part-{i}.parquet' (FORMAT parquet)"
+        )
+    total = con.execute(f"SELECT count(*) FROM {scan_expression(str(tmp_path))}").fetchone()[0]
+    assert total == 2
+
+
+def test_cloud_sources_are_enumerated_not_globbed():
+    """Cloud datasets must be listed, not matched with a wildcard.
+
+    Reading Overture through the obstore filesystem showed that DuckDB
+    cannot expand any glob across that bridge: an explicit file works,
+    `*.parquet` and `**/*.parquet` both raise "No files found". Every
+    multi-file dataset on a bucket — the partitioned case the design was
+    built for — would be unusable. So the scan lists the objects through
+    the storage layer and hands DuckDB explicit paths.
+    """
+    expression = scan_expression(
+        "s3://overturemaps-us-west-2/release/2026-08-19.0/theme=base/type=bathymetry/",
+        store_options={"region": "us-west-2", "skip_signature": True},
+    )
+    assert "*" not in expression, expression
+    assert ".parquet'" in expression
+    assert "s3://overturemaps-us-west-2/" in expression
+
+
+def test_enumeration_covers_nested_layouts(tmp_path):
+    """Listing is recursive, so a hive layout is enumerated too."""
+    con = connect(str(tmp_path))
+    con.execute(
+        f"COPY (SELECT 1 AS id, 'it' AS country UNION ALL SELECT 2, 'fr') "
+        f"TO '{tmp_path}/ds' (FORMAT parquet, PARTITION_BY (country), OVERWRITE_OR_IGNORE)"
+    )
+    total = con.execute(f"SELECT count(*) FROM {scan_expression(f'{tmp_path}/ds')}").fetchone()[0]
+    assert total == 2

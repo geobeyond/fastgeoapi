@@ -42,6 +42,9 @@ class _FakeStore:
     async def aput(self, path: str, data: bytes) -> None:
         self._objects[path] = data
 
+    def keys(self, prefix: str = "") -> list[str]:
+        return [key for key in self._objects if key.startswith(prefix)]
+
 
 def test_structural_conformance_is_runtime_checkable():
     store = _FakeStore({"cfg.yml": b"server: {}"})
@@ -59,7 +62,7 @@ def test_meta_is_immutable():
 
 
 class _ReaderOnly:
-    """The four read operations, no write: NOT a valid backend anymore."""
+    """Reads only, no write and no listing: NOT a valid backend anymore."""
 
     def get(self, path: str) -> bytes:
         return b""

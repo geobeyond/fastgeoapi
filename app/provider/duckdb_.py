@@ -147,14 +147,37 @@ def connect(
     return con
 
 
-def scan_expression(source: str) -> str:
+def scan_expression(source: str, store_options: dict | None = None) -> str:
     """Build the ``read_parquet`` fragment for a file, glob or directory.
 
-    A source that already names a file or carries a glob is used as is;
-    anything else is treated as a dataset root, which is the shape of a
-    hive-partitioned export.
+    A source naming a single file, or carrying its own glob, is used as
+    is. A directory is expanded — and how depends on where it lives:
+
+    - locally DuckDB globs the filesystem itself;
+    - on a bucket it cannot. Reading Overture through the obstore
+      filesystem showed that no wildcard survives that bridge — an
+      explicit file works while ``*.parquet`` and ``**/*.parquet`` both
+      raise "No files found" — which would leave every multi-file cloud
+      dataset unusable. So the objects are listed through the storage
+      layer and handed to DuckDB as explicit paths.
     """
-    target = source
-    if not (source.endswith(".parquet") or "*" in source):
-        target = f"{source.rstrip('/')}/**/*.parquet"
-    return f"read_parquet('{target}', hive_partitioning=true, union_by_name=true)"
+    if source.endswith(".parquet") or "*" in source:
+        target = f"'{source}'"
+    elif protocol_for(source) is None:
+        target = f"'{source.rstrip('/')}/**/*.parquet'"
+    else:
+        target = _enumerate_cloud_parquet(source, store_options)
+    return f"read_parquet({target}, hive_partitioning=true, union_by_name=true)"
+
+
+def _enumerate_cloud_parquet(source: str, store_options: dict | None) -> str:
+    """List the parquet objects under a bucket prefix, as a SQL list."""
+    from app.provider.storage import load_store
+
+    base = source if source.endswith("/") else f"{source}/"
+    store = load_store(base, store_options=store_options)
+    keys = [key for key in store.keys() if key.endswith(".parquet")]
+    if not keys:
+        raise DuckDBUnavailableError(f"no parquet objects under {source}")
+    logger.debug(f"{len(keys)} parquet object(s) enumerated under {source}")
+    return "[" + ", ".join(f"'{base}{key}'" for key in keys) + "]"
