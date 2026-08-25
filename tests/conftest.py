@@ -20,13 +20,41 @@ import uvicorn
 from httpx import Client
 from typer.testing import CliRunner
 
-from app.auth.models import TokenPayload
-from app.config.app import configuration as cfg
+#: The configuration every test builds on. Small, local, and owned by the
+#: suite — unlike `pygeoapi-config.yml`, which is the document the
+#: deployment reads and therefore names collections that live in buckets.
+TEST_CONFIG = "tests/data/pygeoapi-config.yml"
+
+# This has to happen BEFORE `app.config.app` is imported: settings are
+# built once at import time and memoised, so a value set afterwards is
+# never seen. The CLI copies `cfg.PYGEOAPI_CONFIG` straight into the
+# environment, which is how the developer's own `.env` was reaching a
+# test that had carefully set its own.
+for _name in ("PYGEOAPI_CONFIG", "DEV_PYGEOAPI_CONFIG", "PROD_PYGEOAPI_CONFIG"):
+    os.environ[_name] = TEST_CONFIG
+
+from app.auth.models import TokenPayload  # ruff: ignore[module-import-not-at-top-of-file]
+from app.config.app import configuration as cfg  # ruff: ignore[module-import-not-at-top-of-file]
 
 # Set environment variables at module level for skipif decorators
 # These need to be set before test collection happens
 os.environ["API_KEY_ENABLED"] = "true"
 os.environ["JWKS_ENABLED"] = "true"
+
+
+@pytest.fixture(autouse=True)
+def pin_pygeoapi_config(monkeypatch):
+    """Keep every test on the fixture configuration.
+
+    Settings are read through pydantic-settings, which loads the
+    developer's own `.env`. Whatever configuration they happen to run
+    locally would otherwise leak into the suite — and once that document
+    names a cloud dataset, tests that never meant to touch the network
+    start failing on a 403. A test that wants a different configuration
+    still sets its own value after this fixture has run.
+    """
+    for name in ("PYGEOAPI_CONFIG", "DEV_PYGEOAPI_CONFIG", "PROD_PYGEOAPI_CONFIG"):
+        monkeypatch.setenv(name, TEST_CONFIG)
 
 
 @pytest.fixture(scope="session")
@@ -535,7 +563,7 @@ def fastgeoapi_with_iam(
         "DEV_OAUTH2_EXPECTED_AUDIENCE": f"http://localhost:{fastgeoapi_port}/geoapi/",
         "DEV_OAUTH2_EXPECTED_ISSUER": iam_url,
         "DEV_PYGEOAPI_BASEURL": f"http://localhost:{fastgeoapi_port}",
-        "DEV_PYGEOAPI_CONFIG": "pygeoapi-config.yml",
+        "DEV_PYGEOAPI_CONFIG": "tests/data/pygeoapi-config.yml",
         "DEV_PYGEOAPI_OPENAPI": "pygeoapi-openapi.yml",
         # Per-test extras (e.g. the EMA trusted issuers) are injected by
         # the `fastgeoapi_env_extra` fixture; empty by default.

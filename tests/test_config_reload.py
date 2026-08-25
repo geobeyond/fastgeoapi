@@ -47,7 +47,7 @@ def _write_config(path: Path, config: dict) -> None:
 @pytest.fixture
 def app_with_tmp_config(tmp_path):
     """Real app with the config served from a tmp directory via LocalStore."""
-    base = yaml.safe_load(Path("pygeoapi-config.yml").read_text())
+    base = yaml.safe_load(Path("tests/data/pygeoapi-config.yml").read_text())
     target = tmp_path / "pygeoapi-config.yml"
     _write_config(target, base)
     env = {
@@ -140,7 +140,7 @@ def test_route_set_follows_reload(app_with_tmp_config):
 def test_reload_is_protected_by_the_configured_auth(tmp_path):
     """Security according to the configuration: with API key on, /admin requires it."""
     target = tmp_path / "pygeoapi-config.yml"
-    target.write_text(Path("pygeoapi-config.yml").read_text())
+    target.write_text(Path("tests/data/pygeoapi-config.yml").read_text())
     env = {
         **BASE_ENV,
         "DEV_PYGEOAPI_CONFIG": str(target),

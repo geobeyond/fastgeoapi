@@ -74,7 +74,7 @@ def repo_subapp_client():
 
     from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
 
-    config = yaml.safe_load(Path("pygeoapi-config.yml").read_text())
+    config = yaml.safe_load(Path("tests/data/pygeoapi-config.yml").read_text())
     subapp = build_pygeoapi_subapp(config, build_openapi(config))
     return TestClient(subapp, raise_server_exceptions=False)
 
@@ -96,7 +96,7 @@ def test_full_table_stays_available_for_parity():
     from app.pygeoapi.factory import build_api, build_openapi, build_routes
     from app.pygeoapi.registry import active_specs
 
-    config = yaml.safe_load(Path("pygeoapi-config.yml").read_text())
+    config = yaml.safe_load(Path("tests/data/pygeoapi-config.yml").read_text())
     api = build_api(config, build_openapi(config))
     full = build_routes(api)
     filtered = build_routes(api, specs=active_specs(config))

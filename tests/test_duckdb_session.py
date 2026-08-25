@@ -131,7 +131,7 @@ def test_the_filesystem_handed_to_duckdb_carries_the_url_scheme(source, scheme):
 
 def test_local_sources_have_no_protocol(tmp_path):
     assert protocol_for(str(tmp_path)) is None
-    assert protocol_for("pygeoapi-config.yml") is None
+    assert protocol_for("tests/data/pygeoapi-config.yml") is None
 
 
 def test_unsupported_scheme_is_refused():

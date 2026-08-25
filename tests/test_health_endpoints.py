@@ -28,7 +28,7 @@ BASE_ENV = {
     "HOST": "0.0.0.0",
     "PORT": "5000",
     "DEV_PYGEOAPI_BASEURL": "http://localhost:5000",
-    "DEV_PYGEOAPI_CONFIG": "pygeoapi-config.yml",
+    "DEV_PYGEOAPI_CONFIG": "tests/data/pygeoapi-config.yml",
     "DEV_PYGEOAPI_OPENAPI": "pygeoapi-openapi.yml",
     "DEV_FASTGEOAPI_CONTEXT": "/geoapi",
     "DEV_FASTGEOAPI_WITH_MCP": "false",

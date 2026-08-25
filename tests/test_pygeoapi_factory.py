@@ -12,7 +12,7 @@ import yaml
 
 @pytest.fixture(scope="module")
 def config_dict() -> dict:
-    return yaml.safe_load(Path("pygeoapi-config.yml").read_text())
+    return yaml.safe_load(Path("tests/data/pygeoapi-config.yml").read_text())
 
 
 def test_factory_imports_without_pygeoapi_env():
@@ -125,7 +125,7 @@ def test_served_links_honour_the_configured_base_url(monkeypatch):
     monkeypatch.setenv("HOST", "0.0.0.0")
     monkeypatch.setenv("PORT", "5001")
 
-    source = Path("pygeoapi-config.yml")
+    source = Path("tests/data/pygeoapi-config.yml")
     config_text = source.read_text().replace(
         "${PYGEOAPI_BASEURL}${FASTGEOAPI_CONTEXT}",
         "${FASTGEOAPI_TEST_BASEURL}${FASTGEOAPI_TEST_CONTEXT}",

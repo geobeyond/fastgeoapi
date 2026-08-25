@@ -21,7 +21,7 @@ def test_openapi_succeeds(runner: CliRunner) -> None:
         "DEV_LOG_ROTATION": "1 days",
         "DEV_LOG_RETENTION": "1 months",
         "DEV_PYGEOAPI_BASEURL": "http://localhost:5000",
-        "DEV_PYGEOAPI_CONFIG": "pygeoapi-config.yml",
+        "DEV_PYGEOAPI_CONFIG": "tests/data/pygeoapi-config.yml",
         "DEV_PYGEOAPI_OPENAPI": "pygeoapi-openapi.yml",
         "DEV_FASTGEOAPI_CONTEXT": "/geoapi",
         "DEV_API_KEY_ENABLED": "false",

@@ -45,7 +45,7 @@ def _reload_app(env: dict[str, str]):
 @contextmanager
 def _boot(tmp_path, artifact_target: str):
     """Boot the app keeping the env patch alive for the caller's block."""
-    base = yaml.safe_load(Path("pygeoapi-config.yml").read_text())
+    base = yaml.safe_load(Path("tests/data/pygeoapi-config.yml").read_text())
     config_path = tmp_path / "pygeoapi-config.yml"
     config_path.write_text(yaml.safe_dump(base))
     env = {

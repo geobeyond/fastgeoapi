@@ -13,7 +13,7 @@ from typer.testing import CliRunner
 
 def test_openapi_command_writes_document_from_source(tmp_path, monkeypatch):
     src = tmp_path / "pygeoapi-config.yml"
-    src.write_text(Path("pygeoapi-config.yml").read_text())
+    src.write_text(Path("tests/data/pygeoapi-config.yml").read_text())
     out = tmp_path / "pygeoapi-openapi.yml"
     monkeypatch.setenv("DEV_PYGEOAPI_CONFIG", str(src))
     monkeypatch.setenv("DEV_PYGEOAPI_OPENAPI", str(out))
@@ -43,7 +43,7 @@ def test_openapi_command_reads_config_from_url_source(tmp_path, monkeypatch):
     value and blew up on any URL.
     """
     src = tmp_path / "pygeoapi-config.yml"
-    src.write_text(Path("pygeoapi-config.yml").read_text())
+    src.write_text(Path("tests/data/pygeoapi-config.yml").read_text())
     out = tmp_path / "pygeoapi-openapi.yml"
     monkeypatch.setenv("DEV_PYGEOAPI_CONFIG", f"file://{src}")
     monkeypatch.setenv("DEV_PYGEOAPI_OPENAPI", str(out))
@@ -69,7 +69,7 @@ def test_openapi_command_writes_to_url_target(tmp_path, monkeypatch):
     would mangle the URL into a relative path under cwd.
     """
     src = tmp_path / "pygeoapi-config.yml"
-    src.write_text(Path("pygeoapi-config.yml").read_text())
+    src.write_text(Path("tests/data/pygeoapi-config.yml").read_text())
     out = tmp_path / "out" / "pygeoapi-openapi.yml"
     out.parent.mkdir()
     monkeypatch.setenv("DEV_PYGEOAPI_CONFIG", str(src))

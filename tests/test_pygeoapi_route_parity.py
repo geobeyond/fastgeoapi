@@ -22,7 +22,7 @@ def _upstream_route_set(monkeypatch) -> set[tuple[str, tuple[str, ...]]]:
     # setdefault here inherits a path whose tmpdir is already gone and
     # upstream's import-time load_openapi_document() dies on it. The
     # values below are the documents this test means to compare.
-    monkeypatch.setenv("PYGEOAPI_CONFIG", str(Path("pygeoapi-config.yml").resolve()))
+    monkeypatch.setenv("PYGEOAPI_CONFIG", str(Path("tests/data/pygeoapi-config.yml").resolve()))
     monkeypatch.setenv("PYGEOAPI_OPENAPI", str(Path("pygeoapi-openapi.yml").resolve()))
     # The repo config interpolates these env vars (grep '\${' pygeoapi-config.yml);
     # upstream resolves them at import time.
@@ -38,7 +38,7 @@ def _upstream_route_set(monkeypatch) -> set[tuple[str, tuple[str, ...]]]:
 def _ours_route_set() -> set[tuple[str, tuple[str, ...]]]:
     from app.pygeoapi.factory import build_api, build_openapi, build_routes
 
-    config = yaml.safe_load(Path("pygeoapi-config.yml").read_text())
+    config = yaml.safe_load(Path("tests/data/pygeoapi-config.yml").read_text())
     routes = build_routes(build_api(config, build_openapi(config)))
     return _normalized(routes)
 
