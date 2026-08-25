@@ -108,6 +108,16 @@ def _writable_temp_directory() -> str:
 _FASTGEOAPI_OPTION_PREFIX = "fastgeoapi_"
 
 
+def reader_for(engine_options: dict | None) -> str:
+    """Which read path a dataset takes: DuckDB's own, or the obstore bridge.
+
+    Both ``connect`` and ``scan_expression`` have to agree on this — the
+    bridge cannot expand a wildcard, so the scan has to be written
+    differently for each path.
+    """
+    return (engine_options or {}).get("fastgeoapi_reader", "native")
+
+
 def _apply_engine_options(con, engine_options: dict) -> None:
     """Apply ``SET`` options, refusing names DuckDB does not know."""
     for name, value in engine_options.items():
@@ -178,8 +188,7 @@ def connect(
 
     protocol = protocol_for(source)
     if protocol is not None:
-        reader = (engine_options or {}).get("fastgeoapi_reader", "native")
-        if reader == "obstore":
+        if reader_for(engine_options) == "obstore":
             _register_obstore_filesystem(con, protocol, store_options)
         else:
             _configure_native_reader(con, protocol, store_options)
@@ -235,6 +244,14 @@ def _configure_native_reader(con, protocol: str, store_options: dict | None) -> 
             value = options.pop(name)
             literal = str(value).lower() if isinstance(value, bool) else f"'{value}'"
             parameters.append(f"{name.upper()} {literal}")
+    if anonymous and secret_type in ("s3", "gcs"):
+        # An explicitly empty key is what stops DuckDB from signing.
+        # Omitting the keys is not enough: it then falls back to the
+        # standard AWS environment variables, which are set whenever the
+        # deployment talks to any other S3 store — and a public bucket
+        # answers a signed request with 403. Azure expresses anonymity
+        # through its own parameters, so it is left alone here.
+        parameters.extend(["KEY_ID ''", "SECRET ''"])
     if not anonymous and not any(p.startswith(("KEY_ID", "CONNECTION_STRING")) for p in parameters):
         # No explicit keys: let DuckDB read the same standard environment
         # variables obstore would. A deployment without credentials — a
@@ -257,26 +274,34 @@ def _configure_native_reader(con, protocol: str, store_options: dict | None) -> 
     logger.debug(f"native reader configured for {protocol}:// ({secret_type} secret)")
 
 
-def scan_expression(source: str, store_options: dict | None = None) -> str:
+def scan_expression(
+    source: str,
+    store_options: dict | None = None,
+    engine_options: dict | None = None,
+) -> str:
     """Build the ``read_parquet`` fragment for a file, glob or directory.
 
     A source naming a single file, or carrying its own glob, is used as
-    is. A directory is expanded — and how depends on where it lives:
+    is. A directory is expanded, and how depends on the read path:
 
-    - locally DuckDB globs the filesystem itself;
-    - on a bucket it cannot. Reading Overture through the obstore
-      filesystem showed that no wildcard survives that bridge — an
-      explicit file works while ``*.parquet`` and ``**/*.parquet`` both
-      raise "No files found" — which would leave every multi-file cloud
-      dataset unusable. So the objects are listed through the storage
+    - DuckDB's own reader globs a local filesystem and a bucket alike,
+      so the wildcard is handed straight to it. On a bucket that is also
+      the only way to stay isolated from the environment: obstore reads
+      the standard variables in every constructor with no opt-out, so a
+      deployment whose ``AWS_ENDPOINT_URL_S3`` names its own store would
+      send the listing there and be refused for a dataset living
+      elsewhere.
+    - the obstore bridge cannot expand any wildcard — an explicit file
+      works while ``*.parquet`` and ``**/*.parquet`` both raise "No files
+      found" — so on that path the objects are listed through the storage
       layer and handed to DuckDB as explicit paths.
     """
     if source.endswith(".parquet") or "*" in source:
         target = f"'{source}'"
-    elif protocol_for(source) is None:
-        target = f"'{source.rstrip('/')}/**/*.parquet'"
-    else:
+    elif protocol_for(source) is not None and reader_for(engine_options) == "obstore":
         target = _enumerate_cloud_parquet(source, store_options)
+    else:
+        target = f"'{source.rstrip('/')}/**/*.parquet'"
     return f"read_parquet({target}, hive_partitioning=true, union_by_name=true)"
 
 

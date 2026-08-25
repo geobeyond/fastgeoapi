@@ -251,19 +251,39 @@ def test_flat_directory_of_parquet_files_is_scannable(tmp_path):
     assert total == 2
 
 
-def test_cloud_sources_are_enumerated_not_globbed():
-    """Cloud datasets must be listed, not matched with a wildcard.
+def test_a_cloud_directory_is_globbed_on_the_native_path(monkeypatch):
+    """DuckDB globs a bucket itself, so nothing is listed through obstore.
+
+    obstore reads the process environment in every constructor and offers
+    no way to opt out — an explicit ``endpoint`` in the store options does
+    not override ``AWS_ENDPOINT_URL_S3``. A deployment that keeps its own
+    data on an S3-compatible service therefore sent the listing *there*
+    and got 403 for a dataset living on AWS. DuckDB's glob is scoped by
+    its own secret, and costs one request instead of a full listing.
+    """
+    monkeypatch.setenv("AWS_ENDPOINT_URL_S3", "https://fly.storage.tigris.dev")
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "tid_belonging_to_another_store")
+    expression = scan_expression(
+        "s3://bucket/ds",
+        store_options={"region": "us-west-2", "skip_signature": True},
+    )
+    assert "'s3://bucket/ds/**/*.parquet'" in expression, expression
+
+
+def test_cloud_sources_are_enumerated_on_the_bridge():
+    """On the obstore path a cloud dataset is listed, never globbed.
 
     Reading Overture through the obstore filesystem showed that DuckDB
     cannot expand any glob across that bridge: an explicit file works,
     `*.parquet` and `**/*.parquet` both raise "No files found". Every
     multi-file dataset on a bucket — the partitioned case the design was
-    built for — would be unusable. So the scan lists the objects through
-    the storage layer and hands DuckDB explicit paths.
+    built for — would be unusable. So on that path the scan lists the
+    objects through the storage layer and hands DuckDB explicit paths.
     """
     expression = scan_expression(
         "s3://overturemaps-us-west-2/release/2026-08-19.0/theme=base/type=bathymetry/",
         store_options={"region": "us-west-2", "skip_signature": True},
+        engine_options={"fastgeoapi_reader": "obstore"},
     )
     assert "*" not in expression, expression
     assert ".parquet'" in expression
@@ -315,6 +335,26 @@ def test_public_data_gets_a_secret_without_credentials():
     rendered = str(secret)
     assert "eu-central-1" in rendered
     assert "key_id" not in rendered or "redacted" in rendered
+
+
+def test_public_data_ignores_ambient_credentials(monkeypatch):
+    """`skip_signature` has to beat the environment, not merely omit keys.
+
+    Leaving the keys out of the secret is not enough: DuckDB then reads
+    the standard AWS variables and signs the request, and a public bucket
+    answers a signed request with 403. This is not hypothetical — a
+    deployment that stores its own data on Tigris carries those variables
+    for that store, and would lose the ability to read any public bucket.
+    Verified against Overture's: only an explicitly empty key reads it.
+    """
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "tid_belonging_to_another_store")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "tsec_belonging_to_another_store")
+    con = connect(
+        "s3://bucket/ds",
+        store_options={"region": "us-west-2", "skip_signature": True},
+    )
+    rendered = con.execute("SELECT secret_string FROM duckdb_secrets()").fetchone()[0]
+    assert "key_id=;" in rendered, rendered
 
 
 def test_an_s3_compatible_endpoint_reaches_the_secret():

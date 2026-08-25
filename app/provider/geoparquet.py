@@ -74,7 +74,11 @@ class GeoParquetProvider(BaseProvider):
             raise ProviderQueryError("id_field is required by the GeoParquet provider")
         self.geometry_column = provider_def.get("geometry_column", "geom")
         self._configured_covering = provider_def.get("bbox_column")
-        self._scan = scan_expression(self.data, store_options=provider_def.get("store_options"))
+        self._scan = scan_expression(
+            self.data,
+            store_options=provider_def.get("store_options"),
+            engine_options=provider_def.get("engine_options"),
+        )
         # Per-dataset store options (region, skip_signature for public
         # data, endpoint for an S3-compatible service) travel with the
         # provider definition — credentials themselves stay in the
