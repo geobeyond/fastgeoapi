@@ -11,6 +11,7 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
+import httpx2
 import pytest
 
 from app.interfaces.http_client import AsyncHTTPClient
@@ -24,6 +25,17 @@ class TestAsyncHTTPClientProtocol:
         client = httpx.AsyncClient()
 
         # Protocol is runtime_checkable, so isinstance should work
+        assert isinstance(client, AsyncHTTPClient)
+
+    def test_httpx2_async_client_implements_protocol(self):
+        """The client MCP actually uses must satisfy the protocol too.
+
+        `create_mcp_server` hands FastMCP an httpx2 client; if the two
+        libraries ever diverge on this interface, the injection point
+        stops being honest about what it accepts.
+        """
+        client = httpx2.AsyncClient()
+
         assert isinstance(client, AsyncHTTPClient)
 
     def test_protocol_has_required_methods(self):
@@ -159,6 +171,37 @@ class TestMCPServerClientLifecycle:
             assert api_client is not None
             assert isinstance(api_client, AsyncHTTPClient)
 
+    def test_create_mcp_server_uses_the_client_fastmcp_expects(self, mock_env_vars):
+        """FastMCP 4 is built around httpx2 and deprecates the old client.
+
+        Not cosmetic: its OpenAPI provider takes an `httpx2.AsyncClient`,
+        and the version that removes the shim would break the in-process
+        transport MCP reaches pygeoapi through. Asserting on the warning
+        is what keeps the two from drifting apart quietly.
+        """
+        import os
+        import sys
+        import warnings
+        from unittest import mock
+
+        with mock.patch.dict(os.environ, mock_env_vars, clear=False):
+            modules_to_remove = [key for key in sys.modules.keys() if key.startswith("app.")]
+            for module in modules_to_remove:
+                del sys.modules[module]
+
+            from app.config.app import FactoryConfig
+
+            FactoryConfig.get_config.cache_clear()
+
+            from app.main import create_mcp_server
+
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                create_mcp_server()
+
+        about_the_client = [w for w in caught if "httpx2" in str(w.message)]
+        assert not about_the_client, [str(w.message) for w in about_the_client]
+
     def test_create_mcp_server_accepts_injected_client(self, mock_env_vars):
         """Verify create_mcp_server can use an injected client."""
         import os
@@ -177,7 +220,7 @@ class TestMCPServerClientLifecycle:
             from app.main import create_mcp_server
 
             # Create a custom client to inject
-            custom_client = httpx.AsyncClient(
+            custom_client = httpx2.AsyncClient(
                 base_url="http://localhost:5000/geoapi",
                 timeout=60.0,
                 headers={"X-Custom-Header": "test"},
@@ -237,7 +280,7 @@ class TestMCPServerClientLifecycle:
             from app.main import create_mcp_server
 
             # Create and inject a client
-            injected_client = httpx.AsyncClient(
+            injected_client = httpx2.AsyncClient(
                 base_url="http://localhost:5000/geoapi",
                 timeout=30.0,
             )

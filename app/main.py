@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import httpx
+import httpx2
 import loguru
 import uvicorn
 import yaml
@@ -327,14 +327,14 @@ def create_app(lifespan=None):
 
 # MCP Server setup from the in-memory OpenAPI document (ADR-0003)
 def create_mcp_server(
-    api_client: httpx.AsyncClient | None = None,
+    api_client: httpx2.AsyncClient | None = None,
     openapi_spec: dict | None = None,
 ):
     """Create MCP server from the OGC API OpenAPI specification.
 
     Parameters
     ----------
-    api_client : httpx.AsyncClient | None
+    api_client : httpx2.AsyncClient | None
         Optional async client for MCP to make API requests. If not provided,
         a new client will be created. When provided, the caller is responsible
         for managing the client lifecycle (closing it when done).
@@ -346,7 +346,7 @@ def create_mcp_server(
     -------
         Tuple of (mcp_server, mcp_app, well_known_routes, api_client) where:
         - well_known_routes are the OAuth discovery routes to mount at root level
-        - api_client is the httpx.AsyncClient used by MCP (for lifecycle management)
+        - api_client is the httpx2.AsyncClient used by MCP (for lifecycle management)
     """
     from app.utils.openapi_resolver import resolve_external_refs
 
@@ -369,8 +369,11 @@ def create_mcp_server(
     # The raw sub-app's routes live at the root (no FASTGEOAPI_CONTEXT
     # prefix), so the base URL must not include the context either.
     if api_client is None:
-        api_client = httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=_pygeoapi_holder),
+        # httpx2, not httpx: FastMCP 4 builds its OpenAPI provider around
+        # the new client and deprecates the old one. The rest of the code
+        # base still uses httpx — only the client FastMCP consumes moves.
+        api_client = httpx2.AsyncClient(
+            transport=httpx2.ASGITransport(app=_pygeoapi_holder),
             base_url="http://mcp-internal",
             timeout=30.0,
         )

@@ -25,7 +25,8 @@ import os
 import sys
 from unittest import mock
 
-import httpx
+import httpx  # drives the app from the tests
+import httpx2  # the client production hands to FastMCP
 import pytest
 
 
@@ -59,13 +60,15 @@ def fastgeoapi_with_mcp_enabled():
 
 
 def test_mcp_api_client_uses_asgi_transport(fastgeoapi_with_mcp_enabled):
-    """The MCP-to-pygeoapi httpx client must use ASGITransport, not a
-    network transport.
+    """The MCP-to-pygeoapi client must use ASGITransport, not a network
+    transport.
 
-    Primary sentinel for the Phase 4.2 refactor.
+    Primary sentinel for the Phase 4.2 refactor. The class lives in
+    httpx2 since the client moved there for FastMCP 4 — the invariant is
+    the in-process transport, not the library it comes from.
     """
     _app, api_client = fastgeoapi_with_mcp_enabled
-    assert isinstance(api_client._transport, httpx.ASGITransport)
+    assert isinstance(api_client._transport, httpx2.ASGITransport)
 
 
 def test_mcp_api_client_has_no_internal_key_header(fastgeoapi_with_mcp_enabled):
