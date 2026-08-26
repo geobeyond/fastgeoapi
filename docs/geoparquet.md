@@ -60,11 +60,17 @@ resources:
 A directory root is read with hive partitioning enabled, so a query
 that filters on a partition column reads only the matching partitions.
 
-On a bucket the objects are **listed** rather than matched with a
-wildcard: DuckDB cannot expand a glob through the object-store bridge —
-an explicit file works while `*.parquet` raises "No files found" — so
-the provider enumerates the prefix and hands the engine explicit paths.
-The listing happens once, when the provider is built.
+On a bucket DuckDB expands the wildcard itself, in one request. That
+also keeps the dataset isolated from the process environment: the
+object-store layer reads the standard variables in every constructor
+with no way to opt out, so a deployment whose `AWS_ENDPOINT_URL_S3`
+names its own store would send the listing there and be refused for a
+dataset that lives elsewhere.
+
+On the `obstore` fallback below the objects are **listed** instead:
+DuckDB cannot expand a glob through that bridge — an explicit file works
+while `*.parquet` raises "No files found" — so the provider enumerates
+the prefix once, when it is built, and hands the engine explicit paths.
 
 ### Sources and credentials
 
@@ -86,9 +92,8 @@ already fetched, so every request repaid its bytes — the same query cost
 21 s on each repetition against 0.7 s natively, and a `bbox` window over
 a 4.5 GB dataset went from 44 s to 0.9 s once warm.
 
-The object store still lists the dataset (DuckDB cannot expand a glob
-through the bridge) and still loads the configuration and writes the
-artifact. If a deployment needs the previous path back:
+The object store still loads the configuration and writes the artifact.
+If a deployment needs the previous path back:
 
 ```yaml
 engine_options:
@@ -98,9 +103,12 @@ engine_options:
 Local paths are read by DuckDB directly, with no configuration at all.
 
 Per-dataset store settings travel in `store_options`. A public dataset
-must be read anonymously and name its region, otherwise obstore signs
-the request, goes looking for credentials, and fails after roughly
-twenty seconds of EC2-metadata retries:
+must say so and name its region. Without `skip_signature` the request is
+signed with whatever credentials the process happens to carry — and any
+deployment that keeps its own data on an S3-compatible store carries
+some — which a public bucket answers with `403 Forbidden`. On a machine
+with no credentials at all it fails differently but no better, after
+roughly twenty seconds of EC2-metadata retries:
 
 ```yaml
 data: s3://overturemaps-us-west-2/release/2026-08-19.0/theme=divisions/type=division/
@@ -196,6 +204,28 @@ costing more than a plain download when the reader cannot cache.
 Practical order of effect: put the data in the same region as the
 server, shape it as above, and only then reach for materialising a local
 copy.
+
+#### What that costs on a live deployment
+
+The public demo runs both arrangements side by side on the same
+1 GB / 1 vCPU machine in Paris, over the same query — a bbox over the
+centre of Rome, five features. `lazio-roads` is an Overture extract
+staged in a bucket in the same region; `overture-places` is read where
+Overture publishes it, in `us-west-2`, with no copy.
+
+| Collection        | Placement    | Cold    | Warm      |
+| ----------------- | ------------ | ------- | --------- |
+| `lazio-roads`     | same region  | 5–6 s   | 1.0 s     |
+| `overture-places` | cross-region | 19–29 s | 2.2–2.5 s |
+
+Warm, locality is worth about 2×; cold, four to five times that. The
+cold figures are ranges because they are: the cross-region first request
+was measured at 18.8 s and 29.0 s on two different cold starts, and a
+number that swings by ten seconds is a number to design around rather
+than quote. A machine that suspends, redeploys or scales from zero pays
+it again on the next request, and half a minute is not a response a user
+waits for. Staging an extract is the difference between a demo that
+always answers and one that sometimes does.
 
 ### Cheap wins on the request itself
 
