@@ -234,7 +234,7 @@ resources:
 
   lazio-roads:
     type: collection
-    title: Lazio roads
+    title: Lazio roads (Overture segments)
     description:
       Overture transportation segments for Lazio, staged as GeoParquet in the
       same region as this deployment — covering bbox and Hilbert ordering
