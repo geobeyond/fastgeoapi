@@ -248,6 +248,31 @@ COPY (SELECT * FROM 'lakes.parquet')
 TO 'lakes' (FORMAT parquet, PARTITION_BY (country));
 ```
 
+### Staging an Overture extract
+
+`scripts/stage_overture.py` does the whole job for an Overture release:
+it reads a window, flattens the nested fields worth exposing, writes the
+covering `bbox` column and the Hilbert ordering described above, and
+uploads the result.
+
+```bash
+uv run python scripts/stage_overture.py \
+    --theme transportation --type segment \
+    --bbox 11.4,41.2,14.1,42.9 \
+    --local /tmp/lazio.parquet \
+    --dest s3://my-bucket/overture/transportation-lazio.parquet
+```
+
+Destination credentials come from the standard environment variables;
+the public Overture bucket is read anonymously regardless of them.
+`--local` keeps the extract on disk, so a failed upload does not discard
+the read — re-running with the same path uploads what is already there.
+The Lazio extract above is 743k segments and 133 MB, read in about 50
+seconds.
+
+This is an offline tool. Nothing at runtime depends on it, and it is not
+installed with the package.
+
 ## Running on a read-only runtime (AWS Lambda and friends)
 
 fastgeoapi can be deployed as a Lambda function (`AWS_LAMBDA_DEPLOY`,

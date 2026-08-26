@@ -76,6 +76,16 @@ The endpoint is protected by the same authentication chain configured
 for the API (API key, JWT via JWKS, or OPA) — no separate secret to
 manage.
 
+**If the reload answers `unchanged` right after you changed the file,
+the store is still serving the old one.** Idempotence compares the
+ETag the store reports with the one currently loaded, so a stale read
+is honestly reported as "nothing to do". Observed twice on Tigris after
+overwriting the same key, converging on its own — once within seconds
+of a second `POST`, once after several minutes. Trigger it again, or
+avoid the situation entirely: **write a new key and point
+`PYGEOAPI_CONFIG` at it** rather than overwriting, which also gives you
+a configuration history and a rollback.
+
 The MCP tool list follows the reload as well. It is generated from the
 OpenAPI document, so a collection added to the configuration becomes an
 MCP tool — and one removed stops being offered — without restarting the
