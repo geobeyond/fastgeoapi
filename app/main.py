@@ -311,10 +311,22 @@ def create_app(lifespan=None):
     # pygeoapi surface — "security according to the configuration".
     from app.interfaces.reload import ReloadManager, build_admin_app
 
+    # The MCP tools are generated from the OpenAPI document, so they have
+    # to follow it across a reload — otherwise the server keeps offering
+    # the collections the previous configuration exposed and only a
+    # process restart fixes it.
+    on_reload = None
+    if mcp is not None and mcp_api_client is not None:
+        from app.mcp.tools import refresh_tools
+
+        def on_reload(openapi: dict) -> None:
+            refresh_tools(mcp, openapi, client=mcp_api_client, cache_dir=_openapi_cache_dir())
+
     reload_manager = ReloadManager(
         _pygeoapi_holder,
         cfg.PYGEOAPI_CONFIG,
         artifact_target=cfg.PYGEOAPI_OPENAPI,
+        on_reload=on_reload,
     )
     wrapped_admin, _ = _wrap_pygeoapi_asgi(build_admin_app(reload_manager))
     app.mount("/admin", wrapped_admin)
@@ -475,6 +487,11 @@ def create_mcp_server(
 # openapi generated in memory, sub-app held for atomic swaps. The MCP
 # transport and the auth-wrapped mount both point at this holder.
 _pygeoapi_holder, _pygeoapi_openapi = _bootstrap_pygeoapi()
+
+# Absent by default, so `create_app` can ask for them without caring
+# whether the MCP surface was enabled at all.
+mcp = None
+mcp_api_client = None
 
 # Create the main app, optionally with MCP server
 if cfg.FASTGEOAPI_WITH_MCP:

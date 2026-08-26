@@ -9,6 +9,7 @@ chain of the configured mode (``main._wrap_pygeoapi_asgi``).
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -38,10 +39,16 @@ class ReloadManager:
         holder: PygeoapiHolder,
         source: str,
         artifact_target: str | None = None,
+        on_reload: Callable[[dict], None] | None = None,
     ):
         self._holder = holder
         self._source = source
         self._artifact_target = artifact_target
+        # Announced after a successful swap, with the new OpenAPI
+        # document. The MCP tool list is generated from it and has to
+        # follow — but this module has no business knowing that, so it
+        # only says what changed and lets the caller decide.
+        self._on_reload = on_reload
         self._running = False
         self._last: dict | None = None
 
@@ -80,6 +87,14 @@ class ReloadManager:
             self._holder.swap(subapp, etag=document.etag)
             self._record("applied", etag=document.etag)
             logger.info(f"pygeoapi config reloaded from {self._source} (etag={document.etag})")
+            if self._on_reload is not None:
+                # Deliberately not fatal: the configuration is already
+                # serving, and a listener that fails should not turn a
+                # good reload into a reported failure.
+                try:
+                    self._on_reload(openapi)
+                except Exception as e:
+                    logger.warning(f"a reload listener failed: {type(e).__name__}: {e}")
             await self._write_artifact(openapi)
         except Exception as e:  # the old one keeps serving: rollback for free
             self._record("failed", error=f"{type(e).__name__}: {e}")

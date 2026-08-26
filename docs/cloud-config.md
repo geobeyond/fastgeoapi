@@ -76,8 +76,14 @@ The endpoint is protected by the same authentication chain configured
 for the API (API key, JWT via JWKS, or OPA) — no separate secret to
 manage.
 
-**Known limit:** the MCP tool list is generated at startup and is NOT
-refreshed by the webhook. Reloaded collections are served immediately
-through the OGC API surface and by the existing MCP tools, but if the
-set of collections changed and the MCP tool list matters, restart the
+The MCP tool list follows the reload as well. It is generated from the
+OpenAPI document, so a collection added to the configuration becomes an
+MCP tool — and one removed stops being offered — without restarting the
 instance.
+
+**What a connected client sees:** the server is correct straight away,
+but nothing pushes the change out. This FastMCP version has no
+server-side `notifications/tools/list_changed`, and the stateless
+transport cannot send server-initiated messages by design, so a client
+keeps the list it cached until it asks for it again — normally when it
+reconnects.

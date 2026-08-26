@@ -216,3 +216,42 @@ def test_html_reflects_config_derived_values_after_reload(app_with_tmp_config):
         assert after.status_code == 200, after.text[:200]
         assert "Renamed Service" in after.text, "the site title is served from a stale config"
         assert 'value="7"' in after.text, "the limit options come from a stale config"
+
+
+def test_reload_announces_the_new_openapi_document(tmp_path):
+    """Whatever must follow the configuration is told after the swap.
+
+    The MCP tool list is derived from this document, and regenerating it
+    is the difference between a reload that needs a process restart and
+    one that does not. The manager stays unaware of MCP: it announces
+    the new document and something else decides what that means.
+    """
+    import asyncio
+
+    from app.interfaces.reload import ReloadManager
+    from app.pygeoapi.holder import PygeoapiHolder
+
+    base = yaml.safe_load(Path("tests/data/pygeoapi-config.yml").read_text())
+    target = tmp_path / "pygeoapi-config.yml"
+    _write_config(target, base)
+
+    announced: list[dict] = []
+    # `main` normally exports these before loading, because the document
+    # interpolates ${VAR} placeholders; this test builds the manager
+    # directly, so it has to supply them itself.
+    interpolation = {
+        "PYGEOAPI_BASEURL": "http://localhost:5000",
+        "FASTGEOAPI_CONTEXT": "/geoapi",
+    }
+    with mock.patch.dict(os.environ, {**BASE_ENV, **interpolation}, clear=False):
+        manager = ReloadManager(
+            PygeoapiHolder(),
+            str(target),
+            artifact_target=None,
+            on_reload=announced.append,
+        )
+        asyncio.run(manager._run())
+
+    assert manager.status()["last"]["outcome"] == "applied", manager.status()
+    assert len(announced) == 1, announced
+    assert "paths" in announced[0]

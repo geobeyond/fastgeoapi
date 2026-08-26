@@ -109,14 +109,19 @@ See [Config from cloud storage](cloud-config.md).
 
 Because the API is an object rather than an import side effect, fastgeoapi can
 build a second one and swap it in atomically. `POST /admin/config/reload`
-(bearer-token protected) returns `202` immediately, rebuilds in the background,
-and `GET` on the same route reports the outcome of the last attempt. Reloads
-are idempotent on the configuration object's ETag, so a webhook that fires
-twice does the work once.
+returns `202` immediately, rebuilds in the background, and `GET` on the same
+route reports the outcome of the last attempt. It is protected by the same
+authentication as the rest of the API — security follows the configuration,
+so there is no second credential to manage. Reloads are idempotent on the
+configuration object's ETag, so a webhook that fires twice does the work once.
 
-Two limits are worth knowing up front: the reload does not regenerate the MCP
-tool list, and in a multi-instance deployment it reaches only the instance that
-received the call. Both are documented in the how-to guide.
+The MCP tools follow too: they are regenerated from the new OpenAPI document,
+so a collection added to the configuration becomes callable by an agent
+without restarting anything. A client that is already connected keeps its
+cached list until it asks again, normally on reconnect.
+
+One limit is worth knowing up front: in a multi-instance deployment the
+reload reaches only the instance that received the call.
 
 ## Only the routes your configuration actually needs
 
