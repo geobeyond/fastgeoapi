@@ -100,7 +100,11 @@ def _bootstrap_pygeoapi() -> tuple[PygeoapiHolder, dict]:
     ``ASGITransport``, so a reload swap reaches every consumer at once.
     """
     from app.config.source import ConfigSourceError, load_config_source
-    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
+    from app.pygeoapi.factory import (
+        ConfigValidationError,
+        build_openapi,
+        build_pygeoapi_subapp,
+    )
 
     # Interpolation inputs for ``${VAR}`` placeholders inside the pygeoapi
     # config (resolved by pygeoapi's yaml_load, same as upstream). These
@@ -125,6 +129,14 @@ def _bootstrap_pygeoapi() -> tuple[PygeoapiHolder, dict]:
     try:
         openapi = build_openapi(document.config)
         subapp = build_pygeoapi_subapp(document.config, openapi)
+    except ConfigValidationError as e:
+        # Refusing to start beats serving half a configuration: the
+        # operator would otherwise find out from a user. The source is
+        # added because the message travels alone into a log, and a
+        # deployment reading from a bucket has no other way to tell
+        # which document is the bad one.
+        logger.error(f"Refusing to start on {cfg.PYGEOAPI_CONFIG}: {e}")
+        raise ConfigValidationError(f"{e} (read from {cfg.PYGEOAPI_CONFIG})") from e
     except LocaleError as e:
         logger.error(f"Locale error during pygeoapi initialization: {e}")
         raise PygeoapiLanguageError from e

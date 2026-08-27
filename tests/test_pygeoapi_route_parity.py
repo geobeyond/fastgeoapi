@@ -9,7 +9,7 @@ main surfaces it on every PyPI release.
 
 from pathlib import Path
 
-import yaml
+from pygeoapi.util import yaml_load
 
 
 def _normalized(routes) -> set[tuple[str, tuple[str, ...]]]:
@@ -38,7 +38,7 @@ def _upstream_route_set(monkeypatch) -> set[tuple[str, tuple[str, ...]]]:
 def _ours_route_set() -> set[tuple[str, tuple[str, ...]]]:
     from app.pygeoapi.factory import build_api, build_openapi, build_routes
 
-    config = yaml.safe_load(Path("tests/data/pygeoapi-config.yml").read_text())
+    config = yaml_load(Path("tests/data/pygeoapi-config.yml").open())
     routes = build_routes(build_api(config, build_openapi(config)))
     return _normalized(routes)
 
