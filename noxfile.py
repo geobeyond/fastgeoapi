@@ -198,6 +198,24 @@ def safety(session: Session) -> None:
     session.run(*cmd, env={"NLTK_DISABLE_IMPORT_SECURITY": "1"})
 
 
+@session(name="models", python="3.12")
+def models(session: Session) -> None:
+    """Regenerate the Pydantic models for pygeoapi's config schema.
+
+    The generator lives only in this venv, like `safety`: it pulls in
+    black and isort, which the test environment has no use for, and a
+    generator upgrade would otherwise turn the suite red for a reason
+    that has nothing to do with our code.
+
+    `-- --check` fails when the committed files are stale, which is the
+    stronger guard: it catches a hand-edit of the generated module, not
+    only a schema change.
+    """
+    session.install("datamodel-code-generator>=0.25,<1")
+    session.install(".")
+    session.run("python", "scripts/generate_config_models.py", *session.posargs)
+
+
 @session(python=python_versions)
 def bandit(session: Session) -> None:
     """Scan code for vulnerabilities."""
