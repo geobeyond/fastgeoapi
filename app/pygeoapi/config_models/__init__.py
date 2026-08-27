@@ -18,10 +18,10 @@ checks that each alias still points at a model with the expected fields.
 """
 
 from app.pygeoapi.config_models._generated import (
-    PygeoapiConfigurationSchema as PygeoapiConfig,
+    Provider1 as ProviderDefinition,  # the DATA provider — `Provider` is the organisation
 )
 from app.pygeoapi.config_models._generated import (
-    Provider1 as ProviderDefinition,  # the DATA provider — `Provider` is the organisation
+    PygeoapiConfigurationSchema as PygeoapiConfig,
 )
 from app.pygeoapi.config_models._generated import (
     Resources as ResourceDefinition,

@@ -2,9 +2,14 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.4
     hooks:
+      # The generated configuration models are machine-produced; letting
+      # a formatter rewrite them makes `nox -s models-check` fail, because
+      # regenerating would no longer reproduce the committed file.
       - id: ruff-check
         args: [--fix]
+        exclude: '^app/pygeoapi/config_models/(_generated\.py|pygeoapi-config-schema\.yml)$'
       - id: ruff-format
+        exclude: '^app/pygeoapi/config_models/(_generated\.py|pygeoapi-config-schema\.yml)$'
   - repo: local
     hooks:
       - id: check-added-large-files
@@ -26,12 +31,14 @@ repos:
         entry: end-of-file-fixer
         language: system
         types: [text]
+        exclude: '^app/pygeoapi/config_models/(_generated\.py|pygeoapi-config-schema\.yml)$'
         stages: [pre-commit, pre-push, manual]
       - id: trailing-whitespace
         name: Trim Trailing Whitespace
         entry: trailing-whitespace-fixer
         language: system
         types: [text]
+        exclude: '^app/pygeoapi/config_models/(_generated\.py|pygeoapi-config-schema\.yml)$'
         stages: [pre-commit, pre-push, manual]
       - id: ty
         name: Type check with ty
@@ -43,3 +50,4 @@ repos:
     rev: v2.4.1
     hooks:
       - id: prettier
+        exclude: "^app/pygeoapi/config_models/"
