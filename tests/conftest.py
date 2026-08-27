@@ -33,6 +33,19 @@ TEST_CONFIG = "tests/data/pygeoapi-config.yml"
 for _name in ("PYGEOAPI_CONFIG", "DEV_PYGEOAPI_CONFIG", "PROD_PYGEOAPI_CONFIG"):
     os.environ[_name] = TEST_CONFIG
 
+#: Values for the `${VAR}` placeholders inside the pygeoapi document.
+#: `main` exports exactly these before loading, so a test that reads the
+#: configuration has to as well — otherwise it holds a document where
+#: `port` is still the string `'${PORT}'`, which is not what runs.
+INTERPOLATION = {
+    "HOST": "0.0.0.0",
+    "PORT": "5000",
+    "PYGEOAPI_BASEURL": "http://localhost:5000",
+    "FASTGEOAPI_CONTEXT": "/geoapi",
+}
+for _name, _value in INTERPOLATION.items():
+    os.environ.setdefault(_name, _value)
+
 from app.auth.models import TokenPayload  # ruff: ignore[module-import-not-at-top-of-file]
 from app.config.app import configuration as cfg  # ruff: ignore[module-import-not-at-top-of-file]
 

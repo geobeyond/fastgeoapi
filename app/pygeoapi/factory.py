@@ -55,13 +55,50 @@ patch_load_plugin()
 _LIMIT_DEFAULTS = {"default_items": 10, "max_items": 10}
 
 
+class ConfigValidationError(Exception):
+    """A configuration that does not match pygeoapi's own schema."""
+
+
+def _validate(config: dict) -> None:
+    """Check the configuration, and say where the problem is.
+
+    pygeoapi's `validate_config` raises jsonschema's own error, whose
+    string carries the whole failing instance — pages of YAML around a
+    one-line cause. This keeps the part an operator needs: what is
+    wrong, and at which key.
+    """
+    from jsonschema.exceptions import ValidationError
+    from pygeoapi.config import validate_config
+
+    try:
+        validate_config(config)
+    except ValidationError as e:
+        where = ".".join(str(part) for part in e.absolute_path) or "the document root"
+        raise ConfigValidationError(
+            f"invalid pygeoapi configuration at {where}: {e.message}"
+        ) from e
+
+
 def normalize_config(config: dict) -> dict:
-    """Fill the optional config keys the runtime assumes are present.
+    """Validate the configuration, then fill the keys the runtime assumes.
 
     Mutates and returns the given dict: callers (including the reload
     path) share one config object, and pygeoapi copies it internally
     anyway. Only absent keys are filled — a tenant's own values stay.
+
+    Validation lives here rather than in the loader because loading a
+    document and vouching for it are different jobs: the loader is asked
+    for partial documents on purpose. This function is the boundary
+    where a document becomes a configuration something is built from,
+    and both `build_openapi` and `build_api` come through it, so boot,
+    reload and CLI are covered without anyone having to remember.
+
+    It validates the **effective** configuration — after `${VAR}`
+    interpolation. The source document is a different thing: `port:
+    ${PORT}` is a string where the schema wants an integer, and
+    rejecting it would be rejecting a perfectly good deployment.
     """
+    _validate(config)
     limits = config.setdefault("server", {}).setdefault("limits", {})
     for key, value in _LIMIT_DEFAULTS.items():
         limits.setdefault(key, value)

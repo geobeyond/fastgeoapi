@@ -255,3 +255,29 @@ def test_reload_announces_the_new_openapi_document(tmp_path):
     assert manager.status()["last"]["outcome"] == "applied", manager.status()
     assert len(announced) == 1, announced
     assert "paths" in announced[0]
+
+
+def test_a_schema_invalid_config_keeps_the_previous_one_serving(app_with_tmp_config):
+    """The safety net that makes fail-closed at boot acceptable.
+
+    Validation refuses more configurations than before, so the reload
+    path has to be the place where a refusal costs nothing: the outcome
+    is `failed`, the message names the key, and the API keeps answering
+    from the configuration it already had. Distinct from the broken-YAML
+    case above — this document parses perfectly, it just is not a
+    pygeoapi configuration.
+    """
+    app, target, base = app_with_tmp_config
+    with TestClient(app) as client:
+        before = {c["id"] for c in client.get("/geoapi/collections?f=json").json()["collections"]}
+
+        invalid = copy.deepcopy(base)
+        del invalid["server"]["bind"]["port"]
+        _write_config(target, invalid)
+
+        client.post("/admin/config/reload")
+        last = _wait_outcome(client, {"failed"})
+
+        assert "port" in last["error"], last
+        after = {c["id"] for c in client.get("/geoapi/collections?f=json").json()["collections"]}
+        assert after == before

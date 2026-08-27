@@ -7,12 +7,12 @@ import sys
 from pathlib import Path
 
 import pytest
-import yaml
+from pygeoapi.util import yaml_load
 
 
 @pytest.fixture(scope="module")
 def config_dict() -> dict:
-    return yaml.safe_load(Path("tests/data/pygeoapi-config.yml").read_text())
+    return yaml_load(Path("tests/data/pygeoapi-config.yml").open())
 
 
 def test_factory_imports_without_pygeoapi_env():
@@ -191,10 +191,21 @@ def test_missing_limits_get_the_schema_defaults():
     assert api.tpl_config["server"]["limits"]["default_items"] == 10
 
 
-def test_configured_limits_are_left_alone():
-    """Only absent keys are filled — a tenant's own limits stay put."""
+def test_configured_limits_are_left_alone(config_dict):
+    """Only absent keys are filled — a tenant's own limits stay put.
+
+    Given a whole configuration rather than the `server.limits` fragment
+    this used to pass: `normalize_config` now validates before filling,
+    which is the point of it — it is where a document becomes something
+    to build from, and a fragment is not that.
+    """
+    import copy
+
     from app.pygeoapi.factory import normalize_config
 
-    config = {"server": {"limits": {"default_items": 25, "max_items": 500}}}
+    config = copy.deepcopy(config_dict)
+    config["server"]["limits"] = {"default_items": 25, "max_items": 500}
+
     normalize_config(config)
+
     assert config["server"]["limits"] == {"default_items": 25, "max_items": 500}
