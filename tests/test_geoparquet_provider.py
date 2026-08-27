@@ -394,3 +394,46 @@ def test_engine_options_reach_the_session(dataset):
     )
     limit = provider._cursor().execute("SELECT current_setting('memory_limit')").fetchone()[0]
     assert limit.endswith("MiB"), limit
+
+
+# --- A committed fixture written the way other tools write GeoParquet ------
+#
+# Every fixture above is produced by DuckDB, so its geometry column has
+# DuckDB's native GEOMETRY type. A file from GeoPandas, GDAL or Sedona
+# carries the geometry as a WKB BLOB instead, and the provider has a
+# branch for exactly that — until now exercised by nothing.
+
+FIXTURE = "tests/data/lakes.parquet"
+
+
+def test_the_committed_fixture_is_shaped_like_a_third_party_file():
+    """The fixture must keep the shape it is there to represent.
+
+    If someone regenerates it with a plain `COPY ... TO` the geometry
+    silently becomes DuckDB's own type, the WKB branch stops being
+    covered, and nothing else would notice.
+    """
+    from app.provider.duckdb_ import connect
+
+    described = (
+        connect(FIXTURE).execute(f"DESCRIBE SELECT * FROM read_parquet('{FIXTURE}')").fetchall()
+    )
+    types = {row[0]: str(row[1]) for row in described}
+    assert types["geometry"] == "BLOB", types
+    assert types["bbox"].startswith("STRUCT"), types
+
+
+def test_a_third_party_geoparquet_is_served(tmp_path):
+    """The provider reads WKB geometries, not only the ones DuckDB wrote."""
+    provider = GeoParquetProvider(
+        {
+            "name": "GeoParquet",
+            "type": "feature",
+            "data": FIXTURE,
+            "id_field": "id",
+            "geometry_column": "geometry",
+        }
+    )
+    result = provider.query(bbox=[11.0, 41.0, 13.0, 43.0], limit=10)
+    assert result["features"], result
+    assert result["features"][0]["geometry"]["type"] == "Point"

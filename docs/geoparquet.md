@@ -273,6 +273,14 @@ seconds.
 This is an offline tool. Nothing at runtime depends on it, and it is not
 installed with the package.
 
+### Geometry: native or WKB
+
+DuckDB writes its own `GEOMETRY` type; GeoPandas, GDAL and Sedona write
+the geometry as a **WKB blob**. The provider detects which it is holding
+and converts only when it has to, so both kinds of file are served
+without configuration — including a dataset written by one tool and
+extended by another.
+
 ## Running on a read-only runtime (AWS Lambda and friends)
 
 fastgeoapi can be deployed as a Lambda function (`AWS_LAMBDA_DEPLOY`,
