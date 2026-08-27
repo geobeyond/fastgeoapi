@@ -1,0 +1,756 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://raw.githubusercontent.com/geopython/pygeoapi/refs/heads/master/pygeoapi/resources/schemas/config/pygeoapi-config-0.x.yml
+title: pygeoapi configuration schema
+description: pygeoapi configuration schema
+
+type: object
+properties:
+    server:
+        type: object
+        description: server object
+        properties:
+            bind:
+                type: object
+                description: binding server information
+                properties:
+                    host:
+                        type: string
+                        description: binding IP
+                    port:
+                        type: integer
+                        description: binding port
+                required:
+                    - host
+                    - port
+            url:
+                type: string
+                description: URL of server (as used by client)
+            icon:
+                type: string
+                description: URL of favicon for default HTML customization
+            logo:
+                type: string
+                description: URL of logo image for default HTML customization
+            admin:
+                type: boolean
+                description: whether to enable the Admin API (default is false)
+                default: false
+            mimetype:
+                type: string
+                description: default MIME type
+            encoding:
+                type: string
+                description: default server encoding
+            gzip:
+                type: boolean
+                description: default server config to gzip/compress responses to requests with gzip in the Accept-Encoding header
+            language:
+                type: string
+                description: default server language
+            languages:
+                type: array
+                description: supported languages
+                items:
+                    type: string
+                    description: supported language
+            locale_dir:
+                type: string
+                description: directory of translations
+            cors:
+                type: boolean
+                description: boolean on whether server should support CORS
+                default: false
+            pretty_print:
+                type: boolean
+                description: whether JSON responses should be pretty-printed
+                default: false
+            limit:
+                type: integer
+                default: 10
+                description: "limit of items to return.  DEPRECATED: use limits instead"
+            limits: &x-limits
+                type: object
+                description: server level data limiting
+                properties:
+                    max_items:
+                        type: integer
+                        description: maximum limit of items to return for item type providers
+                        minimum: 1
+                        default: 10
+                    default_items:
+                        type: integer
+                        description: default limit of items to return for item type providers
+                        minimum: 1
+                        default: 10
+                    max_distance_x:
+                        type: number
+                        description: maximum distance in x for all data providers
+                    max_distance_y:
+                        type: number
+                        description: maximum distance in y for all data providers
+                    max_distance_units:
+                        type: string
+                        description: maximum distance units as per UCUM https://ucum.org/ucum#section-Tables-of-Terminal-Symbols
+                    on_exceed:
+                        type: string
+                        description: how to handle limit exceeding
+                        default: throttle
+                        enum:
+                            - error
+                            - throttle
+            templates:
+                type: object
+                description: optional configuration to specify a different set of templates for HTML pages. Recommend using absolute paths. Omit this to use the default provided templates
+                properties:
+                    path:
+                        type: string
+                        description: path to templates folder containing the Jinja2 template HTML files
+                    static:
+                        type: string
+                        description: path to static folder containing css, js, images and other static files referenced by the template
+            map:
+                type: object
+                description: leaflet map setup for HTML pages
+                properties:
+                    url:
+                        type: string
+                        description: URI template of tile server
+                    attribution:
+                        type: string
+                        description: map attribution
+                required:
+                    - url
+                    - attribution
+            ogc_schemas_location:
+                type: string
+                description: local copy of http://schemas.opengis.net
+            manager:
+                type: object
+                description: optional OGC API - Processes asynchronous job management
+                properties:
+                    name:
+                        type: string
+                        description: plugin name (see `pygeoapi.plugin` for supported process_managers)
+                    connection:
+                        type: 
+                            - string
+                            - object
+                        description: connection info to store jobs (e.g. filepath)
+                    output_dir:
+                        type: string
+                        description: temporary file area for storing job results (files)
+                required:
+                    - name
+                    - connection
+                    - output_dir
+            api_rules:
+                type: object
+                description: optional API design rules to which pygeoapi should adhere
+                properties:
+                    api_version:
+                        type: string
+                        description: optional semantic API version number override
+                    strict_slashes:
+                        type: boolean
+                        description: whether trailing slashes are allowed in URLs (disallow = True)
+                    url_prefix:
+                        type: string
+                        description: |-
+                            Set to include a prefix in the URL path (e.g. https://base.com/my_prefix/endpoint).
+                            Please refer to the configuration section of the documentation for more info.
+                    version_header:
+                        type: string
+                        description: API version response header (leave empty or unset to omit this header)
+        required:
+            - bind
+            - url
+            - mimetype
+            - encoding
+            - map
+    pubsub:
+        type: object
+        description: Pub/Sub settings for event driven notifications
+        properties:
+            name:
+                type: string
+                description: name of pubsub client
+            broker:
+                type: object
+                description: broker definition
+                properties:
+                    url:
+                        type: string
+                        format: uri
+                        description: URL of broker
+                    channel:
+                        type: string
+                        description: channel to subscribe to
+                    hidden:
+                        type: boolean
+                        default: false
+                        description: whether to hide broker link on API responses
+                required:
+                    - url
+        required:
+            - name
+            - broker
+    logging:
+        type: object
+        description: logging definitions
+        properties:
+            level:
+                type: string
+                description: |-
+                    The logging level (see https://docs.python.org/3/library/logging.html#logging-levels).
+                    If level is defined and logfile is undefined, logging messages are output to the server’s stdout
+                enum:
+                    - CRITICAL
+                    - ERROR
+                    - WARNING
+                    - INFO
+                    - DEBUG
+                    - NOTSET
+            logfile:
+                type: string
+                description: the full file path to the logfile.
+            logformat:
+                type: string
+                description: custom logging format
+            dateformat:
+                type: string
+                description: custom date format to use in logs
+            rotation:
+                type: object
+                description: log rotation settings
+                properties:
+                    mode:
+                        type: string
+                        description: whether to rotate based on size or time
+                        enum:
+                            - size
+                            - time
+                    when:
+                        type: string
+                        description: type of interval
+                        enum:
+                            - s
+                            - m
+                            - h
+                            - d
+                            - w0-w6
+                            - midnight
+                    interval:
+                        type: integer
+                        description: how often to rotate in time mode
+                    max_bytes:
+                        type: integer
+                        description: when to rotate in size mode
+                    backup_count:
+                        type: integer
+                        description: how many backups to keep
+                required:
+                    - mode
+        required:
+            - level
+    metadata:
+        type: object
+        description: server metadata
+        properties:
+            identification:
+                type: object
+                description: server identification
+                properties:
+                    title:
+                        $ref: '#/definitions/i18n_string'
+                        description: the title of the service
+                    description:
+                        $ref: '#/definitions/i18n_string'
+                        description: some descriptive text about the service
+                    keywords:
+                        $ref: '#/definitions/i18n_array'
+                        description: list of keywords about the service
+                    keywords_type:
+                        type: string
+                        description: keyword type as per the ISO 19115 MD_KeywordTypeCode codelist
+                        enum:
+                            - discipline
+                            - temporal
+                            - place
+                            - theme
+                            - stratum
+                    terms_of_service:
+                        $ref: '#/definitions/i18n_string'
+                        description: terms of service
+                    url:
+                        type: string
+                        description: informative URL about the service
+                required:
+                    - title
+                    - description
+                    - keywords
+                    - url
+            license:
+                type: object
+                description: licensing details
+                properties:
+                    name:
+                        $ref: '#/definitions/i18n_string'
+                        description: licensing details
+                    url:
+                        $ref: '#/definitions/i18n_string'
+                        description: license URL
+                required:
+                    - name
+            provider:
+                type: object
+                description: service provider details
+                properties:
+                    name:
+                        $ref: '#/definitions/i18n_string'
+                        description: organization name
+                    url:
+                        $ref: '#/definitions/i18n_string'
+                        description: URL of provider
+                required:
+                    - name
+            contact:
+                type: object
+                description: service contact details
+                properties:
+                    name:
+                        type: string
+                        description: Lastname, Firstname
+                    position:
+                        type: string
+                        description: position
+                    address:
+                        type: string
+                        description: postal address
+                    city:
+                        type: string
+                        description: city
+                    stateorprovince:
+                        type: string
+                        description: administrative area
+                    postalcode:
+                        type: string
+                        description: postal or ZIP code
+                    country:
+                        type: string
+                        description: country
+                    phone:
+                        type: string
+                        description: phone number
+                    fax:
+                        type: string
+                        description: fax number
+                    email:
+                        type: string
+                        description: email address
+                    url:
+                        type: string
+                        description: URL of contact
+                    hours:
+                        type: string
+                        description: hours of service
+                    instructions:
+                        type: string
+                        description: contact instructions
+                    role:
+                        type: string
+                        description: role as per the ISO 19115 CI_RoleCode codelist
+                required:
+                    - name
+        required:
+            - identification
+            - license
+            - provider
+            - contact
+    resources:
+        type: object
+        description: collections or processes published by the server
+        patternProperties:
+            "^.*$":
+                anyOf:
+                    - type: object
+                      description: base resource object
+                      properties:
+                          type:
+                              type: string
+                              description: resource type
+                              enum:
+                                  - collection
+                                  - stac-collection
+                          visibility:
+                              type: string
+                              description: visibility state of the resource
+                              enum:
+                                  - default
+                                  - hidden
+                              default: default
+                          title:
+                              $ref: '#/definitions/i18n_string'
+                              description: the title of the service
+                          description:
+                              $ref: '#/definitions/i18n_string'
+                              description: some descriptive text about the service
+                          keywords:
+                              $ref: '#/definitions/i18n_array'
+                              description: list of keywords about the service
+                          linked-data:
+                            type: object
+                            description: linked data configuration
+                            properties:
+                                context:
+                                    type: array
+                                    description: additional JSON-LD context
+                                    items:
+                                        type: object
+                                        patternProperties:
+                                            "^.*$":
+                                                anyOf:
+                                                    - type: string
+                                                    - type: object
+                          links:
+                              type: array
+                              description: list of related links
+                              minItems: 0
+                              items:
+                                  type: object
+                                  properties:
+                                      type:
+                                          type: string
+                                          description: MIME type
+                                      rel:
+                                          type: string
+                                          description: link relations per https://www.iana.org/assignments/link-relations/link-relations.xhtml
+                                      title:
+                                          type: string
+                                          description: title
+                                      href:
+                                          type: string
+                                          description: URL
+                                      hreflang:
+                                          type: string
+                                          description: language
+                                      length:
+                                          type: integer
+                                          description: optional content size in bytes (e.g. for download links)
+                                  required:
+                                      - type
+                                      - rel
+                                      - href
+                          extents:
+                              type: object
+                              description: spatial and temporal extents.  Note that adding custom named dimensions is also possible
+                              properties:
+                                  spatial:
+                                      type: object
+                                      description: spatial extent and CRS
+                                      properties:
+                                          bbox:
+                                              type: array
+                                              description: bounding box of resource
+                                              items:
+                                                  type: number
+                                              minItems: 4
+                                              maxItems: 6
+                                          crs:
+                                              type: string
+                                              description: coordinate reference system of bbox
+                                              default: 'http://www.opengis.net/def/crs/OGC/1.3/CRS84'
+                                      required:
+                                          - bbox
+                                  temporal:
+                                      type: object
+                                      description: temporal extent of resource
+                                      properties:
+                                          begin:
+                                              type: [string, 'null']
+                                              format: date-time
+                                              nullable: true
+                                          end:
+                                              type: [string, 'null']
+                                              format: date-time
+                                              nullable: true
+                                          trs:
+                                              type: string
+                                              description: temporal reference system of features
+                                              default: 'http://www.opengis.net/def/uom/ISO-8601/0/Gregorian'
+                                          resolution:
+                                              type: string
+                                              description: temporal resolution
+                                          default:
+                                              type: string
+                                              description: default time value
+                              patternProperties:
+                                  "^(?!spatial$|temporal$).*":
+                                      type: object
+                                      description: additional custom dimensions
+                                      properties:
+                                          range:
+                                              type: array
+                                              description: The overall range of the dimension
+                                              minItems: 2
+                                          url:
+                                              type: string
+                                              format: uri
+                                              description: A URI to a description of the dimension
+                                          units:
+                                              type: string
+                                              description: Units of the dimension
+                                          values:
+                                              type: array
+                                              description: enumerated list of values
+                                      required:
+                                          - url
+                                          - range
+                              required:
+                                  - spatial
+                          limits:
+                              <<: *x-limits
+                              description: collection level data limiting
+                          providers:
+                              type: array
+                              description: required connection information
+                              items:
+                                  type: object
+                                  properties:
+                                      type:
+                                          type: string
+                                          description: underlying data geospatial type
+                                          enum:
+                                              - feature
+                                              - coverage
+                                              - record
+                                              - map
+                                              - tile
+                                              - edr
+                                              - stac
+                                      default:
+                                          type: boolean
+                                          description: |-
+                                              whether the provider is the default.  If not specified, the
+                                              first provider definition is considered the default
+                                      name:
+                                          type: string
+                                          description: |-
+                                              see `pygeoapi.plugin` for supported provider names.
+                                              For custom built plugins, use the import path (e.g. `mypackage.provider.MyProvider`)
+                                      data:
+                                          anyOf:
+                                              - type: string
+                                              - type: object
+                                          description: the data filesystem path or URL, depending on plugin setup
+                                      editable:
+                                          type: boolean
+                                          description: whether the resource is editable
+                                          default: false
+                                      count:
+                                          type: boolean
+                                          description: whether to perform a count query for collection queries
+                                          default: true
+                                      table:
+                                          type: string
+                                          description: table name for RDBMS-based providers
+                                      id_field:
+                                          type: string
+                                          description: required for vector data, the field corresponding to the ID
+                                      geometry:
+                                          type: object
+                                          description: the field corresponding to the geometry
+                                          properties:
+                                              x_field:
+                                                  type: string
+                                                  description: the field corresponding to the x geometry
+                                              y_field:
+                                                  type: string
+                                                  description: the field corresponding to the y geometry
+                                          required:
+                                              - x_field
+                                              - y_field
+                                      time_field:
+                                          type: string
+                                          description: optional field corresponding to the temporal property of the dataset
+                                      title_field:
+                                          type: string
+                                          description: optional field of which property to display as title/label on HTML pages
+                                      format:
+                                          type: object
+                                          description: default format
+                                          properties:
+                                              name:
+                                                  type: string
+                                                  description: format name
+                                              mimetype:
+                                                  type: string
+                                                  description: format mimetype
+                                          required:
+                                              - name
+                                              - mimetype
+                                      options:
+                                          type: object
+                                          description: optional options key value pairs to pass to provider (i.e. GDAL creation)
+                                          oneOf:
+                                              - $ref: '#/definitions/provider/properties/PostgreSQL/properties/config/properties/options'
+                                            #   - type: object 
+                                            #     patternProperties:
+                                            #         "^[a-z]{2}$":
+                                            #             allOf:
+                                            #                 - type: string
+                                      properties:
+                                          type: array
+                                          description: only return the following properties, in order
+                                          items:
+                                              type: string
+                                          minItems: 1
+                                          uniqueItems: true
+                                      crs:
+                                           type: array
+                                           description: |-
+                                               supported coordinate reference systems (CRSs).
+                                               pygeoapi will always provide or add the default if not specified.
+                                           items:
+                                               type: string
+                                               format: uri
+                                           default:
+                                               - http://www.opengis.net/def/crs/OGC/1.3/CRS84
+                                           uniqueItems: true
+                                      storage_crs:
+                                          type: string
+                                          format: uri
+                                          description: |-
+                                              the CRS identifier, from the list of supported CRS identifiers, that may be used to retrieve
+                                              features from a collection without the need to apply a CRS transformation.
+                                          default:
+                                              http://www.opengis.net/def/crs/OGC/1.3/CRS84
+                                      storage_crs_coordinate_epoch:
+                                          type: number
+                                          description: |-
+                                              point in time at which coordinates in the spatial feature collection are referenced to the dynamic
+                                              coordinate reference system in `storageCrs`, that may be used to retrieve features from a
+                                              collection without the need to apply a change of coordinate epoch. It is expressed as a decimal
+                                              year in the Gregorian calendar.
+                                          example:
+                                              2017-03-25 in the Gregorian calendar is epoch 2017.23
+                                      include_extra_query_parameters:
+                                          type: boolean
+                                          description: whether to include extra query parameters
+                                          default: false
+                                  required:
+                                      - type
+                                      - name
+                                      - data
+                          formatters:
+                              type: array
+                              description: custom formatters to apply to output
+                              items:
+                                  type: object
+                                  properties:
+                                      name:
+                                          type: string
+                                          description: name of formatter
+                                      geom:
+                                          type: boolean
+                                          default: true
+                                          description: whether to include geometry
+                                      attachment:
+                                          type: boolean
+                                          default: false
+                                          description: whether to provide as an attachment
+                                  required:
+                                      - name
+                      required:
+                          - type
+                          - title
+                          - description
+                          - keywords
+                          - extents
+                          - providers
+                    - type: object
+                      description: process object
+                      properties:
+                          type:
+                              type: string
+                              description: resource type
+                              enum:
+                                  - process
+                          processor:
+                              type: object
+                              description: process binding
+                              properties:
+                                  name:
+                                      type: string
+                                      description: |-
+                                          see `pygeoapi.plugin` for supported provider names.
+                                          For custom built plugins, use the import path (e.g. `mypackage.provider.MyProvider`)
+                              required:
+                                  - name
+                          allow_internal_requests:
+                              type: boolean
+                              description: whether to allow internal HTTP requests
+                              default: false
+                      requred:
+                          - type
+                          - processor
+definitions:
+    i18n_string:
+        oneOf:
+            - type: string
+            - type: object
+              patternProperties:
+                  "^[a-zA-Z]{2,3}([-_][a-zA-Z0-9]{2,3})?$":
+                      allOf:
+                          - type: string
+    i18n_array:
+        oneOf:
+            - type: array
+              items:
+                  type: string
+            - type: object
+              patternProperties:
+                  "^[a-zA-Z]{2,3}([-_][a-zA-Z0-9]{2,3})?$":
+                      allOf:
+                          - type: array
+                            items:
+                                type: string
+    provider:
+        properties:
+            PostgreSQL:
+                properties:
+                    config:
+                        properties:
+                            options:
+                                properties:
+                                    connect_timeout:
+                                        type: integer
+                                    tcp_user_timeout:
+                                        type: integer
+                                    keepalives:
+                                        type: integer
+                                    keepalives_idle:
+                                        type: integer
+                                    keepalives_count:
+                                        type: integer
+                                    keepalives_interval:
+                                        type: integer
+                                    pool_size:
+                                        type: integer
+                                        description: persistent connections held open per worker process
+                                    max_overflow:
+                                        type: integer
+                                        description: extra short-lived connections allowed above pool_size
+                                    pool_recycle:
+                                        type: integer
+                                        description: recreate connections older than this many seconds (-1 never recycles)
+                                    pool_timeout:
+                                        type: integer
+                                        description: seconds to wait for a connection from the pool before erroring
+                                    pool_pre_ping:
+                                        type: boolean
+                                        description: test connections with a lightweight ping before use
+required:
+    - server
+    - logging
+    - metadata
+    - resources

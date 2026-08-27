@@ -140,6 +140,17 @@ fail_under = 100
 [tool.ty.environment]
 python-version = "3.12"
 
+[tool.ty.src]
+# The generated configuration models are machine-produced from pygeoapi's
+# JSON Schema and are not ours to fix: the generator emits enum defaults
+# as plain literals and URL fields as strings, which pydantic coerces at
+# runtime but a static checker reads as mismatches. Excluding a generated
+# artefact is not the same as silencing a rule on hand-written code — the
+# facade in front of it (`app/pygeoapi/config_models/__init__.py`) is
+# checked, and tests pin that the models accept the configurations we
+# actually ship.
+exclude = ["app/pygeoapi/config_models/_generated.py"]
+
 [tool.ty.rules]
 # ty is still in alpha, ignoring some rules temporarily
 # These are mostly false positives with pydantic-settings and Starlette
