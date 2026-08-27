@@ -49,5 +49,8 @@ repos:
   - repo: https://github.com/pre-commit/mirrors-prettier
     rev: v2.4.1
     hooks:
+      # Generated artefacts: reformatting them means `nox -s models`
+      # alone leaves a tree CI rejects. The hand-written partial under
+      # scripts/ stays formatted — that one is ours.
       - id: prettier
-        exclude: "^app/pygeoapi/config_models/"
+        exclude: "^(app/pygeoapi/config_models/|docs/configuration-reference\\.md$)"
