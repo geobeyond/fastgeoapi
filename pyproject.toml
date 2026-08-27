@@ -168,6 +168,10 @@ extend-exclude = [
     ".nox",
     "build",
     "dist",
+    # Machine-generated from pygeoapi's schema. Same reasoning as the ty
+    # exclusion: restyling a generated artefact would break the check
+    # that regenerating reproduces the committed file.
+    "app/pygeoapi/config_models/_generated.py",
 ]
 
 [tool.ruff.lint]
