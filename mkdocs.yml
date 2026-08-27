@@ -97,6 +97,7 @@ nav:
   - Home: index.md
   - Why fastgeoapi: why-fastgeoapi.md
   - Getting started: getting-started.md
+  - Configuration reference: configuration-reference.md
   - How-to Guides:
       - Overview: howto-guides.md
       - Config from cloud storage: cloud-config.md
