@@ -216,6 +216,24 @@ def models(session: Session) -> None:
     session.run("python", "scripts/generate_config_models.py", *session.posargs)
 
 
+@session(name="models-check", python="3.12")
+def models_check(session: Session) -> None:
+    """Fail when the committed models no longer match the schema.
+
+    A separate session rather than a flag on `models`, because CI picks
+    the session by name through NOXSESSION and has no way to pass
+    posargs: wiring `models` into the matrix would *regenerate* in CI
+    and report success on a working tree nobody sees.
+
+    Stronger than the digest test in the suite: this also catches a
+    hand-edit of the generated module, which no fingerprint of the
+    schema could notice.
+    """
+    session.install("datamodel-code-generator>=0.25,<1")
+    session.install(".")
+    session.run("python", "scripts/generate_config_models.py", "--check")
+
+
 @session(python=python_versions)
 def bandit(session: Session) -> None:
     """Scan code for vulnerabilities."""
