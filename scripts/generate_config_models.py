@@ -41,6 +41,8 @@ PACKAGE = Path("app/pygeoapi/config_models")
 GENERATED = PACKAGE / "_generated.py"
 SCHEMA_COPY = PACKAGE / "pygeoapi-config-schema.yml"
 DIGEST = PACKAGE / "schema_digest.py"
+REFERENCE = Path("docs/configuration-reference.md")
+ADDITIONS = Path("scripts/config_reference_additions.md")
 
 DIGEST_TEMPLATE = '''"""Identity of the schema the models were generated from.
 
@@ -62,6 +64,108 @@ PYGEOAPI_VERSION = "{version}"
 #: The copy kept beside the models, so a change can be diffed.
 SCHEMA_PATH = Path(__file__).parent / "{copy_name}"
 '''
+
+
+def _properties(node: dict, prefix: str = "") -> dict[str, dict]:
+    """Flatten a schema into `path -> spec`, for rendering and diffing."""
+    found: dict[str, dict] = {}
+    for name, spec in (node.get("properties") or {}).items():
+        path = f"{prefix}.{name}" if prefix else name
+        found[path] = spec
+        if isinstance(spec, dict):
+            found.update(_properties(spec, path))
+    return found
+
+
+def _required(node: dict, prefix: str = "") -> set[str]:
+    """Every property path a schema marks as required, at any depth."""
+    paths: set[str] = set()
+    for name in node.get("required") or []:
+        paths.add(f"{prefix}.{name}" if prefix else name)
+    for name, spec in (node.get("properties") or {}).items():
+        if isinstance(spec, dict):
+            paths |= _required(spec, f"{prefix}.{name}" if prefix else name)
+    return paths
+
+
+def _render_reference(schema: dict, version: str) -> str:
+    """Build the configuration reference from the schema's own text.
+
+    The descriptions belong to pygeoapi (MIT), so the page says so: this
+    republishes their documentation, and attribution is the least it
+    owes them.
+    """
+    lines = [
+        "# Configuration reference",
+        "",
+        "Every key fastgeoapi accepts in the pygeoapi configuration document.",
+        "",
+        '!!! info "Where this comes from"',
+        "",
+        f"    The tables below are generated from pygeoapi {version}'s own",
+        "    configuration schema, descriptions included — that text is",
+        "    pygeoapi's, published under the MIT licence. Regenerate with",
+        "    `nox -s models`.",
+        "",
+    ]
+    for section in schema.get("properties", {}):
+        node = schema["properties"][section]
+        required = set(node.get("required") or [])
+        lines += [f"## `{section}`", ""]
+        if node.get("description"):
+            lines += [node["description"], ""]
+        rows = [
+            (path, spec)
+            for path, spec in _properties(node, section).items()
+            if isinstance(spec, dict) and spec.get("description")
+        ]
+        if not rows:
+            lines += ["_No documented keys._", ""]
+            continue
+        lines += ["| Key | Type | Required | Description |", "| --- | --- | --- | --- |"]
+        for path, spec in rows:
+            leaf = path.split(".")[-1]
+            mark = "yes" if leaf in required and path.count(".") == 1 else ""
+            kind = spec.get("type", "")
+            text = " ".join(str(spec["description"]).split())
+            lines.append(f"| `{path}` | {kind} | {mark} | {text} |")
+        lines.append("")
+    if ADDITIONS.exists():
+        lines += [ADDITIONS.read_text().strip(), ""]
+    return "\n".join(lines)
+
+
+def _summarise_changes(previous: dict, current: dict) -> list[str]:
+    """What a user with a running configuration needs to check.
+
+    Removals and narrowings come first: they are the only ones that can
+    break a configuration that works today, and at 0.x the version
+    number cannot tell them apart from additions.
+    """
+    was, now = _properties(previous), _properties(current)
+    removed = sorted(set(was) - set(now))
+    added = sorted(set(now) - set(was))
+    retyped = sorted(
+        path for path in set(was) & set(now) if was[path].get("type") != now[path].get("type")
+    )
+    # A property that already existed, unchanged in type, but is now
+    # listed in `required` breaks every configuration that omitted it —
+    # as hard as a removal, and with nothing else to signal it. Comparing
+    # types alone misses this entirely.
+    tightened = sorted(_required(current) - _required(previous))
+
+    summary: list[str] = []
+    for path in removed:
+        summary.append(f"- **`{path}` is no longer accepted** — remove it from your configuration")
+    for path in tightened:
+        summary.append(f"- **`{path}` is now required** — add it if your configuration omits it")
+    for path in retyped:
+        summary.append(
+            f"- **`{path}` changed type**: {was[path].get('type')} -> {now[path].get('type')}"
+        )
+    for path in added:
+        summary.append(f"- `{path}` is now available")
+    return summary
 
 
 def _installed_schema() -> Path:
@@ -141,6 +245,7 @@ def generate(
                         SCHEMA_COPY.exists() and filecmp.cmp(schema, SCHEMA_COPY, shallow=False),
                     ),
                     ("digest", DIGEST.exists() and digest in DIGEST.read_text()),
+                    ("reference page", REFERENCE.exists()),
                 )
                 if not ok
             ]
@@ -152,12 +257,34 @@ def generate(
             log_console.log("models, schema copy and digest are up to date")
             return
 
+        # The summary has to be computed BEFORE the copy is overwritten:
+        # afterwards there is nothing left to compare against, which is
+        # the whole reason a copy is kept beside the digest.
+        if SCHEMA_COPY.exists():
+            import yaml
+
+            changes = _summarise_changes(
+                yaml.safe_load(SCHEMA_COPY.read_text()),
+                yaml.safe_load(schema.read_text()),
+            )
+            if changes:
+                log_console.print("\n[bold]For the changelog:[/bold]")
+                for line in changes:
+                    log_console.print(f"  {line}")
+                log_console.print("")
+
         PACKAGE.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(fresh, GENERATED)
         shutil.copyfile(schema, SCHEMA_COPY)
         DIGEST.write_text(
             DIGEST_TEMPLATE.format(digest=digest, version=version, copy_name=SCHEMA_COPY.name)
         )
+
+    import yaml
+
+    REFERENCE.parent.mkdir(parents=True, exist_ok=True)
+    REFERENCE.write_text(_render_reference(yaml.safe_load(schema.read_text()), version))
+    log_console.log(f"wrote {REFERENCE}")
 
     classes = sum(1 for line in GENERATED.read_text().splitlines() if line.startswith("class "))
     log_console.log(f"generated {classes} models from pygeoapi {version} (sha256 {digest[:12]}…)")
