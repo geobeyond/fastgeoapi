@@ -50,20 +50,41 @@ def pygeoapi_interpolation():
         yield variables
 
 
-def test_a_missing_bind_port_is_refused(valid_config):
-    """The case that used to pass in silence.
+def test_a_configuration_without_bind_is_accepted(valid_config):
+    """`server.bind` is required by the schema and read by nobody here.
 
-    Nothing downstream complained: the document built, the API served,
-    and the missing port surfaced — if at all — as something unrelated
-    much later.
+    pygeoapi uses it in its own runners — `starlette_app.py:847`,
+    `flask_app.py:671`, `django_app.py:57` — to bind a socket it opens
+    itself. fastgeoapi never does: host and port come from
+    `fastgeoapi run` and uvicorn. Verified by building the sub-app
+    without it and serving the landing page, collections and items, all
+    200.
+
+    So refusing to start over it would be validation harming the people
+    it is meant to protect: a working deployment stopped by a key that
+    changes nothing. `normalize_config` fills it instead, with the
+    values fastgeoapi actually binds.
+    """
+    without_bind = copy.deepcopy(valid_config)
+    del without_bind["server"]["bind"]
+
+    normalized = normalize_config(without_bind)
+
+    assert normalized["server"]["bind"]["port"], normalized["server"]["bind"]
+
+
+def test_a_structurally_broken_configuration_is_still_refused(valid_config):
+    """The refusal has to keep biting where it earns its keep.
+
+    `resources` as a list dies with `AttributeError: 'list' object has
+    no attribute 'keys'`, far from the cause — that is what validation
+    is for.
     """
     broken = copy.deepcopy(valid_config)
-    del broken["server"]["bind"]["port"]
+    broken["resources"] = ["lakes"]
 
-    with pytest.raises(ConfigValidationError) as raised:
+    with pytest.raises(ConfigValidationError):
         normalize_config(broken)
-
-    assert "port" in str(raised.value)
 
 
 def test_the_message_says_where_the_problem_is(valid_config):
@@ -120,8 +141,11 @@ def test_startup_refuses_and_names_the_document(tmp_path, valid_config):
 
     import yaml
 
+    # `resources` as a list: structurally wrong, and fatal far from the
+    # cause. Not a missing `server.bind` — that one is filled, because
+    # nothing in fastgeoapi reads it.
     invalid = copy.deepcopy(valid_config)
-    del invalid["server"]["bind"]["port"]
+    invalid["resources"] = ["lakes"]
     target = tmp_path / "pygeoapi-config.yml"
     target.write_text(yaml.safe_dump(invalid))
 
@@ -151,5 +175,5 @@ def test_startup_refuses_and_names_the_document(tmp_path, valid_config):
             import app.main  # ruff: ignore[unused-import]
 
     message = str(raised.value)
-    assert "port" in message, message
+    assert "resources" in message, message
     assert str(target) in message, message
