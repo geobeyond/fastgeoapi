@@ -188,7 +188,9 @@ def dry_run(text: str) -> Outcome:
     for name, resource in (config.get("resources") or {}).items():
         if resource.get("type") != "collection":
             continue
-        response = client.get(f"/collections/{name}/items?limit=1", headers={"Accept": "application/json"})
+        response = client.get(
+            f"/collections/{name}/items?limit=1", headers={"Accept": "application/json"}
+        )
         if response.status_code == 200:
             served.append(name)
         else:

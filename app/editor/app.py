@@ -24,6 +24,8 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
+from app.editor.routes import build_routes
+
 #: Where the per-run secret travels. A header rather than a query
 #: parameter for everything after the first load: query strings end up
 #: in logs and in `Referer`. This is the header's *name*, not a secret —
@@ -39,11 +41,14 @@ def _is_loopback(host: str) -> bool:
         return host == "localhost"
 
 
-def build_authoring_app(host: str = "127.0.0.1") -> Starlette:
+def build_authoring_app(host: str = "127.0.0.1", source: str | None = None) -> Starlette:
     """Build the editor's application, refusing to be reachable.
 
     Parameters
     ----------
+    source
+        The configuration document to edit. Defaults to the one this
+        installation is configured with.
     host
         The address this is about to be served on. A non-loopback one
         raises: the authoring role has no authentication chain in front
@@ -70,13 +75,15 @@ def build_authoring_app(host: str = "127.0.0.1") -> Starlette:
             "authentication in front of it and must stay on loopback"
         )
 
+    if source is None:
+        from app.config.app import configuration as cfg
+
+        source = cfg.PYGEOAPI_CONFIG
+
     token = secrets.token_urlsafe(32)
 
     async def health(request: Request) -> JSONResponse:
         return JSONResponse({"status": "ok"})
-
-    async def config(request: Request) -> JSONResponse:  # placeholder for Task 3
-        return JSONResponse({"document": None})
 
     class TokenGuard(BaseHTTPMiddleware):
         """Every request carries the secret, not just the first one."""
@@ -88,10 +95,7 @@ def build_authoring_app(host: str = "127.0.0.1") -> Starlette:
             return await call_next(request)
 
     app = Starlette(
-        routes=[
-            Route("/editor/health", health, methods=["GET"]),
-            Route("/editor/config", config, methods=["GET"]),
-        ],
+        routes=[Route("/editor/health", health, methods=["GET"]), *build_routes(source)],
         middleware=[Middleware(TokenGuard)],
     )
     app.state.editor_token = token
