@@ -271,13 +271,15 @@ def test_a_schema_invalid_config_keeps_the_previous_one_serving(app_with_tmp_con
     with TestClient(app) as client:
         before = {c["id"] for c in client.get("/geoapi/collections?f=json").json()["collections"]}
 
+        # `resources` as a list, not a missing `server.bind`: that one is
+        # filled, because nothing in fastgeoapi reads it.
         invalid = copy.deepcopy(base)
-        del invalid["server"]["bind"]["port"]
+        invalid["resources"] = ["lakes"]
         _write_config(target, invalid)
 
         client.post("/admin/config/reload")
         last = _wait_outcome(client, {"failed"})
 
-        assert "port" in last["error"], last
+        assert "resources" in last["error"], last
         after = {c["id"] for c in client.get("/geoapi/collections?f=json").json()["collections"]}
         assert after == before

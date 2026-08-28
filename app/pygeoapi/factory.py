@@ -10,6 +10,7 @@ The execute shim and the route table are adapted from
 from __future__ import annotations
 
 import asyncio
+import os
 from collections.abc import Callable
 from http import HTTPStatus
 from pathlib import Path
@@ -98,8 +99,22 @@ def normalize_config(config: dict) -> dict:
     ${PORT}` is a string where the schema wants an integer, and
     rejecting it would be rejecting a perfectly good deployment.
     """
+    server = config.setdefault("server", {})
+    # `server.bind` is required by pygeoapi's schema and read by nobody
+    # here: upstream uses it in its own runners (`starlette_app.py`,
+    # `flask_app.py`, `django_app.py`) to bind a socket it opens itself.
+    # fastgeoapi's host and port come from `fastgeoapi run` and uvicorn.
+    # Refusing to start over it would be validation harming the people
+    # it protects — a working deployment stopped by a key that changes
+    # nothing — so it is filled with what is actually bound, taken from
+    # the same environment `main` exports before loading.
+    bind = server.setdefault("bind", {})
+    # ruff: ignore[hardcoded-bind-all-interfaces]
+    bind.setdefault("host", os.environ.get("HOST", "0.0.0.0"))  # nosec B104
+    bind.setdefault("port", int(os.environ.get("PORT", "5000")))
+
     _validate(config)
-    limits = config.setdefault("server", {}).setdefault("limits", {})
+    limits = server.setdefault("limits", {})
     for key, value in _LIMIT_DEFAULTS.items():
         limits.setdefault(key, value)
     return config
