@@ -99,7 +99,7 @@ and then goes further than building, because building is not enough:
 - so **the data source is checked directly**, through the same storage
   layer for a local path and a bucket alike.
 
-!!! warning "It answers whether this builds *here*, never whether it works *there*"
+!!! warning "It answers whether this builds _here_, never whether it works _there_"
 
     The build uses **your** environment and **your** credentials, not the
     deployment's. A bucket you can reach may be unreachable from the
