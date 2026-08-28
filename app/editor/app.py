@@ -99,4 +99,5 @@ def build_authoring_app(host: str = "127.0.0.1", source: str | None = None) -> S
         middleware=[Middleware(TokenGuard)],
     )
     app.state.editor_token = token
+    app.state.editor_source = source
     return app

@@ -95,7 +95,7 @@ def test_saving_does_not_activate_anything(editor):
 
 
 def test_saving_says_what_it_did_not_check(editor):
-    """"Saved" must not be readable as "verified".
+    """ "Saved" must not be readable as "verified".
 
     A dry run costs seconds against a remote dataset, so it is not done
     on every save — an editor that made people wait would teach them to

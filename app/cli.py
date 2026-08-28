@@ -178,3 +178,61 @@ def openapi() -> None:
         err_console.log(f"pygeoapi configuration: \n{pygeoapi_conf}")
         err_console.log(e)
         raise e
+
+
+config_app = typer.Typer(help="Work with the pygeoapi configuration document.")
+app.add_typer(config_app, name="config")
+
+
+@config_app.command(name="edit")
+def config_edit(
+    source: Annotated[
+        str | None,
+        typer.Option("--source", "-s", help="Configuration document to edit"),
+    ] = None,
+    port: Annotated[
+        int,
+        typer.Option("--port", "-p", help="Port to serve the editor on"),
+    ] = 8765,
+) -> None:
+    """Edit the configuration document through a local editor.
+
+    This is what keeps the two roles of ADR-0008 apart. The application
+    it serves mounts the editor and **not** the reload webhook: writing
+    a configuration and putting it into service are different powers,
+    and one surface holding both would mean whoever reaches it decides
+    what the server serves.
+
+    It stays on loopback and prints its per-run secret, which callers
+    send as a header. The secret never goes in a URL: one there would
+    outlive the session in browser history, `Referer` and logs.
+
+    Examples
+    --------
+        fastgeoapi config edit
+        fastgeoapi config edit --source s3://bucket/pygeoapi-config.yml
+        fastgeoapi config edit --port 9000
+    """
+    from app.editor.app import EDITOR_TOKEN_HEADER, build_authoring_app
+
+    host = "127.0.0.1"
+    editor = build_authoring_app(host=host, source=source)
+    token = editor.state.editor_token
+    base = f"http://{host}:{port}"
+
+    log_console.log(f"Editing {editor.state.editor_source}")
+    # Plain output, not rich: these lines are meant to be copied, and
+    # rich would wrap the token across lines at the terminal width.
+    #
+    # The secret is NOT put in a URL. A URL carrying it would survive in
+    # browser history, in `Referer` towards anything the page loads, in
+    # any proxy log and in the shell history that printed it — which is
+    # the very reason the API takes it in a header. When there is a page
+    # to protect, the token will be pasted into it once and exchanged
+    # for an HttpOnly cookie, so it never travels in an address bar.
+    typer.echo(f"Editor listening on {base}")
+    typer.echo(f"Token: {token}")
+    typer.echo("")
+    typer.echo(f"  curl -H '{EDITOR_TOKEN_HEADER}: {token}' {base}/editor/config")
+
+    uvicorn.run(editor, host=host, port=port)
