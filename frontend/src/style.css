@@ -1,0 +1,48 @@
+/* Plain and legible: this is a tool someone opens to change one value
+   and close again, not something to spend a design budget on. */
+:root {
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+  color-scheme: light dark;
+}
+body {
+  margin: 0;
+  padding: 2rem;
+  max-width: 60rem;
+}
+h1 {
+  font-size: 1.2rem;
+  font-family: ui-monospace, monospace;
+}
+.actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 0;
+  background: Canvas;
+  border-top: 1px solid color-mix(in srgb, CanvasText 20%, transparent);
+}
+.ok h3 {
+  color: green;
+}
+.not-ok h3 {
+  color: crimson;
+}
+.caveat {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+.variables {
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+}
+.failure {
+  color: crimson;
+}
+.unlock form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 28rem;
+}
