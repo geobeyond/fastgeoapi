@@ -33,6 +33,18 @@ from app.editor.routes import build_routes
 # ruff: ignore[hardcoded-password-string]
 EDITOR_TOKEN_HEADER = "X-Fastgeoapi-Editor-Token"  # nosec B105
 
+#: Where the same secret travels once a browser is holding it. A page
+#: cannot send a header before it has the token, and the only way to
+#: give it one through an address is to put the secret in the address —
+#: where it outlives the session, in history and in `Referer`. So the
+#: page asks for it, posts it once, and is given this instead.
+#:
+#: A cookie also *confines*: the browser binds it to the origin that set
+#: it, so it cannot be sent to the deployment even by mistake. The header
+#: has no such limit. Name, not secret.
+# ruff: ignore[hardcoded-password-string]
+EDITOR_TOKEN_COOKIE = "fastgeoapi_editor_token"  # nosec B105
+
 
 def _is_loopback(host: str) -> bool:
     try:
@@ -85,17 +97,60 @@ def build_authoring_app(host: str = "127.0.0.1", source: str | None = None) -> S
     async def health(request: Request) -> JSONResponse:
         return JSONResponse({"status": "ok"})
 
+    async def session(request: Request) -> JSONResponse:
+        """Take the token in a body, hand back a cookie.
+
+        The one route the guard lets past, because it is how a browser
+        gets in at all — and it does its own checking rather than being
+        an exception to the rule.
+
+        The answer says nothing about the token. Repeating it would only
+        make another copy to leak, in a body a log or a devtools session
+        would happily keep, and the caller has it already.
+        """
+        try:
+            offered = (await request.json()).get("token", "")
+        except Exception:
+            offered = ""
+        if not isinstance(offered, str) or not secrets.compare_digest(offered, token):
+            return JSONResponse({"message": "Unauthenticated"}, status_code=401)
+
+        response = JSONResponse({"authenticated": True})
+        response.set_cookie(
+            EDITOR_TOKEN_COOKIE,
+            token,
+            httponly=True,  # no script needs to read it; one that could would be a way out
+            samesite="strict",  # never sent along with a request another site started
+            # Not `secure`: this is loopback over plain HTTP, and a
+            # secure cookie would simply never be stored.
+        )
+        return response
+
     class TokenGuard(BaseHTTPMiddleware):
-        """Every request carries the secret, not just the first one."""
+        """Every request carries the secret, not just the first one.
+
+        Header or cookie: the same secret, two ways of holding it. A
+        script sends the header; a page has been given the cookie, and
+        cannot be made to send the header without first putting the token
+        somewhere a page can read.
+        """
 
         async def dispatch(self, request: Request, call_next):
-            offered = request.headers.get(EDITOR_TOKEN_HEADER, "")
+            if request.url.path == "/editor/session":
+                return await call_next(request)
+            offered = request.headers.get(EDITOR_TOKEN_HEADER) or request.cookies.get(
+                EDITOR_TOKEN_COOKIE, ""
+            )
             if not secrets.compare_digest(offered, token):
                 return JSONResponse({"message": "Unauthenticated"}, status_code=401)
             return await call_next(request)
 
     app = Starlette(
-        routes=[Route("/editor/health", health, methods=["GET"]), *build_routes(source)],
+        routes=[
+            Route("/editor/health", health, methods=["GET"]),
+            Route("/editor/session", session, methods=["POST"]),
+            *build_routes(source),
+        ],
         middleware=[Middleware(TokenGuard)],
     )
     app.state.editor_token = token
