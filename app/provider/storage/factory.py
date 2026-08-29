@@ -37,6 +37,41 @@ def split_source(source: str) -> tuple[str, str]:
     return str(path.parent), path.name
 
 
+def _for_obstore(store_options: dict) -> dict:
+    """Spell a dataset's store options the way obstore expects them.
+
+    ``store_options`` are written in DuckDB's secret vocabulary, because
+    that is the reader the GeoParquet provider uses by default. obstore
+    speaks a different one, and it does not ignore what it does not
+    recognise: an unknown key is refused outright. So an untranslated
+    dict does not degrade — it makes a perfectly readable bucket look
+    unreachable, which is how the editor came to report a source as
+    missing in the same run that served features from it.
+    """
+    options = dict(store_options)
+    translated: dict = {}
+    for name, obstore_name in (("key_id", "access_key_id"), ("secret", "secret_access_key")):
+        if name in options:
+            translated[obstore_name] = options.pop(name)
+
+    url_style = options.pop("url_style", None)
+    if url_style is not None:
+        translated["virtual_hosted_style_request"] = url_style != "path"
+
+    # obstore reads the scheme off the endpoint; DuckDB takes a bare host
+    # and a separate flag. Plain HTTP additionally needs `AWS_ALLOW_HTTP`
+    # in the environment — obstore 0.11.1 *panics* (a Rust panic, not an
+    # exception) when `allow_http` arrives through the configuration, so
+    # there is no way to express it here.
+    use_ssl = options.pop("use_ssl", True)
+    endpoint = options.pop("endpoint", None)
+    if endpoint is not None:
+        scheme = "https" if use_ssl else "http"
+        translated["endpoint"] = endpoint if "://" in str(endpoint) else f"{scheme}://{endpoint}"
+
+    return {**options, **translated}
+
+
 def load_store(base: str, store_options: dict | None = None) -> ObjectStore:
     """Build the backend for a base URL/directory.
 
@@ -53,7 +88,9 @@ def load_store(base: str, store_options: dict | None = None) -> ObjectStore:
             # type, and ours is a plain mapping read from the tenant's
             # configuration — the value is only known at runtime.
             return ObstoreStore(
-                from_url(base, config=store_options)  # ty: ignore[no-matching-overload]
+                from_url(  # ty: ignore[no-matching-overload]
+                    base, config=_for_obstore(store_options)
+                )
             )
         return ObstoreStore(from_url(base))
     from obstore.store import LocalStore
