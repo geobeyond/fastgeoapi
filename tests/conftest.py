@@ -732,3 +732,39 @@ def fastgeoapi_with_ema(ema_issuer, request) -> Iterator[str]:
     """Boot the live instance trusting the throwaway enterprise IdP."""
     request.node.add_marker(pytest.mark.usefixtures("ema_issuer"))
     yield request.getfixturevalue("fastgeoapi_with_iam")
+
+
+@pytest.fixture(scope="session")
+def s3_endpoint() -> Iterator[str]:
+    """A local S3, started once for the whole suite.
+
+    MiniStack is an AWS emulator, so the end-to-end tests that need a
+    real endpoint — the GeoParquet provider and the editor — stay
+    offline and deterministic while still exercising signing, addressing
+    style and HTTP, none of which a local path touches.
+    """
+    import subprocess  # ruff: ignore[suspicious-subprocess-import]
+
+    pytest.importorskip("boto3", reason="the bucket end-to-end tests need boto3")
+    port = portpicker.pick_unused_port()
+    process = subprocess.Popen(
+        ["ministack"],  # ruff: ignore[start-process-with-partial-path]
+        env={**os.environ, "GATEWAY_PORT": str(port)},
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        try:
+            socket.create_connection(("127.0.0.1", port), timeout=0.3).close()
+            break
+        except OSError:
+            time.sleep(0.2)
+    else:
+        process.kill()
+        pytest.fail("MiniStack did not come up within 30s")
+
+    yield f"http://127.0.0.1:{port}"
+
+    process.terminate()
+    process.wait(timeout=10)

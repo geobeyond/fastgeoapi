@@ -5,20 +5,14 @@ the reader path but never sends an HTTP request. That leaves the part
 that actually broke in production untested: how the dataset is *reached*
 — endpoint, signing, addressing style, and expanding a prefix into files.
 
-MiniStack is a local AWS emulator, so this stays offline and
-deterministic. What it deliberately does NOT test is the part that made
+MiniStack is a local AWS emulator (started by the suite-wide
+`s3_endpoint` fixture), so this stays offline and deterministic. What it deliberately does NOT test is the part that made
 the cloud interesting in the first place: latency, DuckDB's block cache,
 row-group pruning measured in seconds. An emulator answers those
 dishonestly, so they stay with the measurements on a real deployment
 (ADR-0004).
 """
 
-import os
-import socket
-
-# ruff: ignore[suspicious-subprocess-import]
-import subprocess
-import time
 from pathlib import Path
 
 import pytest
@@ -26,40 +20,6 @@ import pytest
 FIXTURE = Path("tests/data/lakes.parquet")
 BUCKET = "fastgeoapi-test"
 KEY = "lakes/lakes.parquet"
-
-
-def _free_port() -> int:
-    with socket.socket() as sock:
-        sock.bind(("127.0.0.1", 0))
-        return sock.getsockname()[1]
-
-
-@pytest.fixture(scope="module")
-def s3_endpoint():
-    """A local S3, started for the module and torn down after it."""
-    pytest.importorskip("boto3", reason="the bucket end-to-end test needs boto3")
-    port = _free_port()
-    process = subprocess.Popen(
-        ["ministack"],  # ruff: ignore[start-process-with-partial-path]
-        env={**os.environ, "GATEWAY_PORT": str(port)},
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    deadline = time.monotonic() + 30
-    while time.monotonic() < deadline:
-        try:
-            socket.create_connection(("127.0.0.1", port), timeout=0.3).close()
-            break
-        except OSError:
-            time.sleep(0.2)
-    else:
-        process.kill()
-        pytest.fail("MiniStack did not come up within 30s")
-
-    yield f"http://127.0.0.1:{port}"
-
-    process.terminate()
-    process.wait(timeout=10)
 
 
 @pytest.fixture(scope="module")
