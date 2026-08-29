@@ -213,6 +213,7 @@ def config_edit(
         fastgeoapi config edit --source s3://bucket/pygeoapi-config.yml
         fastgeoapi config edit --port 9000
     """
+    import app.editor.app as editor_app
     from app.editor.app import EDITOR_TOKEN_HEADER, build_authoring_app
 
     host = "127.0.0.1"
@@ -227,11 +228,20 @@ def config_edit(
     # The secret is NOT put in a URL. A URL carrying it would survive in
     # browser history, in `Referer` towards anything the page loads, in
     # any proxy log and in the shell history that printed it — which is
-    # the very reason the API takes it in a header. When there is a page
-    # to protect, the token will be pasted into it once and exchanged
-    # for an HttpOnly cookie, so it never travels in an address bar.
+    # the very reason the API takes it in a header. The page asks for it
+    # instead, and exchanges it once for an HttpOnly cookie, so it never
+    # travels in an address bar.
     typer.echo(f"Editor listening on {base}")
     typer.echo(f"Token: {token}")
+    typer.echo("")
+    if (editor_app.DEFAULT_PAGE / "index.html").is_file():
+        typer.echo(f"  Open {base} and paste the token when it asks.")
+    else:
+        # A working API and no page is an ordinary state — the API came
+        # first on purpose — so it is said here rather than discovered as
+        # a puzzling browser tab.
+        typer.echo("  The page is not compiled in this installation.")
+        typer.echo("  To build it: cd frontend && npm install && npm run build")
     typer.echo("")
     typer.echo(f"  curl -H '{EDITOR_TOKEN_HEADER}: {token}' {base}/editor/config")
 
