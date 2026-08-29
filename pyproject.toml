@@ -114,12 +114,18 @@ include = [
     "app",
     "app/**/*.py",
 ]
+# The editor's page: compiled from frontend/ by CI, and git-ignored on
+# purpose — the sources are versioned, the artefact is not. `include`
+# alone does not reach it, because hatchling honours .gitignore;
+# `artifacts` exists for exactly this and is the only thing that does.
+artifacts = ["app/editor/static/**"]
 
 [tool.hatch.build.targets.wheel]
 include = [
     "app",
     "app/**/*.py",
 ]
+artifacts = ["app/editor/static/**"]
 
 [build-system]
 requires = ["hatchling"]

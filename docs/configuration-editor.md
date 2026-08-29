@@ -17,8 +17,50 @@ Editing s3://my-bucket/pygeoapi-config.yml
 Editor listening on http://127.0.0.1:8765
 Token: A7ks…
 
+  Open http://127.0.0.1:8765 and paste the token when it asks.
+
   curl -H 'X-Fastgeoapi-Editor-Token: A7ks…' http://127.0.0.1:8765/editor/config
 ```
+
+Open that address and the page asks for the token once. **The address
+never carries it**: a secret in a URL survives in browser history, rides
+along in the `Referer` sent to anything the page loads, and stays in the
+shell history that printed it. What the page gets back instead is an
+`HttpOnly` cookie — which also _confines_, since a browser binds a
+cookie to the origin that set it and will not send it to your
+deployment, even by mistake.
+
+If the command says the page is not compiled, the API still works —
+that is what it is for. `cd frontend && npm install && npm run build`
+adds the page; a release from PyPI has it already.
+
+## The page
+
+A form built from the schema of the pygeoapi you are actually running,
+served by the editor rather than compiled in, so it cannot drift from
+the version in front of you.
+
+Three things about it are worth knowing, because each one is a mistake
+it deliberately does not make.
+
+**It does not own your document.** A form takes JSON and gives JSON
+back, and that round trip loses whatever the schema does not describe —
+which here means `store_options`, `engine_options`, every
+provider-specific key, and all your comments. So the document stays the
+truth and the form is a view: only the values you actually changed are
+written back. Open it and save it without touching anything and the file
+is returned **byte for byte** as it was.
+
+**It shows your `${VAR}` placeholders.** Left to itself the form would
+render `port: ${PORT}` as an empty number box and call your
+configuration broken — and one keystroke would replace a value you
+parameterised on purpose with nothing. Every scalar field therefore
+accepts text as well, so a placeholder stays visible and stays put.
+
+**It is not the authority on whether your document is valid.** The page
+asks the server, which answers twice — as written, and as it would run.
+That distinction cannot be made in a browser, which knows neither your
+environment nor the deployment's.
 
 ## What it will not do
 
@@ -50,7 +92,8 @@ startup failure, not a warning.
 | `PUT`  | `/editor/config`   | save it, if it validates                           |
 
 They answer JSON and need no browser: use them from `curl`, from a
-script, or as a check in CI on a configuration before it is merged.
+script, or as a check in CI on a configuration before it is merged. The
+page is one caller among those, not the only way in.
 
 ### Two ways to be well formed
 
