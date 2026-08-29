@@ -78,3 +78,40 @@ def test_it_never_serves_the_reload_webhook(served, tmp_path):
 
     paths = {getattr(route, "path", "") for route in served["app"].routes}
     assert not any("config/reload" in path for path in paths), paths
+
+
+def test_it_says_where_to_open_the_page(served, tmp_path, monkeypatch):
+    """The address, and still never the token in it."""
+    import app.editor.app as editor_app
+
+    page = tmp_path / "static"
+    page.mkdir()
+    (page / "index.html").write_text("<!doctype html>")
+    monkeypatch.setattr(editor_app, "DEFAULT_PAGE", page)
+
+    source = tmp_path / "pygeoapi-config.yml"
+    source.write_text("server: {}\n")
+
+    result = CliRunner().invoke(cli, ["config", "edit", "--source", str(source)])
+
+    token = served["app"].state.editor_token
+    assert "Open http://127.0.0.1:8765" in result.output, result.output
+    assert f"={token}" not in result.output, result.output
+
+
+def test_it_says_when_the_page_was_never_built(served, tmp_path, monkeypatch):
+    """A working API and no page is a normal state, so it is stated.
+
+    The API came first on purpose, so someone running from a checkout
+    with no node has a working editor and no page — and should learn that
+    from the command rather than from a puzzling browser tab.
+    """
+    import app.editor.app as editor_app
+
+    monkeypatch.setattr(editor_app, "DEFAULT_PAGE", tmp_path / "never-built")
+    source = tmp_path / "pygeoapi-config.yml"
+    source.write_text("server: {}\n")
+
+    result = CliRunner().invoke(cli, ["config", "edit", "--source", str(source)])
+
+    assert "npm run build" in result.output, result.output

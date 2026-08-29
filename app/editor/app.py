@@ -16,13 +16,15 @@ from __future__ import annotations
 
 import ipaddress
 import secrets
+from pathlib import Path
 
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse
-from starlette.routing import Route
+from starlette.responses import JSONResponse, PlainTextResponse
+from starlette.routing import Mount, Route
+from starlette.staticfiles import StaticFiles
 
 from app.editor.routes import build_routes
 
@@ -53,7 +55,23 @@ def _is_loopback(host: str) -> bool:
         return host == "localhost"
 
 
-def build_authoring_app(host: str = "127.0.0.1", source: str | None = None) -> Starlette:
+#: Where the compiled page lands. Sources live in `frontend/`; Vite
+#: writes here, CI builds it, and the wheel ships it as package data.
+DEFAULT_PAGE = Path(__file__).parent / "static"
+
+_NOT_BUILT = (
+    "The editor's page has not been compiled into this installation.\n\n"
+    "The API is working and usable without it — that is why it came\n"
+    "first. To get the page as well:\n\n"
+    "    cd frontend && npm install && npm run build\n"
+)
+
+
+def build_authoring_app(
+    host: str = "127.0.0.1",
+    source: str | None = None,
+    page: Path | None = None,
+) -> Starlette:
     """Build the editor's application, refusing to be reachable.
 
     Parameters
@@ -136,7 +154,14 @@ def build_authoring_app(host: str = "127.0.0.1", source: str | None = None) -> S
         """
 
         async def dispatch(self, request: Request, call_next):
-            if request.url.path == "/editor/session":
+            # The page itself is not guarded: it is where the token gets
+            # typed in, so a guard there would leave no way to supply
+            # one. What protects it is that this role is not reachable
+            # from anywhere but this machine. What it can *do* still
+            # needs the secret, which is everything under /editor.
+            if not request.url.path.startswith("/editor/") or request.url.path == (
+                "/editor/session"
+            ):
                 return await call_next(request)
             offered = request.headers.get(EDITOR_TOKEN_HEADER) or request.cookies.get(
                 EDITOR_TOKEN_COOKIE, ""
@@ -145,11 +170,32 @@ def build_authoring_app(host: str = "127.0.0.1", source: str | None = None) -> S
                 return JSONResponse({"message": "Unauthenticated"}, status_code=401)
             return await call_next(request)
 
+    async def not_built(request: Request) -> PlainTextResponse:
+        """Explain a missing build instead of answering 404.
+
+        A 404 would read as a bug in the editor rather than a step
+        nobody has run. The API works without the page, so this is not a
+        reason to refuse to start — only something to say at the moment
+        someone goes looking for it.
+        """
+        return PlainTextResponse(_NOT_BUILT, status_code=503)
+
+    page = DEFAULT_PAGE if page is None else page
+    # `html=True` serves index.html for directory paths, and looks for
+    # 404.html when it finds nothing. It does **not** fall back for deep
+    # links, so the page stays a single one (ADR-0008).
+    serve_page = (
+        Mount("/", app=StaticFiles(directory=page, html=True))
+        if (page / "index.html").is_file()
+        else Route("/", not_built, methods=["GET"])
+    )
+
     app = Starlette(
         routes=[
             Route("/editor/health", health, methods=["GET"]),
             Route("/editor/session", session, methods=["POST"]),
             *build_routes(source),
+            serve_page,  # last: a mount at "/" would shadow everything above
         ],
         middleware=[Middleware(TokenGuard)],
     )
