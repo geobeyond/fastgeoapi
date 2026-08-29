@@ -62,6 +62,26 @@ asks the server, which answers twice — as written, and as it would run.
 That distinction cannot be made in a browser, which knows neither your
 environment nor the deployment's.
 
+### Two tabs, both editable
+
+**Form** and **YAML** are two views of one document. Change something in
+one and the other follows.
+
+The text view is editable rather than a preview, and the reason is a
+limit rather than a preference: pygeoapi's schema does not describe
+`store_options` or `engine_options`, and says nothing about what keys a
+provider may accept — so no widget can create them. The form preserves
+them; only the text can write them. Adding a GeoParquet collection is
+therefore something you do in the YAML tab.
+
+What you type **is** the document: saving sends it back as you wrote it,
+not a tidied re-rendering of it. While a line is still half written the
+text simply does not parse, which is said above the editor, and the form
+keeps the last document that did.
+
+Save, Validate and Dry run sit below both tabs: which view you happen to
+be looking at does not change what they do.
+
 ## What it will not do
 
 **It cannot put anything into service.** The editor mounts no reload

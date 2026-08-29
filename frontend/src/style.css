@@ -46,3 +46,42 @@ h1 {
   gap: 0.5rem;
   max-width: 28rem;
 }
+
+/* Two views of one document. The tab you are not looking at is not
+   rendered at all — a form left mounted behind the text view goes on
+   reacting to what is being typed. */
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid color-mix(in srgb, CanvasText 25%, transparent);
+  margin-bottom: 1rem;
+}
+.tabs button {
+  border: none;
+  background: none;
+  padding: 0.5rem 1rem;
+  font: inherit;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+.tabs button[aria-selected="true"] {
+  border-bottom-color: currentColor;
+  font-weight: 600;
+}
+.yaml {
+  border: 1px solid color-mix(in srgb, CanvasText 25%, transparent);
+  max-height: 70vh;
+  overflow: auto;
+}
+.yaml .cm-editor {
+  font-size: 0.9rem;
+}
+
+/* Add and remove are most of what an operator does here. rjsf draws them
+   as bootstrap glyphs, which without bootstrap are empty boxes. */
+button.control {
+  font: inherit;
+  padding: 0.15rem 0.6rem;
+  margin: 0.15rem 0.15rem 0.15rem 0;
+  cursor: pointer;
+}

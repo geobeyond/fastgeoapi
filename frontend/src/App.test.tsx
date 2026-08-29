@@ -14,6 +14,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
 
+// CodeMirror measures layout, which jsdom does not do. These tests are
+// about the wiring between the two views, so the editor is stood in for
+// by a plain textarea and CodeMirror is left to its own smoke test.
+vi.mock("./YamlEditor", () => ({
+  default: ({
+    value,
+    onChange,
+  }: {
+    value: string;
+    onChange: (text: string) => void;
+  }) => (
+    <textarea
+      aria-label="YAML"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  ),
+}));
+
 const DOCUMENT = `# Kept by hand.
 server:
     bind:
@@ -126,5 +145,61 @@ describe("the page", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText(/not activated/i)).toBeTruthy();
+  });
+});
+
+describe("the two views", () => {
+  it("offers the form and the text as tabs", async () => {
+    render(<App onLocked={() => {}} />);
+    await screen.findByText(/No changes yet/);
+
+    expect(screen.getByRole("tab", { name: /form/i })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: /yaml/i })).toBeTruthy();
+  });
+
+  it("shows the document as text, kept up to date with the form", async () => {
+    render(<App onLocked={() => {}} />);
+    const title = await screen.findByLabelText("en");
+
+    await userEvent.clear(title);
+    await userEvent.type(title, "changed here");
+    await userEvent.click(screen.getByRole("tab", { name: /yaml/i }));
+
+    const shown = (screen.getByLabelText("YAML") as HTMLTextAreaElement).value;
+    expect(shown).toContain("changed here");
+    expect(shown).toContain("skip_signature: true");
+  });
+
+  it("takes text the form could never have written", async () => {
+    // The reason this view is editable at all: pygeoapi's schema does
+    // not describe store_options, so no widget can create one.
+    render(<App onLocked={() => {}} />);
+    await screen.findByText(/No changes yet/);
+    await userEvent.click(screen.getByRole("tab", { name: /yaml/i }));
+
+    const area = screen.getByLabelText("YAML") as HTMLTextAreaElement;
+    await userEvent.clear(area);
+    await userEvent.type(
+      area,
+      "resources:\n  brand-new:\n    type: collection\n"
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(api.save).toHaveBeenCalled());
+    expect(vi.mocked(api.save).mock.calls.at(-1)![0]).toContain("brand-new");
+  });
+
+  it("says what is wrong with half-written text instead of emptying the form", async () => {
+    render(<App onLocked={() => {}} />);
+    await screen.findByText(/No changes yet/);
+    await userEvent.click(screen.getByRole("tab", { name: /yaml/i }));
+
+    const area = screen.getByLabelText("YAML") as HTMLTextAreaElement;
+    await userEvent.clear(area);
+    await userEvent.type(area, "resources:\n  a: 1\n b: 2\n");
+
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    await userEvent.click(screen.getByRole("tab", { name: /form/i }));
+    expect(screen.getByLabelText("en")).toBeTruthy();
   });
 });

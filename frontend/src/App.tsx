@@ -18,21 +18,14 @@ import Form from "@rjsf/core";
 import type { IChangeEvent } from "@rjsf/core";
 import validator from "@rjsf/validator-ajv8";
 import { useEffect, useState } from "react";
-import type { Document } from "yaml";
-import { parseDocument } from "yaml";
 
 import type { Outcome, Saved, Validation } from "./api";
 import * as api from "./api";
-import { applyDiff, serialise, toJSON } from "./document";
 import { relax } from "./placeholders";
-
-interface Opened {
-  source: string;
-  original: string;
-  doc: Document;
-  data: unknown;
-  written: number;
-}
+import type { Opened } from "./sync";
+import { fromForm, fromYaml, toYaml } from "./sync";
+import { templates } from "./templates";
+import YamlEditor from "./YamlEditor";
 
 export default function App({ onLocked }: { onLocked: () => void }) {
   const [schema, setSchema] = useState<unknown>(null);
@@ -42,6 +35,12 @@ export default function App({ onLocked }: { onLocked: () => void }) {
   const [saved, setSaved] = useState<Saved | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  const [tab, setTab] = useState<"form" | "yaml">("form");
+  const [source, setSource] = useState("");
+  // Text being typed that does not parse yet. Held apart from `opened`
+  // so a half-written line cannot empty the form behind the other tab.
+  const [draft, setDraft] = useState<string | null>(null);
+  const [broken, setBroken] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -51,14 +50,8 @@ export default function App({ onLocked }: { onLocked: () => void }) {
           api.fetchConfig(),
         ]);
         setSchema(relax(rawSchema));
-        const doc = parseDocument(config.document);
-        setOpened({
-          source: config.source,
-          original: config.document,
-          doc,
-          data: toJSON(doc),
-          written: 0,
-        });
+        setSource(config.source);
+        setOpened(fromYaml(config.document).state);
       } catch (error) {
         // A session that has lapsed looks like any other failure from
         // here, so the token screen is offered again rather than leaving
@@ -70,23 +63,32 @@ export default function App({ onLocked }: { onLocked: () => void }) {
   }, [onLocked]);
 
   /** The text to send: what was opened, carrying whatever changed. */
-  const textToSend = () =>
-    opened ? serialise(opened.original, opened.doc, opened.written) : "";
+  const textToSend = () => (opened ? toYaml(opened) : "");
 
-  function onChange(event: IChangeEvent) {
-    if (!opened) return;
-    const written = applyDiff(opened.doc, opened.data, event.formData);
-    setOpened({
-      ...opened,
-      data: event.formData,
-      written: opened.written + written,
-    });
-    // Any answer about the previous text is now about a document that no
-    // longer exists. Showing it next to changed fields would be worse
-    // than showing nothing.
+  /** Every answer belongs to the text that produced it, and that is gone. */
+  function forget() {
     setValidation(null);
     setPreview(null);
     setSaved(null);
+  }
+
+  function onChange(event: IChangeEvent) {
+    if (!opened) return;
+    setOpened(fromForm(opened, event.formData));
+    setDraft(null);
+    setBroken(null);
+    forget();
+  }
+
+  function onTyped(text: string) {
+    // Typed text *is* the document, so it replaces the state outright
+    // rather than being folded into it: saving has to send back what was
+    // written, not a reformatting of it.
+    const { state, error } = fromYaml(text);
+    setBroken(error);
+    setDraft(state ? null : text);
+    if (state) setOpened(state);
+    forget();
   }
 
   async function run<T>(
@@ -112,7 +114,7 @@ export default function App({ onLocked }: { onLocked: () => void }) {
   return (
     <main>
       <header>
-        <h1>{opened.source}</h1>
+        <h1>{source}</h1>
         <p>
           {opened.written === 0
             ? "No changes yet — saving now would send the document untouched."
@@ -122,54 +124,95 @@ export default function App({ onLocked }: { onLocked: () => void }) {
         </p>
       </header>
 
-      <Form
-        schema={schema as object}
-        validator={validator}
-        formData={opened.data}
-        onChange={onChange}
-        liveValidate={false}
-        // The server is the authority on whether a document is well
-        // formed, and it answers for the source and the effective form
-        // separately. A second opinion from the browser, which knows
-        // neither the environment nor the variables, would only
-        // contradict it.
-        noValidate
-      >
-        <div className="actions">
-          <button
-            type="button"
-            disabled={busy !== null}
-            onClick={() =>
-              void run(
-                "validate",
-                () => api.validate(textToSend()),
-                setValidation
-              )
-            }
+      <div className="tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "form"}
+          onClick={() => setTab("form")}
+        >
+          Form
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "yaml"}
+          onClick={() => setTab("yaml")}
+        >
+          YAML
+        </button>
+      </div>
+
+      {tab === "yaml" && (
+        <section className="pane">
+          {broken && (
+            <p className="failure" role="alert">
+              {broken} — the form still holds the last document that parsed.
+            </p>
+          )}
+          <YamlEditor value={draft ?? textToSend()} onChange={onTyped} />
+        </section>
+      )}
+
+      {/* Rendered only when it is the view in front of you. Kept mounted
+          behind the other tab, the form goes on reacting to a document
+          being typed into — and folds its idea of the half-written state
+          back in, overwriting what is being written. */}
+      {tab === "form" && (
+        <div className="pane">
+          <Form
+            schema={schema as object}
+            validator={validator}
+            formData={opened.data}
+            onChange={onChange}
+            templates={templates}
+            liveValidate={false}
+            // The server is the authority on whether a document is well
+            // formed, and it answers for the source and the effective form
+            // separately. A second opinion from the browser, which knows
+            // neither the environment nor the variables, would only
+            // contradict it.
+            noValidate
           >
-            Validate
-          </button>
-          <button
-            type="button"
-            disabled={busy !== null}
-            onClick={() =>
-              void run("dry-run", () => api.dryRun(textToSend()), setPreview)
-            }
-          >
-            Dry run
-          </button>
-          <button
-            type="button"
-            disabled={busy !== null}
-            onClick={() =>
-              void run("save", () => api.save(textToSend()), setSaved)
-            }
-          >
-            Save
-          </button>
-          {busy && <span className="busy">{busy}…</span>}
+            <></>
+          </Form>
         </div>
-      </Form>
+      )}
+
+      <div className="actions">
+        <button
+          type="button"
+          disabled={busy !== null}
+          onClick={() =>
+            void run(
+              "validate",
+              () => api.validate(textToSend()),
+              setValidation
+            )
+          }
+        >
+          Validate
+        </button>
+        <button
+          type="button"
+          disabled={busy !== null}
+          onClick={() =>
+            void run("dry-run", () => api.dryRun(textToSend()), setPreview)
+          }
+        >
+          Dry run
+        </button>
+        <button
+          type="button"
+          disabled={busy !== null}
+          onClick={() =>
+            void run("save", () => api.save(textToSend()), setSaved)
+          }
+        >
+          Save
+        </button>
+        {busy && <span className="busy">{busy}…</span>}
+      </div>
 
       {validation && (
         <section>
