@@ -136,6 +136,35 @@ jobs:
           name: docs
           path: docs_build/site
 
+  page:
+    name: page / ubuntu-22.04
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v6.0.2
+
+      - name: Set up Node
+        uses: actions/setup-node@v6.0.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefix frontend
+
+      # The bridge between the form and the document is where a bug
+      # would be silent: a save that quietly drops what the schema does
+      # not describe. Its tests only help if they run.
+      - name: Run the page's tests
+        run: npm test --prefix frontend
+
+      - name: Type check
+        run: npm run typecheck --prefix frontend
+
+      - name: Build
+        run: npm run build --prefix frontend
+
   coverage:
     runs-on: ubuntu-22.04
     needs: tests

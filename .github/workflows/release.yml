@@ -78,11 +78,41 @@ jobs:
           python -c "import tomli, tomli_w; data = tomli.load(open('pyproject.toml', 'rb')); data['project']['version'] = '$new_version'; tomli_w.dump(data, open('pyproject.toml', 'wb'))"
           echo "Publishing version: $new_version"
 
+      - name: Set up Node
+        if: steps.check-version.outputs.tag || github.ref == 'refs/heads/develop'
+        uses: actions/setup-node@v6.0.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build the editor's page
+        if: steps.check-version.outputs.tag || github.ref == 'refs/heads/develop'
+        run: |
+          set -euo pipefail
+          npm ci --prefix frontend
+          npm run build --prefix frontend
+
       - name: Build package
         if: steps.check-version.outputs.tag || github.ref == 'refs/heads/develop'
         run: |
           uv pip install build --system --break-system-packages
           python -m build
+
+      # A wheel without the page still installs and still serves the API,
+      # so nothing would fail — the editor would just answer 503 forever
+      # and nobody would know why. Checked here rather than discovered
+      # by whoever opens it.
+      - name: Refuse to publish a wheel with no page in it
+        if: steps.check-version.outputs.tag || github.ref == 'refs/heads/develop'
+        run: |
+          set -euo pipefail
+          wheel=$(ls dist/*.whl)
+          if ! python -m zipfile -l "$wheel" | grep -q "app/editor/static/index.html"; then
+            echo "::error::$wheel carries no editor page — the frontend build did not run"
+            exit 1
+          fi
+          echo "The page is in $wheel"
 
       - name: Publish package on PyPI
         if: steps.check-version.outputs.tag
