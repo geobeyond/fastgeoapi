@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import os
 import re
+import threading
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -208,6 +210,89 @@ def dry_run(text: str) -> Outcome:
     )
 
 
+#: Where a dataset lives. obstore reads these in every constructor and
+#: an explicit ``endpoint`` does not override them — which is why the
+#: provider reads buckets through DuckDB's own reader instead, whose
+#: secret is scoped to the dataset.
+_AMBIENT_ADDRESS = (
+    "AWS_ENDPOINT_URL_S3",
+    "AWS_ENDPOINT_URL",
+    "AWS_ENDPOINT",
+    "AWS_REGION",
+    "AWS_DEFAULT_REGION",
+)
+
+#: How to sign for it.
+_AMBIENT_CREDENTIALS = (
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_SESSION_TOKEN",
+    "AWS_PROFILE",
+    "GOOGLE_SERVICE_ACCOUNT",
+    "GOOGLE_SERVICE_ACCOUNT_PATH",
+    "AZURE_STORAGE_ACCOUNT_KEY",
+)
+
+#: Options by which a dataset declares it signs for itself.
+_OWN_CREDENTIALS = ("key_id", "secret", "access_key_id", "secret_access_key")
+
+#: `_only` edits the process environment, so two dry runs must not
+#: overlap. One operator on one machine will not notice; Starlette still
+#: runs handlers in a threadpool, and a race here would read a dataset
+#: with another dataset's credentials.
+_ENVIRONMENT_LOCK = threading.Lock()
+
+
+@contextmanager
+def _only(store_options: dict | None):
+    """Read a dataset the way its own options describe it.
+
+    obstore takes the ambient variables first and offers no opt-out, so a
+    machine holding `AWS_ENDPOINT_URL_S3` for one bucket sends every
+    other dataset's request there too. DuckDB avoids this with a
+    dataset-scoped secret; obstore has no equivalent, so the environment
+    is removed for the length of the call instead.
+
+    What gets removed follows the rule DuckDB's secrets follow, and the
+    two halves are not symmetric:
+
+    - **where it lives** is scoped. A dataset carrying `store_options`
+      has said where it is, and *not* naming an endpoint means the
+      provider's default — not "inherit the one this machine happens to
+      hold for something else".
+    - **how to sign** is inherited unless the dataset says otherwise.
+      An endpoint with no keys is the ordinary way to name a bucket you
+      already have credentials for. Only a dataset carrying its own
+      keys, or asking to be read anonymously, displaces them.
+
+    Both halves were found the hard way, one per collection, on the
+    deployment's own configuration: taking too little sent a public
+    Overture bucket to a Tigris endpoint; taking too much left a private
+    Tigris bucket with no credentials and 38 seconds of EC2-metadata
+    retries.
+
+    Editing the process environment is acceptable only because of the
+    role separation: this runs in the authoring process, which serves no
+    traffic (ADR-0008). It would not be acceptable in the deployment.
+    """
+    if not store_options:
+        yield
+        return
+
+    displaced = list(_AMBIENT_ADDRESS)
+    if store_options.get("skip_signature") or any(
+        name in store_options for name in _OWN_CREDENTIALS
+    ):
+        displaced += _AMBIENT_CREDENTIALS
+
+    with _ENVIRONMENT_LOCK:
+        saved = {name: os.environ.pop(name) for name in displaced if name in os.environ}
+        try:
+            yield
+        finally:
+            os.environ.update(saved)
+
+
 def _unreachable_sources(config: dict):
     """Yield (resource, source, why) for every data source that is absent.
 
@@ -215,6 +300,15 @@ def _unreachable_sources(config: dict):
     a directory and a prefix the same way, which is the whole point of
     ADR-0003's Protocol. A source naming an object is checked with
     `stat`; one naming a prefix has to list at least something.
+
+    The provider's own `store_options` are what make the check agree with
+    the provider. They carry the region, `skip_signature` for public
+    data, and — the one that bites — the `endpoint` of an S3-compatible
+    service. Without them a public bucket gets signed with whatever
+    credentials the process happens to hold, and the request goes
+    wherever `AWS_ENDPOINT_URL_S3` happens to point, which is rarely
+    where the dataset lives. That is how this check came to report a
+    source as unreachable in the same run that served it.
     """
     from app.provider.storage import StorageBridge, load_store, split_source
 
@@ -223,13 +317,19 @@ def _unreachable_sources(config: dict):
             data = provider.get("data")
             if not isinstance(data, str) or not data or "*" in data:
                 continue  # a glob, or a connection string: not ours to judge
+            options = provider.get("store_options")
             try:
                 base, key = split_source(data)
-                bridge = StorageBridge(load_store(base))
+                with _only(options):
+                    store = load_store(base, options)
                 try:
-                    bridge.stat(key)
+                    StorageBridge(store).stat(key)
                 except FileNotFoundError:
-                    if not any(k.startswith(key) for k in bridge.keys(key)):
+                    # Listing is the store's, not the bridge's: the bridge
+                    # reads and writes one object, and asking it to list
+                    # would turn "nothing is there" into an AttributeError
+                    # the operator would read as a fact about their config.
+                    if not any(k.startswith(key) for k in store.keys(key)):
                         yield name, data, "nothing is there"
             except Exception as e:  # unreadable store, bad credentials, bad URL
                 yield name, data, f"{type(e).__name__}: {str(e).splitlines()[0][:100]}"
