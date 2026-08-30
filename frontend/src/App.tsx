@@ -117,7 +117,7 @@ export default function App({ onLocked }: { onLocked: () => void }) {
     return <p className="p-8 text-muted-foreground">Opening…</p>;
 
   return (
-    <main className="mx-auto max-w-4xl p-6">
+    <main className="mx-auto max-w-7xl p-6">
       <header className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="font-mono text-sm text-muted-foreground">{source}</h1>
         <p className="text-sm text-muted-foreground">

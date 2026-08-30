@@ -97,7 +97,9 @@ body {
 /* The text view. CodeMirror brings its own colours; it only needs a box. */
 .yaml {
   @apply overflow-auto rounded-lg border border-border;
-  max-height: 70vh;
+  /* Tall as well as wide: a configuration is read by scrolling, and the
+     shorter the window the more of it is spent scrolling. */
+  max-height: 75vh;
 }
 
 .yaml .cm-editor {
