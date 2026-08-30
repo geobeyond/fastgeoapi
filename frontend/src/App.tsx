@@ -19,6 +19,10 @@ import type { IChangeEvent } from "@rjsf/core";
 import validator from "@rjsf/validator-ajv8";
 import { useEffect, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import type { Outcome, Saved, Validation } from "./api";
 import * as api from "./api";
 import { relax } from "./placeholders";
@@ -94,7 +98,7 @@ export default function App({ onLocked }: { onLocked: () => void }) {
   async function run<T>(
     label: string,
     work: () => Promise<T>,
-    then: (value: T) => void
+    then: (value: T) => void,
   ) {
     setBusy(label);
     setFailure(null);
@@ -108,14 +112,15 @@ export default function App({ onLocked }: { onLocked: () => void }) {
     }
   }
 
-  if (failure) return <p className="failure">{failure}</p>;
-  if (!schema || !opened) return <p>Opening…</p>;
+  if (failure) return <p className="p-8 text-destructive">{failure}</p>;
+  if (!schema || !opened)
+    return <p className="p-8 text-muted-foreground">Opening…</p>;
 
   return (
-    <main>
-      <header>
-        <h1>{source}</h1>
-        <p>
+    <main className="mx-auto max-w-4xl p-6">
+      <header className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+        <h1 className="font-mono text-sm text-muted-foreground">{source}</h1>
+        <p className="text-sm text-muted-foreground">
           {opened.written === 0
             ? "No changes yet — saving now would send the document untouched."
             : `${opened.written} ${
@@ -124,42 +129,21 @@ export default function App({ onLocked }: { onLocked: () => void }) {
         </p>
       </header>
 
-      <div className="tabs" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "form"}
-          onClick={() => setTab("form")}
-        >
-          Form
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "yaml"}
-          onClick={() => setTab("yaml")}
-        >
-          YAML
-        </button>
-      </div>
+      <Tabs
+        value={tab}
+        onValueChange={(value) => setTab(value as "form" | "yaml")}
+      >
+        <TabsList>
+          <TabsTrigger value="form">Form</TabsTrigger>
+          <TabsTrigger value="yaml">YAML</TabsTrigger>
+        </TabsList>
 
-      {tab === "yaml" && (
-        <section className="pane">
-          {broken && (
-            <p className="failure" role="alert">
-              {broken} — the form still holds the last document that parsed.
-            </p>
-          )}
-          <YamlEditor value={draft ?? textToSend()} onChange={onTyped} />
-        </section>
-      )}
-
-      {/* Rendered only when it is the view in front of you. Kept mounted
-          behind the other tab, the form goes on reacting to a document
-          being typed into — and folds its idea of the half-written state
-          back in, overwriting what is being written. */}
-      {tab === "form" && (
-        <div className="pane">
+        {/* Radix unmounts the panel you are not looking at, which this
+            page needs rather than merely likes: a form left mounted
+            behind the text view goes on reacting to the document being
+            typed into, and writes its idea of the half-written state
+            back over it. */}
+        <TabsContent value="form">
           <Form
             schema={schema as object}
             validator={validator}
@@ -167,87 +151,102 @@ export default function App({ onLocked }: { onLocked: () => void }) {
             onChange={onChange}
             templates={templates}
             liveValidate={false}
-            // The server is the authority on whether a document is well
-            // formed, and it answers for the source and the effective form
-            // separately. A second opinion from the browser, which knows
-            // neither the environment nor the variables, would only
-            // contradict it.
             noValidate
           >
             <></>
           </Form>
-        </div>
-      )}
+        </TabsContent>
 
-      <div className="actions">
-        <button
-          type="button"
+        <TabsContent value="yaml">
+          {broken && (
+            <p className="mb-2 text-sm text-destructive" role="alert">
+              {broken} — the form still holds the last document that parsed.
+            </p>
+          )}
+          <YamlEditor value={draft ?? textToSend()} onChange={onTyped} />
+        </TabsContent>
+      </Tabs>
+
+      <div className="sticky bottom-0 mt-4 flex items-center gap-2 border-t border-border bg-background py-3">
+        <Button
+          variant="outline"
           disabled={busy !== null}
           onClick={() =>
             void run(
               "validate",
               () => api.validate(textToSend()),
-              setValidation
+              setValidation,
             )
           }
         >
           Validate
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="outline"
           disabled={busy !== null}
           onClick={() =>
             void run("dry-run", () => api.dryRun(textToSend()), setPreview)
           }
         >
           Dry run
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
           disabled={busy !== null}
           onClick={() =>
             void run("save", () => api.save(textToSend()), setSaved)
           }
         >
           Save
-        </button>
-        {busy && <span className="busy">{busy}…</span>}
+        </Button>
+        {busy && <span className="text-sm text-muted-foreground">{busy}…</span>}
       </div>
 
       {validation && (
-        <section>
-          <h2>Well formed?</h2>
-          <Answer title="As written" outcome={validation.source} />
-          <Answer title="As it would run" outcome={validation.effective} />
-        </section>
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle>Well formed?</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Answer title="As written" outcome={validation.source} />
+            <Answer title="As it would run" outcome={validation.effective} />
+          </CardContent>
+        </Card>
       )}
 
       {preview && (
-        <section>
-          <h2>Dry run</h2>
-          <Answer title="Built here" outcome={preview} />
-          <p className="caveat">
-            This says whether it builds <em>here</em>, with the variables and
-            credentials of whoever is running the editor. It says nothing about
-            the deployment.
-          </p>
-        </section>
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle>Dry run</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Answer title="Built here" outcome={preview} />
+            <p className="text-xs text-muted-foreground">
+              This says whether it builds <em>here</em>, with the variables and
+              credentials of whoever is running the editor. It says nothing
+              about the deployment.
+            </p>
+          </CardContent>
+        </Card>
       )}
 
       {saved && (
-        <section>
-          <h2>Saved</h2>
-          <p>Checked: {saved.checked.join(", ")}</p>
-          <ul>
-            {saved.not_checked.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-          <p className="caveat">
-            Written, not activated. Putting it into service is a separate
-            gesture, against the deployment.
-          </p>
-        </section>
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle>Saved</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <p>Checked: {saved.checked.join(", ")}</p>
+            <ul className="list-inside list-disc text-muted-foreground">
+              {saved.not_checked.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+            <p className="text-xs text-muted-foreground">
+              Written, not activated. Putting it into service is a separate
+              gesture, against the deployment.
+            </p>
+          </CardContent>
+        </Card>
       )}
     </main>
   );
@@ -255,22 +254,27 @@ export default function App({ onLocked }: { onLocked: () => void }) {
 
 function Answer({ title, outcome }: { title: string; outcome: Outcome }) {
   return (
-    <div className={outcome.ok ? "ok" : "not-ok"}>
-      <h3>
-        {title}: {outcome.ok ? "yes" : "no"}
+    <div>
+      <h3 className="text-sm font-semibold">
+        {title}:{" "}
+        <span className={outcome.ok ? "text-emerald-600" : "text-destructive"}>
+          {outcome.ok ? "yes" : "no"}
+        </span>
       </h3>
       {outcome.problems.length > 0 && (
-        <ul>
+        <ul className="mt-1 list-inside list-disc text-sm text-destructive">
           {outcome.problems.map((problem) => (
             <li key={problem}>{problem}</li>
           ))}
         </ul>
       )}
       {outcome.collections.length > 0 && (
-        <p>Collections: {outcome.collections.join(", ")}</p>
+        <p className="mt-1 text-sm">
+          Collections: {outcome.collections.join(", ")}
+        </p>
       )}
       {Object.keys(outcome.variables).length > 0 && (
-        <p className="variables">
+        <p className="mt-1 font-mono text-xs text-muted-foreground">
           Resolved with{" "}
           {Object.entries(outcome.variables)
             .map(([name, value]) => `${name}=${value}`)

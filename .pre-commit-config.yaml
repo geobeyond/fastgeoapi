@@ -53,4 +53,9 @@ repos:
       # alone leaves a tree CI rejects. The hand-written partial under
       # scripts/ stays formatted — that one is ours.
       - id: prettier
-        exclude: "^(app/pygeoapi/config_models/|docs/configuration-reference\\.md$)"
+        # `frontend/` has its own prettier, run by `npm run format:check`
+        # and by the `page` job in CI. This mirror is pinned to v2.4.1,
+        # which cannot parse an inline `type` modifier in an import —
+        # the form shadcn's components are written in — so leaving it to
+        # this hook would mean rewriting every component we copy in.
+        exclude: "^(app/pygeoapi/config_models/|frontend/|docs/configuration-reference\\.md$)"

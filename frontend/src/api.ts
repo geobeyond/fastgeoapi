@@ -36,7 +36,7 @@ async function json<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     const detail = await response.text();
     throw new Error(
-      `${path} answered ${response.status}: ${detail.slice(0, 300)}`
+      `${path} answered ${response.status}: ${detail.slice(0, 300)}`,
     );
   }
   return (await response.json()) as T;

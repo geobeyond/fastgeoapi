@@ -159,6 +159,9 @@ jobs:
       - name: Run the page's tests
         run: npm test --prefix frontend
 
+      - name: Check formatting
+        run: npm run format:check --prefix frontend
+
       - name: Type check
         run: npm run typecheck --prefix frontend
 

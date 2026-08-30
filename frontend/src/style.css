@@ -1,87 +1,109 @@
-/* Plain and legible: this is a tool someone opens to change one value
-   and close again, not something to spend a design budget on. */
-:root {
-  font-family: system-ui, sans-serif;
-  line-height: 1.5;
-  color-scheme: light dark;
+@import "tailwindcss";
+
+/* shadcn's tokens, the neutral palette, in both schemes. Kept here
+   rather than pulled from a preset: this page needs a handful of them
+   and an unread preset is a dependency you cannot reason about. */
+@theme {
+  --color-background: oklch(1 0 0);
+  --color-foreground: oklch(0.145 0 0);
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.145 0 0);
+  --color-primary: oklch(0.205 0 0);
+  --color-primary-foreground: oklch(0.985 0 0);
+  --color-muted: oklch(0.97 0 0);
+  --color-muted-foreground: oklch(0.556 0 0);
+  --color-accent: oklch(0.97 0 0);
+  --color-accent-foreground: oklch(0.205 0 0);
+  --color-destructive: oklch(0.577 0.245 27.325);
+  --color-destructive-foreground: oklch(0.985 0 0);
+  --color-border: oklch(0.922 0 0);
+  --color-input: oklch(0.922 0 0);
+  --color-ring: oklch(0.708 0 0);
 }
+
+@media (prefers-color-scheme: dark) {
+  @theme {
+    --color-background: oklch(0.145 0 0);
+    --color-foreground: oklch(0.985 0 0);
+    --color-card: oklch(0.205 0 0);
+    --color-card-foreground: oklch(0.985 0 0);
+    --color-primary: oklch(0.985 0 0);
+    --color-primary-foreground: oklch(0.205 0 0);
+    --color-muted: oklch(0.269 0 0);
+    --color-muted-foreground: oklch(0.708 0 0);
+    --color-accent: oklch(0.269 0 0);
+    --color-accent-foreground: oklch(0.985 0 0);
+    --color-border: oklch(1 0 0 / 12%);
+    --color-input: oklch(1 0 0 / 18%);
+  }
+}
+
 body {
-  margin: 0;
-  padding: 2rem;
-  max-width: 60rem;
-}
-h1 {
-  font-size: 1.2rem;
-  font-family: ui-monospace, monospace;
-}
-.actions {
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.75rem 0;
-  background: Canvas;
-  border-top: 1px solid color-mix(in srgb, CanvasText 20%, transparent);
-}
-.ok h3 {
-  color: green;
-}
-.not-ok h3 {
-  color: crimson;
-}
-.caveat {
-  font-size: 0.9rem;
-  opacity: 0.8;
-}
-.variables {
-  font-family: ui-monospace, monospace;
-  font-size: 0.85rem;
-}
-.failure {
-  color: crimson;
-}
-.unlock form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  max-width: 28rem;
+  @apply bg-background text-foreground;
 }
 
-/* Two views of one document. The tab you are not looking at is not
-   rendered at all — a form left mounted behind the text view goes on
-   reacting to what is being typed. */
-.tabs {
-  display: flex;
-  gap: 0.25rem;
-  border-bottom: 1px solid color-mix(in srgb, CanvasText 25%, transparent);
-  margin-bottom: 1rem;
+/* ---------------------------------------------------------------
+   rjsf's own markup.
+
+   It emits Bootstrap 3 class names — `form-group`, `control-label`,
+   `form-control`, `col-xs-*` — from a grid three major versions old.
+   Rather than load that Bootstrap, the handful of them that matter are
+   given meaning here; the rest stay inert, which costs nothing.
+   --------------------------------------------------------------- */
+
+.rjsf .form-group {
+  @apply mb-3;
 }
-.tabs button {
-  border: none;
-  background: none;
-  padding: 0.5rem 1rem;
-  font: inherit;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
+
+.rjsf .control-label {
+  @apply mb-1 block text-sm font-medium;
 }
-.tabs button[aria-selected="true"] {
-  border-bottom-color: currentColor;
-  font-weight: 600;
+
+.rjsf .field-description {
+  @apply mb-1 text-xs text-muted-foreground;
 }
+
+.rjsf input.form-control,
+.rjsf select.form-control,
+.rjsf textarea.form-control {
+  @apply w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm
+    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring;
+}
+
+/* A nested object is a section, and reads as one. */
+.rjsf fieldset {
+  @apply mb-4 rounded-lg border border-border p-3;
+}
+
+.rjsf legend {
+  @apply px-1 text-sm font-semibold;
+}
+
+/* An array item sits beside its own buttons. The `row`/`col-*` divs that
+   used to do this belong to a grid that is not loaded. */
+.rjsf .rjsf-array-item {
+  @apply mb-2 flex items-start gap-2;
+}
+
+.rjsf .rjsf-array-item > .col-xs-9,
+.rjsf .rjsf-array-item > [class*="col-"]:first-child {
+  @apply min-w-0 flex-1;
+}
+
+.rjsf .array-item-toolbox .btn-group {
+  @apply flex gap-1;
+}
+
+/* The text view. CodeMirror brings its own colours; it only needs a box. */
 .yaml {
-  border: 1px solid color-mix(in srgb, CanvasText 25%, transparent);
+  @apply overflow-auto rounded-lg border border-border;
   max-height: 70vh;
-  overflow: auto;
-}
-.yaml .cm-editor {
-  font-size: 0.9rem;
 }
 
-/* Add and remove are most of what an operator does here. rjsf draws them
-   as bootstrap glyphs, which without bootstrap are empty boxes. */
-button.control {
-  font: inherit;
-  padding: 0.15rem 0.6rem;
-  margin: 0.15rem 0.15rem 0.15rem 0;
-  cursor: pointer;
+.yaml .cm-editor {
+  @apply text-sm;
+}
+
+.yaml .cm-focused {
+  outline: none;
 }

@@ -65,5 +65,5 @@ export default function YamlEditor({
     editor.dispatch({ changes: { from: 0, to: shown.length, insert: value } });
   }, [value]);
 
-  return <div className="yaml" ref={host} aria-label="YAML" />;
+  return <div className="yaml" ref={host} aria-label="YAML document" />;
 }

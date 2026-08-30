@@ -14,7 +14,13 @@
 
 import type { IconButtonProps, TemplatesType } from "@rjsf/utils";
 
-function Labelled({ label, ...props }: IconButtonProps & { label: string }) {
+import { Button } from "@/components/ui/button";
+
+function Labelled({
+  label,
+  variant,
+  ...props
+}: IconButtonProps & { label: string; variant?: "outline" | "destructive" }) {
   const {
     icon: _icon,
     iconType: _iconType,
@@ -23,9 +29,14 @@ function Labelled({ label, ...props }: IconButtonProps & { label: string }) {
     ...button
   } = props;
   return (
-    <button type="button" {...button} className="control">
+    <Button
+      type="button"
+      size="control"
+      variant={variant ?? "outline"}
+      {...button}
+    >
       {label}
-    </button>
+    </Button>
   );
 }
 
@@ -41,7 +52,7 @@ function AddButton(props: IconButtonProps) {
 }
 
 function RemoveButton(props: IconButtonProps) {
-  return <Labelled {...props} label="Remove" />;
+  return <Labelled {...props} label="Remove" variant="destructive" />;
 }
 
 function MoveUpButton(props: IconButtonProps) {
