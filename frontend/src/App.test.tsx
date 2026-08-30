@@ -26,7 +26,7 @@ vi.mock("./YamlEditor", () => ({
     onChange: (text: string) => void;
   }) => (
     <textarea
-      aria-label="YAML"
+      aria-label="YAML document"
       value={value}
       onChange={(e) => onChange(e.target.value)}
     />
@@ -165,7 +165,11 @@ describe("the two views", () => {
     await userEvent.type(title, "changed here");
     await userEvent.click(screen.getByRole("tab", { name: /yaml/i }));
 
-    const shown = (screen.getByLabelText("YAML") as HTMLTextAreaElement).value;
+    const shown = (
+      (await screen.findByRole("textbox", {
+        name: "YAML document",
+      })) as HTMLTextAreaElement
+    ).value;
     expect(shown).toContain("changed here");
     expect(shown).toContain("skip_signature: true");
   });
@@ -177,11 +181,13 @@ describe("the two views", () => {
     await screen.findByText(/No changes yet/);
     await userEvent.click(screen.getByRole("tab", { name: /yaml/i }));
 
-    const area = screen.getByLabelText("YAML") as HTMLTextAreaElement;
+    const area = (await screen.findByRole("textbox", {
+      name: "YAML document",
+    })) as HTMLTextAreaElement;
     await userEvent.clear(area);
     await userEvent.type(
       area,
-      "resources:\n  brand-new:\n    type: collection\n"
+      "resources:\n  brand-new:\n    type: collection\n",
     );
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -194,7 +200,9 @@ describe("the two views", () => {
     await screen.findByText(/No changes yet/);
     await userEvent.click(screen.getByRole("tab", { name: /yaml/i }));
 
-    const area = screen.getByLabelText("YAML") as HTMLTextAreaElement;
+    const area = (await screen.findByRole("textbox", {
+      name: "YAML document",
+    })) as HTMLTextAreaElement;
     await userEvent.clear(area);
     await userEvent.type(area, "resources:\n  a: 1\n b: 2\n");
 

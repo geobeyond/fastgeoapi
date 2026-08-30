@@ -43,7 +43,7 @@ describe("a parameterised value", () => {
         validator={validator}
         formData={DATA}
         onChange={onChange}
-      />
+      />,
     );
 
     await userEvent.type(screen.getByLabelText("host"), "!");
@@ -60,7 +60,7 @@ describe("the widget the placeholder lands in", () => {
         schema={relax(SCHEMA) as object}
         validator={validator}
         formData={DATA}
-      />
+      />,
     );
 
     const port = screen.getByLabelText("port") as HTMLInputElement;
@@ -74,7 +74,7 @@ describe("the widget the placeholder lands in", () => {
   it("does not report a perfectly good configuration as broken", () => {
     const errors = validator.validateFormData(
       DATA,
-      relax(SCHEMA) as object
+      relax(SCHEMA) as object,
     ).errors;
 
     expect(errors).toEqual([]);
@@ -88,7 +88,7 @@ describe("what widening must not do", () => {
     // the structural constraints have to survive it.
     const errors = validator.validateFormData(
       { bind: "not an object" },
-      relax(SCHEMA) as object
+      relax(SCHEMA) as object,
     ).errors;
 
     expect(errors.map((e) => e.name)).toContain("type");

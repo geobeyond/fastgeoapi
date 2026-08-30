@@ -57,7 +57,7 @@ describe("the form", () => {
         validator={validator}
         formData={DATA}
         onChange={onChange}
-      />
+      />,
     );
 
     const title = screen.getByLabelText("title");

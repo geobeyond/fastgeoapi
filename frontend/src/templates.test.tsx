@@ -40,14 +40,14 @@ describe("the controls", () => {
         validator={validator}
         formData={DATA}
         templates={templates}
-      />
+      />,
     );
 
     expect(
-      screen.getAllByRole("button", { name: /add/i }).length
+      screen.getAllByRole("button", { name: /add/i }).length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByRole("button", { name: /remove/i }).length
+      screen.getAllByRole("button", { name: /remove/i }).length,
     ).toBeGreaterThan(0);
   });
 
@@ -61,7 +61,7 @@ describe("the controls", () => {
         formData={DATA}
         templates={templates}
         onChange={onChange}
-      />
+      />,
     );
 
     await userEvent.click(screen.getAllByRole("button", { name: /add/i })[0]);

@@ -56,7 +56,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function applyDiff(
   doc: Document,
   before: unknown,
-  after: unknown
+  after: unknown,
 ): number {
   let written = 0;
   for (const [path, value] of changes(before, after)) {
@@ -82,7 +82,7 @@ const REMOVED = Symbol("removed");
 function* changes(
   before: unknown,
   after: unknown,
-  at: Path = []
+  at: Path = [],
 ): Generator<[Path, unknown]> {
   if (Object.is(before, after)) return;
 
@@ -161,7 +161,7 @@ const EMIT = { indentSeq: false };
 export function serialise(
   original: string,
   doc: Document,
-  written: number
+  written: number,
 ): string {
   if (written === 0) return original;
 
@@ -171,7 +171,7 @@ export function serialise(
   const regions = diff3Merge(
     original.split("\n"),
     base.split("\n"),
-    modified.split("\n")
+    modified.split("\n"),
   );
   // On a conflict the edited side wins: the region is one the operator
   // changed, and the alternative would be to silently drop their edit.

@@ -11,6 +11,9 @@
 import { StrictMode, useCallback, useState } from "react";
 import { createRoot } from "react-dom/client";
 
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { openSession } from "./api";
 import App from "./App";
 import "./style.css";
@@ -34,23 +37,38 @@ function Unlock({ onOpen }: { onOpen: () => void }) {
   }
 
   return (
-    <main className="unlock">
-      <h1>fastgeoapi configuration editor</h1>
-      <p>Paste the token the command printed.</p>
-      <form onSubmit={(event) => void submit(event)}>
-        <label htmlFor="token">Token</label>
-        <input
-          id="token"
-          type="password"
-          autoComplete="off"
-          value={token}
-          onChange={(event) => setToken(event.target.value)}
-        />
-        <button type="submit" disabled={busy || token.trim() === ""}>
-          {busy ? "Checking…" : "Open"}
-        </button>
-      </form>
-      {refused && <p className="failure">That token was not accepted.</p>}
+    <main className="mx-auto max-w-md p-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>fastgeoapi configuration editor</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Paste the token the command printed.
+          </p>
+          <form className="space-y-3" onSubmit={(event) => void submit(event)}>
+            <label className="block text-sm font-medium" htmlFor="token">
+              Token
+            </label>
+            <input
+              id="token"
+              type="password"
+              autoComplete="off"
+              className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={token}
+              onChange={(event) => setToken(event.target.value)}
+            />
+            <Button type="submit" disabled={busy || token.trim() === ""}>
+              {busy ? "Checking…" : "Open"}
+            </Button>
+          </form>
+          {refused && (
+            <p className="mt-3 text-sm text-destructive" role="alert">
+              That token was not accepted.
+            </p>
+          )}
+        </CardContent>
+      </Card>
     </main>
   );
 }
@@ -69,5 +87,5 @@ function Editor() {
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <Editor />
-  </StrictMode>
+  </StrictMode>,
 );

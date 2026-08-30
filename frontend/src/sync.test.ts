@@ -38,7 +38,7 @@ describe("moving between the two views", () => {
     expect(opened.error).toBeNull();
     expect(
       (opened.state!.data as any).resources["overture-places"].providers[0]
-        .store_options
+        .store_options,
     ).toEqual({ skip_signature: true });
   });
 
