@@ -52,8 +52,14 @@ async def _document_of(request: Request) -> str:
     return document
 
 
-def build_routes(source: str) -> list[Route]:
-    """The editor's routes, bound to one configuration document."""
+def build_routes(source: str, augmented: bool = False) -> list[Route]:
+    """The editor's routes, bound to one configuration document.
+
+    ``augmented`` adds what only fastgeoapi can say about a document —
+    the specifications it would mount, the MCP tools it would expose —
+    to what a dry run answers. Off by default, because this surface is
+    meant to be useful to someone who has only pygeoapi.
+    """
 
     async def get_config(request: Request) -> JSONResponse:
         """The document as written — placeholders and all.
@@ -88,7 +94,7 @@ def build_routes(source: str) -> list[Route]:
             document = await _document_of(request)
         except ValueError as e:
             return JSONResponse({"message": str(e)}, status_code=400)
-        return JSONResponse(asdict(dry_run(document)))
+        return JSONResponse(asdict(dry_run(document, augmented=augmented)))
 
     async def save(request: Request) -> JSONResponse:
         try:

@@ -96,6 +96,15 @@ beforeEach(() => {
     source: "s3://fastgeoapi-demo/pygeoapi-config.yml",
     document: DOCUMENT,
   });
+  vi.mocked(api.dryRun).mockResolvedValue({
+    ok: true,
+    problems: [],
+    variables: {},
+    collections: ["lakes"],
+    specs: ["core", "features"],
+    tools: ["getCollections", "getLakesFeatures"],
+    not_reported: [],
+  });
   vi.mocked(api.save).mockResolvedValue({
     saved: true,
     activated: false,
@@ -209,5 +218,38 @@ describe("the two views", () => {
     expect(await screen.findByRole("alert")).toBeTruthy();
     await userEvent.click(screen.getByRole("tab", { name: /form/i }));
     expect(screen.getByLabelText("en")).toBeTruthy();
+  });
+});
+
+describe("what only fastgeoapi can say", () => {
+  it("shows the specifications and the tools when the dry run reports them", async () => {
+    render(<App onLocked={() => {}} />);
+    await screen.findByText(/No changes yet/);
+
+    await userEvent.click(screen.getByRole("button", { name: "Dry run" }));
+
+    expect(await screen.findByText(/core, features/)).toBeTruthy();
+    expect(screen.getByText(/MCP tools an agent would see \(2\)/)).toBeTruthy();
+  });
+
+  it("says nothing about either when they are not reported", async () => {
+    // The default. A pygeoapi user must not be shown an empty promise.
+    vi.mocked(api.dryRun).mockResolvedValue({
+      ok: true,
+      problems: [],
+      variables: {},
+      collections: ["lakes"],
+      specs: [],
+      tools: [],
+      not_reported: [],
+    });
+    render(<App onLocked={() => {}} />);
+    await screen.findByText(/No changes yet/);
+
+    await userEvent.click(screen.getByRole("button", { name: "Dry run" }));
+
+    await screen.findByText(/Built here/);
+    expect(screen.queryByText(/MCP tools/)).toBeNull();
+    expect(screen.queryByText(/Specifications mounted/)).toBeNull();
   });
 });

@@ -220,6 +220,32 @@ export default function App({ onLocked }: { onLocked: () => void }) {
           </CardHeader>
           <CardContent className="space-y-3">
             <Answer title="Built here" outcome={preview} />
+            {/* Only when asked for, and only when there is something to
+                say: `--augmented` is off by default because the editor
+                has to stay useful with nothing but pygeoapi installed. */}
+            {preview.specs.length > 0 && (
+              <p className="text-sm">
+                <span className="font-medium">Specifications mounted:</span>{" "}
+                {preview.specs.join(", ")}
+              </p>
+            )}
+            {preview.tools.length > 0 && (
+              <details className="text-sm">
+                <summary className="cursor-pointer font-medium">
+                  MCP tools an agent would see ({preview.tools.length})
+                </summary>
+                <p className="mt-1 font-mono text-xs text-muted-foreground">
+                  {preview.tools.join(", ")}
+                </p>
+              </details>
+            )}
+            {preview.not_reported.length > 0 && (
+              <ul className="list-inside list-disc text-xs text-muted-foreground">
+                {preview.not_reported.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            )}
             <p className="text-xs text-muted-foreground">
               This says whether it builds <em>here</em>, with the variables and
               credentials of whoever is running the editor. It says nothing

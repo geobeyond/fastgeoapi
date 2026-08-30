@@ -71,6 +71,7 @@ def build_authoring_app(
     host: str = "127.0.0.1",
     source: str | None = None,
     page: Path | None = None,
+    augmented: bool = False,
 ) -> Starlette:
     """Build the editor's application, refusing to be reachable.
 
@@ -79,6 +80,11 @@ def build_authoring_app(
     source
         The configuration document to edit. Defaults to the one this
         installation is configured with.
+    augmented
+        Whether a dry run also reports what fastgeoapi would make of the
+        document — mounted specifications, MCP tools — beyond whether it
+        builds. Off by default: the editor is meant to be useful with
+        nothing but pygeoapi installed.
     host
         The address this is about to be served on. A non-loopback one
         raises: the authoring role has no authentication chain in front
@@ -194,7 +200,7 @@ def build_authoring_app(
         routes=[
             Route("/editor/health", health, methods=["GET"]),
             Route("/editor/session", session, methods=["POST"]),
-            *build_routes(source),
+            *build_routes(source, augmented=augmented),
             serve_page,  # last: a mount at "/" would shadow everything above
         ],
         middleware=[Middleware(TokenGuard)],
