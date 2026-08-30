@@ -7,13 +7,8 @@ from typing import Annotated
 
 import typer
 import uvicorn
-from openapi_pydantic.v3.v3_0 import OAuthFlow, OAuthFlows, SecurityScheme
-from pygeoapi.l10n import LocaleError
-from pygeoapi.provider.base import ProviderConnectionError
 from rich.console import Console
 
-from app.config.app import configuration as cfg
-from app.pygeoapi.openapi import augment_security
 from app.utils.pygeoapi_exceptions import (
     PygeoapiEnvError,
     PygeoapiLanguageError,
@@ -81,14 +76,36 @@ def run(
 def openapi() -> None:
     """Generate openapi document enriched with security schemes."""
     try:
+        # Interpolation inputs for ``${VAR}`` placeholders inside the
+        # pygeoapi config (resolved by pygeoapi's yaml_load). The config
+        # itself travels as bytes through the storage layer: local paths
+        # and s3://, gs://, az:// URLs share one code path.
+        # All imported here, not at module level. Reaching any of them
+        # pulls in fastgeoapi's settings, and building those demands a
+        # configured fastgeoapi — HOST, PORT and the rest — while
+        # `config edit` is meant to work for someone who has only
+        # pygeoapi and a document to fix. At module level the command
+        # died on two missing variables before reading its own arguments.
+        from openapi_pydantic.v3.v3_0 import (
+            OAuthFlow,
+            OAuthFlows,
+            SecurityScheme,
+        )
+        from pygeoapi.l10n import LocaleError
+        from pygeoapi.provider.base import ProviderConnectionError
+
+        # Imported here, not at module level: building these settings
+        # demands a configured fastgeoapi — HOST, PORT and the rest — and
+        # `config edit` is meant to work for someone who has only
+        # pygeoapi and a document to fix. A module-level import made the
+        # command die on two missing variables before it had read its own
+        # arguments.
+        from app.config.app import configuration as cfg
         from app.config.source import load_config_source
         from app.provider.storage import StorageBridge, load_store, split_source
         from app.pygeoapi.factory import build_openapi
+        from app.pygeoapi.openapi import augment_security
 
-        # Interpolation inputs for ``${VAR}`` placeholders inside the
-        # pygeoapi config (resolved by pygeoapi's yaml_load). The config
-        # itself travels as bytes through the storage layer (ADR-0003):
-        # local paths and s3://, gs://, az:// URLs share one code path.
         os.environ["PYGEOAPI_CONFIG"] = cfg.PYGEOAPI_CONFIG
         os.environ["PYGEOAPI_OPENAPI"] = cfg.PYGEOAPI_OPENAPI
         os.environ["PYGEOAPI_BASEURL"] = cfg.PYGEOAPI_BASEURL

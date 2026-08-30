@@ -6,7 +6,6 @@ from pathlib import Path
 
 from loguru import logger
 
-from app.config.app import configuration as cfg
 from app.schemas.logging import LoggerModel, LoggingBase
 
 # The configured LOG_FORMAT references `extra[request_id]` and `extra[method]`.
@@ -136,19 +135,43 @@ def silence_probe_access_logs() -> None:
         access_logger.addFilter(ProbeAccessLogFilter())
 
 
-def create_logger(name: str):
-    """Create a logger instance."""
-    logger = logging.getLogger(name)
-    config = LoggerModel(
-        logger=LoggingBase(
-            path=Path(cfg.LOG_PATH) / cfg.LOG_FILENAME,
-            level=cfg.LOG_LEVEL,
-            enqueue=cfg.LOG_ENQUEUE,
-            retention=cfg.LOG_RETENTION,
-            rotation=cfg.LOG_ROTATION,
-            format_=cfg.LOG_FORMAT,
-        ),
+def _logging_settings() -> LoggingBase:
+    """Where to log, from the configuration if there is one."""
+    try:
+        from app.config.app import configuration as settings
+    except Exception:
+        # Not a configured deployment — the CLI editing a document, a
+        # test, an import. Importing that module *builds* the settings,
+        # so a failure here means nothing from it can be reached: the
+        # model's own defaults stand in.
+        return LoggingBase()
+
+    return LoggingBase(
+        path=Path(settings.LOG_PATH) / settings.LOG_FILENAME,
+        level=settings.LOG_LEVEL,
+        enqueue=settings.LOG_ENQUEUE,
+        retention=settings.LOG_RETENTION,
+        rotation=settings.LOG_ROTATION,
+        format_=settings.LOG_FORMAT,
     )
+
+
+def create_logger(name: str):
+    """Create a logger instance.
+
+    The settings are read here rather than imported at the top, and a
+    failure to build them is not fatal. Almost every module in the
+    project asks for a logger while it is being imported, so an eager
+    read made *every* import demand a configured fastgeoapi — which is
+    how `fastgeoapi config edit` came to require a `HOST` and a `PORT`
+    it never uses.
+
+    Falling back is the right behaviour on its own terms because a logger
+    that insists on a configured application is a logger that cannot
+    report a broken configuration.
+    """
+    logger = logging.getLogger(name)
+    config = LoggerModel(logger=_logging_settings())
     logger = CustomizeLogger.make_logger(config)
 
     return logger

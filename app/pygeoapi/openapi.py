@@ -6,7 +6,6 @@ from pydantic_core import ValidationError
 from pygeoapi.openapi import generate_openapi_document as _upstream_generate_openapi_document
 
 from app.auth.models import unauthorized
-from app.config.app import configuration as cfg
 from app.config.logging import create_logger
 from app.pygeoapi.models import not_found
 
@@ -27,6 +26,14 @@ def describe_servers(content: dict) -> None:
     ``ENV_STATE`` rather than guessed from the URL, so it says what the
     deployment was configured to be.
     """
+    # Imported here rather than at module level. Building fastgeoapi's
+    # settings demands a configured fastgeoapi, and this module is
+    # reached — through the factory — by `fastgeoapi config edit`, which
+    # is meant to work for someone who has only pygeoapi and a document
+    # to fix. Nothing the editor calls needs these values; an import at
+    # the top would have demanded them all the same.
+    from app.config.app import configuration as cfg
+
     servers = content.get("servers")
     if not servers:
         return
@@ -71,6 +78,14 @@ def describe_jwt_validation(content: dict) -> None:
 
 def augment_security(doc: str, security_schemes: list[SecurityScheme]) -> OpenAPI:
     """Augment openapi document with security sections."""
+    # Imported here rather than at module level. Building fastgeoapi's
+    # settings demands a configured fastgeoapi, and this module is
+    # reached — through the factory — by `fastgeoapi config edit`, which
+    # is meant to work for someone who has only pygeoapi and a document
+    # to fix. Nothing the editor calls needs these values; an import at
+    # the top would have demanded them all the same.
+    from app.config.app import configuration as cfg
+
     try:
         openapi = OpenAPI.model_validate_json(doc)
     except ValidationError as e:
