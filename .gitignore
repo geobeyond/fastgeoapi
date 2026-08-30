@@ -14,8 +14,12 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Anchored to the root. Unanchored, these come from the Python template
+# and match at every depth — which silently swallowed
+# `frontend/src/lib/`, a directory of source, and produced a failure
+# only CI could see.
+/lib/
+/lib64/
 parts/
 sdist/
 var/
