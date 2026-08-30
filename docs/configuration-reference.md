@@ -133,6 +133,12 @@ declares no `additionalProperties` — which also means nothing upstream
 documents them. This section is hand-written and is never touched by the
 generator.
 
+Being outside the schema has one practical consequence: the
+[configuration editor](configuration-editor.md)'s form cannot create
+them, because no widget can be generated for a key the schema does not
+mention. It preserves them faithfully once they exist; to write one, use
+the editor's YAML tab.
+
 ### Provider keys
 
 | Key               | Used by    | Meaning                                                |

@@ -22,45 +22,21 @@ Token: A7ks…
   curl -H 'X-Fastgeoapi-Editor-Token: A7ks…' http://127.0.0.1:8765/editor/config
 ```
 
-Open that address and the page asks for the token once. **The address
-never carries it**: a secret in a URL survives in browser history, rides
-along in the `Referer` sent to anything the page loads, and stays in the
-shell history that printed it. What the page gets back instead is an
-`HttpOnly` cookie — which also _confines_, since a browser binds a
-cookie to the origin that set it and will not send it to your
-deployment, even by mistake.
+There are two ways in and they are equally supported: a page in your
+browser, and the JSON endpoints behind it. The page is one caller among
+others, not the only way.
 
-If the command says the page is not compiled, the API still works —
-that is what it is for. `cd frontend && npm install && npm run build`
-adds the page; a release from PyPI has it already.
+Editing a document in a bucket needs that bucket's credentials in your
+environment, exactly as the deployment has them — see
+[Config from cloud storage](cloud-config.md).
+
+---
 
 ## The page
 
-A form built from the schema of the pygeoapi you are actually running,
-served by the editor rather than compiled in, so it cannot drift from
-the version in front of you.
-
-Three things about it are worth knowing, because each one is a mistake
-it deliberately does not make.
-
-**It does not own your document.** A form takes JSON and gives JSON
-back, and that round trip loses whatever the schema does not describe —
-which here means `store_options`, `engine_options`, every
-provider-specific key, and all your comments. So the document stays the
-truth and the form is a view: only the values you actually changed are
-written back. Open it and save it without touching anything and the file
-is returned **byte for byte** as it was.
-
-**It shows your `${VAR}` placeholders.** Left to itself the form would
-render `port: ${PORT}` as an empty number box and call your
-configuration broken — and one keystroke would replace a value you
-parameterised on purpose with nothing. Every scalar field therefore
-accepts text as well, so a placeholder stays visible and stays put.
-
-**It is not the authority on whether your document is valid.** The page
-asks the server, which answers twice — as written, and as it would run.
-That distinction cannot be made in a browser, which knows neither your
-environment nor the deployment's.
+A form built from the schema of the pygeoapi you are actually running.
+The schema is served by the editor rather than compiled into the page,
+so it cannot drift from the version in front of you.
 
 ### Two tabs, both editable
 
@@ -71,49 +47,101 @@ The text view is editable rather than a preview, and the reason is a
 limit rather than a preference: pygeoapi's schema does not describe
 `store_options` or `engine_options`, and says nothing about what keys a
 provider may accept — so no widget can create them. The form preserves
-them; only the text can write them. Adding a GeoParquet collection is
-therefore something you do in the YAML tab.
+them; only the text can write them. **Adding a GeoParquet collection is
+therefore something you do in the YAML tab.**
 
-What you type **is** the document: saving sends it back as you wrote it,
+What you type _is_ the document: saving sends it back as you wrote it,
 not a tidied re-rendering of it. While a line is still half written the
 text simply does not parse, which is said above the editor, and the form
 keeps the last document that did.
 
-Save, Validate and Dry run sit below both tabs: which view you happen to
-be looking at does not change what they do.
+**Save**, **Validate** and **Dry run** sit below both tabs: which view
+you are looking at does not change what they do.
 
-## What it will not do
+### Three mistakes it does not make
 
-**It cannot put anything into service.** The editor mounts no reload
-webhook — saving writes the document, nothing more. Activating it is a
-separate gesture, against the deployment, with that deployment's own
-credentials.
+**It does not own your document.** A form takes JSON and gives JSON
+back, and that round trip loses whatever the schema does not describe —
+`store_options`, `engine_options`, every provider-specific key, and all
+your comments. So the document stays the truth and the form is a view:
+only the values you actually changed are written back. Open it and save
+it without touching anything and the file comes back **byte for byte** as
+it was.
 
-That separation is deliberate twice over. Writing a configuration and
-activating it are different powers, and one surface holding both would
-mean whoever reaches it decides what the server serves. And a dry run
-empties the process caches: an editor sitting beside a live server would
-degrade what that server is serving on every preview, taking request
-latency back up with nobody able to connect cause to effect.
+**It shows your `${VAR}` placeholders.** Left to itself the form renders
+`port: ${PORT}` as an empty number box and calls your configuration
+broken — and one keystroke would replace a value you parameterised on
+purpose with nothing. Every scalar field therefore accepts text as well,
+so a placeholder stays visible and stays put.
 
-**It stays on loopback.** There is no OIDC chain in front of it —
-demanding an OAuth flow to edit a file on your own machine would be
-ceremony without security — so not being reachable from elsewhere is
-what stands in its place. Asking it to serve on any other address is a
-startup failure, not a warning.
+**It is not the authority on whether your document is valid.** The page
+asks the server, which answers twice — as written, and as it would run.
+That distinction cannot be made in a browser, which knows neither your
+environment nor the deployment's.
+
+### How the token reaches it
+
+The page asks for the token once and posts it in a request body. **The
+address never carries it**: a secret in a URL survives in browser
+history, rides along in the `Referer` sent to anything the page loads,
+and stays in the shell history that printed it.
+
+What comes back is an `HttpOnly` cookie, which also _confines_: a browser
+binds a cookie to the origin that set it, so it cannot be sent to your
+deployment even by mistake. A header has no such limit.
+
+If the command says the page is not compiled, the API still works — that
+is what it is for. `cd frontend && npm install && npm run build` adds the
+page; a release installed from PyPI has it already.
+
+---
 
 ## The endpoints
 
-| Method | Path               | Answers                                            |
-| ------ | ------------------ | -------------------------------------------------- |
-| `GET`  | `/editor/config`   | the document as written, placeholders intact       |
-| `POST` | `/editor/validate` | is it well formed — as source, and as it would run |
-| `POST` | `/editor/dry-run`  | does it actually build                             |
-| `PUT`  | `/editor/config`   | save it, if it validates                           |
+| Method | Path               | Answers                                                |
+| ------ | ------------------ | ------------------------------------------------------ |
+| `POST` | `/editor/session`  | exchange the token for a cookie                        |
+| `GET`  | `/editor/schema`   | pygeoapi's configuration schema, as this server has it |
+| `GET`  | `/editor/config`   | the document as written, placeholders intact           |
+| `POST` | `/editor/validate` | is it well formed — as source, and as it would run     |
+| `POST` | `/editor/dry-run`  | does it actually build                                 |
+| `PUT`  | `/editor/config`   | save it, if it validates                               |
+
+Every one of them needs the token, in the `X-Fastgeoapi-Editor-Token`
+header or in the session cookie — except `/editor/session`, which is how
+a browser gets in and checks the token in its own body.
 
 They answer JSON and need no browser: use them from `curl`, from a
-script, or as a check in CI on a configuration before it is merged. The
-page is one caller among those, not the only way in.
+script, or as a check in CI on a configuration before it is merged.
+
+### A whole edit from the shell
+
+```bash
+T='the token the command printed'
+H="X-Fastgeoapi-Editor-Token: $T"
+E=http://127.0.0.1:8765
+
+# read it as written, placeholders and all
+curl -s -H "$H" $E/editor/config | jq -r .document > candidate.yml
+
+# ...edit candidate.yml...
+
+# is it well formed?
+jq -n --arg d "$(cat candidate.yml)" '{document:$d}' \
+  | curl -s -H "$H" -X POST $E/editor/validate -d @- | jq
+
+# does it actually build?
+jq -n --arg d "$(cat candidate.yml)" '{document:$d}' \
+  | curl -s -H "$H" -X POST $E/editor/dry-run -d @- | jq
+
+# save it
+jq -n --arg d "$(cat candidate.yml)" '{document:$d}' \
+  | curl -s -H "$H" -X PUT $E/editor/config -d @- | jq
+```
+
+The same three calls make a reasonable CI check on a configuration before
+it is merged — with the caveat below about what a dry run can and cannot
+tell you from where it runs.
 
 ### Two ways to be well formed
 
@@ -125,6 +153,20 @@ wrong in the effective form.
 So `validate` answers twice, and the effective answer carries the
 variables it substituted. Without them the answer would not be
 reproducible: the values come from wherever the editor is running.
+
+```json
+{
+  "source": { "ok": true, "problems": [] },
+  "effective": {
+    "ok": true,
+    "problems": [],
+    "variables": { "PORT": "5000", "HOST": "0.0.0.0" }
+  }
+}
+```
+
+A placeholder with no value in your environment is reported by name,
+rather than the document being called broken.
 
 ### Saving refuses before it writes, never after
 
@@ -145,8 +187,10 @@ It also says what it checked:
 
 A dry run is not run on every save on purpose: against a remote dataset
 it costs seconds, and an editor that made you wait would teach you to
-route around it. So _saved_ does not mean _verified_, and the answer
-says so rather than letting you assume it.
+route around it. So _saved_ does not mean _verified_, and the answer says
+so rather than letting you assume it.
+
+---
 
 ## What a dry run does — and what it does not
 
@@ -160,7 +204,21 @@ and then goes further than building, because building is not enough:
   missing, which is indistinguishable from a collection that is
   legitimately empty;
 - so **the data source is checked directly**, through the same storage
-  layer for a local path and a bucket alike.
+  layer for a local path and a bucket alike, using each dataset's own
+  `store_options` so a public bucket is not signed with credentials meant
+  for somewhere else.
+
+```json
+{
+  "ok": true,
+  "problems": [],
+  "variables": { "PORT": "5000" },
+  "collections": ["lakes", "obs", "overture-places"]
+}
+```
+
+Against remote datasets this takes seconds — it really does read one item
+from each collection.
 
 !!! warning "It answers whether this builds _here_, never whether it works _there_"
 
@@ -172,6 +230,28 @@ and then goes further than building, because building is not enough:
     two apart. Reading a green as a guarantee about production is the one
     way this feature can do harm instead of good.
 
-What it does catch is most of what actually goes wrong: a mistyped key,
-a provider that will not import, a missing extra, a path or an object
-that is not where the configuration says it is.
+What it does catch is most of what actually goes wrong: a mistyped key, a
+provider that will not import, a missing extra, a path or an object that
+is not where the configuration says it is.
+
+---
+
+## What it will not do
+
+**It cannot put anything into service.** The editor mounts no reload
+webhook — saving writes the document, nothing more. Activating it is a
+separate gesture, against the deployment, with that deployment's own
+credentials.
+
+That separation is deliberate twice over. Writing a configuration and
+activating it are different powers, and one surface holding both would
+mean whoever reaches it decides what the server serves. And a dry run
+empties the process caches: an editor sitting beside a live server would
+degrade what that server is serving on every preview, taking request
+latency back up with nobody able to connect cause to effect.
+
+**It stays on loopback.** There is no OIDC chain in front of it —
+demanding an OAuth flow to edit a file on your own machine would be
+ceremony without security — so not being reachable from elsewhere is what
+stands in its place. Asking it to serve on any other address is a startup
+failure, not a warning. There is no `--host` option for this reason.

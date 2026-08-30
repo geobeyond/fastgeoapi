@@ -74,6 +74,14 @@ This diagram gives an overview of the basic architecture:
 - **CIMD & enterprise identity** - Client ID Metadata Document exercised in production by Claude; EMA/ID-JAG under verification
 - **Stateless transport** - Restarts, redeploys and autosuspend are transparent to connected clients
 
+### ⚙️ Configuration You Can Change Safely
+
+- **Configuration editor** - `fastgeoapi config edit` opens a local editor for the pygeoapi document, on loopback only
+- **Two views, one document** - a schema-driven form and a YAML editor; the form never overwrites keys the schema does not describe
+- **Dry run before saving** - builds the whole API from your candidate configuration and reads one item per collection, so a broken source is found before it is served
+- **Writing is not activating** - the editor mounts no reload webhook: putting a configuration into service stays a separate, deliberate gesture
+- **JSON endpoints too** - the same checks run from `curl` or in CI, with no browser involved
+
 ### 🚀 Performance & Modern Stack
 
 - **FastAPI Framework** - High-performance async API built on Starlette and Pydantic
@@ -188,7 +196,7 @@ This automatically:
 - Installs all required dependencies including git-based packages from `[tool.uv.sources]` (pygeoapi master, pygeofilter, fencer)
 - Sets up fastgeoapi in development mode
 
-> **Note:** For development, UV uses git-based dependencies defined in `[tool.uv.sources]` to get the latest features from upstream projects. The PyPI release uses stable published versions. See [uv.md](uv.md) for more details.
+> **Note:** For development, UV uses git-based dependencies defined in `[tool.uv.sources]` to get the latest features from upstream projects. The PyPI release uses stable published versions. See [uv.md](https://github.com/geobeyond/fastgeoapi/blob/main/uv.md) for more details.
 
 ### Activate the Virtual Environment
 
@@ -270,6 +278,18 @@ With options:
 fastgeoapi run --host 0.0.0.0 --port 5000 --reload
 ```
 
+Edit the configuration, with a form and a YAML view side by side:
+
+```shell
+fastgeoapi config edit
+fastgeoapi config edit --source s3://my-bucket/pygeoapi-config.yml
+```
+
+It prints a per-run token and an address to open. It stays on loopback,
+and it can write a configuration but never put one into service — see
+[the command line](https://geobeyond.github.io/fastgeoapi/cli/) and
+[editing the configuration](https://geobeyond.github.io/fastgeoapi/configuration-editor/).
+
 See the [Getting Started guide](https://geobeyond.github.io/fastgeoapi/getting-started/) for complete setup instructions including authentication options and examples.
 
 ### Common UV Commands
@@ -288,7 +308,7 @@ uv pip install package-name
 uv pip install --group dev
 ```
 
-For more details, see [uv.md](uv.md).
+For more details, see [uv.md](https://github.com/geobeyond/fastgeoapi/blob/main/uv.md).
 
 ## Release Workflow
 
@@ -344,7 +364,7 @@ The files under `scripts/postman` can be used to setup Postman with a configurat
 ## Contributing
 
 Contributions are very welcome. To learn more, see the [Contributor
-Guide](CONTRIBUTING.rst).
+Guide](https://github.com/geobeyond/fastgeoapi/blob/main/CONTRIBUTING.md).
 
 ## License
 
