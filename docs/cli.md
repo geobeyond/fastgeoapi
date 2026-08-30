@@ -62,6 +62,25 @@ fastgeoapi config edit --port 9000
 | ---------------- | ------------------------ | ------------------------------------ |
 | `--source`, `-s` | your configured document | what to edit; a path or a bucket URL |
 | `--port`, `-p`   | `8765`                   | port for the editor                  |
+| `--augmented`    | off                      | also report what fastgeoapi adds     |
+
+### It works with only pygeoapi installed
+
+Installing fastgeoapi to edit a pygeoapi document is a reasonable thing
+to want: the dry run builds the whole API and reads every data source,
+which nothing upstream offers. So `config edit` asks for **no fastgeoapi
+configuration at all** — no `HOST`, no `PORT`, no `.env`, no
+authentication chain. Point it at a document and it opens.
+
+`--augmented` is the opt-in for the other side of that line. It adds
+what only fastgeoapi can say about a configuration: which OGC API
+specifications it would mount, since the route table is built from the
+resources rather than serving everything, and which MCP tools an agent
+would see, derived from the OpenAPI the dry run has already built.
+
+Asking for it where it cannot be answered is not an error — the answer
+carries a line saying which half is missing and why, rather than failing
+and handing back the barrier this command exists without.
 
 It prints a per-run token and the address to open. There is **no
 `--host`**: the editor refuses to serve anywhere but loopback, and that

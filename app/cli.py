@@ -211,6 +211,13 @@ def config_edit(
         int,
         typer.Option("--port", "-p", help="Port to serve the editor on"),
     ] = 8765,
+    augmented: Annotated[
+        bool,
+        typer.Option(
+            "--augmented",
+            help="Also report what fastgeoapi adds: mounted specifications and MCP tools",
+        ),
+    ] = False,
 ) -> None:
     """Edit the configuration document through a local editor.
 
@@ -234,7 +241,7 @@ def config_edit(
     from app.editor.app import EDITOR_TOKEN_HEADER, build_authoring_app
 
     host = "127.0.0.1"
-    editor = build_authoring_app(host=host, source=source)
+    editor = build_authoring_app(host=host, source=source, augmented=augmented)
     token = editor.state.editor_token
     base = f"http://{host}:{port}"
 

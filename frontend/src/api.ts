@@ -12,6 +12,12 @@ export interface Outcome {
   problems: string[];
   variables: Record<string, string>;
   collections: string[];
+  /** With `--augmented`: the OGC API specifications this would mount. */
+  specs: string[];
+  /** With `--augmented`: the MCP tools an agent would see. */
+  tools: string[];
+  /** Parts of an augmented answer that could not be produced, and why. */
+  not_reported: string[];
 }
 
 export interface Validation {

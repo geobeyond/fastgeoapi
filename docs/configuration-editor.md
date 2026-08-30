@@ -220,6 +220,35 @@ and then goes further than building, because building is not enough:
 Against remote datasets this takes seconds — it really does read one item
 from each collection.
 
+### `--augmented`: what only fastgeoapi can tell you
+
+Everything above works against a plain pygeoapi. Started with
+`--augmented`, a dry run answers two more questions that pygeoapi has no
+way to ask:
+
+```json
+{
+  "specs": ["core", "features", "processes"],
+  "tools": ["getCollections", "getLakesFeatures", "describeObsCollection"],
+  "not_reported": []
+}
+```
+
+**`specs`** — the OGC API specifications this configuration would mount.
+fastgeoapi builds its route table from the resources rather than serving
+everything, so removing your last process resource stops declaring OGC
+API - Processes, and this is where you find that out.
+
+**`tools`** — the MCP tools an agent would see. They are generated from
+the OpenAPI document, which the dry run has already built, and named by
+FastMCP rather than by us, so the list is what a client would really
+receive.
+
+**`not_reported`** — whichever half could not be produced, and why. The
+flag never fails: someone may pass it against a pygeoapi they do not
+serve with fastgeoapi, and an error there would put back the barrier the
+editor deliberately does without.
+
 !!! warning "It answers whether this builds _here_, never whether it works _there_"
 
     The build uses **your** environment and **your** credentials, not the

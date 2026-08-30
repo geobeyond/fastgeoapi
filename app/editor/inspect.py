@@ -42,12 +42,26 @@ class Outcome:
         the values come from whoever is running the editor.
     collections
         For a dry run, the collections that actually stood up.
+    specs
+        With `augmented`, the OGC API specifications this configuration
+        would mount. fastgeoapi builds its route table from the
+        resources rather than serving everything (ADR-0005), so this is
+        a fact about the document that no pygeoapi tool can report.
+    tools
+        With `augmented`, the MCP tools an agent would see.
+    not_reported
+        Parts of an augmented answer that could not be produced, and
+        why. Asking for more than is installed is not an error — saying
+        nothing about it would be.
     """
 
     ok: bool
     problems: list[str] = field(default_factory=list)
     variables: dict[str, str] = field(default_factory=dict)
     collections: list[str] = field(default_factory=list)
+    specs: list[str] = field(default_factory=list)
+    tools: list[str] = field(default_factory=list)
+    not_reported: list[str] = field(default_factory=list)
 
 
 def _placeholders(text: str) -> set[str]:
@@ -138,12 +152,18 @@ def validate_effective(text: str) -> Outcome:
     return Outcome(ok=not problems, problems=problems, variables=variables)
 
 
-def dry_run(text: str) -> Outcome:
+def dry_run(text: str, augmented: bool = False) -> Outcome:
     """Build the configuration for real, and report what stood up.
 
     This is what validation cannot do: a document can satisfy the schema
     and still name a file that is not there, a provider that will not
     import, or a bucket nothing can reach.
+
+    With `augmented`, it also reports what fastgeoapi would make of the
+    document beyond serving it: which specifications get mounted, and
+    which MCP tools an agent would see. Both are answers pygeoapi has no
+    way to give — and both are optional, because this command has to
+    keep working for someone who only has pygeoapi.
 
     It answers **"does this build here"**, never "will this work in
     production": the build uses the environment and the credentials of
@@ -161,7 +181,8 @@ def dry_run(text: str) -> Outcome:
 
     config: dict[str, Any] = yaml_load(text)
     try:
-        subapp = build_pygeoapi_subapp(config, build_openapi(config))
+        openapi = build_openapi(config)
+        subapp = build_pygeoapi_subapp(config, openapi)
     except Exception as e:
         return Outcome(ok=False, problems=[_blame(config, e)], variables=effective.variables)
 
@@ -202,12 +223,80 @@ def dry_run(text: str) -> Outcome:
             )
 
     problems = unreachable + problems
+    specs: list[str] = []
+    tools: list[str] = []
+    not_reported: list[str] = []
+    if augmented:
+        specs, tools, not_reported = _augmented(config, openapi)
+
     return Outcome(
         ok=not problems,
         problems=problems,
         variables=effective.variables,
         collections=sorted(served),
+        specs=specs,
+        tools=tools,
+        not_reported=not_reported,
     )
+
+
+def _augmented(config: dict, openapi: dict) -> tuple[list[str], list[str], list[str]]:
+    """The two answers only fastgeoapi can give, each failing on its own.
+
+    Separately, deliberately: an installation without fastmcp still gets
+    its specifications, and neither missing half is allowed to take the
+    dry run down with it. Someone may pass the flag against a pygeoapi
+    they do not serve with fastgeoapi, and failing would hand them back
+    the barrier this command just removed.
+    """
+    specs: list[str] = []
+    tools: list[str] = []
+    missing: list[str] = []
+
+    try:
+        from app.pygeoapi.registry import active_specs
+
+        specs = sorted(active_specs(config))
+    except Exception as e:
+        missing.append(f"specifications: {type(e).__name__}: {e}")
+
+    try:
+        tools = sorted(_mcp_tools(openapi))
+    except Exception as e:
+        missing.append(f"tools: {type(e).__name__}: {e}")
+
+    return specs, tools, missing
+
+
+def _mcp_tools(openapi: dict) -> list[str]:
+    """The tool names FastMCP would generate from this document.
+
+    Asked of FastMCP rather than derived here: the naming is its own,
+    and a copy of its rules would drift the first time upstream changed
+    them. The client is a stand-in — it is only reached when a tool is
+    *called*, and nothing here calls one.
+
+    Run on a thread of its own because the caller is synchronous and is
+    itself called from a running event loop, where `asyncio.run` refuses.
+    """
+    import asyncio
+    from concurrent.futures import ThreadPoolExecutor
+
+    import httpx2
+    from fastmcp import FastMCP
+
+    from app.utils.openapi_resolver import resolve_external_refs
+
+    async def listed() -> list[str]:
+        # The generated document carries external `$ref`s to the OGC
+        # schemas and FastMCP resolves only local ones.
+        resolved = resolve_external_refs(openapi)
+        async with httpx2.AsyncClient(base_url="http://the-tools-are-not-called") as client:
+            server = FastMCP.from_openapi(openapi_spec=resolved, client=client, name="preview")
+            return [tool.name for tool in await server.list_tools()]
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(lambda: asyncio.run(listed())).result()
 
 
 #: Where a dataset lives. obstore reads these in every constructor and
