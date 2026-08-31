@@ -360,31 +360,29 @@ def xdoctest(session: Session) -> None:
     session.run("python", "-m", "xdoctest", *args)
 
 
+#: What the documentation needs, beyond the project itself. Zensical
+#: replaced Material for MkDocs and most of its plugins with settings of
+#: its own; what is left is the API reference handler and the terminal
+#: animation, both of which it reads as extensions.
+DOCS_DEPENDENCIES = ("zensical>=0.0.33", "mkdocstrings-python", "termynal")
+
+
 @session(name="docs-build", python="3.12")
 def docs_build(session: Session) -> None:
     """Build the documentation."""
-    args = session.posargs or ["--config-file", "mkdocs.yml"]
-    # if not session.posargs and "FORCE_COLOR" in os.environ:
-    #     args.insert(0, "--color")
+    # `--strict` makes a warning a failure. The site builds clean, so
+    # the only thing this can catch is something newly broken — a link
+    # that no longer resolves being the usual one.
+    args = session.posargs or ["--strict"]
 
     _install_project(session)
-    session.install(
-        "mkdocs",
-        "mkdocs-material",
-        "mkdocs-material-extras",
-        "mkdocs-material-extensions",
-        "mkdocs-swagger-ui-tag",
-        "mkdocs-typer",
-        "mkdocstrings[python]",
-        "mkdocs-include-markdown-plugin",
-        "termynal",
-    )
+    session.install(*DOCS_DEPENDENCIES)
 
     build_dir = Path("docs_build", "site")
     if build_dir.exists():
         shutil.rmtree(build_dir)
 
-    session.run("python", "-m", "mkdocs", "build", *args)
+    session.run("python", "-m", "zensical", "build", *args)
 
 
 @session(python="3.12")
@@ -392,20 +390,10 @@ def docs(session: Session) -> None:
     """Build and serve the documentation with live reloading on file changes."""
     args = session.posargs
     _install_project(session)
-    session.install(
-        "mkdocs",
-        "mkdocs-material",
-        "mkdocs-material-extras",
-        "mkdocs-material-extensions",
-        "mkdocs-swagger-ui-tag",
-        "mkdocs-typer",
-        "mkdocstrings[python]",
-        "mkdocs-include-markdown-plugin",
-        "termynal",
-    )
+    session.install(*DOCS_DEPENDENCIES)
 
     build_dir = Path("docs_build", "site")
     if build_dir.exists():
         shutil.rmtree(build_dir)
 
-    session.run("python", "-m", "mkdocs", "serve", *args)
+    session.run("python", "-m", "zensical", "serve", *args)

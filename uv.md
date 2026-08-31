@@ -116,7 +116,10 @@ uv pip install --group dev
 
 Available dependency groups:
 
-- `dev`: Development and testing tools (pytest, ruff, pre-commit, mkdocs, etc.)
+- `dev`: Development and testing tools (pytest, ruff, pre-commit, etc.)
+- `docs`: The documentation stack (zensical, mkdocstrings). Separate so
+  the test environments do not carry it — ask for it with
+  `uv sync --group docs`.
 
 ## Daily Development Workflow
 

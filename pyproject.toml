@@ -80,20 +80,12 @@ dev = [
     "ruff>=0.14.0",
     "pre-commit-hooks>=6,<7",
     "termynal>=0.13.0",
-    "mkdocs>=1.6.1,<2",
-    "mkdocs-material>=8.0.0,<10",
-    "mkdocs-material-extras>=0.0.11",
-    "mkdocs-material-extensions>=1.3.1,<2",
-    "mkdocs-swagger-ui-tag>=0.7",
-    "mkdocstrings[python]>=1.0.0",
     "bandit>=1.9.2,<2",
     "ipython<9.12",
     "ty>=0.0.8",
     "commitizen>=4.11,<5",
     "openapi-resolver>=0.0.6,<0.0.7",
     "schemathesis>=4.0",
-    "mkdocs-typer>=0.0.3,<0.0.4",
-    "mkdocs-include-markdown-plugin>=7.0.0,<8",
     "pytest-asyncio>=1.3,<1.4",
     "nox[uv]>=2025.11.12",
     "pytest-iam>=0.2.0",
@@ -102,6 +94,10 @@ dev = [
     # for public key") and 500s the test IdP token endpoint; pin until the
     # canaille/joserfc incompatibility is fixed upstream.
     "joserfc>=1.6,<1.7",
+]
+docs = [
+    "mkdocstrings-python>=2.0.7",
+    "zensical>=0.0.33",
 ]
 
 [tool.uv]

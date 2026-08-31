@@ -52,10 +52,16 @@ repos:
       # Generated artefacts: reformatting them means `nox -s models`
       # alone leaves a tree CI rejects. The hand-written partial under
       # scripts/ stays formatted — that one is ours.
+      #
+      # docs/index.md is excluded for a different reason: v2.4.1 reindents
+      # the card grid from four spaces to two, which takes the paragraphs
+      # out of their list items and breaks the rendering. It does not
+      # honour `prettier-ignore-start` in Markdown either, so the file is
+      # left alone entirely.
       - id: prettier
         # `frontend/` has its own prettier, run by `npm run format:check`
         # and by the `page` job in CI. This mirror is pinned to v2.4.1,
         # which cannot parse an inline `type` modifier in an import —
         # the form shadcn's components are written in — so leaving it to
         # this hook would mean rewriting every component we copy in.
-        exclude: "^(app/pygeoapi/config_models/|frontend/|docs/configuration-reference\\.md$)"
+        exclude: "^(app/pygeoapi/config_models/|frontend/|docs/configuration-reference\\.md$|docs/index\\.md$)"

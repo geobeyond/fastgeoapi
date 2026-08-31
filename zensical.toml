@@ -1,0 +1,121 @@
+# Zensical, in place of mkdocs.yml.
+#
+# Material for MkDocs went into maintenance mode in November 2025 and its
+# authors now build Zensical, which reads the same content and most of
+# the same settings. This file is the previous `mkdocs.yml` translated,
+# with the navigation deliberately left as it was: the reorganisation is
+# a separate change, so that anything the move breaks is visible on its
+# own.
+
+[project]
+site_name = "fastgeoapi"
+site_description = "OGC API server built on pygeoapi, with authentication, cloud-native providers and an MCP endpoint"
+site_url = "https://geobeyond.github.io/fastgeoapi/"
+repo_name = "geobeyond/fastgeoapi"
+repo_url = "https://github.com/geobeyond/fastgeoapi"
+docs_dir = "docs"
+site_dir = "docs_build/site"
+copyright = "© Copyright 2025 Geobeyond team."
+extra_css = ["stylesheets/extra.css"]
+
+nav = [
+  { "Home" = "index.md" },
+  { "Why fastgeoapi" = "why-fastgeoapi.md" },
+  { "Getting started" = "getting-started.md" },
+  { "Configuration reference" = "configuration-reference.md" },
+  { "Command line" = "cli.md" },
+  { "How-to Guides" = [
+    { "Overview" = "howto-guides.md" },
+    { "Config from cloud storage" = "cloud-config.md" },
+    { "GeoParquet provider" = "geoparquet.md" },
+    { "Editing the configuration" = "configuration-editor.md" },
+  ] },
+  { "MCP" = [
+    { "Overview" = "mcp/index.md" },
+    { "Configuration" = "mcp/configuration.md" },
+    { "Supported specifications" = "mcp/specifications.md" },
+    { "Getting started" = "mcp/getting-started.md" },
+    { "Verifying with the MCP Inspector" = "mcp/inspector.md" },
+  ] },
+  { "Tutorials" = "tutorials.md" },
+  { "OpenAPI" = "openapi.md" },
+]
+
+[project.theme]
+logo = "images/fastgeoapi_logo.png"
+favicon = "images/fastgeoapi_logo.png"
+language = "en"
+features = [
+  "navigation.tabs",
+  "navigation.sections",
+  "navigation.top",
+  "navigation.indexes",
+  "toc.integrate",
+  "search.suggest",
+  "search.highlight",
+  "content.tabs.link",
+  "content.code.annotate",
+  "content.code.copy",
+]
+
+[[project.theme.palette]]
+scheme = "default"
+primary = "custom"
+accent = "red"
+toggle.icon = "material/toggle-switch-off-outline"
+toggle.name = "Switch to Dark Mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+primary = "custom"
+accent = "blue grey"
+toggle.icon = "material/toggle-switch"
+toggle.name = "Switch to Light Mode"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github-alt"
+link = "https://github.com/geobeyond"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/linkedin"
+link = "https://www.linkedin.com/company/geobeyond"
+
+# The API reference for contributors. Preliminary in Zensical — backlinks
+# are not supported yet, and its authors say they will rethink API
+# documentation from the ground up — so it is kept to what we rely on.
+[project.plugins.mkdocstrings.handlers.python]
+paths = ["app"]
+options.docstring_style = "numpy"
+options.show_source = true
+options.show_root_heading = true
+options.show_symbol_type_heading = true
+options.show_symbol_type_toc = true
+options.members_order = "source"
+
+[project.markdown_extensions.admonition]
+[project.markdown_extensions.attr_list]
+[project.markdown_extensions.md_in_html]
+[project.markdown_extensions.tables]
+[project.markdown_extensions.footnotes]
+
+[project.markdown_extensions."pymdownx.highlight"]
+anchor_linenums = true
+line_spans = "__span"
+pygments_lang_class = true
+
+[project.markdown_extensions."pymdownx.inlinehilite"]
+[project.markdown_extensions."pymdownx.snippets"]
+[project.markdown_extensions."pymdownx.details"]
+[project.markdown_extensions."pymdownx.superfences"]
+[project.markdown_extensions."pymdownx.mark"]
+
+[project.markdown_extensions."pymdownx.arithmatex"]
+generic = true
+
+[project.markdown_extensions."pymdownx.emoji"]
+emoji_generator = "zensical.extensions.emoji.to_svg"
+emoji_index = "zensical.extensions.emoji.twemoji"
+
+[project.markdown_extensions.termynal]
+include_assets = true
+prompt_literal_start = ["$"]
