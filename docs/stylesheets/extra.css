@@ -24,15 +24,43 @@
   --md-accent-fg-color--transparent: #7ab51d1a;
 }
 
-/* The header logo. The old rule asked for 120px, which is taller than
-   the header itself — the mark was being cropped and the bar pushed out
-   of shape. The trimmed artwork has no padding of its own, so it wants a
-   little room instead of a lot of height. */
+/* The header logo is the horizontal lockup, wordmark included, so the
+   site name beside it is hidden — otherwise "fastgeoapi" appears twice
+   in the same bar, once drawn and once typeset.
+
+   Only the first topic goes: the second is the page title that slides in
+   when you scroll, and that one is still wanted. */
+.md-header__topic:first-child {
+  display: none;
+}
+
 .md-header__button.md-logo img {
-  height: 2.2rem;
+  height: 2rem;
   width: auto;
 }
 
 .md-header__button.md-logo {
-  padding: 0.2rem 0.4rem;
+  padding: 0.3rem 0.6rem;
+}
+
+/* Colour where the light header leaves room for it.
+ *
+ * The header stays light because the mark needs a light ground — but a
+ * page with no colour at all was the complaint that started this. So the
+ * identity shows in the two places the eye actually tracks: the tab you
+ * are in, and the links you can follow. */
+.md-tabs {
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--md-primary-fg-color) 25%, transparent);
+}
+
+.md-tabs__link--active,
+.md-tabs__item--active .md-tabs__link {
+  color: var(--md-primary-fg-color);
+  font-weight: 600;
+}
+
+.md-nav__link--active,
+.md-nav__item--active > .md-nav__link {
+  color: var(--md-primary-fg-color);
 }

@@ -73,15 +73,22 @@ nav = [
 ]
 
 [project.theme]
-# Zensical ships two variants and defaults to `modern`, whose header is
-# deliberately neutral — the primary colour only tints links there. This
-# project wants its mark to show, so the header is painted: `variant =
-# "modern"` is the one-word change back.
-variant = "classic"
+# `modern` — the default — keeps the header light, and that is not just
+# taste here: the mark is a sketch with white fills and black outlines,
+# so it needs a light ground. `classic` paints the header with the
+# primary colour, and the logo came apart on it. The colour goes where
+# the modern variant actually uses it: links, accents, the active tab.
 # The trimmed artwork. The original carries roughly 40% transparent air
 # and a grey field baked in, which in a header reads as a box around the
 # mark rather than as the mark.
-logo = "images/fastgeoapi_logo_trim.png"
+# The horizontal lockup, which carries the wordmark with it — so the
+# theme's own `site_name` text is hidden in extra.css, or the name reads
+# twice in the same bar.
+logo = "images/lockup_horizontal.png"
+# The simplified glyph, not a smaller copy of the illustration: the
+# hatching of the full mark turns to grey mush at this size — rendered
+# and looked at, not assumed. mark.svg is the source; the PNGs are
+# generated from it with `rsvg-convert -w 32 -h 32`.
 favicon = "images/favicon-32.png"
 language = "en"
 features = [

@@ -1,4 +1,10 @@
-# fastgeoapi
+---
+title: fastgeoapi
+---
+
+<p align="center" markdown>
+  ![fastgeoapi](images/lockup_stacked.png){ width="260" }
+</p>
 
 An OGC API server built on [pygeoapi](https://pygeoapi.io), with the
 things a deployment needs around it: authentication, data read straight
