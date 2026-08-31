@@ -10,34 +10,36 @@
       
       
       
-        <link rel="canonical" href="https://geobeyond.github.io/fastgeoapi/">
+        <link rel="canonical" href="https://geobeyond.github.io/fastgeoapi/consumers/how-to/mcp-inspector/">
       
       
+        <link rel="prev" href="../../tutorials/connecting-an-mcp-client/">
       
-        <link rel="next" href="./operators/">
+      
+        <link rel="next" href="../../reference/openapi/">
       
       
         
       
       
-      <link rel="icon" href="./images/fastgeoapi_logo.png">
+      <link rel="icon" href="../../../images/fastgeoapi_logo.png">
       <meta name="generator" content="zensical-0.0.57">
     
     
       
-        <title>fastgeoapi - fastgeoapi</title>
+        <title>Verifying with the MCP Inspector - fastgeoapi</title>
       
     
     
       
         
       
-      <link rel="stylesheet" href="./assets/stylesheets/modern/main.5da3a30f.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/modern/main.5da3a30f.min.css">
       
         
           
         
-        <link rel="stylesheet" href="./assets/stylesheets/modern/palette.812a03bb.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/modern/palette.812a03bb.min.css">
       
       
 
@@ -56,9 +58,9 @@
       
     
     
-      <link rel="stylesheet" href="./stylesheets/extra.css">
+      <link rel="stylesheet" href="../../../stylesheets/extra.css">
     
-    <script>__md_scope=new URL(".",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    <script>__md_scope=new URL("../../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
 
@@ -83,7 +85,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#fastgeoapi" class="md-skip">
+        <a href="#verifying-with-the-mcp-inspector" class="md-skip">
           Skip to content
         </a>
       
@@ -97,9 +99,9 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="" title="fastgeoapi" class="md-header__button md-logo" aria-label="fastgeoapi" data-md-component="logo">
+    <a href="../../.." title="fastgeoapi" class="md-header__button md-logo" aria-label="fastgeoapi" data-md-component="logo">
       
-  <img src="./images/fastgeoapi_logo.png" alt="fastgeoapi">
+  <img src="../../../images/fastgeoapi_logo.png" alt="fastgeoapi">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
@@ -116,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              fastgeoapi
+              Verifying with the MCP Inspector
             
           </span>
         </div>
@@ -198,11 +200,9 @@
   
   
   
-    
   
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="" class="md-tabs__link">
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
         
   
   Home
@@ -237,7 +237,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="./operators/" class="md-tabs__link">
+        <a href="../../../operators/" class="md-tabs__link">
           
   
   Serving
@@ -252,6 +252,8 @@
   
   
   
+    
+  
   
     
       
@@ -272,8 +274,8 @@
     
     
     
-      <li class="md-tabs__item">
-        <a href="./consumers/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
           
   
   Consuming
@@ -307,7 +309,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="./contributors/" class="md-tabs__link">
+        <a href="../../../contributors/" class="md-tabs__link">
           
   
   Contributing
@@ -342,9 +344,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="" title="fastgeoapi" class="md-nav__button md-logo" aria-label="fastgeoapi" data-md-component="logo">
+    <a href="../../.." title="fastgeoapi" class="md-nav__button md-logo" aria-label="fastgeoapi" data-md-component="logo">
       
-  <img src="./images/fastgeoapi_logo.png" alt="fastgeoapi">
+  <img src="../../../images/fastgeoapi_logo.png" alt="fastgeoapi">
 
     </a>
     fastgeoapi
@@ -368,36 +370,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Home
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
         
   
   
@@ -412,60 +388,6 @@
   
 
       </a>
-      
-        
-
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#where-to-start" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Where to start
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#live-demo" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Live demo
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#installation" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Installation
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -508,7 +430,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="./operators/" class="md-nav__link ">
+            <a href="../../../operators/" class="md-nav__link ">
               
   
   
@@ -606,7 +528,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./operators/tutorials/getting-started/" class="md-nav__link">
+      <a href="../../../operators/tutorials/getting-started/" class="md-nav__link">
         
   
   
@@ -633,7 +555,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./operators/tutorials/protecting-pygeoapi/" class="md-nav__link">
+      <a href="../../../operators/tutorials/protecting-pygeoapi/" class="md-nav__link">
         
   
   
@@ -699,7 +621,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="./operators/how-to/" class="md-nav__link ">
+            <a href="../../../operators/how-to/" class="md-nav__link ">
               
   
   
@@ -741,7 +663,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./operators/how-to/cloud-config/" class="md-nav__link">
+      <a href="../../../operators/how-to/cloud-config/" class="md-nav__link">
         
   
   
@@ -768,7 +690,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./operators/how-to/geoparquet/" class="md-nav__link">
+      <a href="../../../operators/how-to/geoparquet/" class="md-nav__link">
         
   
   
@@ -795,7 +717,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./operators/how-to/configuration-editor/" class="md-nav__link">
+      <a href="../../../operators/how-to/configuration-editor/" class="md-nav__link">
         
   
   
@@ -822,7 +744,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./operators/how-to/enabling-mcp/" class="md-nav__link">
+      <a href="../../../operators/how-to/enabling-mcp/" class="md-nav__link">
         
   
   
@@ -913,7 +835,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./operators/reference/configuration/" class="md-nav__link">
+      <a href="../../../operators/reference/configuration/" class="md-nav__link">
         
   
   
@@ -940,7 +862,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./operators/reference/cli/" class="md-nav__link">
+      <a href="../../../operators/reference/cli/" class="md-nav__link">
         
   
   
@@ -1029,7 +951,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./operators/explanation/why-fastgeoapi/" class="md-nav__link">
+      <a href="../../../operators/explanation/why-fastgeoapi/" class="md-nav__link">
         
   
   
@@ -1068,6 +990,8 @@
       
   
   
+    
+  
   
   
     
@@ -1089,20 +1013,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="./consumers/" class="md-nav__link ">
+            <a href="../../" class="md-nav__link ">
               
   
   
@@ -1119,13 +1046,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1154,17 +1081,20 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
         
           
-          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="">
             
   
   
@@ -1198,7 +1128,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./consumers/tutorials/connecting-an-mcp-client/" class="md-nav__link">
+      <a href="../../tutorials/connecting-an-mcp-client/" class="md-nav__link">
         
   
   
@@ -1230,8 +1160,10 @@
                 
   
   
+    
   
   
+  
     
     
       
@@ -1242,18 +1174,21 @@
     
       
       
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
         
           
-          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="">
             
   
   
@@ -1270,7 +1205,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1284,10 +1219,36 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="./consumers/how-to/mcp-inspector/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Verifying with the MCP Inspector
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1302,6 +1263,99 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Requirements
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#browser-ui" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Browser UI
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#command-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Command line
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Command line">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-ci-or-anywhere-non-interactive" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        In CI, or anywhere non-interactive
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-to-expect-from-this-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What to expect from this server
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authorization-codes-are-short-lived" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Authorization codes are short-lived
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1334,17 +1388,20 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
         
           
-          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="">
             
   
   
@@ -1378,7 +1435,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./consumers/reference/openapi/" class="md-nav__link">
+      <a href="../../reference/openapi/" class="md-nav__link">
         
   
   
@@ -1405,7 +1462,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./consumers/reference/mcp-specifications/" class="md-nav__link">
+      <a href="../../reference/mcp-specifications/" class="md-nav__link">
         
   
   
@@ -1450,17 +1507,20 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
         
           
-          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="">
             
   
   
@@ -1494,7 +1554,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./consumers/explanation/mcp-server/" class="md-nav__link">
+      <a href="../../explanation/mcp-server/" class="md-nav__link">
         
   
   
@@ -1565,7 +1625,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="./contributors/" class="md-nav__link ">
+            <a href="../../../contributors/" class="md-nav__link ">
               
   
   
@@ -1663,7 +1723,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./contributors/how-to/development-setup/" class="md-nav__link">
+      <a href="../../../contributors/how-to/development-setup/" class="md-nav__link">
         
   
   
@@ -1690,7 +1750,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./contributors/how-to/running-the-tests/" class="md-nav__link">
+      <a href="../../../contributors/how-to/running-the-tests/" class="md-nav__link">
         
   
   
@@ -1748,7 +1808,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="./contributors/reference/" class="md-nav__link ">
+            <a href="../../../contributors/reference/" class="md-nav__link ">
               
   
   
@@ -1847,7 +1907,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./contributors/explanation/architecture/" class="md-nav__link">
+      <a href="../../../contributors/explanation/architecture/" class="md-nav__link">
         
   
   
@@ -1900,63 +1960,123 @@
   
 
 
-<h1 id="fastgeoapi">fastgeoapi</h1>
-<p>An OGC API server built on <a href="https://pygeoapi.io">pygeoapi</a>, with the
-things a deployment needs around it: authentication, data read straight
-from object storage, a configuration you can change without a restart,
-and an endpoint AI agents can use.</p>
-<div class="grid cards">
+<h1 id="verifying-with-the-mcp-inspector">Verifying with the MCP Inspector</h1>
+<p>The <a href="https://modelcontextprotocol.io/docs/2026-07-28/tools/inspector">MCP Inspector</a>
+is the reference tool for testing MCP servers, maintained by the protocol
+project itself. That makes it the most neutral check available for this
+server: it exercises the same discovery, OAuth and protocol negotiation
+any conformant client would, with none of our code involved on the
+client side.</p>
+<p>Everything on this page was run against the live deployment before being
+written down.</p>
+<h2 id="requirements">Requirements</h2>
 <ul>
-<li>
-<p><strong>Serve standard geospatial APIs</strong></p>
-<p>OGC API — Features, Processes, Tiles, and more, from pygeoapi
-unchanged. Everything upstream serves, this serves.</p>
-<p><a href="operators/explanation/why-fastgeoapi/">Why fastgeoapi</a></p>
-</li>
-<li>
-<p><strong>Put it behind authentication</strong></p>
-<p>OAuth2 with JWKS, an API key, or Open Policy Agent — pygeoapi has no
-authentication of its own, and this is most of what fastgeoapi is
-for.</p>
-<p><a href="operators/tutorials/getting-started/">Getting started</a></p>
-</li>
-<li>
-<p><strong>Read data where it lives</strong></p>
-<p>GeoParquet from S3, GCS or Azure, queried in place with DuckDB — no
-copy held by the server, and the configuration itself can live in a
-bucket.</p>
-<p><a href="operators/how-to/geoparquet/">GeoParquet provider</a> ·
-<a href="operators/how-to/cloud-config/">Config from cloud storage</a></p>
-</li>
-<li>
-<p><strong>Let agents use it</strong></p>
-<p>An MCP endpoint with its own authorization server, so a client like
-Claude can query your collections as tools.</p>
-<p><a href="consumers/">MCP server</a></p>
-</li>
+<li><strong>Node 22.19.0 or newer</strong> — older versions print <code>EBADENGINE</code> warnings
+  and may misbehave.</li>
+<li>Use <code>@latest</code> explicitly. A bare
+  <code>npx @modelcontextprotocol/inspector</code> can resolve a cached <strong>v1</strong>,
+  which has different flags (it fails with <em>"Arguments cannot be passed
+  to a URL-based MCP server"</em>) and receives security fixes only.</li>
 </ul>
-</div>
-<h2 id="where-to-start">Where to start</h2>
-<p>If you are <strong>standing a server up</strong>, read
-<a href="operators/tutorials/getting-started/">Getting started</a> and then the
-<a href="operators/reference/configuration/">configuration reference</a>.</p>
-<p>If you are <strong>changing a configuration that already runs</strong>, the
-<a href="operators/how-to/configuration-editor/">editor</a> will tell you whether it builds before
-you save it.</p>
-<p>If you are <strong>connecting an agent</strong>, start at
-<a href="consumers/tutorials/connecting-an-mcp-client/">MCP getting started</a>.</p>
-<h2 id="live-demo">Live demo</h2>
-<p>A running instance is at
-<a href="https://fastgeoapi.fly.dev/geoapi">fastgeoapi.fly.dev</a>, serving both a
-local dataset and Overture Maps data read directly from object storage.
-Its <a href="consumers/reference/openapi/">OpenAPI document</a> is published here.</p>
-<h2 id="installation">Installation</h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>fastgeoapi
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>fastgeoapi<span class="w"> </span>run
+<h2 id="browser-ui">Browser UI</h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>npx<span class="w"> </span>-y<span class="w"> </span>@modelcontextprotocol/inspector@latest<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>--server-url<span class="w"> </span>https://fastgeoapi.fly.dev/mcp/<span class="w"> </span>--transport<span class="w"> </span>http
 </span></code></pre></div>
-<p>The full instructions — including the authentication options, which are
-the part worth reading — are in
-<a href="operators/tutorials/getting-started/">Getting started</a>.</p>
+<p>The command prints a URL with a one-time session token; open it, and the
+Inspector runs the OAuth flow when the server answers its first <code>401</code>:</p>
+<ol>
+<li>it follows the <code>WWW-Authenticate</code> challenge to our protected-resource
+   metadata (RFC 9728), then to the authorization-server metadata
+   (RFC 8414);</li>
+<li>it registers itself through <strong>dynamic client registration</strong> — no
+   pre-configuration on our side, which is itself part of what is being
+   verified;</li>
+<li>the browser lands on the upstream identity provider's login page.
+   <strong>This is correct behaviour</strong>: the Inspector talks only to our
+   embedded authorization server, which fronts the IdP. Sign in with the
+   credentials you were given;</li>
+<li>after the callback, the Connection Info panel shows the registered
+   client, the granted scopes and the token state — and the tools tab
+   lists the generated OGC API tools.</li>
+</ol>
+<h2 id="command-line">Command line</h2>
+<p>The CLI is the same client without the browser chrome, useful for quick
+checks and scripting. The first call needs the interactive OAuth dance
+(it opens your browser, callback on <code>http://127.0.0.1:6276/oauth/callback</code>):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>npx<span class="w"> </span>-y<span class="w"> </span>@modelcontextprotocol/inspector@latest<span class="w"> </span>--cli<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>https://fastgeoapi.fly.dev/mcp/<span class="w"> </span>--transport<span class="w"> </span>http<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--method<span class="w"> </span>tools/list
+</span></code></pre></div>
+<p>Later calls reuse the login automatically — the token lives in
+<code>~/.mcp-inspector/storage/oauth.json</code> and the same command finds it, so
+no browser opens the second time:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>npx<span class="w"> </span>-y<span class="w"> </span>@modelcontextprotocol/inspector@latest<span class="w"> </span>--cli<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>https://fastgeoapi.fly.dev/mcp/<span class="w"> </span>--transport<span class="w"> </span>http<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>--method<span class="w"> </span>tools/call<span class="w"> </span>--tool-name<span class="w"> </span>getLandingPage<span class="w"> </span>--tool-arg<span class="w"> </span><span class="nv">f</span><span class="o">=</span>json
+</span></code></pre></div>
+<p>To discard the stored login and start over, add <code>--relogin</code>.</p>
+<div class="admonition warning">
+<p class="admonition-title"><code>--use-stored-auth</code> does not work in Inspector 2.2.0</p>
+<p>The upstream documentation suggests <code>--use-stored-auth</code> for reusing a
+stored login. As of 2.2.0 it fails with a self-contradictory
+<code>no_stored_token</code> error that lists the very server it claims not to
+find: the flag's lookup reads tokens from a legacy location in the
+state file, while the CLI's own OAuth flow stores them under a newer
+per-issuer shape. You do not need the flag against this server —
+plain re-runs (above) and <code>--stored-auth-only</code> (below) both read the
+store correctly.</p>
+</div>
+<h3 id="in-ci-or-anywhere-non-interactive">In CI, or anywhere non-interactive</h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>npx<span class="w"> </span>-y<span class="w"> </span>@modelcontextprotocol/inspector@latest<span class="w"> </span>--cli<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>https://fastgeoapi.fly.dev/mcp/<span class="w"> </span>--transport<span class="w"> </span>http<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>--stored-auth-only<span class="w"> </span>--method<span class="w"> </span>tools/list
+</span></code></pre></div>
+<p><code>--stored-auth-only</code> never opens a browser: with a stored token it lists
+the tools; without one it fails fast with
+<code>{"error":{"code":"auth_required"}}</code> — against this server that answer
+comes back in about a second, and it doubles as a cheap probe that the
+discovery chain (<code>401</code> → PRM → AS metadata) is intact. Both outcomes
+were exercised against the live deployment.</p>
+<h2 id="what-to-expect-from-this-server">What to expect from this server</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>First request answers <code>401</code> with a <code>WWW-Authenticate</code> challenge</td>
+<td>RFC 6750 semantics; this is what triggers the Inspector's OAuth flow</td>
+</tr>
+<tr>
+<td>Login page belongs to the upstream IdP, not to fastgeoapi</td>
+<td>The embedded authorization server proxies any OIDC provider; the client never sees it directly</td>
+</tr>
+<tr>
+<td>Both protocol eras work</td>
+<td>The server negotiates the sessionless <code>2026-07-28</code> protocol and the legacy <code>initialize</code> handshake down to <code>2024-11-05</code>, so the Inspector's era toggle is a useful A/B check</td>
+</tr>
+<tr>
+<td>The connection appears in our logs as <code>client=inspector-cli version=2.2.0</code> at <code>initialize</code></td>
+<td>The server records the identity a client declares; on the legacy handshake it is visible at connection time only</td>
+</tr>
+<tr>
+<td>Each CLI login registers a fresh DCR client</td>
+<td>Registrations are dynamic and persisted server-side; harmless, but worth knowing when reading the server's client store</td>
+</tr>
+</tbody>
+</table>
+<h2 id="authorization-codes-are-short-lived">Authorization codes are short-lived</h2>
+<p>If you pause on the IdP login page long enough, the exchange fails with
+<code>invalid_grant</code> — the authorization code expired between the callback
+and the token request. This is deliberate server behaviour, not a
+defect. Re-run the flow and complete the login without stopping.</p>
+<p>Note the status code: this server currently answers <code>401</code> for
+<code>invalid_grant</code>, where RFC 6749 §5.2 specifies <code>400</code>. Read the JSON
+body's <code>error</code> field rather than branching on the status — a fix is
+tracked upstream.</p>
 
 
 
@@ -2047,10 +2167,10 @@ the part worth reading — are in
     
       
       
-      <script id="__config" type="application/json">{"annotate":null,"base":".","features":["navigation.tabs","navigation.sections","navigation.top","navigation.indexes","toc.integrate","search.suggest","search.highlight","content.tabs.link","content.code.annotate","content.code.copy"],"search":"./assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+      <script id="__config" type="application/json">{"annotate":null,"base":"../../..","features":["navigation.tabs","navigation.sections","navigation.top","navigation.indexes","toc.integrate","search.suggest","search.highlight","content.tabs.link","content.code.annotate","content.code.copy"],"search":"../../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="./assets/javascripts/bundle.49251538.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.49251538.min.js"></script>
       
     
   </body>

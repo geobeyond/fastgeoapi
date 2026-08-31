@@ -1,0 +1,2669 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="OGC API server built on pygeoapi, with authentication, cloud-native providers and an MCP endpoint">
+      
+      
+      
+        <link rel="canonical" href="https://geobeyond.github.io/fastgeoapi/operators/tutorials/protecting-pygeoapi/">
+      
+      
+        <link rel="prev" href="../getting-started/">
+      
+      
+        <link rel="next" href="../../how-to/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../images/fastgeoapi_logo.png">
+      <meta name="generator" content="zensical-0.0.57">
+    
+    
+      
+        <title>Tutorials - fastgeoapi</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../../assets/stylesheets/modern/main.5da3a30f.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/modern/palette.812a03bb.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="red">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#tutorials" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="fastgeoapi" class="md-header__button md-logo" aria-label="fastgeoapi" data-md-component="logo">
+      
+  <img src="../../../images/fastgeoapi_logo.png" alt="fastgeoapi">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            fastgeoapi
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Tutorials
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="none" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="red"  aria-label="Switch to Dark Mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to Dark Mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="none" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="blue-grey"  aria-label="Switch to Light Mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to Light Mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/geobeyond/fastgeoapi" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    geobeyond/fastgeoapi
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
+          
+  
+  Serving
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../consumers/" class="md-tabs__link">
+          
+  
+  Consuming
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../contributors/" class="md-tabs__link">
+          
+  
+  Contributing
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="fastgeoapi" class="md-nav__button md-logo" aria-label="fastgeoapi" data-md-component="logo">
+      
+  <img src="../../../images/fastgeoapi_logo.png" alt="fastgeoapi">
+
+    </a>
+    fastgeoapi
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/geobeyond/fastgeoapi" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    geobeyond/fastgeoapi
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Serving
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Serving
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2_2" id="__nav_2_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Tutorials
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Tutorials
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Getting started
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Protecting pygeoapi
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Protecting pygeoapi
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#authentication-and-authorization" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Authentication and Authorization
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configure-and-protect-pygeoapi" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Configure and protect pygeoapi
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configure and protect pygeoapi">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#api-key" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        API KEY
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oauth2" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        OAuth2
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#openid-connect" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        OpenID Connect
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="OpenID Connect">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Prerequisites
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Configuration
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testing-with-curl" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Testing with curl
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How it works
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configure-a-coarse-or-fine-grained-authorization" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Configure a coarse or fine-grained authorization
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configure a coarse or fine-grained authorization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#policies-as-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Policies as code
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../how-to/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  How-to guides
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_3" id="__nav_2_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  How-to guides
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/cloud-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Config from cloud storage
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/geoparquet/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  GeoParquet provider
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/configuration-editor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Editing the configuration
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/enabling-mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Enabling the MCP server
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_4" id="__nav_2_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Reference
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Command line
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_5" id="__nav_2_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Explanation
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Explanation
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/why-fastgeoapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Why fastgeoapi
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../consumers/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Consuming
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Consuming
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Tutorials
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Tutorials
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../consumers/tutorials/connecting-an-mcp-client/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Connecting an MCP client
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  How-to guides
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  How-to guides
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../consumers/how-to/mcp-inspector/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Verifying with the MCP Inspector
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Reference
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../consumers/reference/openapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  OpenAPI
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../consumers/reference/mcp-specifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  MCP specifications
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Explanation
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Explanation
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../consumers/explanation/mcp-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The MCP server
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../contributors/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Contributing
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Contributing
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_2" id="__nav_4_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  How-to guides
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  How-to guides
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../contributors/how-to/development-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Development setup
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../contributors/how-to/running-the-tests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Running the tests
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../contributors/reference/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Reference
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_4" id="__nav_4_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Explanation
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Explanation
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../contributors/explanation/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  How it is put together
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+  
+  
+
+
+<h1 id="tutorials">Tutorials</h1>
+<h2 id="authentication-and-authorization">Authentication and Authorization</h2>
+<div class="admonition tip">
+<p class="admonition-title">Familiarize with the topic</p>
+<p>If you don't have prior experience with the topic, we recommend reading <a href="https://www.permit.io/blog/authentication-vs-authorization">Authentication and Authorization in Applications</a>, which is a really good introduction on the difference between Authentication and Authorization that helps you understand how they focus on two different purposes.</p>
+</div>
+<p>This tutorial aims to guide the user to configure <strong>fastgeoapi</strong> with a mechanism that fits with your security requirements.
+The tool supports different security schemes for <a href="https://ogcapi.ogc.org/">OGC APIs</a> served by <a href="https://pygeoapi.io">pygeoapi</a> and allows optionally to enable a coarse or fine-grade authorization for a <em>collection</em> and the endpoints based on user needs and use cases.</p>
+<p>Supported security schemes are:</p>
+<ul>
+<li><strong>API KEY</strong>: mostly used for machine to machine communication where a static shared secret can be kept secured or for internal interactions among microservices;</li>
+<li><strong>OAuth2</strong>: commonly used for authorization to accessing resources between two systems and also for stronger machine to machine communication with external parties when a secret needs to be rotated;</li>
+<li><strong>OpenID Connect</strong>: It looks like very similar to OAuth2 and in fact it is built on top of that. It allows to identify and authenticate a user in mobile and Single-Page Application (SPA).</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">OAuth2 vs OpenID Connect</p>
+<p>It is beneficial to clarify that they serve two different purposes. <a href="https://en.wikipedia.org/wiki/OAuth">OAuth2</a> is a framework for <em>Authorization</em> while <a href="https://openid.net/developers/how-connect-works/">OpenID Connect</a> is a protocol for <em>Authentication</em>. If you would like to develop further the concepts then <a href="">this</a> is an appropriate read.</p>
+</div>
+<h2 id="configure-and-protect-pygeoapi">Configure and protect pygeoapi</h2>
+<p>The protection mechanisms introduced above are mutually exclusive and they apply to the whole <code>pygeoapi</code> application that is wrapped by <em>fastgeoapi</em>.
+The configuration happens in the <code>.env</code> file where the environment variables for development and production are defined. As explained in the <a href="../getting-started/">getting-started</a> section their prefix identifies the target environment (i.e. <code>DEV_</code> vs <code>PROD_</code>). Let's go through the different mechanisms.</p>
+<p>Please make sure to have cloned the <a href="https://github.com/geobeyond/fastgeoapi">repo</a> before starting the following sections.
+Also, it is supposed to having set the environment for development with <code>ENV_STATE=dev</code> in the <code>.env</code> file.</p>
+<h3 id="api-key">API KEY</h3>
+<p>The security configuration, in this case, can be enabled with these two additional settings:</p>
+<div class="language-yml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># api-keys</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="l l-Scalar l-Scalar-Plain">DEV_API_KEY_ENABLED=false</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="l l-Scalar l-Scalar-Plain">DEV_PYGEOAPI_KEY_GLOBAL=pygeoapi</span>
+</span></code></pre></div>
+<p>Setting <code>DEV_API_KEY_ENABLE</code> to <code>true</code> is the way to enable a flat protection to the whole <code>pygeoapi</code> sub-application. The value sets in the <code>DEV_PYGEOAPI_KEY_GLOBAL</code> is the secret key that must be used in the Header <code>X-API-KEY</code> to consume the API.</p>
+<p>Start the server with the usual command:</p>
+<div class="termy" data-termynal data-ty-macos data-ty-title="bash"><span data-ty="input" data-ty-prompt="$">uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload --loop asyncio</span><span data-ty>...<br>File &quot;&lt;frozen importlib._bootstrap&gt;&quot;, line 1204, in _gcd_import<br>File &quot;&lt;frozen importlib._bootstrap&gt;&quot;, line 1176, in _find_and_load<br>File &quot;&lt;frozen importlib._bootstrap&gt;&quot;, line 1147, in _find_and_load_unlocked<br>File &quot;&lt;frozen importlib._bootstrap&gt;&quot;, line 690, in _load_unlocked<br>File &quot;&lt;frozen importlib._bootstrap_external&gt;&quot;, line 940, in exec_module<br>File &quot;&lt;frozen importlib._bootstrap&gt;&quot;, line 241, in _call_with_frames_removed<br>File &quot;/Users/francbartoli/code/fastgeoapi/app/main.py&quot;, line 188, in &lt;module&gt;<br>  app = create_app()<br>        ^^^^^^^^^^^^<br>File &quot;/Users/francbartoli/code/fastgeoapi/app/main.py&quot;, line 138, in create_app<br>  raise ValueError(<br>ValueError: OPA_ENABLED, JWKS_ENABLED and API_KEY_ENABLED are mutually exclusive<br></span></div>
+
+<p>This error is expected since more security schemes at the same time are enabled. Change their value accordingly:</p>
+<div class="language-yml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="l l-Scalar l-Scalar-Plain">DEV_API_KEY_ENABLED=true</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="l l-Scalar l-Scalar-Plain">DEV_OPA_ENABLED=false</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="l l-Scalar l-Scalar-Plain">DEV_JWKS_ENABLED=false</span>
+</span></code></pre></div>
+<p>and then start again the server:</p>
+<div class="termy" data-termynal data-ty-macos data-ty-title="bash"><span data-ty="input" data-ty-prompt="$">uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload --loop asyncio</span><span data-ty>...<br>2024-02-26 12:46:25.447 | DEBUG    | app.main:&lt;module&gt;:190 [id:None] - Global config: DevConfig(ENV_STATE='dev', HOST='0.0.0.0', PORT='5000', ROOT_PATH='', AWS_LAMBDA_DEPLOY=False, LOG_PATH='/tmp', LOG_FILENAME='fastgeoapi.log', LOG_LEVEL='debug', LOG_ENQUEUE=True, LOG_ROTATION='1 days', LOG_RETENTION='1 months', LOG_FORMAT='&lt;green&gt;{time:YYYY-MM-DD HH:mm:ss.SSS}&lt;/green&gt; | &lt;level&gt;{level: &lt;8}&lt;/level&gt; | &lt;cyan&gt;{name}&lt;/cyan&gt;:&lt;cyan&gt;{function}&lt;/cyan&gt;:&lt;cyan&gt;{line}&lt;/cyan&gt; [id:{extra[request_id]}] - &lt;level&gt;{message}&lt;/level&gt;', OPA_ENABLED=False, OPA_URL='http://localhost:8383', APP_URI='http://localhost:5000', OIDC_WELL_KNOWN_ENDPOINT='http://localhost:8282/realms/pygeoapi/.well-known/openid-configuration', OIDC_CLIENT_ID='pygeoapi-client', OIDC_CLIENT_SECRET='2yholx8r3mqyUJaOoJiZhcqvQDQwmgyD', API_KEY_ENABLED=True, JWKS_ENABLED=False, OAUTH2_JWKS_ENDPOINT='https://uat.interop.pagopa.it/.well-known/jwks.json', OAUTH2_TOKEN_ENDPOINT='https://auth.uat.interop.pagopa.it/token.oauth2', PYGEOAPI_KEY_GLOBAL='pygeoapi', PYGEOAPI_BASEURL='http://localhost:5000', PYGEOAPI_CONFIG='pygeoapi-config.yml', PYGEOAPI_OPENAPI='pygeoapi-openapi.yml', PYGEOAPI_SECURITY_SCHEME='http', FASTGEOAPI_CONTEXT='/geoapi')<br>2024-02-26 12:46:25.448 | INFO     | logging:callHandlers:1706 [id:app] - Started server process [171]<br>2024-02-26 12:46:25.448 | INFO     | logging:callHandlers:1706 [id:app] - Started server process [171]<br>2024-02-26 12:46:25.448 | INFO     | logging:callHandlers:1706 [id:app] - Waiting for application startup.<br>2024-02-26 12:46:25.448 | INFO     | logging:callHandlers:1706 [id:app] - Waiting for application startup.<br>2024-02-26 12:46:25.449 | INFO     | logging:callHandlers:1706 [id:app] - Application startup complete.<br>2024-02-26 12:46:25.449 | INFO     | logging:callHandlers:1706 [id:app] - Application startup complete.<br></span></div>
+
+<p>Let's get testing one of the collection available in the <code>pygeoapi-config.yml</code> (i.e. <code>obs</code>) without or with the API-KEY:</p>
+<div class="termy" data-termynal data-ty-macos data-ty-title="bash"><span data-ty="input" data-ty-prompt="$">curl http://localhost:5000/geoapi/collections/obs -vv</span><span data-ty><br>*   Trying [::1]:5000...<br>* connect to ::1 port 5000 failed: Connection refused<br>*   Trying 127.0.0.1:5000...<br>* Connected to localhost (127.0.0.1) port 5000<br>&gt; GET /geoapi/collections/obs HTTP/1.1<br>&gt; Host: localhost:5000<br>&gt; User-Agent: curl/8.4.0<br>&gt; Accept: */*<br>&gt;<br>&lt; HTTP/1.1 401 Unauthorized<br>&lt; date: Mon, 26 Feb 2024 14:22:28 GMT<br>&lt; server: uvicorn<br>&lt; content-length: 23<br>&lt; content-type: application/json<br>&lt;<br>* Connection #0 to host localhost left intact<br>{&quot;detail&quot;:&quot;no api key&quot;}<br></span></div>
+
+<p>Using the API-KEY we are overcoming the unauthorized error and getting the expected response:</p>
+<div class="termy" data-termynal data-ty-macos data-ty-title="bash"><span class="termynal-comment" data-ty># This time we are passing the correct security scheme with the secret</span><span data-ty="input" data-ty-prompt="$">curl -H &quot;X-API-KEY: pygeoapi&quot; http://localhost:5000/geoapi/collections/obs -vv</span><span data-ty><br>*   Trying [::1]:5000...<br>* connect to ::1 port 5000 failed: Connection refused<br>*   Trying 127.0.0.1:5000...<br>* Connected to localhost (127.0.0.1) port 5000<br>&gt; GET /geoapi/collections/obs HTTP/1.1<br>&gt; Host: localhost:5000<br>&gt; User-Agent: curl/8.4.0<br>&gt; Accept: */*<br>&gt; X-API-KEY: pygeoapi<br>&gt;<br>&lt; HTTP/1.1 200 OK<br>&lt; date: Mon, 26 Feb 2024 14:25:14 GMT<br>&lt; server: uvicorn<br>&lt; content-length: 3552<br>&lt; content-type: application/json<br>&lt; x-powered-by: pygeoapi 0.16.dev0<br>&lt; content-language: en-US<br>&lt;<br>{<br>    &quot;id&quot;:&quot;obs&quot;,<br>    &quot;title&quot;:&quot;Observations&quot;,<br>    &quot;description&quot;:&quot;My cool observations&quot;,<br>    &quot;keywords&quot;:[<br>        &quot;observations&quot;,<br>        &quot;monitoring&quot;<br>    ],<br>    &quot;links&quot;:[<br>        {<br>            &quot;type&quot;:&quot;text/csv&quot;,<br>            &quot;rel&quot;:&quot;canonical&quot;,<br>            &quot;title&quot;:&quot;data&quot;,<br>            &quot;href&quot;:&quot;https://github.com/mapserver/mapserver/blob/branch-7-0/msautotest/wxs/data/obs.csv&quot;,<br>            &quot;hreflang&quot;:&quot;en-US&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;text/csv&quot;,<br>            &quot;rel&quot;:&quot;alternate&quot;,<br>            &quot;title&quot;:&quot;data&quot;,<br>            &quot;href&quot;:&quot;https://raw.githubusercontent.com/mapserver/mapserver/branch-7-0/msautotest/wxs/data/obs.csv&quot;,<br>            &quot;hreflang&quot;:&quot;en-US&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;application/json&quot;,<br>            &quot;rel&quot;:&quot;root&quot;,<br>            &quot;title&quot;:&quot;The landing page of this server as JSON&quot;,<br>            &quot;href&quot;:&quot;http://localhost:5000/geoapi?f=json&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;text/html&quot;,<br>            &quot;rel&quot;:&quot;root&quot;,<br>            &quot;title&quot;:&quot;The landing page of this server as HTML&quot;,<br>            &quot;href&quot;:&quot;http://localhost:5000/geoapi?f=html&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;application/json&quot;,<br>            &quot;rel&quot;:&quot;self&quot;,<br>            &quot;title&quot;:&quot;This document as JSON&quot;,<br>            &quot;href&quot;:&quot;http://localhost:5000/geoapi/collections/obs?f=json&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;application/ld+json&quot;,<br>            &quot;rel&quot;:&quot;alternate&quot;,<br>            &quot;title&quot;:&quot;This document as RDF (JSON-LD)&quot;,<br>            &quot;href&quot;:&quot;http://localhost:5000/geoapi/collections/obs?f=jsonld&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;text/html&quot;,<br>            &quot;rel&quot;:&quot;alternate&quot;,<br>            &quot;title&quot;:&quot;This document as HTML&quot;,<br>            &quot;href&quot;:&quot;http://localhost:5000/geoapi/collections/obs?f=html&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;application/schema+json&quot;,<br>            &quot;rel&quot;:&quot;http://www.opengis.net/def/rel/ogc/1.0/queryables&quot;,<br>            &quot;title&quot;:&quot;Queryables for this collection as JSON&quot;,<br>            &quot;href&quot;:&quot;http://localhost:5000/geoapi/collections/obs/queryables?f=json&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;text/html&quot;,<br>            &quot;rel&quot;:&quot;http://www.opengis.net/def/rel/ogc/1.0/queryables&quot;,<br>            &quot;title&quot;:&quot;Queryables for this collection as HTML&quot;,<br>            &quot;href&quot;:&quot;http://localhost:5000/geoapi/collections/obs/queryables?f=html&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;application/geo+json&quot;,<br>            &quot;rel&quot;:&quot;items&quot;,<br>            &quot;title&quot;:&quot;items as GeoJSON&quot;,<br>            &quot;href&quot;:&quot;http://localhost:5000/geoapi/collections/obs/items?f=json&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;application/ld+json&quot;,<br>            &quot;rel&quot;:&quot;items&quot;,<br>            &quot;title&quot;:&quot;items as RDF (GeoJSON-LD)&quot;,<br>            &quot;href&quot;:&quot;http://localhost:5000/geoapi/collections/obs/items?f=jsonld&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;text/html&quot;,<br>            &quot;rel&quot;:&quot;items&quot;,<br>            &quot;title&quot;:&quot;Items as HTML&quot;,<br>            &quot;href&quot;:&quot;http://localhost:5000/geoapi/collections/obs/items?f=html&quot;<br>        }<br>    ],<br>    &quot;extent&quot;:{<br>        &quot;spatial&quot;:{<br>            &quot;bbox&quot;:[<br>                [<br>                    -180,<br>                    -90,<br>                    180,<br>                    90<br>                ]<br>            ],<br>            &quot;crs&quot;:&quot;http://www.opengis.net/def/crs/OGC/1.3/CRS84&quot;<br>        },<br>        &quot;temporal&quot;:{<br>            &quot;interval&quot;:[<br>                [<br>                    &quot;2000-10-30T18:24:39+00:00&quot;,<br>                    &quot;2007-10-30T08:57:29+00:00&quot;<br>                ]<br>            ]<br>        }<br>    },<br>    &quot;itemType&quot;:&quot;feature&quot;,<br>    &quot;crs&quot;:[<br>        &quot;http://www.opengis.net/def/crs/OGC/1.3/CRS84&quot;<br>    ],<br>    &quot;storageCRS&quot;:&quot;http://www.opengis.net/def/crs/OGC/1.3/CRS84&quot;<br>* Connection #0 to host localhost left intact<br>}<br></span></div>
+
+<h3 id="oauth2">OAuth2</h3>
+<p>In this case we are challenging the client to present valid JSON Web Tokens (JWTs) and getting to verify the token’s signature against the public key with the JSON Web Key Set (JWKS) endpoint of the authorization server.</p>
+<p>Change the <code>.env</code> file with these settings:</p>
+<div class="language-yml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="l l-Scalar l-Scalar-Plain">DEV_API_KEY_ENABLED=false</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="l l-Scalar l-Scalar-Plain">DEV_OPA_ENABLED=false</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="l l-Scalar l-Scalar-Plain">DEV_JWKS_ENABLED=true</span>
+</span></code></pre></div>
+<p>And configure a valid JWKS and Token endpoint for the authorization server:</p>
+<div class="admonition tip">
+<p class="admonition-title">Use OAuth2 playground</p>
+<p>There are some playgrounds available which can be used for the sake of testing the workflow. Let's use the one from <a href="https://openidconnect.net/">Auth0 by Okta</a>.</p>
+</div>
+<div class="language-yml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># oidc-jwks-only</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="l l-Scalar l-Scalar-Plain">DEV_JWKS_ENABLED=true</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="l l-Scalar l-Scalar-Plain">DEV_OAUTH2_JWKS_ENDPOINT=https://samples.auth0.com/.well-known/jwks.json</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="l l-Scalar l-Scalar-Plain">DEV_OAUTH2_TOKEN_ENDPOINT=https://samples.auth0.com/oauth/token</span>
+</span></code></pre></div>
+<p>Use the OAuth2 server infrastructure to get the <code>access token</code> and then use that to consume the protected resource from the <strong>fastgeoapi</strong> server.</p>
+<p>Let's get testing the collection again:</p>
+<div class="termy" data-termynal data-ty-macos data-ty-title="bash"><span class="termynal-comment" data-ty># This time we are passing the OAuth2 security scheme with the retrieved token</span><span data-ty="input" data-ty-prompt="$">curl -H &quot;Authorization: Bearer &lt;access_token&gt;&quot; http://localhost:5000/geoapi/collections/obs -vv</span><span data-ty><br>*   Trying [::1]:5000...<br>* connect to ::1 port 5000 failed: Connection refused<br>*   Trying 127.0.0.1:5000...<br>* Connected to localhost (127.0.0.1) port 5000<br>&gt; GET /geoapi/collections/obs HTTP/1.1<br>&gt; Host: localhost:5000<br>&gt; User-Agent: curl/8.4.0<br>&gt; Accept: */*<br>&gt; X-API-KEY: pygeoapi<br>&gt;<br>&lt; HTTP/1.1 200 OK<br>&lt; date: Mon, 26 Feb 2024 14:25:14 GMT<br>&lt; server: uvicorn<br>&lt; content-length: 3552<br>&lt; content-type: application/json<br>&lt; x-powered-by: pygeoapi 0.16.dev0<br>&lt; content-language: en-US<br>&lt;<br>{<br>    &quot;id&quot;:&quot;obs&quot;,<br>    &quot;title&quot;:&quot;Observations&quot;,<br>    &quot;description&quot;:&quot;My cool observations&quot;,<br>    &quot;keywords&quot;:[<br>        &quot;observations&quot;,<br>        &quot;monitoring&quot;<br>    ],<br>    &quot;links&quot;:[<br>        {<br>            &quot;type&quot;:&quot;text/csv&quot;,<br>            &quot;rel&quot;:&quot;canonical&quot;,<br>            &quot;title&quot;:&quot;data&quot;,<br>            &quot;href&quot;:&quot;https://github.com/mapserver/mapserver/blob/branch-7-0/msautotest/wxs/data/obs.csv&quot;,<br>            &quot;hreflang&quot;:&quot;en-US&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;text/csv&quot;,<br>            &quot;rel&quot;:&quot;alternate&quot;,<br>            &quot;title&quot;:&quot;data&quot;,<br>            &quot;href&quot;:&quot;https://raw.githubusercontent.com/mapserver/mapserver/branch-7-0/msautotest/wxs/data/obs.csv&quot;,<br>            &quot;hreflang&quot;:&quot;en-US&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;application/json&quot;,<br>            &quot;rel&quot;:&quot;root&quot;,<br>            &quot;title&quot;:&quot;The landing page of this server as JSON&quot;,<br>            &quot;href&quot;:&quot;http://localhost:5000/geoapi?f=json&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;text/html&quot;,<br>            &quot;rel&quot;:&quot;root&quot;,<br>            &quot;title&quot;:&quot;The landing page of this server as HTML&quot;,<br>            &quot;href&quot;:&quot;http://localhost:5000/geoapi?f=html&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;application/json&quot;,<br>            &quot;rel&quot;:&quot;self&quot;,<br>            &quot;title&quot;:&quot;This document as JSON&quot;,<br>            &quot;href&quot;:&quot;http://localhost:5000/geoapi/collections/obs?f=json&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;application/ld+json&quot;,<br>            &quot;rel&quot;:&quot;alternate&quot;,<br>            &quot;title&quot;:&quot;This document as RDF (JSON-LD)&quot;,<br>            &quot;href&quot;:&quot;http://localhost:5000/geoapi/collections/obs?f=jsonld&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;text/html&quot;,<br>            &quot;rel&quot;:&quot;alternate&quot;,<br>            &quot;title&quot;:&quot;This document as HTML&quot;,<br>            &quot;href&quot;:&quot;http://localhost:5000/geoapi/collections/obs?f=html&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;application/schema+json&quot;,<br>            &quot;rel&quot;:&quot;http://www.opengis.net/def/rel/ogc/1.0/queryables&quot;,<br>            &quot;title&quot;:&quot;Queryables for this collection as JSON&quot;,<br>            &quot;href&quot;:&quot;http://localhost:5000/geoapi/collections/obs/queryables?f=json&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;text/html&quot;,<br>            &quot;rel&quot;:&quot;http://www.opengis.net/def/rel/ogc/1.0/queryables&quot;,<br>            &quot;title&quot;:&quot;Queryables for this collection as HTML&quot;,<br>            &quot;href&quot;:&quot;http://localhost:5000/geoapi/collections/obs/queryables?f=html&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;application/geo+json&quot;,<br>            &quot;rel&quot;:&quot;items&quot;,<br>            &quot;title&quot;:&quot;items as GeoJSON&quot;,<br>            &quot;href&quot;:&quot;http://localhost:5000/geoapi/collections/obs/items?f=json&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;application/ld+json&quot;,<br>            &quot;rel&quot;:&quot;items&quot;,<br>            &quot;title&quot;:&quot;items as RDF (GeoJSON-LD)&quot;,<br>            &quot;href&quot;:&quot;http://localhost:5000/geoapi/collections/obs/items?f=jsonld&quot;<br>        },<br>        {<br>            &quot;type&quot;:&quot;text/html&quot;,<br>            &quot;rel&quot;:&quot;items&quot;,<br>            &quot;title&quot;:&quot;Items as HTML&quot;,<br>            &quot;href&quot;:&quot;http://localhost:5000/geoapi/collections/obs/items?f=html&quot;<br>        }<br>    ],<br>    &quot;extent&quot;:{<br>        &quot;spatial&quot;:{<br>            &quot;bbox&quot;:[<br>                [<br>                    -180,<br>                    -90,<br>                    180,<br>                    90<br>                ]<br>            ],<br>            &quot;crs&quot;:&quot;http://www.opengis.net/def/crs/OGC/1.3/CRS84&quot;<br>        },<br>        &quot;temporal&quot;:{<br>            &quot;interval&quot;:[<br>                [<br>                    &quot;2000-10-30T18:24:39+00:00&quot;,<br>                    &quot;2007-10-30T08:57:29+00:00&quot;<br>                ]<br>            ]<br>        }<br>    },<br>    &quot;itemType&quot;:&quot;feature&quot;,<br>    &quot;crs&quot;:[<br>        &quot;http://www.opengis.net/def/crs/OGC/1.3/CRS84&quot;<br>    ],<br>    &quot;storageCRS&quot;:&quot;http://www.opengis.net/def/crs/OGC/1.3/CRS84&quot;<br>* Connection #0 to host localhost left intact<br>}<br></span></div>
+
+<h3 id="openid-connect">OpenID Connect</h3>
+<p>OpenID Connect (OIDC) is a protocol built on top of OAuth2 that provides authentication capabilities. It is commonly used for Single-Page Applications (SPA) and mobile applications where user identity verification is required.</p>
+<p>In <strong>fastgeoapi</strong>, OIDC authentication is integrated with <a href="https://www.openpolicyagent.org/">Open Policy Agent (OPA)</a> for authorization decisions. This means that:</p>
+<ol>
+<li><strong>Authentication</strong>: OIDC verifies the user's identity through an Identity Provider (IdP)</li>
+<li><strong>Authorization</strong>: OPA evaluates policies to determine if the authenticated user can access specific resources</li>
+</ol>
+<h4 id="prerequisites">Prerequisites</h4>
+<p>Before configuring OIDC, you need to have:</p>
+<ul>
+<li>An OIDC-compliant Identity Provider (e.g., <a href="https://www.keycloak.org/">Keycloak</a>, <a href="https://logto.io/">Logto</a>, <a href="https://auth0.com/">Auth0</a>)</li>
+<li>An OPA server running with your authorization policies</li>
+</ul>
+<p>For local development, you can use the provided Docker Compose setup that includes Keycloak and OPA:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">cd</span><span class="w"> </span>scripts/iam
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+</span></code></pre></div>
+<p>This starts:</p>
+<ul>
+<li><strong>Keycloak</strong> on port <code>8282</code> with a pre-configured <code>pygeoapi</code> realm</li>
+<li><strong>OPA</strong> on port <code>8383</code> with a sample authorization policy</li>
+</ul>
+<h4 id="configuration">Configuration</h4>
+<p>Configure OIDC and OPA in your <code>.env</code> file:</p>
+<div class="language-yml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Enable OPA (required for OIDC)</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="l l-Scalar l-Scalar-Plain">DEV_OPA_ENABLED=true</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="l l-Scalar l-Scalar-Plain">DEV_OPA_URL=http://localhost:8383/v1/data/httpapi/authz</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="l l-Scalar l-Scalar-Plain"># OIDC configuration</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="l l-Scalar l-Scalar-Plain">DEV_OIDC_WELL_KNOWN_ENDPOINT=http://localhost:8282/realms/pygeoapi/.well-known/openid-configuration</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="l l-Scalar l-Scalar-Plain">DEV_OIDC_CLIENT_ID=pygeoapi-client</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="l l-Scalar l-Scalar-Plain">DEV_OIDC_CLIENT_SECRET=2yholx8r3mqyUJaOoJiZhcqvQDQwmgyD</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="l l-Scalar l-Scalar-Plain"># Disable other authentication mechanisms</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="l l-Scalar l-Scalar-Plain">DEV_API_KEY_ENABLED=false</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="l l-Scalar l-Scalar-Plain">DEV_JWKS_ENABLED=false</span>
+</span></code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">Mutual Exclusivity</p>
+<p>Remember that <code>OPA_ENABLED</code>, <code>API_KEY_ENABLED</code>, and <code>JWKS_ENABLED</code> are mutually exclusive. Only one can be enabled at a time.</p>
+</div>
+<p>Start the server:</p>
+<div class="termy" data-termynal data-ty-macos data-ty-title="bash"><span data-ty="input" data-ty-prompt="$">uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload --loop asyncio</span><span data-ty>...<br>2024-02-26 14:30:00.000 | INFO     | app.main:&lt;module&gt;:190 - OPA_ENABLED=True<br>2024-02-26 14:30:00.001 | INFO     | logging:callHandlers:1706 [id:app] - Application startup complete.<br></span></div>
+
+<h4 id="testing-with-curl">Testing with curl</h4>
+<p>When OIDC is enabled, requests require a valid access token. First, obtain a token from your Identity Provider:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Get an access token from Keycloak</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">TOKEN</span><span class="o">=</span><span class="k">$(</span>curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="s2">"http://localhost:8282/realms/pygeoapi/protocol/openid-connect/token"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/x-www-form-urlencoded"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span>-d<span class="w"> </span><span class="s2">"grant_type=password"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span>-d<span class="w"> </span><span class="s2">"client_id=pygeoapi-client"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span>-d<span class="w"> </span><span class="s2">"client_secret=2yholx8r3mqyUJaOoJiZhcqvQDQwmgyD"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">  </span>-d<span class="w"> </span><span class="s2">"username=testuser"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">  </span>-d<span class="w"> </span><span class="s2">"password=testpassword"</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">'.access_token'</span><span class="k">)</span>
+</span></code></pre></div>
+<p>Then use the token to access protected endpoints:</p>
+<div class="termy" data-termynal data-ty-macos data-ty-title="bash"><span data-ty="input" data-ty-prompt="$">curl -H &quot;Authorization: Bearer $TOKEN&quot; http://localhost:5000/geoapi/collections/obs -vv</span><span data-ty><br>*   Trying 127.0.0.1:5000...<br>* Connected to localhost (127.0.0.1) port 5000<br>&gt; GET /geoapi/collections/obs HTTP/1.1<br>&gt; Host: localhost:5000<br>&gt; Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...<br>&gt;<br>&lt; HTTP/1.1 200 OK<br>&lt; content-type: application/json<br>...<br></span></div>
+
+<p>Without a valid token, you will receive a 401 Unauthorized response:</p>
+<div class="termy" data-termynal data-ty-macos data-ty-title="bash"><span data-ty="input" data-ty-prompt="$">curl http://localhost:5000/geoapi/collections/obs -vv</span><span data-ty><br>*   Trying 127.0.0.1:5000...<br>* Connected to localhost (127.0.0.1) port 5000<br>&gt; GET /geoapi/collections/obs HTTP/1.1<br>&gt; Host: localhost:5000<br>&gt;<br>&lt; HTTP/1.1 401 Unauthorized<br>&lt; content-type: application/json<br>&lt;<br>{&quot;message&quot;:&quot;Unauthorized&quot;}<br></span></div>
+
+<h4 id="how-it-works">How it works</h4>
+<p>The authentication and authorization flow works as follows:</p>
+<ol>
+<li>The client sends a request with an <code>Authorization: Bearer &lt;token&gt;</code> header</li>
+<li><strong>fastgeoapi</strong> validates the token with the OIDC provider using the well-known endpoint</li>
+<li>User claims (e.g., <code>sub</code>, <code>email</code>, <code>company</code>) are extracted from the token</li>
+<li>The request details and user claims are sent to OPA for authorization</li>
+<li>OPA evaluates the policy and returns an <code>allow: true</code> or <code>allow: false</code> decision</li>
+<li>If allowed, the request proceeds to pygeoapi; otherwise, a 401 response is returned</li>
+</ol>
+<div class="admonition note">
+<p class="admonition-title">401 vs 403 Response</p>
+<p>Currently, the <a href="https://github.com/busykoala/fastapi-opa">fastapi-opa</a> library returns 401 Unauthorized for both authentication failures and authorization denials. Ideally, authorization denials should return 403 Forbidden. This is a known limitation tracked in <a href="https://github.com/geobeyond/fastgeoapi/issues/321">issue #321</a></p>
+</div>
+<h2 id="configure-a-coarse-or-fine-grained-authorization">Configure a coarse or fine-grained authorization</h2>
+<h3 id="policies-as-code">Policies as code</h3>
+<p>TBD</p>
+<style data-termynal-inline="true">
+ :root {
+   --color-bg: #252a33;
+   --color-text: #eee;
+   --color-text-subtle: #a2a2a2;
+ }
+
+ [data-termynal] {
+   max-width: 100%;
+   overflow-x: auto;
+   background: var(--color-bg);
+   color: var(--color-text);
+   font-size: 15px;
+   font-family: 'Roboto Mono', 'Fira Mono', Consolas, Menlo, Monaco, 'Courier New', Courier, monospace;
+   border-radius: 4px;
+   padding: 75px 45px 35px;
+   position: relative;
+   -webkit-box-sizing: border-box;
+   box-sizing: border-box;
+ }
+
+ [data-termynal][data-ty-macos]:before {
+   content: '';
+   position: absolute;
+   top: 15px;
+   left: 15px;
+   display: inline-block;
+   width: 15px;
+   height: 15px;
+   border-radius: 50%;
+   /* A little hack to display the window buttons in one pseudo element. */
+   background: #d9515d;
+   -webkit-box-shadow: 25px 0 0 #f4c025, 50px 0 0 #3ec930;
+   box-shadow: 25px 0 0 #f4c025, 50px 0 0 #3ec930;
+ }
+
+ [data-termynal][data-ty-windows]:before {
+   content: '';
+   position: absolute;
+   top: 15px;
+   left: unset;
+   right: 15px;
+   display: inline-block;
+   width: 15px;
+   height: 15px;
+   /* A little hack to display the window buttons in one pseudo element. */
+   background: #d9515d;
+   -webkit-box-shadow: -25px 0 0 #e6e6e6, -50px 0 0 #e6e6e6;
+   box-shadow: -25px 0 0 #e6e6e6, -50px 0 0 #e6e6e6;
+ }
+
+ [data-termynal]:after {
+   content: 'bash';
+   position: absolute;
+   color: var(--color-text-subtle);
+   top: 5px;
+   left: 0;
+   width: 100%;
+   text-align: center;
+ }
+
+ [data-termynal][data-ty-title]:after {
+   content: attr(data-ty-title);
+ }
+
+ button[data-terminal-control] {
+   float: right;
+   text-align: right;
+   display: block;
+   color: #aebbff;
+   background: none !important;
+   border: none;
+   padding: 0 !important;
+   cursor: pointer;
+ }
+
+ [data-ty] {
+   display: block;
+   line-height: 2;
+   white-space: pre;
+ }
+
+ [data-ty]:before {
+   /* Set up defaults and ensure empty lines are displayed. */
+   content: '';
+   display: inline-block;
+   vertical-align: middle;
+ }
+
+ [data-ty="input"]:before,
+ [data-ty-prompt]:before {
+   margin-right: 0.75em;
+   color: var(--color-text-subtle);
+ }
+
+ [data-ty="input"]:before {
+   content: '$';
+ }
+
+ [data-ty][data-ty-prompt]:before {
+   content: attr(data-ty-prompt);
+ }
+
+ [data-ty-cursor]:after {
+   content: attr(data-ty-cursor);
+   font-family: monospace;
+   margin-left: 0.5em;
+   -webkit-animation: blink 1s infinite;
+   animation: blink 1s infinite;
+ }
+
+ @-webkit-keyframes blink {
+   50% {
+     opacity: 0;
+   }
+ }
+
+ @keyframes blink {
+   50% {
+     opacity: 0;
+   }
+ }
+
+ .termynal-comment {
+   color: #4a968f;
+   font-style: italic;
+   display: block;
+ }
+
+</style>
+<script data-termynal-inline="true">
+'use strict';
+
+class Termynal {
+    /**
+     * Construct the widget's settings.
+     * @param {(string|Node)=} container - Query selector or container element.
+     * @param {Object=} options - Custom settings.
+     * @param {string} options.prefix - Prefix to use for data attributes.
+     * @param {number} options.startDelay - Delay before animation, in ms.
+     * @param {number} options.typeDelay - Delay between each typed character, in ms.
+     * @param {number} options.lineDelay - Delay between each line, in ms.
+     * @param {number} options.progressLength - Number of characters displayed as progress bar.
+     * @param {string} options.progressChar – Character to use for progress bar, defaults to █.
+     * @param {number} options.progressPercent - Max percent of progress.
+     * @param {string} options.cursor – Character to use for cursor, defaults to ▋.
+     * @param {Object[]} lineData - Dynamically loaded line data objects.
+     * @param {boolean} options.noInit - Don't initialise the animation.
+     */
+    constructor(container = '#termynal', options = {}) {
+        this.container = (typeof container === 'string') ? document.querySelector(container) : container;
+        this.pfx = `data-${options.prefix || 'ty'}`;
+        this.originalStartDelay = this.startDelay = options.startDelay
+            || parseFloat(this.container.getAttribute(`${this.pfx}-startDelay`)) || 600;
+        this.originalTypeDelay = this.typeDelay = options.typeDelay
+            || parseFloat(this.container.getAttribute(`${this.pfx}-typeDelay`)) || 90;
+        this.originalLineDelay = this.lineDelay = options.lineDelay
+            || parseFloat(this.container.getAttribute(`${this.pfx}-lineDelay`)) || 1500;
+        this.progressLength = options.progressLength
+            || parseFloat(this.container.getAttribute(`${this.pfx}-progressLength`)) || 40;
+        this.progressChar = options.progressChar
+            || this.container.getAttribute(`${this.pfx}-progressChar`) || '█';
+        this.progressPercent = options.progressPercent
+            || parseFloat(this.container.getAttribute(`${this.pfx}-progressPercent`)) || 100;
+        this.cursor = options.cursor
+            || this.container.getAttribute(`${this.pfx}-cursor`) || '▋';
+        this.lineData = this.lineDataToElements(options.lineData || []);
+        this.loadLines()
+        if (!options.noInit) this.init()
+    }
+
+    loadLines() {
+        // Load all the lines and create the container so that the size is fixed
+        // Otherwise it would be changing and the user viewport would be constantly
+        // moving as she/he scrolls
+        const finish = this.generateFinish()
+        finish.style.visibility = 'hidden'
+        this.container.appendChild(finish)
+        // Appends dynamically loaded lines to existing line elements.
+        this.lines = [...this.container.querySelectorAll(`[${this.pfx}]`)].concat(this.lineData);
+        for (let line of this.lines) {
+            line.style.visibility = 'hidden'
+            this.container.appendChild(line)
+        }
+        const restart = this.generateRestart()
+        restart.style.visibility = 'hidden'
+        this.container.appendChild(restart)
+        this.container.setAttribute('data-termynal', '');
+    }
+
+    /**
+     * Initialise the widget, get lines, clear container and start animation.
+     */
+    init() {
+        /**
+         * Calculates width and height of Termynal container.
+         * If container is empty and lines are dynamically loaded, defaults to browser `auto` or CSS.
+         */
+        const containerStyle = getComputedStyle(this.container);
+        this.container.style.width = containerStyle.width !== '0px' ?
+            containerStyle.width : undefined;
+        this.container.style.minHeight = containerStyle.height !== '0px' ?
+            containerStyle.height : undefined;
+
+        this.container.setAttribute('data-termynal', '');
+        this.container.innerHTML = '';
+        for (let line of this.lines) {
+            line.style.visibility = 'visible'
+        }
+        this.start();
+    }
+
+    /**
+     * Start the animation and rener the lines depending on their data attributes.
+     */
+    async start() {
+        this.addFinish()
+        await this._wait(this.startDelay);
+
+        for (let line of this.lines) {
+            const type = line.getAttribute(this.pfx);
+            const delay = line.getAttribute(`${this.pfx}-delay`) || this.lineDelay;
+
+            if (type == 'input') {
+                line.setAttribute(`${this.pfx}-cursor`, this.cursor);
+                await this.type(line);
+                await this._wait(delay);
+            }
+
+            else if (type == 'progress') {
+                await this.progress(line);
+                await this._wait(delay);
+            }
+
+            else {
+                this.container.appendChild(line);
+                await this._wait(delay);
+            }
+
+            line.removeAttribute(`${this.pfx}-cursor`);
+        }
+        this.addRestart()
+        this.finishElement.style.visibility = 'hidden'
+        this.lineDelay = this.originalLineDelay
+        this.typeDelay = this.originalTypeDelay
+        this.startDelay = this.originalStartDelay
+    }
+
+    generateRestart() {
+        const restart = document.createElement('button')
+        restart.onclick = (e) => {
+            e.preventDefault()
+            this.container.innerHTML = ''
+            this.init()
+        }
+        restart.setAttribute('data-terminal-control', '')
+        restart.innerHTML = "restart ↻"
+        return restart
+    }
+
+    generateFinish() {
+        const finish = document.createElement('button')
+        finish.onclick = (e) => {
+            e.preventDefault()
+            this.lineDelay = 0
+            this.typeDelay = 0
+            this.startDelay = 0
+        }
+        finish.setAttribute('data-terminal-control', '')
+        finish.innerHTML = "fast →"
+        this.finishElement = finish
+        return finish
+    }
+
+    addRestart() {
+        const restart = this.generateRestart()
+        this.container.appendChild(restart)
+    }
+
+    addFinish() {
+        const finish = this.generateFinish()
+        this.container.appendChild(finish)
+    }
+
+    /**
+     * Animate a typed line.
+     * @param {Node} line - The line element to render.
+     */
+    async type(line) {
+        const chars = [...line.textContent];
+        line.textContent = '';
+        this.container.appendChild(line);
+
+        for (let char of chars) {
+            const delay = line.getAttribute(`${this.pfx}-typeDelay`) || this.typeDelay;
+            await this._wait(delay);
+            line.textContent += char;
+        }
+    }
+
+    /**
+     * Animate a progress bar.
+     * @param {Node} line - The line element to render.
+     */
+    async progress(line) {
+        const progressLength = line.getAttribute(`${this.pfx}-progressLength`)
+            || this.progressLength;
+        const progressChar = line.getAttribute(`${this.pfx}-progressChar`)
+            || this.progressChar;
+        const chars = progressChar.repeat(progressLength);
+        const progressPercent = line.getAttribute(`${this.pfx}-progressPercent`)
+            || this.progressPercent;
+        line.textContent = '';
+        this.container.appendChild(line);
+
+        for (let i = 1; i < chars.length + 1; i++) {
+            await this._wait(this.typeDelay);
+            const percent = Math.round(i / chars.length * 100);
+            line.textContent = `${chars.slice(0, i)} ${percent}%`;
+            if (percent > progressPercent) {
+                break;
+            }
+        }
+    }
+
+    /**
+     * Helper function for animation delays, called with `await`.
+     * @param {number} time - Timeout, in ms.
+     */
+    _wait(time) {
+        return new Promise(resolve => setTimeout(resolve, time));
+    }
+
+    /**
+     * Converts line data objects into line elements.
+     *
+     * @param {Object[]} lineData - Dynamically loaded lines.
+     * @param {Object} line - Line data object.
+     * @returns {Element[]} - Array of line elements.
+     */
+    lineDataToElements(lineData) {
+        return lineData.map(line => {
+            let div = document.createElement('div');
+            div.innerHTML = `<span ${this._attributes(line)}>${line.value || ''}</span>`;
+
+            return div.firstElementChild;
+        });
+    }
+
+    /**
+     * Helper function for generating attributes string.
+     *
+     * @param {Object} line - Line data object.
+     * @returns {string} - String of attributes.
+     */
+    _attributes(line) {
+        let attrs = '';
+        for (let prop in line) {
+            // Custom add class
+            if (prop === 'class') {
+                attrs += ` class=${line[prop]} `
+                continue
+            }
+            if (prop === 'type') {
+                attrs += `${this.pfx}="${line[prop]}" `
+            } else if (prop !== 'value') {
+                attrs += `${this.pfx}-${prop}="${line[prop]}" `
+            }
+        }
+
+        return attrs;
+    }
+}
+
+/**
+* HTML API: If current script has container(s) specified, initialise Termynal.
+*/
+if (document.currentScript.hasAttribute('data-termynal-container')) {
+    const containers = document.currentScript.getAttribute('data-termynal-container');
+    containers.split('|')
+        .forEach(container => new Termynal(container))
+}
+
+
+(function () {
+    document
+        .querySelectorAll('.termy')
+        .forEach(node => {
+            new Termynal(node, {
+                lineDelay: 500
+            });
+        });
+})()
+
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      © Copyright 2025 Geobeyond team.
+    </div>
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/geobeyond" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M202.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1M496 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2m-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3m-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://www.linkedin.com/company/geobeyond" target="_blank" rel="noopener" title="www.linkedin.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3M135.4 416H69V202.2h66.5V416zM102.2 96a38.5 38.5 0 1 1 0 77 38.5 38.5 0 1 1 0-77m282.1 320h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate":null,"base":"../../..","features":["navigation.tabs","navigation.sections","navigation.top","navigation.indexes","toc.integrate","search.suggest","search.highlight","content.tabs.link","content.code.annotate","content.code.copy"],"search":"../../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.49251538.min.js"></script>
+      
+    
+  </body>
+</html>

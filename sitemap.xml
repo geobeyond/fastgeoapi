@@ -4,48 +4,69 @@
         <loc>https://geobeyond.github.io/fastgeoapi/</loc>
       </url>
       <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/why-fastgeoapi/</loc>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/</loc>
       </url>
       <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/getting-started/</loc>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/tutorials/getting-started/</loc>
       </url>
       <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/configuration-reference/</loc>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/tutorials/protecting-pygeoapi/</loc>
       </url>
       <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/cli/</loc>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/</loc>
       </url>
       <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/howto-guides/</loc>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/cloud-config/</loc>
       </url>
       <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/cloud-config/</loc>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/geoparquet/</loc>
       </url>
       <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/geoparquet/</loc>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/configuration-editor/</loc>
       </url>
       <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/configuration-editor/</loc>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/enabling-mcp/</loc>
       </url>
       <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/mcp/</loc>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/reference/configuration/</loc>
       </url>
       <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/mcp/configuration/</loc>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/reference/cli/</loc>
       </url>
       <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/mcp/specifications/</loc>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/explanation/why-fastgeoapi/</loc>
       </url>
       <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/mcp/getting-started/</loc>
+        <loc>https://geobeyond.github.io/fastgeoapi/consumers/</loc>
       </url>
       <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/mcp/inspector/</loc>
+        <loc>https://geobeyond.github.io/fastgeoapi/consumers/tutorials/connecting-an-mcp-client/</loc>
       </url>
       <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/tutorials/</loc>
+        <loc>https://geobeyond.github.io/fastgeoapi/consumers/how-to/mcp-inspector/</loc>
       </url>
       <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/openapi/</loc>
+        <loc>https://geobeyond.github.io/fastgeoapi/consumers/reference/openapi/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/consumers/reference/mcp-specifications/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/consumers/explanation/mcp-server/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/contributors/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/contributors/how-to/development-setup/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/contributors/how-to/running-the-tests/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/contributors/reference/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/contributors/explanation/architecture/</loc>
       </url>
 </urlset>
