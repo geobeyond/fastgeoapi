@@ -1,0 +1,1327 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      <link rel="icon" href="../images/fastgeoapi_logo.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-8.2.16">
+    
+    
+      
+        <title>GeoParquet provider - fastgeoapi</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.1c3799f8.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.cc9b2e1e.min.css">
+        
+      
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+      <link rel="stylesheet" href="../termynal.css">
+    
+    <script>__md_scope=new URL("..",location),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="red">
+  
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&"object"==typeof palette.color)for(var key of Object.keys(palette.color))document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#geoparquet-provider" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="fastgeoapi" class="md-header__button md-logo" aria-label="fastgeoapi" data-md-component="logo">
+      
+  <img src="../images/fastgeoapi_logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            fastgeoapi
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              GeoParquet provider
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      <form class="md-header__option" data-md-component="palette">
+        
+          
+          
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="red"  aria-label="Switch to Dark Mode"  type="radio" name="__palette" id="__palette_1">
+          
+            <label class="md-header__button md-icon" title="Switch to Dark Mode" for="__palette_2" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6zm0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4zM7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+            </label>
+          
+        
+          
+          
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="blue-grey"  aria-label="Switch to Light Mode"  type="radio" name="__palette" id="__palette_2">
+          
+            <label class="md-header__button md-icon" title="Switch to Light Mode" for="__palette_1" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3Z"/></svg>
+            </label>
+          
+        
+      </form>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-tabs__inner md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href=".." class="md-tabs__link">
+      Home
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../why-fastgeoapi/" class="md-tabs__link">
+      Why fastgeoapi
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../getting-started/" class="md-tabs__link">
+      Getting started
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../configuration-reference/" class="md-tabs__link">
+      Configuration reference
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../cli/" class="md-tabs__link">
+      Command line
+    </a>
+  </li>
+
+      
+        
+  
+  
+    
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../howto-guides/" class="md-tabs__link md-tabs__link--active">
+        How-to Guides
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../mcp/" class="md-tabs__link">
+        MCP
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../tutorials/" class="md-tabs__link">
+      Tutorials
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../openapi/" class="md-tabs__link">
+      OpenAPI
+    </a>
+  </li>
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="fastgeoapi" class="md-nav__button md-logo" aria-label="fastgeoapi" data-md-component="logo">
+      
+  <img src="../images/fastgeoapi_logo.png" alt="logo">
+
+    </a>
+    fastgeoapi
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        Home
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../why-fastgeoapi/" class="md-nav__link">
+        Why fastgeoapi
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        Getting started
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration-reference/" class="md-nav__link">
+        Configuration reference
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        Command line
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_6" type="checkbox" id="__nav_6" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_6">
+          How-to Guides
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="How-to Guides" data-md-level="1">
+        <label class="md-nav__title" for="__nav_6">
+          <span class="md-nav__icon md-icon"></span>
+          How-to Guides
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../howto-guides/" class="md-nav__link">
+        Overview
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cloud-config/" class="md-nav__link">
+        Config from cloud storage
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          GeoParquet provider
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        GeoParquet provider
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    Configuration
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#source-shapes" class="md-nav__link">
+    Source shapes
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sources-and-credentials" class="md-nav__link">
+    Sources and credentials
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#query-capabilities" class="md-nav__link">
+    Query capabilities
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#performance-the-file-and-the-reader-both-decide" class="md-nav__link">
+    Performance: the file and the reader both decide
+  </a>
+  
+    <nav class="md-nav" aria-label="Performance: the file and the reader both decide">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#give-the-file-the-shape-the-format-expects" class="md-nav__link">
+    Give the file the shape the format expects
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#keep-the-data-near-the-server-and-read-it-with-a-caching-reader" class="md-nav__link">
+    Keep the data near the server, and read it with a caching reader
+  </a>
+  
+    <nav class="md-nav" aria-label="Keep the data near the server, and read it with a caching reader">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-that-costs-on-a-live-deployment" class="md-nav__link">
+    What that costs on a live deployment
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cheap-wins-on-the-request-itself" class="md-nav__link">
+    Cheap wins on the request itself
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#preparing-datasets" class="md-nav__link">
+    Preparing datasets
+  </a>
+  
+    <nav class="md-nav" aria-label="Preparing datasets">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#staging-an-overture-extract" class="md-nav__link">
+    Staging an Overture extract
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geometry-native-or-wkb" class="md-nav__link">
+    Geometry: native or WKB
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-on-a-read-only-runtime-aws-lambda-and-friends" class="md-nav__link">
+    Running on a read-only runtime (AWS Lambda and friends)
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limitations" class="md-nav__link">
+    Limitations
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration-editor/" class="md-nav__link">
+        Editing the configuration
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_7" type="checkbox" id="__nav_7" >
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_7">
+          MCP
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="MCP" data-md-level="1">
+        <label class="md-nav__title" for="__nav_7">
+          <span class="md-nav__icon md-icon"></span>
+          MCP
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mcp/" class="md-nav__link">
+        Overview
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mcp/configuration/" class="md-nav__link">
+        Configuration
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mcp/specifications/" class="md-nav__link">
+        Supported specifications
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mcp/getting-started/" class="md-nav__link">
+        Getting started
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mcp/inspector/" class="md-nav__link">
+        Verifying with the MCP Inspector
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/" class="md-nav__link">
+        Tutorials
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../openapi/" class="md-nav__link">
+        OpenAPI
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          <div class="md-content" data-md-component="content">
+            <article class="md-content__inner md-typeset">
+              
+                
+
+
+<h1 id="geoparquet-provider">GeoParquet provider</h1>
+<p>A read-only OGC API Features provider that serves GeoParquet from a
+local path or an object-storage bucket, with CQL2 filters — spatial
+predicates included — evaluated inside <a href="https://duckdb.org/">DuckDB</a>.</p>
+<p>Install the extra:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">'fastgeoapi[geoparquet]'</span>
+</span></code></pre></div>
+<h2 id="configuration">Configuration</h2>
+<p>Declare it by dotted path in the pygeoapi configuration:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">resources</span><span class="p">:</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">lakes</span><span class="p">:</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">collection</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">title</span><span class="p">:</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">      </span><span class="nt">en</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Lakes</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">      </span><span class="nt">en</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Lakes served from GeoParquet</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nt">keywords</span><span class="p">:</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">      </span><span class="nt">en</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">lakes</span><span class="p p-Indicator">]</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="nt">extents</span><span class="p">:</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">      </span><span class="nt">spatial</span><span class="p">:</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">        </span><span class="nt">bbox</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">-180</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">-90</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">180</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">90</span><span class="p p-Indicator">]</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">        </span><span class="nt">crs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://www.opengis.net/def/crs/OGC/1.3/CRS84</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">    </span><span class="nt">providers</span><span class="p">:</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">feature</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">app.provider.geoparquet.GeoParquetProvider</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">        </span><span class="nt">data</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://my-bucket/tenants/acme/lakes</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">        </span><span class="nt">id_field</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">id</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">        </span><span class="nt">geometry_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">geom</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">        </span><span class="nt">time_field</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">observed_at</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Required</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>data</code></td>
+<td>yes</td>
+<td>Dataset source: a file, a glob, or a directory root</td>
+</tr>
+<tr>
+<td><code>id_field</code></td>
+<td>yes</td>
+<td>Column carrying the feature identifier</td>
+</tr>
+<tr>
+<td><code>geometry_column</code></td>
+<td>no</td>
+<td>Geometry column name (default <code>geom</code>)</td>
+</tr>
+<tr>
+<td><code>time_field</code></td>
+<td>no</td>
+<td>Column the <code>datetime</code> parameter filters on</td>
+</tr>
+<tr>
+<td><code>properties</code></td>
+<td>no</td>
+<td>Restrict which columns are returned by default</td>
+</tr>
+<tr>
+<td><code>bbox_column</code></td>
+<td>no</td>
+<td>Covering column to pre-filter on (auto-detected)</td>
+</tr>
+<tr>
+<td><code>count</code></td>
+<td>no</td>
+<td><code>false</code> drops <code>numberMatched</code> from item responses</td>
+</tr>
+<tr>
+<td><code>store_options</code></td>
+<td>no</td>
+<td>Store settings: <code>region</code>, <code>skip_signature</code>, <code>endpoint</code></td>
+</tr>
+<tr>
+<td><code>engine_options</code></td>
+<td>no</td>
+<td>DuckDB settings, e.g. <code>memory_limit</code>, <code>threads</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="source-shapes">Source shapes</h3>
+<table>
+<thead>
+<tr>
+<th>Shape</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Single file</td>
+<td><code>s3://bucket/lakes.parquet</code></td>
+</tr>
+<tr>
+<td>Glob</td>
+<td><code>s3://bucket/lakes/*.parquet</code></td>
+</tr>
+<tr>
+<td>Hive-partitioned root</td>
+<td><code>s3://bucket/lakes</code> → scanned as <code>lakes/**/*.parquet</code></td>
+</tr>
+</tbody>
+</table>
+<p>A directory root is read with hive partitioning enabled, so a query
+that filters on a partition column reads only the matching partitions.</p>
+<p>On a bucket DuckDB expands the wildcard itself, in one request. That
+also keeps the dataset isolated from the process environment: the
+object-store layer reads the standard variables in every constructor
+with no way to opt out, so a deployment whose <code>AWS_ENDPOINT_URL_S3</code>
+names its own store would send the listing there and be refused for a
+dataset that lives elsewhere.</p>
+<p>On the <code>obstore</code> fallback below the objects are <strong>listed</strong> instead:
+DuckDB cannot expand a glob through that bridge — an explicit file works
+while <code>*.parquet</code> raises "No files found" — so the provider enumerates
+the prefix once, when it is built, and hands the engine explicit paths.</p>
+<h3 id="sources-and-credentials">Sources and credentials</h3>
+<p><code>data</code> accepts the same sources as the configuration itself — local
+paths, <code>s3://</code>, <code>gs://</code>, <code>az://</code>, and any S3-compatible endpoint — and
+credentials come exclusively from each provider's standard environment
+variables. See <a href="../cloud-config/">Config from cloud object storage</a>; the
+same rules apply here.</p>
+<p>Bucket data is read by DuckDB itself — <code>httpfs</code> for S3-compatible
+stores and GCS, the <code>azure</code> extension for Azure — with the per-dataset
+settings carried in a DuckDB secret. Without explicit keys the secret
+uses DuckDB's credential chain, which reads the same standard
+environment variables listed above, so nothing changes for an operator.</p>
+<p>That choice is measured, not stylistic: reading through a Python
+filesystem bridge prevented DuckDB from caching the blocks it had
+already fetched, so every request repaid its bytes — the same query cost
+21 s on each repetition against 0.7 s natively, and a <code>bbox</code> window over
+a 4.5 GB dataset went from 44 s to 0.9 s once warm.</p>
+<p>The object store still loads the configuration and writes the artifact.
+If a deployment needs the previous path back:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">engine_options</span><span class="p">:</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">fastgeoapi_reader</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">obstore</span>
+</span></code></pre></div>
+<p>Local paths are read by DuckDB directly, with no configuration at all.</p>
+<p>Per-dataset store settings travel in <code>store_options</code>. A public dataset
+must say so and name its region. Without <code>skip_signature</code> the request is
+signed with whatever credentials the process happens to carry — and any
+deployment that keeps its own data on an S3-compatible store carries
+some — which a public bucket answers with <code>403 Forbidden</code>. On a machine
+with no credentials at all it fails differently but no better, after
+roughly twenty seconds of EC2-metadata retries:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">data</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://overturemaps-us-west-2/release/2026-08-19.0/theme=divisions/type=division/</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">store_options</span><span class="p">:</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">region</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">us-west-2</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">skip_signature</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span></code></pre></div>
+<p>The same key carries <code>endpoint</code> for an S3-compatible service.</p>
+<h2 id="query-capabilities">Query capabilities</h2>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>limit</code> / <code>offset</code></td>
+<td>Pushed down as <code>LIMIT</code>/<code>OFFSET</code></td>
+</tr>
+<tr>
+<td><code>bbox</code></td>
+<td><code>ST_Intersects</code> against the request envelope, in-engine</td>
+</tr>
+<tr>
+<td><code>datetime</code></td>
+<td>Instants and intervals, <code>..</code> for open ends; needs <code>time_field</code></td>
+</tr>
+<tr>
+<td>Property equality</td>
+<td>e.g. <code>?country=it</code></td>
+</tr>
+<tr>
+<td><code>properties</code> (select)</td>
+<td>Column projection</td>
+</tr>
+<tr>
+<td><code>skipGeometry</code></td>
+<td>Skips the geometry entirely</td>
+</tr>
+<tr>
+<td><code>sortby</code></td>
+<td>Ascending and descending</td>
+</tr>
+<tr>
+<td><code>resulttype=hits</code></td>
+<td><code>COUNT</code> only, no features materialised</td>
+</tr>
+<tr>
+<td><code>filter</code> (CQL2)</td>
+<td><code>cql2-text</code> and <code>cql2-json</code></td>
+</tr>
+</tbody>
+</table>
+<p>CQL2 support covers comparisons, <code>AND</code>/<code>OR</code>/<code>NOT</code>, <code>LIKE</code>, <code>IN</code>,
+<code>BETWEEN</code>, <code>IS NULL</code>, arithmetic, the spatial predicates
+(<code>S_INTERSECTS</code>, <code>S_WITHIN</code>, <code>S_CONTAINS</code>, <code>S_DISJOINT</code>, <code>S_TOUCHES</code>,
+<code>S_CROSSES</code>, <code>S_OVERLAPS</code>, <code>S_EQUALS</code>) and the instant temporal
+operators (<code>T_AFTER</code>, <code>T_BEFORE</code>, <code>T_EQUALS</code>). Interval temporal
+operators are refused with a clear error rather than approximated,
+since honouring them would need a second time column.</p>
+<p>Example:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>curl<span class="w"> </span><span class="s2">"https://example.org/geoapi/collections/lakes/items?\</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="s2">filter-lang=cql2-text&amp;\</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="s2">filter=S_INTERSECTS(geom, POLYGON((11 41, 14 41, 14 43, 11 43, 11 41))) AND depth &gt; 10"</span>
+</span></code></pre></div>
+<h2 id="performance-the-file-and-the-reader-both-decide">Performance: the file and the reader both decide</h2>
+<p>Measured against the public Overture Maps release (<code>theme=divisions</code>,
+one 578 MB file in <code>us-west-2</code>, read from Europe):</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Same file, remote</th>
+<th>Same file, local disk</th>
+<th>7 MB regional extract</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>First page</td>
+<td>~15–20 s</td>
+<td>31 ms</td>
+<td>5 ms</td>
+</tr>
+<tr>
+<td>Warm page</td>
+<td>~15 s</td>
+<td>30 ms</td>
+<td>3 ms</td>
+</tr>
+<tr>
+<td><code>bbox</code> window</td>
+<td>~20 s</td>
+<td>36 ms</td>
+<td>5 ms</td>
+</tr>
+</tbody>
+</table>
+<p>Two separate effects hide in those columns. <strong>Locality is worth roughly
+500×</strong> (the middle column is the very same file, only nearer), while
+<strong>dataset size is worth about 10×</strong>. Shrinking the data is the smaller
+lever; moving it is the larger one.</p>
+<h3 id="give-the-file-the-shape-the-format-expects">Give the file the shape the format expects</h3>
+<p>Row-group pruning only works when the file carries usable statistics.
+Following the GeoParquet spec's own distribution guidance:</p>
+<ul>
+<li><strong>zstd</strong> compression, level 15 or above;</li>
+<li><strong>spatially sorted</strong> (Hilbert) before writing — without it, every
+  row group's bounding box spans most of the dataset and nothing can be
+  skipped;</li>
+<li><strong>row groups of 50k–150k rows</strong>;</li>
+<li>a <strong>covering <code>bbox</code> column</strong> (GeoParquet 1.1) or native geometry types
+  (2.0); the provider detects the covering automatically, or takes
+  <code>bbox_column</code>;</li>
+<li><strong>partition</strong> beyond a couple of gigabytes.</li>
+</ul>
+<p><code>geoparquet-io</code> applies these as defaults, and a plain DuckDB
+<code>COPY … TO … (FORMAT parquet, ROW_GROUP_SIZE 100000)</code> gets you most of
+the way.</p>
+<h3 id="keep-the-data-near-the-server-and-read-it-with-a-caching-reader">Keep the data near the server, and read it with a caching reader</h3>
+<p>Cross-region latency is a floor no predicate can lower: reading the
+Overture file from Europe cost seconds per request no matter how well
+the file was laid out — its row groups are in fact reasonably sorted
+(each covers about 5% of world longitude, and a window over Rome touches
+16 of 256).</p>
+<p>Repeated reads are the other half of the story. DuckDB caches the blocks
+it has already fetched, but only on its own I/O path: the same query
+through the obstore fsspec bridge stayed at ~12 s on every repetition,
+while DuckDB's native <code>httpfs</code> answered the second and third in
+milliseconds. This mirrors what GDAL sees on the desktop side
+(<a href="https://github.com/OSGeo/gdal/issues/8225">GDAL #8225</a>: 542 MB
+downloaded for a 507 MB file), and it is why "cloud-native" can end up
+costing more than a plain download when the reader cannot cache.</p>
+<p>Practical order of effect: put the data in the same region as the
+server, shape it as above, and only then reach for materialising a local
+copy.</p>
+<h4 id="what-that-costs-on-a-live-deployment">What that costs on a live deployment</h4>
+<p>The public demo runs both arrangements side by side on the same
+1 GB / 1 vCPU machine in Paris, over the same query — a bbox over the
+centre of Rome, five features. <code>lazio-roads</code> is an Overture extract
+staged in a bucket in the same region; <code>overture-places</code> is read where
+Overture publishes it, in <code>us-west-2</code>, with no copy.</p>
+<table>
+<thead>
+<tr>
+<th>Collection</th>
+<th>Placement</th>
+<th>Cold</th>
+<th>Warm</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lazio-roads</code></td>
+<td>same region</td>
+<td>5–6 s</td>
+<td>1.0 s</td>
+</tr>
+<tr>
+<td><code>overture-places</code></td>
+<td>cross-region</td>
+<td>19–29 s</td>
+<td>2.2–2.5 s</td>
+</tr>
+</tbody>
+</table>
+<p>Warm, locality is worth about 2×; cold, four to five times that. The
+cold figures are ranges because they are: the cross-region first request
+was measured at 18.8 s and 29.0 s on two different cold starts, and a
+number that swings by ten seconds is a number to design around rather
+than quote. A machine that suspends, redeploys or scales from zero pays
+it again on the next request, and half a minute is not a response a user
+waits for. Staging an extract is the difference between a demo that
+always answers and one that sometimes does.</p>
+<h3 id="cheap-wins-on-the-request-itself">Cheap wins on the request itself</h3>
+<ul>
+<li><code>count: false</code> drops <code>numberMatched</code> from item responses (a
+  <code>resulttype=hits</code> request still answers) — worth seconds per request
+  on a remote dataset.</li>
+<li>Ask for the columns you need with <code>properties=</code> — Parquet is
+  columnar, so unrequested columns are never read.</li>
+</ul>
+<h2 id="preparing-datasets">Preparing datasets</h2>
+<p>Any GeoParquet writer works. For partitioning, spatial sorting and
+bbox covering columns, <a href="https://pypi.org/project/geoparquet-io/">geoparquet-io</a>
+is a convenient offline tool — it is not needed at runtime.</p>
+<p>DuckDB can also produce a partitioned dataset directly:</p>
+<div class="language-sql highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">COPY</span><span class="w"> </span><span class="p">(</span><span class="k">SELECT</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="s1">'lakes.parquet'</span><span class="p">)</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">TO</span><span class="w"> </span><span class="s1">'lakes'</span><span class="w"> </span><span class="p">(</span><span class="n">FORMAT</span><span class="w"> </span><span class="n">parquet</span><span class="p">,</span><span class="w"> </span><span class="n">PARTITION_BY</span><span class="w"> </span><span class="p">(</span><span class="n">country</span><span class="p">));</span>
+</span></code></pre></div>
+<h3 id="staging-an-overture-extract">Staging an Overture extract</h3>
+<p><code>scripts/stage_overture.py</code> does the whole job for an Overture release:
+it reads a window, flattens the nested fields worth exposing, writes the
+covering <code>bbox</code> column and the Hilbert ordering described above, and
+uploads the result.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/stage_overture.py<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span>--theme<span class="w"> </span>transportation<span class="w"> </span>--type<span class="w"> </span>segment<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span>--bbox<span class="w"> </span><span class="m">11</span>.4,41.2,14.1,42.9<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span>--local<span class="w"> </span>/tmp/lazio.parquet<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span>--dest<span class="w"> </span>s3://my-bucket/overture/transportation-lazio.parquet
+</span></code></pre></div>
+<p>Destination credentials come from the standard environment variables;
+the public Overture bucket is read anonymously regardless of them.
+<code>--local</code> keeps the extract on disk, so a failed upload does not discard
+the read — re-running with the same path uploads what is already there.
+The Lazio extract above is 743k segments and 133 MB, read in about 50
+seconds.</p>
+<p>This is an offline tool. Nothing at runtime depends on it, and it is not
+installed with the package.</p>
+<h3 id="geometry-native-or-wkb">Geometry: native or WKB</h3>
+<p>DuckDB writes its own <code>GEOMETRY</code> type; GeoPandas, GDAL and Sedona write
+the geometry as a <strong>WKB blob</strong>. The provider detects which it is holding
+and converts only when it has to, so both kinds of file are served
+without configuration — including a dataset written by one tool and
+extended by another.</p>
+<h2 id="running-on-a-read-only-runtime-aws-lambda-and-friends">Running on a read-only runtime (AWS Lambda and friends)</h2>
+<p>fastgeoapi can be deployed as a Lambda function (<code>AWS_LAMBDA_DEPLOY</code>,
+served through Mangum). There the filesystem is read-only except <code>/tmp</code>,
+and two DuckDB defaults do not fit:</p>
+<ul>
+<li><strong>the spatial extension</strong> must already be there. A missing extension
+  would otherwise be installed into <code>~/.duckdb</code>, which fails; the
+  provider now says so explicitly instead of leaking a path error.
+  Vendor it in the image (the <code>Dockerfile</code> does), or point
+  <code>DUCKDB_EXTENSION_DIRECTORY</code> at a writable path.</li>
+<li><strong>the spill directory</strong> defaults to <code>.tmp</code> next to the working
+  directory. The provider now sets it from <code>TMPDIR</code> (which such runtimes
+  set to <code>/tmp</code>), so a query that needs to spill has somewhere to go.</li>
+</ul>
+<p>Size the engine against the function rather than the host it lands on:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">engine_options</span><span class="p">:</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">memory_limit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256MB</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">threads</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+</span></code></pre></div>
+<p>Two more things worth knowing about that deployment shape. Execution
+environments are reused across invocations, so the plugin cache means
+the engine is opened once per container rather than per request — but a
+cold start still pays it. And <code>/tmp</code> survives warm invocations, which
+makes it a reasonable place to materialise a dataset that would
+otherwise be read across a region boundary on every cold container.</p>
+<p><strong>The reload webhook does not fan out.</strong> Each execution environment
+holds its own configuration, so <code>POST /admin/config/reload</code> reaches
+exactly one of them; the others keep serving the previous configuration
+until they are recycled. On a single long-lived instance this is a
+non-issue; on a function runtime, treat configuration as versioned and
+plan for eventual convergence.</p>
+<h2 id="limitations">Limitations</h2>
+<ul>
+<li><strong>Read-only:</strong> no create, update or delete.</li>
+<li>The <code>spatial</code> extension is vendored in the container image. Outside
+  it, the first connection installs the extension, which needs network
+  access once.</li>
+<li>Geometries are served in the dataset's own CRS; declare it with
+  <code>storage_crs</code> when it is not CRS84.</li>
+</ul>
+
+              
+            </article>
+          </div>
+        </div>
+        
+          <a href="#" class="md-top md-icon" data-md-component="top" data-md-state="hidden">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+            Back to top
+          </a>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    <nav class="md-footer__inner md-grid" aria-label="Footer">
+      
+        
+        <a href="../cloud-config/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Config from cloud storage" rel="prev">
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+          </div>
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              Config from cloud storage
+            </div>
+          </div>
+        </a>
+      
+      
+        
+        <a href="../configuration-editor/" class="md-footer__link md-footer__link--next" aria-label="Next: Editing the configuration" rel="next">
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              Editing the configuration
+            </div>
+          </div>
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+          </div>
+        </a>
+      
+    </nav>
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      &copy; Copyright 2025 <a href="https://github.com/geobeyond">Geobeyond team</a>.
+
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+      
+      
+    
+    <a href="https://github.com/geobeyond" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M186.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1zM480 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2zm-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3zm-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1z"/></svg>
+    </a>
+  
+    
+    
+      
+      
+    
+    <a href="https://twitter.com/geobeyond" target="_blank" rel="noopener" title="twitter.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z"/></svg>
+    </a>
+  
+    
+    
+      
+      
+    
+    <a href="https://www.linkedin.com/company/geobeyond" target="_blank" rel="noopener" title="www.linkedin.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3zM135.4 416H69V202.2h66.5V416zm-33.2-243c-21.3 0-38.5-17.3-38.5-38.5S80.9 96 102.2 96c21.2 0 38.5 17.3 38.5 38.5 0 21.3-17.2 38.5-38.5 38.5zm282.1 243h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9V416z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "navigation.top", "search.suggest", "search.highlight", "content.tabs.link", "content.code.annotation", "content.code.copy"], "search": "../assets/javascripts/workers/search.2a1c317c.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.3a4b43e5.min.js"></script>
+      
+        <script src="../termynal.js"></script>
+      
+    
+  </body>
+</html>
