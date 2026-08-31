@@ -12,7 +12,7 @@ and an endpoint AI agents can use.
     OGC API — Features, Processes, Tiles, and more, from pygeoapi
     unchanged. Everything upstream serves, this serves.
 
-    [Why fastgeoapi](why-fastgeoapi.md)
+    [Why fastgeoapi](operators/explanation/why-fastgeoapi.md)
 
 - **Put it behind authentication**
 
@@ -20,7 +20,7 @@ and an endpoint AI agents can use.
     authentication of its own, and this is most of what fastgeoapi is
     for.
 
-    [Getting started](getting-started.md)
+    [Getting started](operators/tutorials/getting-started.md)
 
 - **Read data where it lives**
 
@@ -28,37 +28,37 @@ and an endpoint AI agents can use.
     copy held by the server, and the configuration itself can live in a
     bucket.
 
-    [GeoParquet provider](geoparquet.md) ·
-    [Config from cloud storage](cloud-config.md)
+    [GeoParquet provider](operators/how-to/geoparquet.md) ·
+    [Config from cloud storage](operators/how-to/cloud-config.md)
 
 - **Let agents use it**
 
     An MCP endpoint with its own authorization server, so a client like
     Claude can query your collections as tools.
 
-    [MCP server](mcp/index.md)
+    [MCP server](consumers/index.md)
 
 </div>
 
 ## Where to start
 
 If you are **standing a server up**, read
-[Getting started](getting-started.md) and then the
-[configuration reference](configuration-reference.md).
+[Getting started](operators/tutorials/getting-started.md) and then the
+[configuration reference](operators/reference/configuration.md).
 
 If you are **changing a configuration that already runs**, the
-[editor](configuration-editor.md) will tell you whether it builds before
+[editor](operators/how-to/configuration-editor.md) will tell you whether it builds before
 you save it.
 
 If you are **connecting an agent**, start at
-[MCP getting started](mcp/getting-started.md).
+[MCP getting started](consumers/tutorials/connecting-an-mcp-client.md).
 
 ## Live demo
 
 A running instance is at
 [fastgeoapi.fly.dev](https://fastgeoapi.fly.dev/geoapi), serving both a
 local dataset and Overture Maps data read directly from object storage.
-Its [OpenAPI document](openapi.md) is published here.
+Its [OpenAPI document](consumers/reference/openapi.md) is published here.
 
 ## Installation
 
@@ -69,4 +69,4 @@ fastgeoapi run
 
 The full instructions — including the authentication options, which are
 the part worth reading — are in
-[Getting started](getting-started.md).
+[Getting started](operators/tutorials/getting-started.md).

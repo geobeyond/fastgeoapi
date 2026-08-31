@@ -68,7 +68,7 @@ access token. No browser, no consent screen, and access is revoked
 centrally at the IdP rather than per client registration.
 
 Configure the issuers whose assertions are honoured (see
-[Configuration](configuration.md#enterprise-managed-authorization-fastgeoapi_mcp_trusted_issuers));
+[Configuration](../../operators/how-to/enabling-mcp.md#enterprise-managed-authorization-fastgeoapi_mcp_trusted_issuers));
 with none configured the grant answers `unsupported_grant_type` and the
 surface does not exist.
 

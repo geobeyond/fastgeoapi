@@ -20,25 +20,56 @@ extra_css = ["stylesheets/extra.css"]
 
 nav = [
   { "Home" = "index.md" },
-  { "Why fastgeoapi" = "why-fastgeoapi.md" },
-  { "Getting started" = "getting-started.md" },
-  { "Configuration reference" = "configuration-reference.md" },
-  { "Command line" = "cli.md" },
-  { "How-to Guides" = [
-    { "Overview" = "howto-guides.md" },
-    { "Config from cloud storage" = "cloud-config.md" },
-    { "GeoParquet provider" = "geoparquet.md" },
-    { "Editing the configuration" = "configuration-editor.md" },
+  { "Serving" = [
+    "operators/index.md",
+    { "Tutorials" = [
+      { "Getting started" = "operators/tutorials/getting-started.md" },
+      { "Protecting pygeoapi" = "operators/tutorials/protecting-pygeoapi.md" },
+    ] },
+    { "How-to guides" = [
+      "operators/how-to/index.md",
+      { "Config from cloud storage" = "operators/how-to/cloud-config.md" },
+      { "GeoParquet provider" = "operators/how-to/geoparquet.md" },
+      { "Editing the configuration" = "operators/how-to/configuration-editor.md" },
+      { "Enabling the MCP server" = "operators/how-to/enabling-mcp.md" },
+    ] },
+    { "Reference" = [
+      { "Configuration" = "operators/reference/configuration.md" },
+      { "Command line" = "operators/reference/cli.md" },
+    ] },
+    { "Explanation" = [
+      { "Why fastgeoapi" = "operators/explanation/why-fastgeoapi.md" },
+    ] },
   ] },
-  { "MCP" = [
-    { "Overview" = "mcp/index.md" },
-    { "Configuration" = "mcp/configuration.md" },
-    { "Supported specifications" = "mcp/specifications.md" },
-    { "Getting started" = "mcp/getting-started.md" },
-    { "Verifying with the MCP Inspector" = "mcp/inspector.md" },
+  { "Consuming" = [
+    "consumers/index.md",
+    { "Tutorials" = [
+      { "Connecting an MCP client" = "consumers/tutorials/connecting-an-mcp-client.md" },
+    ] },
+    { "How-to guides" = [
+      { "Verifying with the MCP Inspector" = "consumers/how-to/mcp-inspector.md" },
+    ] },
+    { "Reference" = [
+      { "OpenAPI" = "consumers/reference/openapi.md" },
+      { "MCP specifications" = "consumers/reference/mcp-specifications.md" },
+    ] },
+    { "Explanation" = [
+      { "The MCP server" = "consumers/explanation/mcp-server.md" },
+    ] },
   ] },
-  { "Tutorials" = "tutorials.md" },
-  { "OpenAPI" = "openapi.md" },
+  { "Contributing" = [
+    "contributors/index.md",
+    { "How-to guides" = [
+      { "Development setup" = "contributors/how-to/development-setup.md" },
+      { "Running the tests" = "contributors/how-to/running-the-tests.md" },
+    ] },
+    { "Reference" = [
+      { "API reference" = "contributors/reference/index.md" },
+    ] },
+    { "Explanation" = [
+      { "How it is put together" = "contributors/explanation/architecture.md" },
+    ] },
+  ] },
 ]
 
 [project.theme]

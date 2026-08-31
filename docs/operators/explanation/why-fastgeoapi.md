@@ -43,7 +43,7 @@ orchestrators can reach them without credentials.
 
 ## Your OGC API, usable by AI agents
 
-fastgeoapi ships a production [Model Context Protocol](mcp/index.md) server at
+fastgeoapi ships a production [Model Context Protocol](../../consumers/index.md) server at
 `/mcp`. An assistant like Claude can list your collections, read their
 queryables, run CQL2 queries and execute processes — against the same data,
 through the same API, under the same identity a human client would use.
@@ -84,7 +84,7 @@ is transparent to a connected client instead of stranding it on a dead session.
 
 The full standards matrix, with what is verified on a live deployment and what
 is still in progress, is in [Supported
-specifications](mcp/specifications.md).
+specifications](../../consumers/reference/mcp-specifications.md).
 
 ## Configuration from a bucket, not from a path
 
@@ -103,7 +103,7 @@ local disk, which is what makes the rest possible:
 - give each tenant its own configuration object without re-templating an
   environment variable.
 
-See [Config from cloud storage](cloud-config.md).
+See [Config from cloud storage](../how-to/cloud-config.md).
 
 ## Reload without a restart
 
@@ -163,7 +163,7 @@ The provider is synchronous — DuckDB has no async API and pygeoapi's provider
 contract is synchronous — but it does not block the event loop: the factory's
 shim dispatches provider calls to an executor.
 
-See [GeoParquet provider](geoparquet.md).
+See [GeoParquet provider](../how-to/geoparquet.md).
 
 ## Provider instances are reused
 

@@ -41,7 +41,7 @@ PACKAGE = Path("app/pygeoapi/config_models")
 GENERATED = PACKAGE / "_generated.py"
 SCHEMA_COPY = PACKAGE / "pygeoapi-config-schema.yml"
 DIGEST = PACKAGE / "schema_digest.py"
-REFERENCE = Path("docs/configuration-reference.md")
+REFERENCE = Path("docs/operators/reference/configuration.md")
 ADDITIONS = Path("scripts/config_reference_additions.md")
 
 DIGEST_TEMPLATE = '''"""Identity of the schema the models were generated from.

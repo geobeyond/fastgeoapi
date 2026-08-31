@@ -193,7 +193,7 @@ from the client's address, with **no** `POST /mcp/token` in between — the clie
 
 The immediate fix is to disable and re-enable the connector, which re-runs the authorization dance.
 
-If it comes back on a regular cadence, the cause is the token lifetime, and the first thing to check is **not** `FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS` but whether the IdP is issuing a refresh token at all: without one that setting is silently capped at the upstream lifetime, so a server configured for days behaves as if configured for an hour. [Configuration](configuration.md#this-setting-is-silently-capped-without-an-upstream-refresh-token) covers how to tell the two apart and what each IdP needs.
+If it comes back on a regular cadence, the cause is the token lifetime, and the first thing to check is **not** `FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS` but whether the IdP is issuing a refresh token at all: without one that setting is silently capped at the upstream lifetime, so a server configured for days behaves as if configured for an hour. [Configuration](../../operators/how-to/enabling-mcp.md#this-setting-is-silently-capped-without-an-upstream-refresh-token) covers how to tell the two apart and what each IdP needs.
 
 ### Client Shows "Connected" but Tool Calls Fail
 
@@ -202,7 +202,7 @@ If the client UI reports the server as connected but tool invocations error out 
 1. Start a **new conversation** (MCP sessions are per-conversation in Claude Desktop)
 2. If that's not enough, disable and re-enable the connector (or restart the client)
 
-Server-side this class of problem is mitigated by the [stateless transport](index.md#stateless-transport): requests never depend on prior server state, so once the client opens a fresh connection everything works without re-authentication.
+Server-side this class of problem is mitigated by the [stateless transport](../explanation/mcp-server.md#stateless-transport): requests never depend on prior server state, so once the client opens a fresh connection everything works without re-authentication.
 
 ### Exploring with third-party clients
 
@@ -213,11 +213,11 @@ Two failure modes look identical from a generic MCP CLI — an opaque
 request without a token is answered `401` plus the RFC 6750 challenge.
 Tools that cannot authenticate simply cannot list tools. Use a client
 that performs the OAuth flow — the reference one has a dedicated page:
-[Verifying with the MCP Inspector](inspector.md).
+[Verifying with the MCP Inspector](../how-to/mcp-inspector.md).
 
 **Protocol versions are not a problem anymore.** The server negotiates
 the sessionless `2026-07-28` protocol as well as the legacy `initialize`
-handshake (see [Protocol versions](specifications.md#protocol-versions)),
+handshake (see [Protocol versions](../reference/mcp-specifications.md#protocol-versions)),
 so clients on either side of that change connect without configuration.
 If a client still fails after authenticating, the protocol is the wrong
 suspect.

@@ -6,11 +6,11 @@ OAuth authorization layer.
 
 This section covers:
 
-- **[Configuration](configuration.md)** — how to enable the MCP server
+- **[Configuration](../../operators/how-to/enabling-mcp.md)** — how to enable the MCP server
   and tune its authentication
-- **[Supported specifications](specifications.md)** — the standards
+- **[Supported specifications](../reference/mcp-specifications.md)** — the standards
   matrix (OAuth 2.1, CIMD, EMA and related RFCs)
-- **[Getting started](getting-started.md)** — connect a client and
+- **[Getting started](../tutorials/connecting-an-mcp-client.md)** — connect a client and
   call your first tool
 
 fastgeoapi includes an optional integrated MCP server that exposes OGC API endpoints as tools for AI assistants and LLM-based applications. The MCP server is built using [FastMCP](https://github.com/jlowin/fastmcp) and automatically generates tools from the pygeoapi OpenAPI specification.

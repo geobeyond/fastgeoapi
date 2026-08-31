@@ -202,7 +202,7 @@ the upstream token it points at when there is no way to renew that token. But it
 is silent, so a server configured for seven days can behave as if configured for
 one hour, and the symptom appears only after the first expiry — the client stops
 working while its connector still reports "connected" (see
-[Getting started](getting-started.md#client-shows-connected-but-the-tool-list-is-empty)).
+[Getting started](../../consumers/tutorials/connecting-an-mcp-client.md#client-shows-connected-but-the-tool-list-is-empty)).
 
 Requesting `offline_access` is necessary but **not sufficient**: the IdP must
 also be willing to issue the refresh token to that application.
@@ -228,7 +228,7 @@ refresh-expiry fallback (one year, when the IdP does not send
 
 Names the enterprise identity providers whose ID-JAG assertions this
 server accepts, enabling the EMA flow (see
-[Supported specifications](specifications.md#enterprise-managed-authorization)).
+[Supported specifications](../../consumers/reference/mcp-specifications.md#enterprise-managed-authorization)).
 Comma-separated; unset by default, in which case the grant answers
 `unsupported_grant_type`.
 

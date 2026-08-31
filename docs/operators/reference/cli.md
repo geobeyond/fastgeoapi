@@ -33,7 +33,7 @@ fastgeoapi run --reload
 
 The configuration it reads comes from `PYGEOAPI_CONFIG` (or the
 `DEV_`/`PROD_` variant for your `ENV_STATE`), and it may be a local path
-or a bucket URL — see [Config from cloud storage](cloud-config.md).
+or a bucket URL — see [Config from cloud storage](../how-to/cloud-config.md).
 
 ## `fastgeoapi openapi`
 
@@ -50,7 +50,7 @@ reaches a deployment. It reads the same configuration `run` would.
 ## `fastgeoapi config edit`
 
 Open the configuration editor. Covered in full in
-[Editing the configuration](configuration-editor.md); the short version:
+[Editing the configuration](../how-to/configuration-editor.md); the short version:
 
 ```bash
 fastgeoapi config edit

@@ -49,7 +49,7 @@ Overture's `division-areas` (4.47 GB, read from Europe) went from **44 s to
 0.9 s** once warm, and reusing provider instances took HTTP latency from
 **73 ms to 24 ms**.
 
-👉 **[What fastgeoapi adds to pygeoapi](https://geobeyond.github.io/fastgeoapi/why-fastgeoapi/)** explains each row, with links to the how-to guides.
+👉 **[What fastgeoapi adds to pygeoapi](https://geobeyond.github.io/fastgeoapi/operators/explanation/why-fastgeoapi/)** explains each row, with links to the how-to guides.
 
 ## Architecture
 
@@ -287,10 +287,10 @@ fastgeoapi config edit --source s3://my-bucket/pygeoapi-config.yml
 
 It prints a per-run token and an address to open. It stays on loopback,
 and it can write a configuration but never put one into service — see
-[the command line](https://geobeyond.github.io/fastgeoapi/cli/) and
-[editing the configuration](https://geobeyond.github.io/fastgeoapi/configuration-editor/).
+[the command line](https://geobeyond.github.io/fastgeoapi/operators/reference/cli/) and
+[editing the configuration](https://geobeyond.github.io/fastgeoapi/operators/how-to/configuration-editor/).
 
-See the [Getting Started guide](https://geobeyond.github.io/fastgeoapi/getting-started/) for complete setup instructions including authentication options and examples.
+See the [Getting Started guide](https://geobeyond.github.io/fastgeoapi/operators/tutorials/getting-started/) for complete setup instructions including authentication options and examples.
 
 ### Common UV Commands
 
@@ -352,7 +352,7 @@ Both workflows use [Trusted Publisher](https://docs.pypi.org/trusted-publishers/
 ## Usage
 
 Please see the [Command-line
-Reference](https://geobeyond.github.io/fastgeoapi/reference/) for
+Reference](https://geobeyond.github.io/fastgeoapi/operators/reference/configuration/) for
 details.
 
 Please have a look at the `docker-compose.yml` file under `scripts/iam` to start the stack with **Keycloak** and **Open Policy Agent** locally. There is a `README.md` file that explains how to use it.

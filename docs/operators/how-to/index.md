@@ -30,4 +30,4 @@ The MCP server provides:
 - **Dynamic Client Registration** for seamless integration with MCP clients
 - **Streamable HTTP Transport** for real-time communication (fastmcp 3.x)
 
-For complete configuration instructions, the supported specifications matrix, and usage examples, see the dedicated [MCP section](mcp/index.md).
+For complete configuration instructions, the supported specifications matrix, and usage examples, see the dedicated [MCP section](../../consumers/index.md).

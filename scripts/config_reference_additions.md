@@ -7,7 +7,7 @@ documents them. This section is hand-written and is never touched by the
 generator.
 
 Being outside the schema has one practical consequence: the
-[configuration editor](configuration-editor.md)'s form cannot create
+[configuration editor](../how-to/configuration-editor.md)'s form cannot create
 them, because no widget can be generated for a key the schema does not
 mention. It preserves them faithfully once they exist; to write one, use
 the editor's YAML tab.
@@ -27,7 +27,7 @@ S3-compatible service carries `AWS_ENDPOINT_URL_S3` for it, and without
 a per-dataset endpoint every read of a dataset elsewhere would be sent
 to the wrong place.
 
-See [GeoParquet provider](geoparquet.md) for the full treatment,
+See [GeoParquet provider](../how-to/geoparquet.md) for the full treatment,
 including what `skip_signature` is for and why a public bucket answers a
 signed request with 403.
 
@@ -36,4 +36,4 @@ signed request with 403.
 `PYGEOAPI_CONFIG` accepts an object-storage URL as well as a path, and
 the document can be reloaded without a restart. Neither is part of the
 schema, because upstream reads its configuration from a local file. See
-[Config from cloud storage](cloud-config.md).
+[Config from cloud storage](../how-to/cloud-config.md).
