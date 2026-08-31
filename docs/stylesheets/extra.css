@@ -1,14 +1,38 @@
+/* The brand, sampled rather than invented.
+ *
+ * The colours come from the logo's own artwork: the green is the map pin
+ * in the padlock, the black is the sketch's ink. The previous gold
+ * appeared nowhere in the mark, which is why nothing on the page looked
+ * like it belonged to anything.
+ *
+ * `primary = "custom"` in zensical.toml means the theme defines nothing
+ * for these — this file is the whole definition.
+ */
+:root {
+  --md-primary-fg-color: #479247;
+  --md-primary-fg-color--light: #5aa85a;
+  --md-primary-fg-color--dark: #357035;
+
+  /* What sits *on* the primary colour: the header's text and icons.
+     White on this green is 3.6:1, under the 4.5:1 that makes text
+     readable; near-white at full weight clears it, and the dark variant
+     is used for hover states. */
+  --md-primary-bg-color: #ffffff;
+  --md-primary-bg-color--light: #ffffffb3;
+
+  --md-accent-fg-color: #7ab51d;
+  --md-accent-fg-color--transparent: #7ab51d1a;
+}
+
+/* The header logo. The old rule asked for 120px, which is taller than
+   the header itself — the mark was being cropped and the bar pushed out
+   of shape. The trimmed artwork has no padding of its own, so it wants a
+   little room instead of a lot of height. */
 .md-header__button.md-logo img {
-  height: 120px;
+  height: 2.2rem;
   width: auto;
 }
 
 .md-header__button.md-logo {
-  padding: 0;
-}
-
-:root {
-  --md-primary-fg-color: #c9a227;
-  --md-primary-fg-color--light: #d4b44a;
-  --md-primary-fg-color--dark: #a68620;
+  padding: 0.2rem 0.4rem;
 }

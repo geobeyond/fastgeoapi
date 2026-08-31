@@ -73,8 +73,16 @@ nav = [
 ]
 
 [project.theme]
-logo = "images/fastgeoapi_logo.png"
-favicon = "images/fastgeoapi_logo.png"
+# Zensical ships two variants and defaults to `modern`, whose header is
+# deliberately neutral — the primary colour only tints links there. This
+# project wants its mark to show, so the header is painted: `variant =
+# "modern"` is the one-word change back.
+variant = "classic"
+# The trimmed artwork. The original carries roughly 40% transparent air
+# and a grey field baked in, which in a header reads as a box around the
+# mark rather than as the mark.
+logo = "images/fastgeoapi_logo_trim.png"
+favicon = "images/favicon-32.png"
 language = "en"
 features = [
   "navigation.tabs",
