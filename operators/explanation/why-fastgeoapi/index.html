@@ -1051,10 +1051,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#configuration-from-a-bucket-not-from-a-path" class="md-nav__link">
+  <a href="#the-configuration-does-not-care-where-it-lives" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Configuration from a bucket, not from a path
+        The configuration does not care where it lives
       </span>
     </span>
   </a>
@@ -2099,19 +2099,29 @@ is transparent to a connected client instead of stranding it on a dead session.<
 <p>The full standards matrix, with what is verified on a live deployment and what
 is still in progress, is in <a href="../../../consumers/reference/mcp-specifications/">Supported
 specifications</a>.</p>
-<h2 id="configuration-from-a-bucket-not-from-a-path">Configuration from a bucket, not from a path</h2>
+<h2 id="the-configuration-does-not-care-where-it-lives">The configuration does not care where it lives</h2>
 <p>Upstream builds its application at import time: <code>starlette_app.py</code> reads
 <code>PYGEOAPI_CONFIG</code> and <code>PYGEOAPI_OPENAPI</code>, opens those local files, and
-constructs the API as a module-level side effect.</p>
+constructs the API as a module-level side effect. A path is the only thing it
+can be given.</p>
 <p>fastgeoapi constructs the API programmatically instead — <code>API(config, openapi)</code>
-from dictionaries it holds in memory. The configuration never has to touch a
-local disk, which is what makes the rest possible:</p>
+from dictionaries it holds in memory — and reaches whatever holds them through
+a single storage abstraction. <code>./pygeoapi-config.yml</code> and
+<code>s3://tenant-42/pygeoapi-config.yml</code> are the same call to the same code, and
+<code>gs://</code>, <code>az://</code> and a Tigris bucket are that call too. Nothing anywhere asks
+which kind it got.</p>
+<p>That is the claim worth making, and it is stronger than "it can read a bucket":
+there is no bucket path and local path to keep in step, no branch to forget on
+one side. It is also why the end-to-end tests run against a real S3 rather than
+a stand-in — if a local directory and a remote prefix are one code path, the
+one worth exercising is the one that signs requests.</p>
+<p>What it buys, in order of how often it matters:</p>
 <ul>
-<li>read the configuration from <code>s3://</code>, <code>gs://</code>, <code>az://</code>, a Tigris bucket, or a
-  local directory, through one storage abstraction with a single code path;</li>
-<li>run on read-only filesystems (AWS Lambda, distroless containers) where
+<li><strong>the file stays where it belongs</strong> — beside the deployment, in a bucket, or
+  on the developer's disk, without the choice reaching the code;</li>
+<li><strong>read-only filesystems work</strong> (AWS Lambda, distroless containers), where
   writing a YAML file next to the process is not an option;</li>
-<li>give each tenant its own configuration object without re-templating an
+<li><strong>each tenant gets its own configuration object</strong> without re-templating an
   environment variable.</li>
 </ul>
 <p>See <a href="../../how-to/cloud-config/">Config from cloud storage</a>.</p>
