@@ -19,9 +19,6 @@
      is used for hover states. */
   --md-primary-bg-color: #ffffff;
   --md-primary-bg-color--light: #ffffffb3;
-
-  --md-accent-fg-color: #7ab51d;
-  --md-accent-fg-color--transparent: #7ab51d1a;
 }
 
 /* The header logo is the horizontal lockup, wordmark included, so the
@@ -60,11 +57,31 @@
   font-weight: 600;
 }
 
-.md-nav__link--active,
-.md-nav__item--active > .md-nav__link {
-  color: var(--md-primary-fg-color);
+/* The accent, which is what marks the page you are on.
+ *
+ * The theme paints `.md-nav__link--active` with the accent colour and a
+ * tenth of it as background, and the palette's `red` made that a strong
+ * pink — a third colour, next to the green of the tabs and the blue of
+ * the artwork, saying nothing the other two did not.
+ *
+ * So the accent becomes the mark's blue. The gear is drawn at 234°,
+ * which lightened reads as indigo rather than as the azure it should;
+ * on the dark scheme the same gear is 198°. This sits between the two,
+ * at 206° — recognisably the mark's, and unmistakably blue. 4.9:1 on
+ * white, above the 4.5 that makes text readable, and the dark scheme
+ * takes the artwork's own lighter blue at 9.9:1.
+ *
+ * Setting it here rather than overriding `.md-nav__link--active` means
+ * hover and focus follow too, instead of drifting apart from selection. */
+:root {
+  --md-accent-fg-color: #1e75b8;
+  --md-accent-fg-color--transparent: #1e75b81a;
 }
 
+[data-md-color-scheme="slate"] {
+  --md-accent-fg-color: #7acbee;
+  --md-accent-fg-color--transparent: #7acbee1a;
+}
 /* The dark mark.
  *
  * The artwork names its colours as custom properties, so this could be a
