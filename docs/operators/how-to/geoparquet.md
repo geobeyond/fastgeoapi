@@ -1,4 +1,8 @@
-# GeoParquet provider
+---
+icon: material/database-outline
+---
+
+# :material-database-outline: GeoParquet provider
 
 A read-only OGC API Features provider that serves GeoParquet from a
 local path or an object-storage bucket, with CQL2 filters — spatial

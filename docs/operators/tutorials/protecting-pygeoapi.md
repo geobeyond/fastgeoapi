@@ -1,4 +1,8 @@
-# Tutorials
+---
+icon: material/shield-lock-outline
+---
+
+# :material-shield-lock-outline: Tutorials
 
 ## Authentication and Authorization
 

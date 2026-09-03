@@ -1,4 +1,8 @@
-# API reference
+---
+icon: material/book-search-outline
+---
+
+# :material-book-search-outline: API reference
 
 Generated from the source. The docstrings carry the reasoning rather
 than restating the signatures, so this is the shortest path to _why_ a

@@ -1,4 +1,8 @@
-# Editing the configuration
+---
+icon: material/file-document-edit-outline
+---
+
+# :material-file-document-edit-outline: Editing the configuration
 
 The configuration decides what the server serves: which collections
 exist, which specifications get mounted, how providers reach their data.

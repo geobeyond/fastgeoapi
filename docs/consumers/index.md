@@ -1,4 +1,8 @@
-# Consuming
+---
+icon: material/api
+---
+
+# :material-api: Consuming
 
 You are calling fastgeoapi rather than running it — from an application,
 a script, or an AI agent.

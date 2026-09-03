@@ -1,4 +1,8 @@
-# Verifying with the MCP Inspector
+---
+icon: material/magnify
+---
+
+# :material-magnify: Verifying with the MCP Inspector
 
 The [MCP Inspector](https://modelcontextprotocol.io/docs/2026-07-28/tools/inspector)
 is the reference tool for testing MCP servers, maintained by the protocol

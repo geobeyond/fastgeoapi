@@ -1,4 +1,8 @@
-# Getting started
+---
+icon: material/lan-connect
+---
+
+# :material-lan-connect: Getting started
 
 Connect an MCP client and call your first tool.
 

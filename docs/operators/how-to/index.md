@@ -1,4 +1,8 @@
-# How-to Guides
+---
+icon: material/wrench
+---
+
+# :material-wrench: How-to Guides
 
 This section contains practical guides for configuring and using fastgeoapi features.
 

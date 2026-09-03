@@ -1,4 +1,8 @@
-# What fastgeoapi adds to pygeoapi
+---
+icon: material/lightbulb-on-outline
+---
+
+# :material-lightbulb-on-outline: What fastgeoapi adds to pygeoapi
 
 fastgeoapi is not a fork of [pygeoapi](https://github.com/geopython/pygeoapi).
 pygeoapi _is_ the engine: the OGC API implementation, the conformance

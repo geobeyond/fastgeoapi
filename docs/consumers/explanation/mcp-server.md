@@ -1,4 +1,8 @@
-# MCP Server
+---
+icon: material/robot-outline
+---
+
+# :material-robot-outline: MCP Server
 
 fastgeoapi ships a production Model Context Protocol (MCP) server that
 exposes the protected OGC APIs as tools for AI agents, with a built-in

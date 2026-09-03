@@ -1,4 +1,8 @@
-# Configuration
+---
+icon: material/toggle-switch-outline
+---
+
+# :material-toggle-switch-outline: Configuration
 
 How to enable the MCP server and configure its authentication.
 

@@ -1,4 +1,8 @@
-# Serving
+---
+icon: material/server-network
+---
+
+# :material-server-network: Serving
 
 You are standing up an OGC API and keeping it running: choosing an
 authentication chain, pointing collections at data, changing a

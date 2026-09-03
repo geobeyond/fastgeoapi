@@ -1,4 +1,8 @@
-# Running the tests
+---
+icon: material/test-tube
+---
+
+# :material-test-tube: Running the tests
 
 ```bash
 uv run pytest

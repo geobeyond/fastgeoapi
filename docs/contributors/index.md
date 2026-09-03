@@ -1,4 +1,8 @@
-# Contributing
+---
+icon: material/code-braces
+---
+
+# :material-code-braces: Contributing
 
 You are working on fastgeoapi itself — fixing something, adding a
 provider, or trying to understand why a piece is shaped the way it is.

@@ -1,4 +1,8 @@
-# Supported specifications
+---
+icon: material/file-certificate-outline
+---
+
+# :material-file-certificate-outline: Supported specifications
 
 The fastgeoapi MCP server plays **two roles** in an identity-secured
 MCP deployment: it is an **MCP Server** (the protected resource AI

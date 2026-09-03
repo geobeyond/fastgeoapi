@@ -1,4 +1,8 @@
-# Getting started
+---
+icon: material/rocket-launch-outline
+---
+
+# :material-rocket-launch-outline: Getting started
 
 ## Live Demo Server
 

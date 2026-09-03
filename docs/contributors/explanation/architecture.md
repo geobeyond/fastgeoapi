@@ -1,4 +1,8 @@
-# How it is put together
+---
+icon: material/puzzle-outline
+---
+
+# :material-puzzle-outline: How it is put together
 
 fastgeoapi is not a fork of pygeoapi and not a wrapper around its CLI.
 It builds pygeoapi in process, from a configuration it may have read

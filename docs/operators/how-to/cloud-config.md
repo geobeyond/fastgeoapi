@@ -1,4 +1,8 @@
-# Config from cloud object storage
+---
+icon: material/cloud-lock
+---
+
+# :material-cloud-lock: Config from cloud object storage
 
 `PYGEOAPI_CONFIG` (per-environment: `DEV_PYGEOAPI_CONFIG` /
 `PROD_PYGEOAPI_CONFIG`) accepts a local path or an object-storage URL —

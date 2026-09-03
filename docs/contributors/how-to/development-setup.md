@@ -1,4 +1,8 @@
-# Development setup
+---
+icon: material/laptop
+---
+
+# :material-laptop: Development setup
 
 ```bash
 git clone https://github.com/geobeyond/fastgeoapi.git

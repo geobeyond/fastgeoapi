@@ -1,4 +1,8 @@
-# The command line
+---
+icon: material/console
+---
+
+# :material-console: The command line
 
 Installing fastgeoapi puts one command on your path. It has three
 subcommands, and which one you run decides **what the process is allowed

@@ -1,4 +1,8 @@
-# Configuration reference
+---
+icon: material/format-list-bulleted-type
+---
+
+# :material-format-list-bulleted-type: Configuration reference
 
 Every key fastgeoapi accepts in the pygeoapi configuration document.
 

@@ -107,17 +107,29 @@ features = [
   "content.code.copy",
 ]
 
+# Not the default Roboto, which reads as no choice at all — but not a
+# display face either: the wordmark is Caveat and the symbol is a sketch,
+# and a loud face beside them would be two voices talking over each
+# other. Plex has enough character to look chosen, and its sans and mono
+# were drawn as one family, so prose and code blocks agree rather than
+# merely coexist.
+[project.theme.font]
+text = "IBM Plex Sans"
+code = "IBM Plex Mono"
+
 [[project.theme.palette]]
 scheme = "default"
 primary = "custom"
-accent = "red"
+# `custom` means the theme defines nothing and extra.css defines it all —
+# the accent is the mark's own blue rather than one of the theme's.
+accent = "custom"
 toggle.icon = "material/toggle-switch-off-outline"
 toggle.name = "Switch to Dark Mode"
 
 [[project.theme.palette]]
 scheme = "slate"
 primary = "custom"
-accent = "blue grey"
+accent = "custom"
 toggle.icon = "material/toggle-switch"
 toggle.name = "Switch to Light Mode"
 

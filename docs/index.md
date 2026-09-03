@@ -1,5 +1,6 @@
 ---
 title: fastgeoapi
+icon: material/home
 ---
 
 <p align="center">
