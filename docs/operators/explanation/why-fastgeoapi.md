@@ -86,21 +86,33 @@ The full standards matrix, with what is verified on a live deployment and what
 is still in progress, is in [Supported
 specifications](../../consumers/reference/mcp-specifications.md).
 
-## Configuration from a bucket, not from a path
+## The configuration does not care where it lives
 
 Upstream builds its application at import time: `starlette_app.py` reads
 `PYGEOAPI_CONFIG` and `PYGEOAPI_OPENAPI`, opens those local files, and
-constructs the API as a module-level side effect.
+constructs the API as a module-level side effect. A path is the only thing it
+can be given.
 
 fastgeoapi constructs the API programmatically instead — `API(config, openapi)`
-from dictionaries it holds in memory. The configuration never has to touch a
-local disk, which is what makes the rest possible:
+from dictionaries it holds in memory — and reaches whatever holds them through
+a single storage abstraction. `./pygeoapi-config.yml` and
+`s3://tenant-42/pygeoapi-config.yml` are the same call to the same code, and
+`gs://`, `az://` and a Tigris bucket are that call too. Nothing anywhere asks
+which kind it got.
 
-- read the configuration from `s3://`, `gs://`, `az://`, a Tigris bucket, or a
-  local directory, through one storage abstraction with a single code path;
-- run on read-only filesystems (AWS Lambda, distroless containers) where
+That is the claim worth making, and it is stronger than "it can read a bucket":
+there is no bucket path and local path to keep in step, no branch to forget on
+one side. It is also why the end-to-end tests run against a real S3 rather than
+a stand-in — if a local directory and a remote prefix are one code path, the
+one worth exercising is the one that signs requests.
+
+What it buys, in order of how often it matters:
+
+- **the file stays where it belongs** — beside the deployment, in a bucket, or
+  on the developer's disk, without the choice reaching the code;
+- **read-only filesystems work** (AWS Lambda, distroless containers), where
   writing a YAML file next to the process is not an option;
-- give each tenant its own configuration object without re-templating an
+- **each tenant gets its own configuration object** without re-templating an
   environment variable.
 
 See [Config from cloud storage](../how-to/cloud-config.md).

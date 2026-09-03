@@ -10,23 +10,23 @@ authorization of its own.
 
 <div class="grid cards" markdown>
 
-- :material-school: **[Tutorials](tutorials/connecting-an-mcp-client.md)**
+-   :material-school: **[Tutorials](tutorials/connecting-an-mcp-client.md)**
 
-  Learning-oriented. Connect a client and call your first tool.
+    Learning-oriented. Connect a client and call your first tool.
 
-- :material-wrench: **[How-to guides](how-to/mcp-inspector.md)**
+-   :material-wrench: **[How-to guides](how-to/mcp-inspector.md)**
 
-  Task-oriented. Verifying what a server is really exposing.
+    Task-oriented. Verifying what a server is really exposing.
 
-- :material-book-open-variant: **[Reference](reference/openapi.md)**
+-   :material-book-open-variant: **[Reference](reference/openapi.md)**
 
-  Information-oriented. The OpenAPI document the demo serves, and the
-  MCP specifications this implements.
+    Information-oriented. The OpenAPI document the demo serves, and the
+    MCP specifications this implements.
 
-- :material-lightbulb: **[Explanation](explanation/mcp-server.md)**
+-   :material-lightbulb: **[Explanation](explanation/mcp-server.md)**
 
-  Understanding-oriented. What the MCP server is, how it authorizes,
-  and why it is built the way it is.
+    Understanding-oriented. What the MCP server is, how it authorizes,
+    and why it is built the way it is.
 
 </div>
 
