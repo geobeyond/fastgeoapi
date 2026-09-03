@@ -184,3 +184,35 @@ emoji_index = "zensical.extensions.emoji.twemoji"
 [project.markdown_extensions.termynal]
 include_assets = true
 prompt_literal_start = ["$"]
+
+# Every address the Diátaxis reorganisation moved.
+#
+# The pages were renamed in one commit and every published URL broke with
+# them — bookmarks, links from elsewhere, anything a search engine had
+# already indexed. The alternative was fourteen stub pages saying "this
+# moved"; `redirects`, added in Zensical 0.0.58, is the same thing as a
+# table. Derived from git's own record of the renames, not from memory.
+[project.plugins.minify]
+minify_html = true
+minify_css = true
+minify_js = true
+
+[project.plugins.redirects.redirect_maps]
+"cli.md" = "operators/reference/cli.md"
+"cloud-config.md" = "operators/how-to/cloud-config.md"
+"configuration-editor.md" = "operators/how-to/configuration-editor.md"
+# Disabled long before this reorganisation, by renaming it to .tmp.
+# The branch is where it would live now.
+"contributing.md" = "contributors/index.md"
+"geoparquet.md" = "operators/how-to/geoparquet.md"
+"getting-started.md" = "operators/tutorials/getting-started.md"
+"howto-guides.md" = "operators/how-to/index.md"
+"mcp-server.md" = "consumers/index.md"
+"mcp/configuration.md" = "operators/how-to/enabling-mcp.md"
+"mcp/getting-started.md" = "consumers/tutorials/connecting-an-mcp-client.md"
+"mcp/index.md" = "consumers/index.md"
+"mcp/inspector.md" = "consumers/how-to/mcp-inspector.md"
+"mcp/specifications.md" = "consumers/reference/mcp-specifications.md"
+"openapi.md" = "consumers/reference/openapi.md"
+"tutorials.md" = "operators/tutorials/protecting-pygeoapi.md"
+"why-fastgeoapi.md" = "operators/explanation/why-fastgeoapi.md"

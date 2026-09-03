@@ -1,7 +1,8 @@
 ---
 hide:
   - navigation
-  - tocicon: material/book-open-varianticon: material/code-json
+  - toc
+icon: material/code-json
 ---
 
 # :material-code-json: Live demo OpenAPI

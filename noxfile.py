@@ -364,7 +364,7 @@ def xdoctest(session: Session) -> None:
 #: replaced Material for MkDocs and most of its plugins with settings of
 #: its own; what is left is the API reference handler and the terminal
 #: animation, both of which it reads as extensions.
-DOCS_DEPENDENCIES = ("zensical>=0.0.33", "mkdocstrings-python", "termynal")
+DOCS_DEPENDENCIES = ("zensical>=0.0.58", "mkdocstrings-python", "termynal")
 
 
 @session(name="docs-build", python="3.12")
