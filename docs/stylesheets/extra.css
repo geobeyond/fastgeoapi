@@ -64,3 +64,19 @@
 .md-nav__item--active > .md-nav__link {
   color: var(--md-primary-fg-color);
 }
+
+/* The dark mark.
+ *
+ * The artwork names its colours as custom properties, so this could be a
+ * variable swap — but the theme embeds the logo with `<img src>`, and an
+ * SVG loaded that way never sees them. Writing it into the page instead
+ * would work and would put 290 KB of traced hatching in every page, so
+ * the values are baked at build time by `scripts/theme_logo.py` and the
+ * file is picked here. */
+[data-md-color-scheme="slate"] .md-header__button.md-logo img {
+  content: url("../images/lockup-horizontal-dark.svg");
+}
+
+[data-md-color-scheme="slate"] .md-typeset img[src$="lockup-stacked.svg"] {
+  content: url("../images/lockup-stacked-dark.svg");
+}

@@ -84,11 +84,14 @@ nav = [
 # The horizontal lockup, which carries the wordmark with it — so the
 # theme's own `site_name` text is hidden in extra.css, or the name reads
 # twice in the same bar.
-logo = "images/lockup_horizontal.png"
-# The simplified glyph, not a smaller copy of the illustration: the
-# hatching of the full mark turns to grey mush at this size — rendered
-# and looked at, not assumed. mark.svg is the source; the PNGs are
-# generated from it with `rsvg-convert -w 32 -h 32`.
+#
+# The traced SVG: the same drawing as the PNG it replaces, hatching and
+# all, with its colours named by role so the dark scheme is a
+# substitution rather than a second drawing.
+logo = "images/lockup-horizontal.svg"
+# The deliberate reduction, not a smaller copy: the traced symbol's
+# hatching collapses into grey mush at 32px. It came as its own file
+# because that was asked for as a separate thing.
 favicon = "images/favicon-32.png"
 language = "en"
 features = [
@@ -151,6 +154,10 @@ pygments_lang_class = true
 
 [project.markdown_extensions."pymdownx.inlinehilite"]
 [project.markdown_extensions."pymdownx.snippets"]
+# So the home page can write the lockup into the page rather than link
+# it: an SVG in an `<img>` never sees the page's custom properties, and
+# the dark variant is exactly those properties.
+base_path = ["docs"]
 [project.markdown_extensions."pymdownx.details"]
 [project.markdown_extensions."pymdownx.superfences"]
 [project.markdown_extensions."pymdownx.mark"]

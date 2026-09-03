@@ -2,8 +2,8 @@
 title: fastgeoapi
 ---
 
-<p align="center" markdown>
-  ![fastgeoapi](images/lockup_stacked.png){ width="260" }
+<p align="center">
+  <img src="images/lockup-stacked.svg" width="260" alt="fastgeoapi" />
 </p>
 
 An OGC API server built on [pygeoapi](https://pygeoapi.io), with the
