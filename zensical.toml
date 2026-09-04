@@ -13,6 +13,10 @@ site_description = "OGC API server built on pygeoapi, with authentication, cloud
 site_url = "https://geobeyond.github.io/fastgeoapi/"
 repo_name = "geobeyond/fastgeoapi"
 repo_url = "https://github.com/geobeyond/fastgeoapi"
+# Turns every page into an invitation: a reader who spots a mistake gets
+# an edit link straight into the file, which for an open project is the
+# shortest path from reader to contributor.
+edit_uri = "edit/develop/docs/"
 docs_dir = "docs"
 site_dir = "docs_build/site"
 copyright = "© Copyright 2025 Geobeyond team."
@@ -99,12 +103,29 @@ features = [
   "navigation.sections",
   "navigation.top",
   "navigation.indexes",
+  # Where you are, in a tree three branches wide and four quadrants deep.
+  "navigation.path",
+  # Where to go next, so a page ends in a door rather than a wall.
+  "navigation.footer",
+  # Pages are swapped without a full reload, and hovered links are
+  # fetched ahead. Anything that ran on `window.onload` has to move to
+  # `document$` — see the OpenAPI page, which mounts Swagger UI.
+  "navigation.instant",
+  "navigation.instant.prefetch",
   "toc.integrate",
+  "toc.follow",
   "search.suggest",
   "search.highlight",
   "content.tabs.link",
   "content.code.annotate",
   "content.code.copy",
+  "content.code.select",
+  # Edit and view links, fed by `edit_uri` above.
+  "content.action.edit",
+  "content.action.view",
+  # Abbreviations explain themselves on hover — these docs are thick with
+  # OGC, MCP, OAuth, CQL2 and friends.
+  "content.tooltips",
 ]
 
 # Not the default Roboto, which reads as no choice at all — but not a
@@ -141,11 +162,21 @@ link = "https://github.com/geobeyond"
 icon = "fontawesome/brands/linkedin"
 link = "https://www.linkedin.com/company/geobeyond"
 
+[[project.extra.social]]
+icon = "fontawesome/brands/python"
+link = "https://pypi.org/project/fastgeoapi/"
+
 # The API reference for contributors. Preliminary in Zensical — backlinks
 # are not supported yet, and its authors say they will rethink API
 # documentation from the ground up — so it is kept to what we rely on.
 [project.plugins.mkdocstrings.handlers.python]
 paths = ["app"]
+# So a type in a signature links to where it is defined instead of being
+# dead text.
+inventories = [
+  "https://docs.python.org/3/objects.inv",
+  "https://fastapi.tiangolo.com/objects.inv",
+]
 options.docstring_style = "numpy"
 options.show_source = true
 options.show_root_heading = true
@@ -153,11 +184,38 @@ options.show_symbol_type_heading = true
 options.show_symbol_type_toc = true
 options.members_order = "source"
 
+# Zensical's defaults, mirrored, plus our three additions.
+#
+# Declaring `markdown_extensions` **replaces** the defaults rather than
+# extending them — so the migration silently dropped eleven of them,
+# including `toc` with permalinks. That one is not cosmetic: without it
+# no heading has an anchor, and nobody can link to a section of these
+# docs. `content.tabs.link` was declared in the theme with no
+# `pymdownx.tabbed` behind it to do anything.
+#
+# Keep in sync with Zensical's DEFAULT_MARKDOWN_EXTENSIONS on upgrades.
+
+# --- Zensical's defaults ---------------------------------------------
+[project.markdown_extensions.abbr]
 [project.markdown_extensions.admonition]
 [project.markdown_extensions.attr_list]
-[project.markdown_extensions.md_in_html]
-[project.markdown_extensions.tables]
+[project.markdown_extensions.def_list]
 [project.markdown_extensions.footnotes]
+[project.markdown_extensions.md_in_html]
+
+[project.markdown_extensions.toc]
+permalink = true
+
+[project.markdown_extensions."pymdownx.arithmatex"]
+generic = true
+
+[project.markdown_extensions."pymdownx.betterem"]
+[project.markdown_extensions."pymdownx.caret"]
+[project.markdown_extensions."pymdownx.details"]
+
+[project.markdown_extensions."pymdownx.emoji"]
+emoji_generator = "zensical.extensions.emoji.to_svg"
+emoji_index = "zensical.extensions.emoji.twemoji"
 
 [project.markdown_extensions."pymdownx.highlight"]
 anchor_linenums = true
@@ -165,33 +223,37 @@ line_spans = "__span"
 pygments_lang_class = true
 
 [project.markdown_extensions."pymdownx.inlinehilite"]
+[project.markdown_extensions."pymdownx.keys"]
+[project.markdown_extensions."pymdownx.magiclink"]
+[project.markdown_extensions."pymdownx.mark"]
+[project.markdown_extensions."pymdownx.smartsymbols"]
+
+[project.markdown_extensions."pymdownx.superfences"]
+custom_fences = [{ name = "mermaid", class = "mermaid" }]
+
+[project.markdown_extensions."pymdownx.tabbed"]
+alternate_style = true
+
+[project.markdown_extensions."pymdownx.tasklist"]
+custom_checkbox = true
+
+[project.markdown_extensions."pymdownx.tilde"]
+
+# --- ours ------------------------------------------------------------
+[project.markdown_extensions.tables]
+
 [project.markdown_extensions."pymdownx.snippets"]
 # So the home page can write the lockup into the page rather than link
 # it: an SVG in an `<img>` never sees the page's custom properties, and
-# the dark variant is exactly those properties.
+# the dark variant is exactly those properties. `check_paths` turns a
+# missing include into a build failure rather than a silent blank.
 base_path = ["docs"]
-[project.markdown_extensions."pymdownx.details"]
-[project.markdown_extensions."pymdownx.superfences"]
-[project.markdown_extensions."pymdownx.mark"]
-
-[project.markdown_extensions."pymdownx.arithmatex"]
-generic = true
-
-[project.markdown_extensions."pymdownx.emoji"]
-emoji_generator = "zensical.extensions.emoji.to_svg"
-emoji_index = "zensical.extensions.emoji.twemoji"
+check_paths = true
 
 [project.markdown_extensions.termynal]
 include_assets = true
 prompt_literal_start = ["$"]
 
-# Every address the Diátaxis reorganisation moved.
-#
-# The pages were renamed in one commit and every published URL broke with
-# them — bookmarks, links from elsewhere, anything a search engine had
-# already indexed. The alternative was fourteen stub pages saying "this
-# moved"; `redirects`, added in Zensical 0.0.58, is the same thing as a
-# table. Derived from git's own record of the renames, not from memory.
 [project.plugins.minify]
 minify_html = true
 minify_css = true

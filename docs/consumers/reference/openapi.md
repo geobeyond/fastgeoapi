@@ -21,7 +21,14 @@ visible to a client.
 <div id="swagger-ui"></div>
 <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js" crossorigin></script>
 <script>
-  window.addEventListener("load", () => {
+  // `document$` rather than `window.onload`: with instant navigation the
+  // page is swapped without a reload, so a load listener never fires
+  // when you arrive here from a link — and the panel would stay empty
+  // for everyone who did not type the URL.
+  document$.subscribe(() => {
+    const mount = document.querySelector("#swagger-ui");
+    if (!mount || mount.dataset.mounted) return;
+    mount.dataset.mounted = "1";
     window.SwaggerUIBundle({
       url: "https://fastgeoapi.fly.dev/geoapi/openapi?f=json",
       dom_id: "#swagger-ui",
