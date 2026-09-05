@@ -75,7 +75,6 @@ When you run `uv sync`, UV uses git-based dependencies defined in the `[tool.uv.
 
 - **pygeoapi** (from github.com/geopython/pygeoapi.git, branch: master)
 - **pygeofilter** (from github.com/geopython/pygeofilter.git, tag: v0.3.1)
-- **fencer** (from github.com/abunuwas/fencer.git, branch: main)
 
 ```bash
 uv sync

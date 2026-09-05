@@ -107,7 +107,7 @@ This automatically:
 - Installs all required dependencies including git-based packages from `[tool.uv.sources]`
 - Sets up fastgeoapi in development mode
 
-For development, UV uses git-based dependencies defined in `[tool.uv.sources]` to get the latest features from upstream projects (pygeoapi master, pygeofilter, fencer). The PyPI release uses stable published versions.
+For development, UV uses git-based dependencies defined in `[tool.uv.sources]` to get the latest features from upstream projects (pygeoapi master, pygeofilter). The PyPI release uses stable published versions.
 
 ### Activate the Virtual Environment
 

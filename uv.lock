@@ -712,15 +712,6 @@ wheels = [
 ]
 
 [[package]]
-name = "exrex"
-version = "0.12.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/26/9a/580635ea99178aba728de721e88e5a0d18b528805c58e8b26eab87be2a45/exrex-0.12.0.tar.gz", hash = "sha256:3f582add0700d4141e279625252e7a0655f9ad81feab3b8ab9077966668a2c99", size = 19766, upload-time = "2024-11-13T13:46:36.399Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/63/90/89fdfc6f426cc6414cc8e1c599c4333d800f8f3ff05cb6ce69c8d0eaa245/exrex-0.12.0-py3-none-any.whl", hash = "sha256:1228f2e3afb008cacf6adc3ec20b098f1303886f4382b57cdf3b7259fb7c0ad3", size = 23590, upload-time = "2024-11-13T13:46:34.647Z" },
-]
-
-[[package]]
 name = "faker"
 version = "40.37.0"
 source = { registry = "https://pypi.org/simple" }
@@ -881,7 +872,6 @@ dependencies = [
     { name = "fastapi-opa" },
     { name = "fastmcp" },
     { name = "fastmcp-slim", extra = ["client"] },
-    { name = "fencer" },
     { name = "geoalchemy2" },
     { name = "httpx" },
     { name = "httpx2" },
@@ -948,7 +938,6 @@ requires-dist = [
     { name = "fastapi-opa", specifier = ">=2.0.3,<3" },
     { name = "fastmcp", specifier = ">=4.0.0b1,<5" },
     { name = "fastmcp-slim", extras = ["client"], specifier = ">=4.0.0b1,<5" },
-    { name = "fencer", git = "https://github.com/abunuwas/fencer.git?branch=main" },
     { name = "fsspec", marker = "extra == 'geoparquet'", specifier = ">=2024.6" },
     { name = "geoalchemy2", specifier = ">=0.18.1,<0.19" },
     { name = "httpx", specifier = ">=0.28,<0.29" },
@@ -1063,19 +1052,6 @@ server = [
     { name = "uvicorn" },
     { name = "watchfiles" },
     { name = "websockets" },
-]
-
-[[package]]
-name = "fencer"
-version = "0.3.6"
-source = { git = "https://github.com/abunuwas/fencer.git?branch=main#90213874cea510b079f6fd0bf819aba395ebba5d" }
-dependencies = [
-    { name = "click" },
-    { name = "exrex" },
-    { name = "jsf" },
-    { name = "pyyaml" },
-    { name = "requests" },
-    { name = "tabulate" },
 ]
 
 [[package]]
@@ -1634,23 +1610,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/5d/ac/d4fd5b30f82900eac60d765f179f0ba005825ac462cc8ced6e13ec685ab3/joserfc-1.6.8.tar.gz", hash = "sha256:878620c553a6ebdd76ccdc356782fee3f735f21a356d079a546b42a4670ace5f", size = 232930, upload-time = "2026-05-27T03:22:37.819Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/98/8c/5cdce2cf3ce8155849baf9a5e2ce77e89dc87ec3bdb38259e5d85fbc45bd/joserfc-1.6.8-py3-none-any.whl", hash = "sha256:22fb31a69094a5e6f44632002a9df2c30c941fc6c8ce1b037e92c03de954cf9f", size = 70927, upload-time = "2026-05-27T03:22:35.796Z" },
-]
-
-[[package]]
-name = "jsf"
-version = "0.11.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "faker" },
-    { name = "jsonschema" },
-    { name = "pydantic" },
-    { name = "rstr" },
-    { name = "smart-open", extra = ["http"] },
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/8d/34/cf272dfe4277ce03b275bb9f5e99001b31db01b21c290fd262333c96e34a/jsf-0.11.2.tar.gz", hash = "sha256:07055b363281d38ce871a9256a00587d8472802c5108721a7fe5884465104b5d", size = 29837, upload-time = "2024-03-26T02:04:38.893Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/0a/ae/7435288ab8b3059823afa48508ddf658c27d96deb8a978498103ccd71ca8/jsf-0.11.2-py3-none-any.whl", hash = "sha256:b4472c8c2d776eb3e0bb08368caa6ae0ead7ea78b20653facc07b6d93768612c", size = 49322, upload-time = "2024-03-26T02:04:37.013Z" },
 ]
 
 [[package]]
@@ -3089,15 +3048,6 @@ wheels = [
 ]
 
 [[package]]
-name = "rstr"
-version = "3.2.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/9f/80/d7449656d45a776b7a443ce3af4eb97c4debe416a1a80f60311c7cfd02ff/rstr-3.2.2.tar.gz", hash = "sha256:c4a564d4dfb4472d931d145c43d1cf1ad78c24592142e7755b8866179eeac012", size = 13560, upload-time = "2023-10-11T20:07:57.422Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c8/8c/a0f14f2fcdd846839c478048032b2fc93293deaa936ff6751f27dcf50995/rstr-3.2.2-py3-none-any.whl", hash = "sha256:f39195d38da1748331eeec52f1276e71eb6295e7949beea91a5e9af2340d7b3b", size = 10030, upload-time = "2023-10-11T20:07:55.873Z" },
-]
-
-[[package]]
 name = "ruamel-yaml"
 version = "0.19.1"
 source = { registry = "https://pypi.org/simple" }
@@ -3256,23 +3206,6 @@ wheels = [
 ]
 
 [[package]]
-name = "smart-open"
-version = "8.0.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "wrapt" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/76/53/9c513747547fd595d5c143259129ea8b9c3ea2f6b7bb9dcea2b1966ded3c/smart_open-8.0.1.tar.gz", hash = "sha256:18b1c4496003c6902be17c15f032b5c319f307c89c6ae9e6b028b508bed8b2cf", size = 61882, upload-time = "2026-07-15T13:56:10.492Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c3/96/325b8c507ccecc50421fecc0345a502ee6e4a44785af3c4e6ecbadad624a/smart_open-8.0.1-py3-none-any.whl", hash = "sha256:3e97f90e92a952cb57863dfe132082c400a52eeeb27c067692fb51dbcc5b0089", size = 73504, upload-time = "2026-07-15T13:56:09.033Z" },
-]
-
-[package.optional-dependencies]
-http = [
-    { name = "requests" },
-]
-
-[[package]]
 name = "sortedcontainers"
 version = "2.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3392,15 +3325,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/db/a1/3b8ed9c1fc3aa6eebb57732d924ddaa0500ecc3b638d0454816320994383/stevedore-5.9.1.tar.gz", hash = "sha256:e97a2667923efda926e8713fde6a73616df68210a3cbc6f02b48967b676fd8bf", size = 518111, upload-time = "2026-08-20T15:25:14.754Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c5/97/bba6e7ec2f5498b9dcb7b1b6400086b80ae5a8ebaff4b25e8c8add75f439/stevedore-5.9.1-py3-none-any.whl", hash = "sha256:5c8ff3a9f336cc1a06ac0f597bc79d11a2f950bfd32e290ca56b5a301fafafbf", size = 54931, upload-time = "2026-08-20T15:25:13.602Z" },
-]
-
-[[package]]
-name = "tabulate"
-version = "0.10.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/46/58/8c37dea7bbf769b20d58e7ace7e5edfe65b849442b00ffcdd56be88697c6/tabulate-0.10.0.tar.gz", hash = "sha256:e2cfde8f79420f6deeffdeda9aaec3b6bc5abce947655d17ac662b126e48a60d", size = 91754, upload-time = "2026-03-04T18:55:34.402Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/99/55/db07de81b5c630da5cbf5c7df646580ca26dfaefa593667fc6f2fe016d2e/tabulate-0.10.0-py3-none-any.whl", hash = "sha256:f0b0622e567335c8fabaaa659f1b33bcb6ddfe2e496071b743aa113f8774f2d3", size = 39814, upload-time = "2026-03-04T18:55:31.284Z" },
 ]
 
 [[package]]
