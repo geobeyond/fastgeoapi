@@ -82,6 +82,9 @@ class DevConfig(GlobalConfig):
     # the grant stays off until an operator names the enterprise IdPs it
     # trusts, so nobody can mint tokens with an assertion we never vetted.
     FASTGEOAPI_MCP_TRUSTED_ISSUERS: str | None = None
+    # Reverse-DNS name of this deployment's MCP server card (SEP-2127),
+    # e.g. `it.geobeyond/fastgeoapi`. Derived from APP_URI when unset.
+    FASTGEOAPI_MCP_SERVER_NAME: str | None = None
 
     model_config = SettingsConfigDict(
         env_prefix="DEV_",
@@ -145,6 +148,9 @@ class ProdConfig(GlobalConfig):
     # the grant stays off until an operator names the enterprise IdPs it
     # trusts, so nobody can mint tokens with an assertion we never vetted.
     FASTGEOAPI_MCP_TRUSTED_ISSUERS: str | None = None
+    # Reverse-DNS name of this deployment's MCP server card (SEP-2127),
+    # e.g. `it.geobeyond/fastgeoapi`. Derived from APP_URI when unset.
+    FASTGEOAPI_MCP_SERVER_NAME: str | None = None
 
     model_config = SettingsConfigDict(
         env_prefix="PROD_",
