@@ -82,6 +82,40 @@
   --md-accent-fg-color: #7acbee;
   --md-accent-fg-color--transparent: #7acbee1a;
 }
+/* Hovering a page in the left menu, in the mark's green.
+ *
+ * The theme washes it grey — `--md-default-fg-color` on
+ * `--md-default-fg-color--lightest`, which is to say the text does not
+ * change at all and a faint grey slides in behind it. That reads as the
+ * menu acknowledging the pointer rather than as the site answering.
+ *
+ * Green here and blue for the page you are on splits the two states by
+ * colour instead of by shade: one is where the pointer is, the other is
+ * where you are.
+ *
+ * Not the mark's `#479247`, which is 3.8:1 on white and under the 4.5
+ * that makes text readable. Same hue, 120°, taken down to 30% lightness
+ * for 6.7:1. The dark scheme uses the lighter green the brand already
+ * carries there, 7.2:1 on its background.
+ *
+ * The selectors mirror the theme's, `:not(--active)` included, so that
+ * selection keeps the accent and hover never fights it. */
+:root {
+  --fga-hover: #326732;
+}
+
+[data-md-color-scheme="slate"] {
+  --fga-hover: #7ab51d;
+}
+
+.md-nav--primary .md-nav__link[for]:focus:not(.md-nav__link--active),
+.md-nav--primary .md-nav__link[for]:hover:not(.md-nav__link--active),
+.md-nav--primary .md-nav__link[href]:focus:not(.md-nav__link--active),
+.md-nav--primary .md-nav__link[href]:hover:not(.md-nav__link--active) {
+  color: var(--fga-hover);
+  background-color: color-mix(in srgb, var(--fga-hover) 8%, transparent);
+}
+
 /* The dark mark.
  *
  * The artwork names its colours as custom properties, so this could be a
