@@ -333,6 +333,10 @@ def create_app(lifespan=None):
 
         def on_reload(openapi: dict) -> None:
             refresh_tools(mcp, openapi, client=mcp_api_client, cache_dir=_openapi_cache_dir())
+            # The server card describes the very document the tools are
+            # generated from, so it moves with them.
+            if server_card is not None:
+                server_card.update(openapi)
 
     reload_manager = ReloadManager(
         _pygeoapi_holder,
@@ -347,6 +351,18 @@ def create_app(lifespan=None):
     app.logger = create_logger(name="app.main")
 
     return app
+
+
+def _public_base_url() -> str:
+    """The origin clients reach this deployment at, without a trailing slash.
+
+    ``APP_URI`` when the operator set it; the bind address otherwise,
+    which is the development case.
+    """
+    app_uri = getattr(cfg, "APP_URI", None)
+    if app_uri:
+        return app_uri.rstrip("/")
+    return f"http://{cfg.HOST}:{cfg.PORT}"
 
 
 # MCP Server setup from the in-memory OpenAPI document (ADR-0003)
@@ -431,10 +447,9 @@ def create_mcp_server(
     if cfg.JWKS_ENABLED and cfg.OIDC_WELL_KNOWN_ENDPOINT:
         from app.auth.mcp_auth_provider import configure_mcp_auth
 
-        # Determine base URL for MCP server (with trailing slash for IdP compatibility)
-        mcp_base_url = f"http://{cfg.HOST}:{cfg.PORT}/mcp/"
-        if hasattr(cfg, "APP_URI") and cfg.APP_URI:
-            mcp_base_url = f"{cfg.APP_URI.rstrip('/')}/mcp/"
+        # Trailing slash for IdP compatibility. Same origin the server
+        # card advertises: the two must never disagree.
+        mcp_base_url = f"{_public_base_url()}/mcp/"
 
         logger.info(f"Configuring MCP with OIDC authentication via {cfg.OIDC_WELL_KNOWN_ENDPOINT}")
 
@@ -504,6 +519,7 @@ _pygeoapi_holder, _pygeoapi_openapi = _bootstrap_pygeoapi()
 # whether the MCP surface was enabled at all.
 mcp = None
 mcp_api_client = None
+server_card = None
 
 # Create the main app, optionally with MCP server
 if cfg.FASTGEOAPI_WITH_MCP:
@@ -511,6 +527,16 @@ if cfg.FASTGEOAPI_WITH_MCP:
 
     mcp, mcp_app, well_known_routes, mcp_api_client = create_mcp_server()
     if mcp_app is not None:
+        from app.mcp.card import SERVER_CARD_PATH, ServerCard, server_card_route
+
+        # Built from the OpenAPI the tools come from; an invalid explicit
+        # name refuses startup here rather than publishing a bad card.
+        server_card = ServerCard(
+            _pygeoapi_openapi,
+            base_url=_public_base_url(),
+            context=cfg.FASTGEOAPI_CONTEXT,
+            name=getattr(cfg, "FASTGEOAPI_MCP_SERVER_NAME", None),
+        )
 
         @asynccontextmanager
         async def combined_lifespan(app):
@@ -564,6 +590,10 @@ if cfg.FASTGEOAPI_WITH_MCP:
                     )
                     app.router.routes.insert(0, alias)
                     logger.info(f"Mounted OAuth route alias at root: {alias.path}")
+
+        # SEP-2127 server card: public, at the root, only while MCP is on.
+        app.router.routes.insert(0, server_card_route(server_card))
+        logger.info(f"Mounted MCP server card at {SERVER_CARD_PATH}")
 
         app.mount("/mcp", mcp_app)
         # Starlette's Mount only matches "/mcp/..." — a bare "/mcp" falls
