@@ -6,6 +6,19 @@ icon: material/lan-connect
 
 Connect an MCP client and call your first tool.
 
+### One click, any client
+
+<mcp-install-button
+  server="https://fastgeoapi.fly.dev/.well-known/mcp-server-card"
+  label="Add the fastgeoapi demo to your MCP client">
+</mcp-install-button>
+
+The button reads the demo's [server card](https://fastgeoapi.fly.dev/.well-known/mcp-server-card) — the document every fastgeoapi deployment with MCP enabled publishes about itself ([SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2127)) — and opens a chooser with the install path for your client: a deep link, a command line, a configuration snippet, or the walkthrough of your app's connector settings. Twenty-six clients, one document.
+
+**Sign in with GitHub.** On first use your client sends you to the demo's login, which accepts GitHub accounts: anyone with one can install the connector and call the tools. Running your own fastgeoapi? Your deployment publishes its own card — see [Let your users install it with one click](../../operators/how-to/enabling-mcp.md#let-your-users-install-it-with-one-click).
+
+The sections below do by hand what the button does for you.
+
 ### Connect Claude Desktop (native connector)
 
 [Claude Desktop](https://claude.ai/desktop) supports remote MCP servers natively as **custom connectors** — no local shim or config-file edit required. This is the recommended path:
