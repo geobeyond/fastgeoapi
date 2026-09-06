@@ -38,8 +38,8 @@ def main() -> int:
     """Fetch, check, patch, write. Non-zero when the upstream changed shape."""
     # Fixed https URL, not user input: both suppressions are needed
     # because ruff (S310) and bandit (B310) each read only their own.
-    request = Request(SOURCE, headers={"User-Agent": USER_AGENT})  # noqa: S310 # nosec B310
-    with urlopen(request, timeout=30) as response:  # noqa: S310 # nosec B310
+    request = Request(SOURCE, headers={"User-Agent": USER_AGENT})  # nosec B310
+    with urlopen(request, timeout=30) as response:  # ruff: ignore[suspicious-url-open-usage] # nosec B310
         source = response.read()
     digest = hashlib.sha256(source).hexdigest()
     text = source.decode("utf-8")
