@@ -168,7 +168,15 @@ def safety(session: Session) -> None:
     # typer. Install it here with explicit floors instead: the tool venv
     # gets a current safety plus the newest typer it supports; only this
     # venv sees the downgraded typer, the scanned project keeps the lock.
-    session.install("safety>=3.8,<4", "typer>=0.16,<0.26")
+    # authlib 1.8.0 (2026-08-30) routes its httpx integration through
+    # httpx2 whenever httpx2 is importable — and it is, because the
+    # scanned project depends on it. safety 3.8.x still hands that client
+    # an old-httpx `Timeout`, which httpx2 passes down to the socket as-is:
+    #   TypeError: 'Timeout' object cannot be interpreted as an integer
+    # The lock pins authlib 1.7.2, so the locked lanes never see it; this
+    # unlocked venv does. Pin here, in the tool venv only, until safety
+    # moves to httpx2 (tracked in .claude/TODO.md).
+    session.install("safety>=3.8,<4", "typer>=0.16,<0.26", "authlib<1.8")
     # Build command with API key if available
     cmd = ["safety"]
     if "SAFETY_API_KEY" in os.environ:
@@ -268,6 +276,12 @@ def ty(session: Session) -> None:
         # obstore ships the fsspec adapter module but declares neither an
         # `fsspec` extra nor the dependency, so name it explicitly.
         "fsspec>=2024.6",
+        # The bucket end-to-end tests import boto3 against a local S3
+        # (ministack). Both live in the `dev` group, which the locked
+        # install brings along and this unlocked list did not — so `ty`
+        # resolved on develop and failed everywhere else.
+        "ministack>=1.5,<2",
+        "boto3>=1.35",
     )
     session.run("ty", *args)
 
@@ -296,6 +310,10 @@ def tests(session: Session) -> None:
         # obstore ships the fsspec adapter module but declares neither an
         # `fsspec` extra nor the dependency, so name it explicitly.
         "fsspec>=2024.6",
+        # Local S3 for the bucket end-to-end tests (see the `dev` group);
+        # without these the unlocked lane silently skips them.
+        "ministack>=1.5,<2",
+        "boto3>=1.35",
     )
     try:
         session.run("coverage", "run", "--parallel", "-m", "pytest", *session.posargs)
@@ -341,6 +359,10 @@ def typeguard(session: Session) -> None:
         # obstore ships the fsspec adapter module but declares neither an
         # `fsspec` extra nor the dependency, so name it explicitly.
         "fsspec>=2024.6",
+        # Local S3 for the bucket end-to-end tests (see the `dev` group);
+        # without these the unlocked lane silently skips them.
+        "ministack>=1.5,<2",
+        "boto3>=1.35",
     )
     session.run("pytest", f"--typeguard-packages={package}", *session.posargs)
 
