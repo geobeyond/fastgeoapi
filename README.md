@@ -26,6 +26,7 @@ A modern, high-performance geospatial API framework that extends [pygeoapi](http
 [![Contract Tests](https://img.shields.io/github/actions/workflow/status/geobeyond/fastgeoapi/contract-tests.yml?branch=main&logo=openapi-initiative&logoColor=white&style=flat-square&label=contract%20tests)](https://github.com/geobeyond/fastgeoapi/actions/workflows/contract-tests.yml)
 [![ZAP Scan](https://img.shields.io/github/actions/workflow/status/geobeyond/fastgeoapi/zap-scan.yml?branch=main&logo=owasp&logoColor=white&style=flat-square&label=security)](https://github.com/geobeyond/fastgeoapi/actions/workflows/zap-scan.yml)
 [![Codecov](https://img.shields.io/codecov/c/github/geobeyond/fastgeoapi?logo=codecov&logoColor=white&style=flat-square)](https://codecov.io/gh/geobeyond/fastgeoapi)
+[![Install the demo MCP server](https://img.shields.io/badge/MCP-install%20the%20demo-1e75b8?style=flat-square)](https://install.apicommons.org/?server=https://fastgeoapi.fly.dev/.well-known/mcp-server-card)
 
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white&style=flat-square)](https://github.com/pre-commit/pre-commit)
 [![Ruff](https://img.shields.io/badge/code%20style-ruff-000000?logo=ruff&logoColor=white&style=flat-square)](https://github.com/astral-sh/ruff)
@@ -392,6 +393,7 @@ fastgeoapi includes an optional integrated MCP server that exposes OGC API endpo
 - **Dynamic Client Registration** - Compatible with mcp-remote and other MCP clients
 - **Provider Agnostic** - Works with any OIDC-compliant IdP via fastmcp's OIDCProxy (Logto, Auth0, Keycloak, etc.)
 - **Stateless Streamable HTTP** - Every request is self-contained: machine suspends and redeploys are transparent to connected clients
+- **Server card (SEP-2127)** - Every deployment with MCP enabled publishes `/.well-known/mcp-server-card`, so install choosers and clients configure themselves from one document
 
 ### Enabling the MCP Server
 
@@ -513,6 +515,8 @@ The MCP server is provider-agnostic and works with any OIDC-compliant IdP:
 - **Google** - Google OAuth 2.0
 
 ### Using the MCP Server
+
+The shortest way in is the **install badge** at the top of this page: it reads the demo's [server card](https://fastgeoapi.fly.dev/.well-known/mcp-server-card) and shows the install path for your client — deep link, command line, config snippet or connector walkthrough. The demo's login accepts **GitHub** accounts. Your own deployment publishes its own card; see the [how-to](https://geobeyond.github.io/fastgeoapi/operators/how-to/enabling-mcp/#let-your-users-install-it-with-one-click).
 
 #### With Claude Desktop (native connector, recommended)
 

@@ -250,3 +250,76 @@ belongs to the same review as adding an identity provider.
 Access remains governed on both sides — the IdP decides who may reach
 this server, and this server still enforces its own scope requirements
 on the resulting token.
+
+### Let your users install it with one click
+
+With MCP enabled, the deployment publishes a **server card** at
+`/.well-known/mcp-server-card`: the JSON document
+[SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2127)
+defines so that clients and install choosers learn where to connect and
+what the server is before any handshake. There is nothing to write. The
+card is built from the same OpenAPI document the tools come from, and it
+follows a configuration reload.
+
+The demo's card:
+
+```json
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json",
+  "name": "dev.fly.fastgeoapi/fastgeoapi",
+  "version": "0.0.12",
+  "title": "fastgeoapi demo",
+  "description": "pygeoapi provides an API to geospatial data",
+  "websiteUrl": "https://fastgeoapi.fly.dev/geoapi",
+  "repository": {
+    "url": "https://github.com/geobeyond/fastgeoapi",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://fastgeoapi.fly.dev/mcp/",
+      "supportedProtocolVersions": ["2026-07-28", "2025-11-25"]
+    }
+  ]
+}
+```
+
+`title` and `description` are your `metadata.identification`, in the
+server's default language. `name` is the reversed host of `APP_URI`
+plus `/fastgeoapi`; set your own namespace if you prefer:
+
+```bash
+# .env file — optional
+DEV_FASTGEOAPI_MCP_SERVER_NAME=org.example/geodata
+```
+
+A name must be a reverse-DNS namespace and a server name with exactly
+one slash between them; anything else refuses startup.
+
+Put a button on your pages with the [install.apicommons.org](https://install.apicommons.org)
+web component, pointed at your card:
+
+```html
+<script src="https://install.apicommons.org/button.js"></script>
+<mcp-install-button
+  server="https://your-domain.com/.well-known/mcp-server-card"
+></mcp-install-button>
+```
+
+Where a script cannot run — a GitHub README, a mail — a plain link opens
+the same chooser:
+
+```markdown
+[Install the MCP server](https://install.apicommons.org/?server=https://your-domain.com/.well-known/mcp-server-card)
+```
+
+Installing is not authenticating: on first use the client still walks
+your users through the OAuth login configured above. The card carries no
+credentials and no tool list — clients discover both at connection time,
+which is why it can be public and cached.
+
+The card is also a valid `server.json` for the
+[MCP Registry](https://registry.modelcontextprotocol.io): the Registry
+format extends the card with a `packages` array for local installs, which
+a remote server does not need.
