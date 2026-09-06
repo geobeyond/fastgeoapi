@@ -55,7 +55,7 @@ mcp-remote keeps tokens only in process memory (every restart re-runs the full O
 
 ### Connect via Streamable HTTP
 
-fastmcp 3.x serves MCP over the Streamable HTTP transport (the legacy `/mcp/sse` endpoint no longer exists). Clients with native remote MCP support connect directly to:
+The server speaks MCP over the Streamable HTTP transport (the legacy `/mcp/sse` endpoint no longer exists) and negotiates the protocol version per connection, so both the sessionless `2026-07-28` revision and the earlier handshake work. Clients with native remote MCP support connect directly to:
 
 ```
 http://localhost:5000/mcp/

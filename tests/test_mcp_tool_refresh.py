@@ -91,9 +91,10 @@ def test_fastmcp_still_resolves_tools_through_a_mutable_provider_list(server):
     """Drift guard on the FastMCP internal this feature stands on.
 
     `providers` being a mutable list is an implementation detail of
-    FastMCP 4.0.0b3, not a documented contract. If an upgrade changes
-    the shape, this goes red — rather than leaving a reload that
-    silently stops refreshing anything.
+    FastMCP 4 (held from 4.0.0b3 through the 4.0.3 release), not a
+    documented contract. If an upgrade changes the shape, this goes red
+    — rather than leaving a reload that silently stops refreshing
+    anything.
     """
     assert isinstance(server.providers, list), type(server.providers)
     assert server.providers, "a server built from OpenAPI must carry at least one provider"
