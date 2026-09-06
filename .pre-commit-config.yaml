@@ -64,4 +64,6 @@ repos:
         # which cannot parse an inline `type` modifier in an import —
         # the form shadcn's components are written in — so leaving it to
         # this hook would mean rewriting every component we copy in.
-        exclude: "^(app/pygeoapi/config_models/|frontend/|docs/configuration-reference\\.md$|docs/index\\.md$|docs/(operators|consumers|contributors)/index\\.md$)"
+        # `docs/javascripts/` holds a vendored, minified web component: not
+        # ours to restyle (scripts/vendor_install_button.py regenerates it).
+        exclude: "^(app/pygeoapi/config_models/|frontend/|docs/javascripts/|docs/configuration-reference\\.md$|docs/index\\.md$|docs/(operators|consumers|contributors)/index\\.md$)"

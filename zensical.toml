@@ -21,6 +21,10 @@ docs_dir = "docs"
 site_dir = "docs_build/site"
 copyright = "© Copyright 2025 Geobeyond team."
 extra_css = ["stylesheets/extra.css"]
+# The <mcp-install-button> web component, vendored with one declared
+# patch (see the file header and scripts/vendor_install_button.py):
+# what runs on these pages is pinned, the chooser it opens is not ours.
+extra_javascript = ["javascripts/mcp-install-button.js"]
 
 nav = [
   { "Home" = "index.md" },
