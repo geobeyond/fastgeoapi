@@ -72,11 +72,12 @@ def refresh_tools(
 
     resolved = resolve_external_refs(openapi_spec, cache_dir=cache_dir)
     rebuilt = FastMCP.from_openapi(openapi_spec=resolved, client=client, name=name)
-    # `providers` is a plain list on FastMCP 4.0.0b3 and not a declared
-    # contract; tests/test_mcp_tool_refresh.py guards the shape so an
-    # upgrade that changes it fails loudly instead of quietly refreshing
-    # nothing. Slice assignment rather than rebinding: anything holding
-    # a reference to the list keeps seeing the current providers.
+    # `providers` is a plain list on FastMCP 4 (checked through 4.0.3)
+    # and not a declared contract; tests/test_mcp_tool_refresh.py guards
+    # the shape so an upgrade that changes it fails loudly instead of
+    # quietly refreshing nothing. Slice assignment rather than rebinding:
+    # anything holding a reference to the list keeps seeing the current
+    # providers.
     server.providers[:] = rebuilt.providers
     logger.info(
         f"MCP tools regenerated from the new configuration ({len(server.providers)} provider(s))"

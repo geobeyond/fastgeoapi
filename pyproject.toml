@@ -32,15 +32,13 @@ dependencies = [
     "json-ref-dict>=0.7.2,<=1.0",
     "pyyaml>=6.0.2,<7",
     "scalar-fastapi>=1.4.3,<2",
-    "fastmcp>=4.0.0b1,<5",
-    # fastmcp's own dependency, declared here only to name a pre-release
-    # explicitly: resolvers enable pre-releases per package named with
-    # one, and without this the unlocked CI lane cannot see the b-series
-    # of fastmcp-slim and resolution fails. Replaces the previous GLOBAL
-    # `[tool.uv] prerelease = "allow"`, which was quietly pulling rc/alpha
-    # versions of unrelated packages into the lock (wrapt, sentry-sdk).
-    # Drop together with the beta specifiers once fastmcp 4.0 is stable.
-    "fastmcp-slim[client]>=4.0.0b1,<5",
+    # 4.0.3 rather than 4.0.0: the first stable release whose OpenAPI
+    # tools stop inferring an output schema for unconstrained sequences.
+    # `fastmcp` is a thin package that depends on `fastmcp-slim[client,
+    # server]` at the same version, so naming it alone is enough — the
+    # explicit `fastmcp-slim` line that lived here only existed to make
+    # the resolver see the 4.0 pre-releases.
+    "fastmcp>=4.0.3,<5",
     "obstore>=0.11.1,<0.12",
 ]
 
