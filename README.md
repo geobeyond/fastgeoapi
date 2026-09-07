@@ -131,7 +131,7 @@ The demo server requires OAuth2 authentication. To obtain an access token:
 curl -X POST https://76hxgq.logto.app/oidc/token \
   -H "Authorization: Basic czRyZjIzbnlucmNvdGM4NnhuaWVxOlc2RHJhQWJ1MTZnb29yR0xWSE02WFlSUnI4aWpObUww" \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=client_credentials&resource=http://localhost:5000/geoapi/&scope=openid profile ci"
+  -d "grant_type=client_credentials&resource=https://fastgeoapi.fly.dev/geoapi/&scope=openid profile ci"
 ```
 
 ### Using the Access Token
