@@ -20,7 +20,7 @@ To access the demo server, you need to obtain an OAuth2 access token using the c
 curl -X POST https://76hxgq.logto.app/oidc/token \
   -H "Authorization: Basic czRyZjIzbnlucmNvdGM4NnhuaWVxOlc2RHJhQWJ1MTZnb29yR0xWSE02WFlSUnI4aWpObUww" \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=client_credentials&resource=http://localhost:5000/geoapi/&scope=openid profile ci"
+  -d "grant_type=client_credentials&resource=https://fastgeoapi.fly.dev/geoapi/&scope=openid profile ci"
 ```
 
 The response will contain an `access_token`:
@@ -42,7 +42,7 @@ Include the access token in the `Authorization` header:
 TOKEN=$(curl -s -X POST https://76hxgq.logto.app/oidc/token \
   -H "Authorization: Basic czRyZjIzbnlucmNvdGM4NnhuaWVxOlc2RHJhQWJ1MTZnb29yR0xWSE02WFlSUnI4aWpObUww" \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=client_credentials&resource=http://localhost:5000/geoapi/&scope=openid profile ci" \
+  -d "grant_type=client_credentials&resource=https://fastgeoapi.fly.dev/geoapi/&scope=openid profile ci" \
   | jq -r '.access_token')
 
 # Landing page
