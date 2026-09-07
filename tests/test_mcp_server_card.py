@@ -115,6 +115,33 @@ def test_an_explicit_version_wins_over_the_installed_one():
     assert card["version"] == "9.9.9"
 
 
+def test_the_version_comes_from_pyproject_when_the_distribution_is_absent(monkeypatch):
+    """Container images run the sources without installing the package.
+
+    Both Dockerfiles export the lock with `--no-emit-project`, so
+    `importlib.metadata` has no `fastgeoapi` distribution to ask. A card
+    that raised there took the whole deployment down (fly, 2026-09-07):
+    the version has to come from `pyproject.toml`, which the images carry.
+    """
+    import tomllib
+    from importlib.metadata import PackageNotFoundError
+    from pathlib import Path
+
+    # Module and function taken together: earlier tests purge `app.*`
+    # from `sys.modules`, and the module-level import above may be stale.
+    import app.mcp.card as card_mod
+
+    def absent(name: str) -> str:
+        raise PackageNotFoundError(name)
+
+    monkeypatch.setattr(card_mod, "package_version", absent)
+    expected = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+
+    card = card_mod.build_server_card(OPENAPI, base_url=DEMO, context="/geoapi")
+
+    assert card["version"] == expected
+
+
 def _env(config_path: str, *, with_mcp: bool) -> dict[str, str]:
     """The environment `app.main` needs to build the application in a test.
 
@@ -226,6 +253,40 @@ def test_the_name_setting_reaches_the_card():
         response = TestClient(main_mod.app).get(SERVER_CARD_PATH)
 
     assert response.json()["name"] == "it.geobeyond/fastgeoapi"
+
+
+def test_a_card_that_cannot_be_built_does_not_take_the_service_down():
+    """The card is discovery, not the service: it fails open, loudly.
+
+    An invalid explicit name is still refused — by not publishing the
+    card and saying so in the log, never by aborting startup. The first
+    deploy of this feature died at import on a `PackageNotFoundError`
+    nobody had anticipated; whatever the next surprise is, the API and
+    the MCP endpoint must keep serving without a card.
+    """
+    import os
+    import sys
+    from unittest import mock
+
+    from starlette.testclient import TestClient
+
+    env = _env("tests/data/pygeoapi-config.yml", with_mcp=True)
+    env["DEV_FASTGEOAPI_MCP_SERVER_NAME"] = "no-slash-here"
+    with mock.patch.dict(os.environ, env, clear=False):
+        for key in [k for k in sys.modules if k.startswith("app.")]:
+            del sys.modules[key]
+        from app.config.app import FactoryConfig
+
+        FactoryConfig.get_config.cache_clear()
+        import app.main as main_mod
+
+        client = TestClient(main_mod.app)
+        health = client.get("/healthz")
+        card = client.get(SERVER_CARD_PATH)
+
+    assert main_mod.server_card is None
+    assert health.status_code == 200
+    assert card.status_code == 404
 
 
 @pytest.mark.asyncio
