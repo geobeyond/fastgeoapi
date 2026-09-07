@@ -14,11 +14,15 @@ list would lie. No authentication hints: clients discover OAuth from the
 
 from __future__ import annotations
 
+import tomllib
+from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
 from ipaddress import ip_address
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from loguru import logger
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
@@ -57,6 +61,29 @@ def default_server_name(base_url: str) -> str:
         host = "localhost"
     namespace = ".".join(reversed(host.split(".")))
     return f"{namespace}/{SERVER_SLUG}"
+
+
+def fastgeoapi_version() -> str:
+    """The version of the server software, wherever it happens to run.
+
+    The container images export the lock with ``--no-emit-project`` and
+    run the sources without installing the package, so the distribution
+    metadata is absent there and ``importlib.metadata`` raises. The
+    version still exists: in ``pyproject.toml``, two directories up,
+    which the images carry. The first deploy of the card died at import
+    on exactly this; a discovery document must never be able to do that.
+    """
+    try:
+        return package_version("fastgeoapi")
+    except PackageNotFoundError:
+        pass
+    pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
+    try:
+        with pyproject.open("rb") as handle:
+            return str(tomllib.load(handle)["project"]["version"])
+    except (OSError, KeyError, tomllib.TOMLDecodeError) as exc:
+        logger.warning(f"fastgeoapi version unknown ({exc}); the server card says 0.0.0")
+        return "0.0.0"
 
 
 def validate_server_name(name: str) -> str:
@@ -105,7 +132,7 @@ def build_server_card(
     return {
         "$schema": SERVER_CARD_SCHEMA,
         "name": validate_server_name(name or default_server_name(base)),
-        "version": version or package_version("fastgeoapi"),
+        "version": version or fastgeoapi_version(),
         "title": info.get("title", SERVER_SLUG),
         "description": info.get("description", ""),
         "websiteUrl": f"{base}{context}",
