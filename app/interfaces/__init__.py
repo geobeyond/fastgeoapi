@@ -9,9 +9,12 @@ from app.interfaces.conformance import (
     GenericConformance,
 )
 from app.interfaces.http_client import AsyncHTTPClient
+from app.interfaces.providers import AsyncFeatureProvider, AsyncTileProvider
 
 __all__ = [
+    "AsyncFeatureProvider",
     "AsyncHTTPClient",
+    "AsyncTileProvider",
     "FeatureRecordConformance",
     "GenericConformance",
 ]
