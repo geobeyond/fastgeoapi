@@ -476,3 +476,12 @@ class TestRFC6750Compliance:
         # `realm` is optional in RFC 6750 and fastmcp does not emit it; what
         # the client actually needs is the pointer to the resource metadata.
         assert "resource_metadata=" in www_auth, www_auth
+
+        # The `scope` hint lets a client ask for the right token up front
+        # (MCP authorization spec). Verified on the production deployment
+        # on 2026-09-11: present in the anonymous challenge and in the
+        # `invalid_token` one alike. The list follows the configured
+        # scopes; `openid` must be among them.
+        assert 'scope="' in www_auth, www_auth
+        scopes = www_auth.split('scope="', 1)[1].split('"', 1)[0].split()
+        assert "openid" in scopes, www_auth
