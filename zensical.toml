@@ -20,7 +20,9 @@ edit_uri = "edit/develop/docs/"
 docs_dir = "docs"
 site_dir = "docs_build/site"
 copyright = "© Copyright 2025 Geobeyond team."
-extra_css = ["stylesheets/extra.css"]
+# The second stylesheet is neoteroi-mkdocs's, for the Markdown `oad`
+# emits on the build-time OpenAPI reference page. Vendored third-party CSS.
+extra_css = ["stylesheets/extra.css", "stylesheets/neoteroi-mkdocs.css"]
 # The <mcp-install-button> web component, vendored with one declared
 # patch (see the file header and scripts/vendor_install_button.py):
 # what runs on these pages is pinned, the chooser it opens is not ours.
@@ -257,6 +259,11 @@ check_paths = true
 [project.markdown_extensions.termynal]
 include_assets = true
 prompt_literal_start = ["$"]
+
+# Macros render only on pages that opt in with `render_macros: true` in
+# their front matter — today the build-time OpenAPI reference page alone.
+[project.plugins.macros]
+render_by_default = false
 
 [project.plugins.minify]
 minify_html = true
