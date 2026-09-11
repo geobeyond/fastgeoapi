@@ -1,7 +1,8 @@
 """Storage layer contracts (ADR-0003): structural Protocol.
 
-Any object with the four operations is a valid backend — the Protocol
-is the type that circulates in the config loader, providers and tests.
+Any object with the operations is a valid backend — the Protocol is the
+type that circulates in the config loader, providers and tests. Ranged
+reads joined the contract with ADR-0010.
 """
 
 import dataclasses
@@ -44,6 +45,18 @@ class _FakeStore:
 
     def keys(self, prefix: str = "") -> list[str]:
         return [key for key in self._objects if key.startswith(prefix)]
+
+    def get_range(self, path: str, offset: int, length: int) -> bytes:
+        return self._objects[path][offset : offset + length]
+
+    async def aget_range(self, path: str, offset: int, length: int) -> bytes:
+        return self.get_range(path, offset, length)
+
+    def get_ranges(self, path: str, ranges) -> list[bytes]:
+        return [self.get_range(path, offset, length) for offset, length in ranges]
+
+    async def aget_ranges(self, path: str, ranges) -> list[bytes]:
+        return self.get_ranges(path, ranges)
 
 
 def test_structural_conformance_is_runtime_checkable():
