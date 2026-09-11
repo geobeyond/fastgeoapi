@@ -6,7 +6,10 @@ would take — LocalStore and bucket differ only in credentials.
 """
 
 import pytest
+from pygeoapi.provider.base import BaseProvider
 
+from app.interfaces import AsyncFeatureProvider
+from app.provider.base import AsyncProviderMixin, async_view
 from app.provider.duckdb_ import connect
 from app.provider.geoparquet import GeoParquetProvider
 
@@ -437,3 +440,28 @@ def test_a_third_party_geoparquet_is_served(tmp_path):
     result = provider.query(bbox=[11.0, 41.0, 13.0, 43.0], limit=10)
     assert result["features"], result
     assert result["features"][0]["geometry"]["type"] == "Point"
+
+
+# --- ADR-0010: the async part beside pygeoapi's contract ---------------------
+
+
+def test_the_async_mixin_comes_first_and_stays_honest(provider):
+    """DuckDB is CPU-bound: the provider gets the mixin, not a native claim."""
+    mro = type(provider).__mro__
+    assert isinstance(provider, AsyncProviderMixin)
+    assert mro.index(AsyncProviderMixin) < mro.index(BaseProvider)
+    assert provider.provider_def["id_field"] == "id"
+    assert provider.native_async is False
+
+
+def test_geoparquet_does_not_claim_the_feature_capability(provider):
+    """No async twins written, so the router keeps it in the threadpool."""
+    assert not isinstance(provider, AsyncFeatureProvider)
+
+
+@pytest.mark.asyncio
+async def test_async_view_serves_the_same_count_off_the_loop(provider):
+    """Regression guard: the awaitable face answers exactly what `query` does."""
+    hits = provider.query(resulttype="hits")
+    assert (await async_view(provider).query(resulttype="hits")) == hits
+    assert hits["numberMatched"] == 3
