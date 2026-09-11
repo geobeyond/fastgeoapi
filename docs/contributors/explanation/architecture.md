@@ -36,6 +36,16 @@ with no way to opt out, so a dataset that names its own endpoint can
 still be sent somewhere else entirely. Where that matters, the
 environment is displaced for the length of the call.
 
+## Providers keep pygeoapi's contract and gain a second face
+
+pygeoapi calls providers synchronously, from a threadpool that on a
+small machine holds five threads. fastgeoapi leaves that contract alone
+and lets a provider add an awaitable twin for each method it can serve
+without blocking; the tile data route awaits such providers on the event
+loop and sends every other one down the threadpool path unchanged. The
+reasoning is in [Two faces for a provider](async-providers.md), the
+recipe in [Writing an async provider](../how-to/writing-an-async-provider.md).
+
 ## Writing a configuration and activating it are separate powers
 
 A configuration can be applied without restarting, through a webhook on

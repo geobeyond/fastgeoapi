@@ -70,12 +70,14 @@ nav = [
     { "How-to guides" = [
       { "Development setup" = "contributors/how-to/development-setup.md" },
       { "Running the tests" = "contributors/how-to/running-the-tests.md" },
+      { "Writing an async provider" = "contributors/how-to/writing-an-async-provider.md" },
     ] },
     { "Reference" = [
       { "API reference" = "contributors/reference/index.md" },
     ] },
     { "Explanation" = [
       { "How it is put together" = "contributors/explanation/architecture.md" },
+      { "Two faces for a provider" = "contributors/explanation/async-providers.md" },
     ] },
   ] },
 ]

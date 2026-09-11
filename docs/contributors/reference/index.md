@@ -16,6 +16,18 @@ piece behaves the way it does.
 
 ::: app.provider.storage.factory
 
+::: app.provider.storage.ranges
+
+## Providers with two faces
+
+::: app.provider.base
+
+::: app.provider.sansio
+
+::: app.interfaces.providers
+
+::: app.pygeoapi.api_async.tiles
+
 ## The configuration editor
 
 ::: app.editor.inspect

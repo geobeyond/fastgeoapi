@@ -11,8 +11,9 @@ provider, or trying to understand why a piece is shaped the way it is.
 
 -   :material-wrench: **[How-to guides](how-to/development-setup.md)**
 
-    Getting a working checkout, and running the suite the way CI runs
-    it.
+    Getting a working checkout, running the suite the way CI runs it,
+    and [writing a provider](how-to/writing-an-async-provider.md) that
+    can be awaited.
 
 -   :material-book-open-variant: **[API reference](reference/index.md)**
 
@@ -21,7 +22,8 @@ provider, or trying to understand why a piece is shaped the way it is.
 -   :material-lightbulb: **[Explanation](explanation/architecture.md)**
 
     How the pieces fit: the two roles, the programmatic construction of
-    pygeoapi, the storage layer everything reads through.
+    pygeoapi, the storage layer everything reads through, and why a
+    provider has [two faces](explanation/async-providers.md).
 
 </div>
 
