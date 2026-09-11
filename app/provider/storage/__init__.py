@@ -12,7 +12,7 @@ from app.provider.storage.base import ObjectMeta, ObjectStore
 from app.provider.storage.bridge import StorageBridge
 from app.provider.storage.factory import load_store, split_source
 from app.provider.storage.obstore_ import ObstoreStore
-from app.provider.storage.ranges import ByteRanges, ObjectRanges
+from app.provider.storage.ranges import ByteRanges, ObjectRanges, SingleFlightRanges
 
 __all__ = [
     "ByteRanges",
@@ -20,6 +20,7 @@ __all__ = [
     "ObjectRanges",
     "ObjectStore",
     "ObstoreStore",
+    "SingleFlightRanges",
     "StorageBridge",
     "load_store",
     "split_source",
