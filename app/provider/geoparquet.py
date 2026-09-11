@@ -22,6 +22,7 @@ from __future__ import annotations
 from pygeoapi.provider.base import BaseProvider, ProviderQueryError
 
 from app.config.logging import create_logger
+from app.provider.base import AsyncProviderMixin
 from app.provider.duckdb_ import connect, scan_expression
 
 logger = create_logger("app.provider.geoparquet")
@@ -46,13 +47,18 @@ _TYPE_MAP: tuple[tuple[str, tuple[str, str | None]], ...] = (
 )
 
 
-class GeoParquetProvider(BaseProvider):
+class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
     """OGC API Features provider for GeoParquet on object storage.
 
     Declares ``THREAD_SAFE`` so one instance is reused process-wide
     instead of being rebuilt per request: every operation takes its own
     DuckDB cursor, which is that engine's documented pattern for
     concurrent use (see :meth:`_cursor`).
+
+    Carries :class:`AsyncProviderMixin` first in its bases (ADR-0010)
+    and nothing more: DuckDB is CPU-bound, so ``native_async`` stays
+    ``False`` and ``async_view(provider)`` serves it from a thread, which
+    is the honest shape for an engine that computes rather than waits.
 
     On SQL construction: every identifier interpolated below comes from
     the dataset's own schema (``self._types``, read via ``DESCRIBE``) or
