@@ -300,15 +300,15 @@ def test_api_with_opa(case, mock_opa_server, mock_oidc_authenticate):
     if case.method.upper() == "POST" and "/execution" in case.path:
         case.body = {"inputs": {"name": "test-user"}}
 
-    if case.path_parameters:
-        if case.path_parameters.get("jobId"):
-            job_id = case.path_parameters.get("jobId")
-            if r"\n" or r"\r" in job_id:
-                case.path_parameters["jobId"] = job_id.strip()
-            if "%0A" in job_id:
-                case.path_parameters["jobId"] = job_id.replace("%0A", "")
-            if "%0D" in job_id:
-                case.path_parameters["jobId"] = job_id.replace("%0D", "")
+    if case.path_parameters and case.path_parameters.get("jobId"):
+        # Same sanitisation as the contract tests: line breaks, raw or
+        # percent-encoded, cannot travel in a path segment. The previous
+        # version tested the literal `r"\n"` (always true) and let each
+        # replacement overwrite the one before it.
+        job_id = case.path_parameters["jobId"]
+        for junk in ("\n", "\r", "%0A", "%0D"):
+            job_id = job_id.replace(junk, "")
+        case.path_parameters["jobId"] = job_id
 
     # The mock OIDC returns a valid user, and mock OPA returns allow=true
     # So all requests should be authorized
