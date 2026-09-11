@@ -105,8 +105,23 @@ class StorageBackedMixin:
 
     def byte_ranges(self) -> ObjectRanges:
         """Ranged reads over the ``data`` object itself."""
+        return ObjectRanges(self.store, self.object_key)
+
+    @property
+    def native_store(self) -> Any:
+        """The library-level store object, for libraries that read through obstore themselves.
+
+        async-tiff is the model: it takes an obstore store and the key of
+        the object and performs its own ranged reads. When the backend
+        exposes no such object the store itself is returned.
+        """
+        return getattr(self.store, "backend", self.store)
+
+    @property
+    def object_key(self) -> str:
+        """The key of the ``data`` object within :attr:`store`."""
         _, key = split_source(self._captured_provider_def()["data"])
-        return ObjectRanges(self.store, key)
+        return key
 
     def _captured_provider_def(self) -> dict:
         provider_def = getattr(self, "provider_def", None)

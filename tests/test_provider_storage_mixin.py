@@ -74,3 +74,18 @@ def test_the_store_is_built_once(blob):
 def test_the_wrong_base_order_fails_naming_the_fix(blob):
     with pytest.raises(TypeError, match="AsyncProviderMixin first"):
         _Wrong({"name": "x", "data": blob}).byte_ranges()
+
+
+def test_native_store_hands_over_the_library_level_object(blob):
+    """Libraries that speak obstore natively (async-tiff) take the store object itself."""
+    provider = _Backed({"name": "x", "data": blob})
+    native = provider.native_store
+    assert type(native).__module__.startswith("obstore")
+    assert native is provider.native_store
+
+
+def test_object_key_is_the_data_key_within_the_store(blob):
+    """The pair a native library needs: the store, and the key of `data` inside it."""
+    assert _Backed({"name": "x", "data": blob}).object_key == "blob.bin"
+    remote = _Backed({"name": "x", "data": "s3://bucket/tiles/places.tif"})
+    assert remote.object_key == "places.tif"
