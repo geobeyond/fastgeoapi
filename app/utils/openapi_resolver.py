@@ -2,7 +2,16 @@
 
 This module provides utilities to resolve external $ref references in OpenAPI
 specifications. It fetches remote schemas and inlines them, preserving local
-references (those starting with #).
+references (those starting with #) in *our* document.
+
+Local references found *inside* inlined remote content are a different
+matter: they are relative to the remote document, and left untouched they
+would point at our root, where their targets do not exist. Those targets
+are hoisted into our ``components`` under document-prefixed names and the
+pointers rewritten (see ``_Hoist``); a whole document inlined this way
+leaves its now-dead ``$defs`` behind. The result is a document in which
+every ``$ref`` resolves — which FastMCP needs to generate whole tool
+schemas.
 
 This is particularly useful for OGC API specifications which heavily use
 external references to shared schema definitions.
@@ -21,6 +30,10 @@ from loguru import logger
 
 # Default cache TTL: 24 hours
 DEFAULT_CACHE_TTL_SECONDS = 86400
+
+# The keywords under which a JSON Schema document keeps its reusable
+# definitions (draft 2019-09+ and the older name).
+_DEFINITION_KEYWORDS = ("$defs", "definitions")
 
 
 def _get_cache_path(url: str, cache_dir: Path) -> Path:
@@ -259,77 +272,136 @@ def _resolve_ref(
     return result, absolute_url
 
 
+class _Hoist:
+    """Definitions lifted out of remote documents into our ``components``.
+
+    A ``#/...`` pointer found inside inlined remote content is relative to
+    the *remote* document, not to ours. Left as it is, it aims at our root
+    where its target does not exist: on the demo document that was 489
+    dangling references, most of them ``#/$defs/*`` from ``cql2.json``.
+
+    Rather than inlining the target — CQL2 is recursive, and inlining a
+    recursive schema never ends — the target is copied once into our
+    ``components``, under a name prefixed by the document it came from,
+    and every pointer to it is rewritten to that name. Registering the
+    name *before* processing the target is what terminates the recursion:
+    a self-reference finds the name already taken and just points at it.
+    ``#/components/schemas/…`` is also the one shape FastMCP turns into
+    tool ``$defs``, so the MCP tools come out whole.
+    """
+
+    def __init__(self) -> None:
+        self.components: dict[str, dict[str, Any]] = {}
+        self._names: dict[tuple[str, str], tuple[str, str]] = {}
+
+    @staticmethod
+    def _prefix(url: str) -> str:
+        stem = Path(urlparse(url).path).stem or "remote"
+        # Component keys are restricted to [A-Za-z0-9._-].
+        return "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in stem)
+
+    @staticmethod
+    def _section_and_name(fragment: str) -> tuple[str, str]:
+        parts = [p for p in fragment.strip("/").split("/") if p]
+        if len(parts) >= 3 and parts[0] == "components":
+            return parts[1], "_".join(parts[2:])
+        if len(parts) >= 2 and parts[0] in _DEFINITION_KEYWORDS:
+            return "schemas", "_".join(parts[1:])
+        return "schemas", "_".join(parts) or "root"
+
+    def reference(self, url: str, fragment: str, resolve: Any) -> str:
+        """The local pointer, rewritten to our components; hoists on first sight."""
+        key = (url, fragment)
+        if key not in self._names:
+            section, name = self._section_and_name(fragment)
+            hoisted = f"{self._prefix(url)}__{name}"
+            taken = self.components.setdefault(section, {})
+            suffix = 1
+            while hoisted in taken:
+                suffix += 1
+                hoisted = f"{self._prefix(url)}__{name}_{suffix}"
+            self._names[key] = (section, hoisted)
+            taken[hoisted] = None  # reserve the name: recursion stops here
+            taken[hoisted] = resolve(url, fragment)
+        section, hoisted = self._names[key]
+        return f"#/components/{section}/{hoisted}"
+
+
 def _resolve_object(
     obj: Any,
     document_cache: dict[str, dict[str, Any]],
     base_url: str | None = None,
     disk_cache_dir: Path | None = None,
     cache_ttl_seconds: int = DEFAULT_CACHE_TTL_SECONDS,
+    hoist: _Hoist | None = None,
 ) -> Any:
     """Recursively resolve external $refs in an object.
 
     Args:
         obj: The object to process (can be dict, list, or scalar).
         document_cache: Cache of already fetched documents.
-        base_url: Base URL for resolving relative references.
+        base_url: Base URL for resolving relative references. ``None`` while
+            walking our own document; the remote document's URL once inside
+            inlined content — which is what makes a ``#/...`` pointer there
+            relative to *that* document.
         disk_cache_dir: Optional disk cache directory.
         cache_ttl_seconds: Cache TTL in seconds.
+        hoist: Where remote-local targets are lifted to (see ``_Hoist``).
 
     Returns
     -------
         The object with external $refs resolved.
     """
+    if hoist is None:
+        hoist = _Hoist()
+
+    def recurse(value: Any, url: str | None) -> Any:
+        return _resolve_object(value, document_cache, url, disk_cache_dir, cache_ttl_seconds, hoist)
+
     if isinstance(obj, dict):
-        # Check if this is an external $ref
-        if "$ref" in obj and len(obj) == 1:
-            ref = obj["$ref"]
-            if isinstance(ref, str) and not ref.startswith("#"):
-                # External ref - resolve it
-                resolved, new_base_url = _resolve_ref(
-                    ref,
-                    document_cache,
-                    base_url,
-                    disk_cache_dir,
-                    cache_ttl_seconds,
-                )
-                # Recursively resolve any refs in the resolved content
-                # Use the document's URL as the new base for relative refs
-                return _resolve_object(
-                    resolved,
-                    document_cache,
-                    new_base_url,
-                    disk_cache_dir,
-                    cache_ttl_seconds,
-                )
-            # Local ref - preserve it
-            return obj
-
-        # Regular dict - recurse into values
-        return {
-            k: _resolve_object(
-                v,
+        ref = obj.get("$ref")
+        # An external $ref: fetch, inline, and keep walking inside the
+        # fetched content with its own URL as the base.
+        if isinstance(ref, str) and not ref.startswith("#") and len(obj) == 1:
+            resolved, new_base_url = _resolve_ref(
+                ref,
                 document_cache,
                 base_url,
                 disk_cache_dir,
                 cache_ttl_seconds,
             )
-            for k, v in obj.items()
-        }
+            fragment = ref.split("#", 1)[1] if "#" in ref else ""
+            if isinstance(resolved, dict) and not fragment.strip("/"):
+                # A whole document is being inlined. Every pointer into its
+                # `$defs`/`definitions` gets rewritten to a hoisted copy
+                # (`lift` below reads the cached original), so the block
+                # itself is dead weight — and, carried along, a trap:
+                # FastMCP does not descend into `$defs`, so the stale
+                # pointers inside it surfaced in the CQL2 tool schema as
+                # 97 broken references.
+                resolved = {k: v for k, v in resolved.items() if k not in _DEFINITION_KEYWORDS}
+            return recurse(resolved, new_base_url)
 
-    elif isinstance(obj, list):
-        return [
-            _resolve_object(
-                item,
-                document_cache,
-                base_url,
-                disk_cache_dir,
-                cache_ttl_seconds,
-            )
-            for item in obj
-        ]
+        # A local $ref inside remote content is local to the remote
+        # document: hoist its target and point at the hoisted copy.
+        if isinstance(ref, str) and ref.startswith("#") and base_url:
+            fragment = ref[1:]
 
-    else:
-        return obj
+            def lift(url: str, frag: str) -> Any:
+                doc = _get_document(url, document_cache, disk_cache_dir, cache_ttl_seconds)
+                return recurse(_navigate_to_fragment(doc, frag), url)
+
+            rewritten = dict(obj)
+            rewritten["$ref"] = hoist.reference(base_url, fragment, lift)
+            return {k: (v if k == "$ref" else recurse(v, base_url)) for k, v in rewritten.items()}
+
+        # A local $ref in our own document, or a regular dict: recurse.
+        return {k: recurse(v, base_url) for k, v in obj.items()}
+
+    if isinstance(obj, list):
+        return [recurse(item, base_url) for item in obj]
+
+    return obj
 
 
 def resolve_external_refs(
@@ -364,12 +436,27 @@ def resolve_external_refs(
         True
     """
     document_cache: dict[str, dict[str, Any]] = {}
-    return _resolve_object(
+    hoist = _Hoist()
+    resolved = _resolve_object(
         spec,
         document_cache,
         disk_cache_dir=cache_dir,
         cache_ttl_seconds=cache_ttl_seconds,
+        hoist=hoist,
     )
+    if hoist.components:
+        # Remote-local definitions, lifted into our components under
+        # document-prefixed names. Existing components are never touched:
+        # a prefixed name colliding with a user's own is next to
+        # impossible, and if it happens the user's definition wins.
+        if not isinstance(resolved, dict):
+            return resolved
+        components = resolved.setdefault("components", {})
+        for section, definitions in hoist.components.items():
+            target = components.setdefault(section, {})
+            for name, definition in definitions.items():
+                target.setdefault(name, definition)
+    return resolved
 
 
 def count_external_refs(obj: Any) -> int:
