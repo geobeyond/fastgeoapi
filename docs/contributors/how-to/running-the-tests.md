@@ -61,3 +61,21 @@ the module and the thing you are patching together, inside the test.
 seen it red for the right reason. Where that is impossible — coverage
 added to code that already works — break the code deliberately and check
 that the test notices.
+
+## The loop must not block
+
+A provider that declares itself natively asynchronous makes a claim the
+suite can check. `blockbuster` is in the `dev` group: inside
+`blockbuster_ctx()` any blocking call made on the event loop — a socket,
+a file, `time.sleep` — raises `BlockingError`, while the same call made
+in a worker thread is allowed, because that is where it belongs.
+
+```python
+from blockbuster import blockbuster_ctx
+
+with blockbuster_ctx():
+    tile = await async_view(provider).get_tiles(...)
+```
+
+See [Writing an async provider](writing-an-async-provider.md) for the
+red-first version of that test.
