@@ -25,6 +25,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.config.app import configuration as cfg
 from app.config.logging import create_logger, silence_probe_access_logs
+from app.mcp.route_maps import openapi_route_maps
 from app.middleware.mcp_identity import MCPClientIdentityMiddleware
 from app.middleware.oauth2 import Oauth2Middleware
 from app.middleware.proxy import (
@@ -489,6 +490,7 @@ def create_mcp_server(
         client=api_client,
         name="OGC API MCP",
         auth=auth,
+        route_maps=openapi_route_maps(),
     )
 
     # Make requests attributable to a client. Neither the User-Agent nor

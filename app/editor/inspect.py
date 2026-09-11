@@ -285,6 +285,7 @@ def _mcp_tools(openapi: dict) -> list[str]:
     import httpx2
     from fastmcp import FastMCP
 
+    from app.mcp.route_maps import openapi_route_maps
     from app.utils.openapi_resolver import resolve_external_refs
 
     async def listed() -> list[str]:
@@ -292,7 +293,12 @@ def _mcp_tools(openapi: dict) -> list[str]:
         # schemas and FastMCP resolves only local ones.
         resolved = resolve_external_refs(openapi)
         async with httpx2.AsyncClient(base_url="http://the-tools-are-not-called") as client:
-            server = FastMCP.from_openapi(openapi_spec=resolved, client=client, name="preview")
+            server = FastMCP.from_openapi(
+                openapi_spec=resolved,
+                client=client,
+                name="preview",
+                route_maps=openapi_route_maps(),
+            )
             return [tool.name for tool in await server.list_tools()]
 
     with ThreadPoolExecutor(max_workers=1) as pool:

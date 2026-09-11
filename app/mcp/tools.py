@@ -22,6 +22,8 @@ import httpx2
 from fastmcp import FastMCP
 from loguru import logger
 
+from app.mcp.route_maps import openapi_route_maps
+
 
 def refresh_tools(
     server: FastMCP,
@@ -71,7 +73,9 @@ def refresh_tools(
     from app.utils.openapi_resolver import resolve_external_refs
 
     resolved = resolve_external_refs(openapi_spec, cache_dir=cache_dir)
-    rebuilt = FastMCP.from_openapi(openapi_spec=resolved, client=client, name=name)
+    rebuilt = FastMCP.from_openapi(
+        openapi_spec=resolved, client=client, name=name, route_maps=openapi_route_maps()
+    )
     # `providers` is a plain list on FastMCP 4 (checked through 4.0.3)
     # and not a declared contract; tests/test_mcp_tool_refresh.py guards
     # the shape so an upgrade that changes it fails loudly instead of
