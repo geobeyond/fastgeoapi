@@ -30,7 +30,7 @@ COPY pyproject.toml uv.lock pygeoapi-config.yml ./
 # its release.
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv export --frozen --no-dev --no-emit-project --no-hashes \
-    --extra geoparquet -o /tmp/requirements.lock && \
+    --extra geoparquet --extra pmtiles -o /tmp/requirements.lock && \
     uv pip install --system --break-system-packages -r /tmp/requirements.lock
 
 # Create a normal non-root user to run the app
