@@ -54,3 +54,15 @@ class StorageBridge:
         if hasattr(self._backend, "aput"):
             return await self._backend.aput(path, data)
         return await asyncio.to_thread(self._backend.put, path, data)
+
+    def read_range(self, path: str, offset: int, length: int) -> bytes:
+        """Sync ranged read; bridges like :meth:`read`."""
+        if hasattr(self._backend, "get_range"):
+            return self._backend.get_range(path, offset, length)
+        return asyncio.run(self._backend.aget_range(path, offset, length))
+
+    async def aread_range(self, path: str, offset: int, length: int) -> bytes:
+        """Async ranged read; bridges like :meth:`aread`."""
+        if hasattr(self._backend, "aget_range"):
+            return await self._backend.aget_range(path, offset, length)
+        return await asyncio.to_thread(self._backend.get_range, path, offset, length)
