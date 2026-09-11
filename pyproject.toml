@@ -91,6 +91,7 @@ dev = [
     # for public key") and 500s the test IdP token endpoint; pin until the
     # canaille/joserfc incompatibility is fixed upstream.
     "joserfc>=1.6,<1.7",
+    "blockbuster>=1.5,<2",
 ]
 docs = [
     "mkdocstrings-python>=2.0.7",

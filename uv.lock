@@ -158,6 +158,18 @@ wheels = [
 ]
 
 [[package]]
+name = "blockbuster"
+version = "1.5.27"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "forbiddenfruit", marker = "implementation_name == 'cpython'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ff/c3/21678f5b979be2cbf0e68352f7330a84ea4e24674023e4de981c78a218cd/blockbuster-1.5.27.tar.gz", hash = "sha256:b8e9d988b9b91ba468c94530e219f26a00d3ff616b39ebf3da561a2a3eea9dd4", size = 96732, upload-time = "2026-08-17T23:53:13.378Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/63/c5/092e631bc1fba86f0a822be65c137c90a71b71ba0a0865e7e9a21f6ca05e/blockbuster-1.5.27-py3-none-any.whl", hash = "sha256:f0acf153d22a791bf5f142935332ef8530960ec215541b48a6037e6cea0a8645", size = 13517, upload-time = "2026-08-17T23:53:14.625Z" },
+]
+
+[[package]]
 name = "boto3"
 version = "1.43.63"
 source = { registry = "https://pypi.org/simple" }
@@ -901,6 +913,7 @@ geoparquet = [
 [package.dev-dependencies]
 dev = [
     { name = "bandit" },
+    { name = "blockbuster" },
     { name = "boto3" },
     { name = "canaille", extra = ["sqlite"] },
     { name = "commitizen" },
@@ -962,6 +975,7 @@ provides-extras = ["geoparquet"]
 [package.metadata.requires-dev]
 dev = [
     { name = "bandit", specifier = ">=1.9.2,<2" },
+    { name = "blockbuster", specifier = ">=1.5,<2" },
     { name = "boto3", specifier = ">=1.35" },
     { name = "canaille", extras = ["sqlite"], specifier = ">=0.0.74" },
     { name = "commitizen", specifier = ">=4.11,<5" },
@@ -1145,6 +1159,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/91/f1/605a56d4ea217b307
 wheels = [
     { url = "https://files.pythonhosted.org/packages/14/d2/97adf2ec7af95522573e6dd5493ee84792d0fbfb2def010c4a581b8d6e5e/flask_wtf-1.3.0-py3-none-any.whl", hash = "sha256:dc5e3a4ce97f75c47bf6c1c72ad2c3b7bdf579a2ed13aebcc5d3d81fe2571160", size = 13959, upload-time = "2026-04-23T07:41:53.828Z" },
 ]
+
+[[package]]
+name = "forbiddenfruit"
+version = "0.1.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e6/79/d4f20e91327c98096d605646bdc6a5ffedae820f38d378d3515c42ec5e60/forbiddenfruit-0.1.4.tar.gz", hash = "sha256:e3f7e66561a29ae129aac139a85d610dbf3dd896128187ed5454b6421f624253", size = 43756, upload-time = "2021-01-16T21:03:35.401Z" }
 
 [[package]]
 name = "fsspec"

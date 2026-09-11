@@ -282,6 +282,9 @@ def ty(session: Session) -> None:
         # resolved on develop and failed everywhere else.
         "ministack>=1.5,<2",
         "boto3>=1.35",
+        # The blocking-call guard (ADR-0010) lives in the `dev` group;
+        # the unlocked lanes need it by name.
+        "blockbuster>=1.5,<2",
     )
     session.run("ty", *args)
 
@@ -314,6 +317,9 @@ def tests(session: Session) -> None:
         # without these the unlocked lane silently skips them.
         "ministack>=1.5,<2",
         "boto3>=1.35",
+        # The blocking-call guard (ADR-0010) lives in the `dev` group;
+        # the unlocked lanes need it by name.
+        "blockbuster>=1.5,<2",
     )
     try:
         session.run("coverage", "run", "--parallel", "-m", "pytest", *session.posargs)
@@ -363,6 +369,9 @@ def typeguard(session: Session) -> None:
         # without these the unlocked lane silently skips them.
         "ministack>=1.5,<2",
         "boto3>=1.35",
+        # The blocking-call guard (ADR-0010) lives in the `dev` group;
+        # the unlocked lanes need it by name.
+        "blockbuster>=1.5,<2",
     )
     session.run("pytest", f"--typeguard-packages={package}", *session.posargs)
 
