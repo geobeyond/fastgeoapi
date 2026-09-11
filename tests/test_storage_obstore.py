@@ -84,3 +84,8 @@ async def test_aput_roundtrip(tmp_path):
     store = load_store(str(tmp_path))
     await store.aput("artifact.yml", b"openapi: 3.0.2\n")
     assert await store.aget("artifact.yml") == b"openapi: 3.0.2\n"
+
+
+def test_backend_is_the_wrapped_obstore_object(local_store):
+    """Libraries that speak obstore natively (async-tiff) need the object itself."""
+    assert type(local_store.backend).__module__.startswith("obstore")
