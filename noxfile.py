@@ -276,6 +276,8 @@ def ty(session: Session) -> None:
         # obstore ships the fsspec adapter module but declares neither an
         # `fsspec` extra nor the dependency, so name it explicitly.
         "fsspec>=2024.6",
+        # The pmtiles extra (ADR-0011): pure Python, named for the unlocked lanes.
+        "pmtiles>=3.7,<4",
         # The bucket end-to-end tests import boto3 against a local S3
         # (ministack). Both live in the `dev` group, which the locked
         # install brings along and this unlocked list did not — so `ty`
@@ -313,6 +315,8 @@ def tests(session: Session) -> None:
         # obstore ships the fsspec adapter module but declares neither an
         # `fsspec` extra nor the dependency, so name it explicitly.
         "fsspec>=2024.6",
+        # The pmtiles extra (ADR-0011): pure Python, named for the unlocked lanes.
+        "pmtiles>=3.7,<4",
         # Local S3 for the bucket end-to-end tests (see the `dev` group);
         # without these the unlocked lane silently skips them.
         "ministack>=1.5,<2",
@@ -365,6 +369,8 @@ def typeguard(session: Session) -> None:
         # obstore ships the fsspec adapter module but declares neither an
         # `fsspec` extra nor the dependency, so name it explicitly.
         "fsspec>=2024.6",
+        # The pmtiles extra (ADR-0011): pure Python, named for the unlocked lanes.
+        "pmtiles>=3.7,<4",
         # Local S3 for the bucket end-to-end tests (see the `dev` group);
         # without these the unlocked lane silently skips them.
         "ministack>=1.5,<2",
