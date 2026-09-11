@@ -64,9 +64,15 @@
         <loc>https://geobeyond.github.io/fastgeoapi/contributors/how-to/running-the-tests/</loc>
       </url>
       <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/contributors/how-to/writing-an-async-provider/</loc>
+      </url>
+      <url>
         <loc>https://geobeyond.github.io/fastgeoapi/contributors/reference/</loc>
       </url>
       <url>
         <loc>https://geobeyond.github.io/fastgeoapi/contributors/explanation/architecture/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/contributors/explanation/async-providers/</loc>
       </url>
 </urlset>
