@@ -223,8 +223,18 @@ class PMTilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseMVTProvider):
         return self._archive
 
     def _tile_id_within_limits(self, archive: Archive, z: Any, x: Any, y: Any) -> int:
-        """Pygeoapi's semantics: outside the limits is 404, inside but absent is 204."""
-        z, x, y = int(z), int(x), int(y)
+        """Pygeoapi's semantics: outside the limits is 404, inside but absent is 204.
+
+        Non-numeric coordinates (a URL template pasted literally) count as
+        outside the limits, as pygeoapi's own ``is_in_limits`` treats them,
+        rather than crashing the request.
+        """
+        try:
+            z, x, y = int(z), int(x), int(y)
+        except (TypeError, ValueError):
+            raise ProviderTileNotFoundError(  # ruff: ignore[raise-without-from-inside-except]
+                f"tile coordinates {z}/{x}/{y} are not numbers"
+            )
         low, high = zoom_limits(archive)
         scheme = TileMatrixSetEnum.WEBMERCATORQUAD.value
         if not (low <= z <= high) or not self.is_in_limits(scheme, z, x, y):

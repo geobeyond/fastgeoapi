@@ -169,3 +169,9 @@ def test_default_metadata_names_the_tiling_scheme(provider):
 @pytest.mark.asyncio
 async def test_async_view_uses_the_native_face(provider):
     assert await async_view(provider).get_tiles(z=0, y=0, x=0, format_="pbf") == b"tile 0/0/0"
+
+
+def test_non_numeric_tile_coordinates_are_not_found_not_a_crash(provider):
+    """A template pasted literally (`{tileMatrix}`) is a 404 in pygeoapi's chain; ours must agree."""
+    with pytest.raises(ProviderTileNotFoundError):
+        provider.get_tiles(z="{tileMatrix}", y="{tileRow}", x="{tileCol}", format_="pbf")
