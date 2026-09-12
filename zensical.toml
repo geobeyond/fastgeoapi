@@ -54,6 +54,7 @@ nav = [
     "consumers/index.md",
     { "Tutorials" = [
       { "Connecting an MCP client" = "consumers/tutorials/connecting-an-mcp-client.md" },
+      { "Using fastgeoapi from QGIS" = "consumers/tutorials/using-qgis.md" },
     ] },
     { "How-to guides" = [
       { "Verifying with the MCP Inspector" = "consumers/how-to/mcp-inspector.md" },

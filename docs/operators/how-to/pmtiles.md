@@ -145,7 +145,9 @@ https://example.org/geoapi/collections/lazio-roads-tiles/tiles/WebMercatorQuad/{
 
 with the `{z}/{y}/{x}` order above, and the collection's zoom range as
 min and max. On a protected deployment attach an authentication
-configuration that sends the bearer token.
+configuration that sends the bearer token; [Using fastgeoapi from
+QGIS](../../consumers/tutorials/using-qgis.md) does it step by step on
+the public demo.
 
 **MapLibre GL**:
 

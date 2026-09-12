@@ -41,4 +41,6 @@ implementation and behaves like one; point your client at the landing
 page and follow the links. The [OpenAPI
 document](reference/openapi.md) describes everything it serves,
 including the security schemes, which is what tells your client how to
-authenticate.
+authenticate. For a desktop client, [Using fastgeoapi from
+QGIS](tutorials/using-qgis.md) walks through the token, the features
+and the vector tiles on the public demo.
