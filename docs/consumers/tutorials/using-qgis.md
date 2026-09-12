@@ -65,6 +65,13 @@ connections by reference, so the token never appears in a project file.
    - tick **Persist between launches**, so the token survives a restart
 3. **Save**.
 
+![The OAuth2 form in QGIS: grant Client Credentials, token URL, scope, and the resource parameter among the extra request parameters](../../images/qgis/01-oauth2-configuration.png)
+
+The configuration then appears in the list under **Settings ▸ Options ▸
+Authentication**, with the short id QGIS uses to refer to it:
+
+![The authentication list with the fastgeoapi demo configuration](../../images/qgis/00-authentication-list.png)
+
 The dialog can also load the same configuration from a file. This is
 what it contains, in the format the OAuth2 method reads and writes:
 
@@ -102,6 +109,8 @@ reads.
 5. **Connect**. The collections appear: pick `lazio-roads`, tick
    **Only request features overlapping the view extent**, and **Add**.
 
+![The new connection dialog: landing page as URL, version OGC API - Features, the fastgeoapi demo configuration selected](../../images/qgis/02-new-connection.png)
+
 Zoom to Rome. QGIS asks the server for the features in view, a page at a
 time, and every request carries a token it obtained from Logto on your
 behalf. When the token expires, an hour later, QGIS requests a new one
@@ -137,6 +146,16 @@ QGIS gives the layer a default style; the layer inside the tiles is
 called `roads`, and the attributes are `class`, `subclass`, `subtype`
 and `name`, if you want to style by road class.
 
+This is the result, rendered by QGIS through the same configuration:
+the vector tiles in grey underneath, and on top the main roads from the
+features layer in orange, picked by a renderer rule on `class`.
+
+![Rome, from the Vatican to Termini: the Lazio roads vector tiles in grey under the main roads from the features layer in orange](../../images/qgis/03-map-rome.png)
+
+The screenshots on this page are produced by QGIS itself, headless, by
+`scripts/qgis_tutorial_screenshots.py` in the repository, from the same
+values quoted here.
+
 ## What is happening underneath
 
 Every request QGIS makes to the demo carries `Authorization: Bearer`
@@ -171,6 +190,18 @@ nothing more for that, since it validates the token and not the flow.
 What it takes is an application registered at the identity provider
 that allows that redirect URI and access to the API; the demo does not
 publish one today.
+
+## A layer filter stays on your machine
+
+QGIS can push a layer filter (**Set Filter**, or a subset string) to an
+OGC API - Features server as a CQL2 expression, but only when the
+server's conformance declaration lists the Part 3 `filter` classes.
+pygeoapi answers CQL2 filters and lists `cql2-text`, yet it does not
+declare `ogcapi-features-3/1.0/conf/filter` and `conf/features-filter`,
+so QGIS decides the server cannot filter and a **Set Filter** on the
+layer produces an empty layer without a single request. Filter on the
+client instead: a rule-based renderer with `"class" IN ('primary', 'secondary')` draws the main roads from what the view extent fetched,
+and that is how the map above was made.
 
 ## When something does not work
 
