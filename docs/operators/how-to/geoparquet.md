@@ -66,10 +66,13 @@ that filters on a partition column reads only the matching partitions.
 
 On a bucket DuckDB expands the wildcard itself, in one request. That
 also keeps the dataset isolated from the process environment: the
-object-store layer reads the standard variables in every constructor
-with no way to opt out, so a deployment whose `AWS_ENDPOINT_URL_S3`
-names its own store would send the listing there and be refused for a
-dataset that lives elsewhere.
+object-store layer reads the standard variables in every constructor,
+so a deployment whose `AWS_ENDPOINT_URL_S3` names its own store would
+send the listing there and be refused for a dataset that lives
+elsewhere. Where the object-store layer is the reader (the `obstore`
+fallback below, the PMTiles provider), an explicit `endpoint` in
+`store_options` wins over that variable: name the dataset's own
+endpoint (for AWS, `s3.<region>.amazonaws.com`) and the reads go there.
 
 On the `obstore` fallback below the objects are **listed** instead:
 DuckDB cannot expand a glob through that bridge — an explicit file works

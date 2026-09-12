@@ -9,10 +9,18 @@ Credentials come ONLY from each cloud's standard environment variables
 
 from __future__ import annotations
 
+import os
+import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from app.provider.storage.base import ObjectStore
 from app.provider.storage.obstore_ import ObstoreStore
+
+# The variables obstore reads an endpoint from, in every constructor.
+_ENDPOINT_VARIABLES = ("AWS_ENDPOINT_URL_S3", "AWS_ENDPOINT_URL", "AWS_ENDPOINT")
+_environment_lock = threading.Lock()
 
 _URL_SCHEMES = (
     "s3://",
@@ -72,26 +80,56 @@ def _for_obstore(store_options: dict) -> dict:
     return {**options, **translated}
 
 
+@contextmanager
+def _explicit_endpoint_wins(config: dict) -> Iterator[None]:
+    """Hide the environment's endpoint while a store with its own is built.
+
+    A dataset is read where it lives, not where the process banks. But
+    obstore 0.11 reads the standard variables in every constructor and,
+    for the endpoint, lets them win over an explicit ``endpoint`` in the
+    configuration: the store *reports* the explicit one while sending
+    its requests to the environment's. On a deployment whose
+    ``AWS_ENDPOINT_URL_S3`` names its own S3-compatible service, a public
+    dataset on AWS was therefore asked of the wrong host.
+
+    The variables are hidden only while the constructor runs and only
+    when the configuration names an endpoint of its own; credentials
+    stay visible, since a store on the deployment's own service still
+    needs them. The lock keeps two concurrent constructions from seeing
+    each other's half-restored environment.
+    """
+    if "endpoint" not in config:
+        yield
+        return
+    with _environment_lock:
+        hidden = {name: os.environ.pop(name) for name in _ENDPOINT_VARIABLES if name in os.environ}
+        try:
+            yield
+        finally:
+            os.environ.update(hidden)
+
+
 def load_store(base: str, store_options: dict | None = None) -> ObjectStore:
     """Build the backend for a base URL/directory.
 
     ``store_options`` are the cloud store settings — ``region``,
     ``skip_signature`` for public data, ``endpoint`` for an
-    S3-compatible service. They are meaningless for a local path and
-    ignored there.
+    S3-compatible service (and an explicit one wins over the process
+    environment). They are meaningless for a local path and ignored
+    there.
     """
     if base.startswith(_URL_SCHEMES):
         from obstore.store import from_url
 
         if store_options:
-            # ty: `from_url` is overloaded per provider-specific config
-            # type, and ours is a plain mapping read from the tenant's
-            # configuration — the value is only known at runtime.
-            return ObstoreStore(
-                from_url(  # ty: ignore[no-matching-overload]
-                    base, config=_for_obstore(store_options)
+            config = _for_obstore(store_options)
+            with _explicit_endpoint_wins(config):
+                # ty: `from_url` is overloaded per provider-specific config
+                # type, and ours is a plain mapping read from the tenant's
+                # configuration — the value is only known at runtime.
+                return ObstoreStore(
+                    from_url(base, config=config)  # ty: ignore[no-matching-overload]
                 )
-            )
         return ObstoreStore(from_url(base))
     from obstore.store import LocalStore
 

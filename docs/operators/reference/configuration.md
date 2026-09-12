@@ -145,18 +145,20 @@ the editor's YAML tab.
 
 ### Provider keys
 
-| Key               | Used by    | Meaning                                                |
-| ----------------- | ---------- | ------------------------------------------------------ |
-| `geometry_column` | GeoParquet | Geometry column name (default `geom`)                  |
-| `bbox_column`     | GeoParquet | Covering column to pre-filter on; auto-detected        |
-| `store_options`   | GeoParquet | Store settings: `region`, `skip_signature`, `endpoint` |
-| `engine_options`  | GeoParquet | DuckDB settings, e.g. `memory_limit`, `threads`        |
+| Key               | Used by             | Meaning                                                |
+| ----------------- | ------------------- | ------------------------------------------------------ |
+| `geometry_column` | GeoParquet          | Geometry column name (default `geom`)                  |
+| `bbox_column`     | GeoParquet          | Covering column to pre-filter on; auto-detected        |
+| `store_options`   | GeoParquet, PMTiles | Store settings: `region`, `skip_signature`, `endpoint` |
+| `engine_options`  | GeoParquet          | DuckDB settings, e.g. `memory_limit`, `threads`        |
 
 `store_options` deserves a note: a dataset is read **where it lives**,
 not where the process banks. A deployment that keeps its own data on an
 S3-compatible service carries `AWS_ENDPOINT_URL_S3` for it, and without
 a per-dataset endpoint every read of a dataset elsewhere would be sent
-to the wrong place.
+to the wrong place. An explicit `endpoint` wins over that variable, so
+a public dataset on AWS next to a Tigris-hosted one is spelled
+`endpoint: s3.us-west-2.amazonaws.com` with `skip_signature: true`.
 
 See [GeoParquet provider](../how-to/geoparquet.md) for the full treatment,
 including what `skip_signature` is for and why a public bucket answers a
