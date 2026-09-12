@@ -30,7 +30,9 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -93,6 +95,9 @@ def oauth2_config(client_id: str, client_secret: str) -> dict:
 def store(am, config: dict) -> str:
     """Save the configuration in QGIS's authentication store and return its id."""
     cfg = QgsAuthMethodConfig("OAuth2")
+    # A fixed id keeps the authentication list screenshot identical from
+    # one run to the next; QGIS would otherwise draw a random one.
+    cfg.setId("fgademo")
     cfg.setName(config["name"])
     cfg.setConfig("oauth2config", json.dumps(config))
     ok, _ = am.storeAuthenticationConfig(cfg)
@@ -226,10 +231,14 @@ def shot_map(authcfg: str) -> None:
 def main() -> None:
     """Boot QGIS headless, store the configuration, and write the four images."""
     OUT.mkdir(parents=True, exist_ok=True)
+    # A throwaway authentication store: never the user's own, and locked
+    # with a password nobody knows. QGIS reads the directory from the
+    # environment before it is initialised.
+    os.environ.setdefault("QGIS_AUTH_DB_DIR_PATH", tempfile.mkdtemp(prefix="qgis-shots-"))
     app = QgsApplication([], True)
     app.initQgis()
     am = app.authManager()
-    if not am.setMasterPassword("screenshots", True):
+    if not am.setMasterPassword(secrets.token_urlsafe(24), True):
         sys.exit("the authentication store could not be opened")
     # The forms show placeholders; the map needs the real demo client.
     client_id = os.environ.get("FASTGEOAPI_DEMO_CLIENT_ID")
