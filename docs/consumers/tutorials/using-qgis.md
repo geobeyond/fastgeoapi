@@ -25,15 +25,19 @@ hold: the signature verifies against the provider's keys, the issuer is
 `https://fastgeoapi.fly.dev/geoapi/`. How the token was obtained does
 not matter to the server.
 
-For this tutorial the demo publishes a machine client, the same one the
-project's own CI uses:
+For this tutorial the demo publishes a machine client. Its id and secret
+are the ones behind the `Authorization: Basic` header in
+[Getting started](../../operators/tutorials/getting-started.md), which
+is the one place they are published; decode that header to read them.
+They are demo credentials, scoped to the demo API, and nothing else
+accepts them.
 
 | Setting         | Value                                         |
 | --------------- | --------------------------------------------- |
 | Token URL       | `https://76hxgq.logto.app/oidc/token`         |
 | Grant           | Client Credentials                            |
-| Client ID       | `s4rf23nynrcotc86xnieq`                       |
-| Client secret   | `W6DraAbu16goorGLVHM6XYRRr8ijNmL0`            |
+| Client ID       | from Getting started                          |
+| Client secret   | from Getting started                          |
 | Scope           | `openid profile ci`                           |
 | Extra parameter | `resource=https://fastgeoapi.fly.dev/geoapi/` |
 
@@ -72,8 +76,8 @@ what it contains, in the format the OAuth2 method reads and writes:
   "accessMethod": 0,
   "name": "fastgeoapi demo",
   "tokenUrl": "https://76hxgq.logto.app/oidc/token",
-  "clientId": "s4rf23nynrcotc86xnieq",
-  "clientSecret": "W6DraAbu16goorGLVHM6XYRRr8ijNmL0",
+  "clientId": "<client id>",
+  "clientSecret": "<client secret>",
   "scope": "openid profile ci",
   "queryPairs": { "resource": "https://fastgeoapi.fly.dev/geoapi/" },
   "persistToken": true,
