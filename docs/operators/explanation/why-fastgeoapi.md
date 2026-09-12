@@ -22,6 +22,7 @@ all, and how fast it reads data that lives in a bucket.
 | Reconfiguration    | restart the process                     | `POST /admin/config/reload`, atomic swap                              |
 | Route table        | every route of every specification      | only the specifications the configuration exposes                     |
 | GeoParquet         | `s3://` via s3fs, no CQL2               | any cloud, full CQL2 pushed into DuckDB                               |
+| Vector tiles       | pre-cut directories, databases, a proxy | PMTiles archives read in place from any cloud, awaited                |
 | Provider instances | rebuilt on every request                | reused, with an explicit thread-safety opt-in                         |
 
 The rest of this page explains each line, and links to the how-to guide that
@@ -181,6 +182,24 @@ shim dispatches provider calls to an executor.
 
 See [GeoParquet provider](../how-to/geoparquet.md).
 
+## Vector tiles from an archive, awaited
+
+Upstream serves vector tiles from a directory of pre-cut files, from
+Elasticsearch or PostgreSQL, or by proxying another tile server. A
+[PMTiles](https://github.com/protomaps/PMTiles) archive — one file, any
+size, read by byte range — has no provider there.
+
+fastgeoapi's PMTiles provider reads the archive where it lives, on a local
+path or any object store, through the same storage layer the configuration
+uses. Overture Maps' 18 GB `places.pmtiles` is served in place, with no copy.
+It is also the first provider written on fastgeoapi's asynchronous provider
+pattern: the tile route awaits it, so one process keeps many tiles in flight
+instead of parking a thread on each ranged read, and a cold burst of
+identical requests shares its reads instead of repeating them. The same
+class still honours pygeoapi's synchronous contract for everything else.
+
+See [PMTiles provider](../how-to/pmtiles.md).
+
 ## Provider instances are reused
 
 `pygeoapi.plugin.load_plugin` constructs a fresh object on every call, so every
@@ -227,3 +246,4 @@ each one is actually proposed:
       does not require — either the schema or the template should give way.
 - [ ] An application-factory RFC: building the API without import-time
       environment variables.
+- [ ] A PMTiles tile provider, without the storage layer it depends on here.

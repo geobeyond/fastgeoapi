@@ -145,12 +145,14 @@ the editor's YAML tab.
 
 ### Provider keys
 
-| Key               | Used by             | Meaning                                                |
-| ----------------- | ------------------- | ------------------------------------------------------ |
-| `geometry_column` | GeoParquet          | Geometry column name (default `geom`)                  |
-| `bbox_column`     | GeoParquet          | Covering column to pre-filter on; auto-detected        |
-| `store_options`   | GeoParquet, PMTiles | Store settings: `region`, `skip_signature`, `endpoint` |
-| `engine_options`  | GeoParquet          | DuckDB settings, e.g. `memory_limit`, `threads`        |
+| Key                            | Used by             | Meaning                                                        |
+| ------------------------------ | ------------------- | -------------------------------------------------------------- |
+| `geometry_column`              | GeoParquet          | Geometry column name (default `geom`)                          |
+| `bbox_column`                  | GeoParquet          | Covering column to pre-filter on; auto-detected                |
+| `store_options`                | GeoParquet, PMTiles | Store settings: `region`, `skip_signature`, `endpoint`         |
+| `engine_options`               | GeoParquet          | DuckDB settings, e.g. `memory_limit`, `threads`                |
+| `options.inline_inflate_limit` | PMTiles             | Bytes above which a tile is decompressed in a worker (256 KiB) |
+| `options.leaf_cache`           | PMTiles             | Leaf directories kept in memory per process (256)              |
 
 `store_options` deserves a note: a dataset is read **where it lives**,
 not where the process banks. A deployment that keeps its own data on an

@@ -38,6 +38,7 @@ nav = [
       "operators/how-to/index.md",
       { "Config from cloud storage" = "operators/how-to/cloud-config.md" },
       { "GeoParquet provider" = "operators/how-to/geoparquet.md" },
+      { "PMTiles provider" = "operators/how-to/pmtiles.md" },
       { "Editing the configuration" = "operators/how-to/configuration-editor.md" },
       { "Enabling the MCP server" = "operators/how-to/enabling-mcp.md" },
     ] },

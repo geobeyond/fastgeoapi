@@ -47,6 +47,7 @@ and how fast it reads data from a bucket.
 | ♻️ **Reconfiguration**    | restart the process                     | `POST /admin/config/reload`, atomic swap                              |
 | 🧭 **Route table**        | every route of every specification      | only the specifications your configuration exposes                    |
 | 🅿️ **GeoParquet**         | `s3://` via s3fs, no CQL2               | any cloud, full CQL2 pushed into DuckDB                               |
+| 🗺️ **Vector tiles**       | pre-cut directories, databases, a proxy | PMTiles archives read in place from any cloud, awaited                |
 | ⚡ **Provider instances** | rebuilt on every request                | reused, with an explicit thread-safety opt-in                         |
 
 Two numbers from the measurements behind those last rows: a bbox query on
