@@ -124,6 +124,44 @@ describe("the page", () => {
     await waitFor(() => expect(api.save).toHaveBeenCalledWith(DOCUMENT));
   });
 
+  it("does not write what the schema merely suggests", async () => {
+    // pygeoapi's own schema carries defaults, and a whole optional
+    // `pubsub` section whose parts are required once it exists. A form
+    // that materialises them on mount reports changes nobody made — and
+    // sends back a document the server refuses as incomplete.
+    vi.mocked(api.fetchSchema).mockResolvedValue({
+      type: "object",
+      properties: {
+        ...SCHEMA.properties,
+        server: {
+          type: "object",
+          properties: {
+            ...SCHEMA.properties.server.properties,
+            cors: { type: "boolean", default: false },
+          },
+        },
+        pubsub: {
+          type: "object",
+          properties: {
+            name: { type: "string", default: "mqtt" },
+            broker: {
+              type: "object",
+              properties: { url: { type: "string" } },
+              required: ["url"],
+            },
+          },
+          required: ["name", "broker"],
+        },
+      },
+    });
+
+    render(<App onLocked={() => {}} />);
+
+    await screen.findByText(/No changes yet/);
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(api.save).toHaveBeenCalledWith(DOCUMENT));
+  });
+
   it("keeps what the schema never described", async () => {
     render(<App onLocked={() => {}} />);
     const title = await screen.findByLabelText("en");
