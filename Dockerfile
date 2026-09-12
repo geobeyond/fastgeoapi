@@ -38,8 +38,16 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # ---------- runtime ----------
 FROM python:3.12-slim AS runtime
 
-# tini reaps zombies and forwards signals for a clean shutdown
+# The base image is rebuilt on its own cadence, so between two of its
+# rebuilds it carries whatever its distribution has already fixed —
+# `perl-base` alone accounted for three fixable CRITICAL findings in
+# September 2026, and the published image gate refuses those. Taking the
+# distribution's updates here keeps the gate about this project rather
+# than about how fresh the base tag happens to be.
+#
+# tini reaps zombies and forwards signals for a clean shutdown.
 RUN apt-get update \
+    && apt-get upgrade --yes \
     && apt-get install --yes --no-install-recommends tini \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --uid 10001 appuser
