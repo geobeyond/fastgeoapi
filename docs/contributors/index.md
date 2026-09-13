@@ -5,7 +5,13 @@ icon: material/code-braces
 # :material-code-braces: Contributing
 
 You are working on fastgeoapi itself — fixing something, adding a
-provider, or trying to understand why a piece is shaped the way it is.
+provider for a cloud-native format, or trying to understand why a piece
+is shaped the way it is.
+
+Two commitments shape most of the answers. A format that can be read in
+ranges should be servable **without being converted first**, and the
+reads that wait on the network should be **awaited** rather than given a
+thread each. The pages below are mostly about what those two cost.
 
 <div class="grid cards" markdown>
 

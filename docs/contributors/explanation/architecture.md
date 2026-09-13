@@ -25,10 +25,17 @@ upstream produces.
 ## Data and configuration are read through one layer
 
 Anything that can live in object storage — the configuration document,
-the OpenAPI artefact, a GeoParquet dataset — is reached through a single
-`Protocol` with one backend behind it. A local directory and a bucket
-are the same shape, so a code path that works on one works on the other,
-and the tests that matter run against a real S3 rather than a mock.
+the OpenAPI artefact, a GeoParquet dataset, a PMTiles archive — is
+reached through a single `Protocol` with one backend behind it. A local
+directory and a bucket are the same shape, so a code path that works on
+one works on the other, and the tests that matter run against a real S3
+rather than a mock.
+
+The layer reads **whole objects and byte ranges**, synchronously and
+awaitably, because that is what a cloud-native format asks for: a range
+is the unit a PMTiles directory or a COG tile is fetched in. Identical
+ranges in flight are de-duplicated, so a burst of tile requests that all
+need the same directory fetches it once.
 
 That layer is also where a hard-won lesson lives: the library underneath
 reads the standard cloud environment variables in _every_ constructor,

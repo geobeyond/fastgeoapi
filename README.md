@@ -4,7 +4,17 @@
   <img src="docs/images/lockup-stacked.svg" width="280" alt="fastgeoapi" />
 </p>
 
-A modern, high-performance geospatial API framework that extends [pygeoapi](https://github.com/geopython/pygeoapi) with authentication, authorization, and security features using FastAPI, OpenID Connect, and Open Policy Agent (OPA) 🗺️🔒.
+**OGC APIs on top of cloud-native geospatial formats.** Your data is already
+GeoParquet, PMTiles or COG in a bucket, and something still needs a standard
+API in front of it: QGIS, a browser, a partner, an agent. fastgeoapi serves one
+**straight from those formats, where they are** — no load into a database, no
+pre-cut tile tree, no second copy to keep in step — with
+[pygeoapi](https://github.com/geopython/pygeoapi) as the engine.
+
+Serving a cloud-native format means reading it in ranges over the network, so
+the request path is **async-first**: those reads are awaited together rather
+than parking a thread each. Authentication, authorization and an MCP endpoint
+for AI agents come with it 🗺️🔒.
 
 <div align="center">
   <a href="https://pygeoapi.io">
@@ -36,24 +46,26 @@ A modern, high-performance geospatial API framework that extends [pygeoapi](http
 
 fastgeoapi is **not a fork**: pygeoapi is the engine, and fastgeoapi tracks its
 releases. Everything you can serve with pygeoapi you can serve here, with the
-same responses. What changes is how the server is built, configured, secured
-and how fast it reads data from a bucket.
+same responses. What changes is which formats can be a collection without being
+converted first, how the server reaches them, and what stands in front.
 
-| Area                      | pygeoapi                                | fastgeoapi                                                            |
-| ------------------------- | --------------------------------------- | --------------------------------------------------------------------- |
-| 🔐 **Authentication**     | not in scope                            | OIDC/JWT with JWKS, API keys, OPA policies                            |
-| 🤖 **AI agents**          | —                                       | MCP server over the same API, with its own OAuth authorization server |
-| ☁️ **Configuration**      | a local file named by `PYGEOAPI_CONFIG` | any object store: S3, GCS, Azure, Tigris, local                       |
-| ♻️ **Reconfiguration**    | restart the process                     | `POST /admin/config/reload`, atomic swap                              |
-| 🧭 **Route table**        | every route of every specification      | only the specifications your configuration exposes                    |
-| 🅿️ **GeoParquet**         | `s3://` via s3fs, no CQL2               | any cloud, full CQL2 pushed into DuckDB                               |
-| 🗺️ **Vector tiles**       | pre-cut directories, databases, a proxy | PMTiles archives read in place from any cloud, awaited                |
-| ⚡ **Provider instances** | rebuilt on every request                | reused, with an explicit thread-safety opt-in                         |
+| Area                       | pygeoapi                                | fastgeoapi                                                            |
+| -------------------------- | --------------------------------------- | --------------------------------------------------------------------- |
+| 🧊 **GeoParquet**          | `s3://` via s3fs, no CQL2               | any cloud, full CQL2 pushed down into DuckDB                          |
+| 🗺️ **Vector tiles**        | pre-cut directories, databases, a proxy | PMTiles archives read in place from any cloud, by range               |
+| ⚡ **Reads over the wire** | every handler on a five-thread executor | ranged reads awaited together; threads left to CPU-bound work         |
+| ☁️ **Configuration**       | a local file named by `PYGEOAPI_CONFIG` | any object store: S3, GCS, Azure, Tigris, local                       |
+| ♻️ **Reconfiguration**     | restart the process                     | `POST /admin/config/reload`, atomic swap                              |
+| 🔐 **Authentication**      | not in scope                            | OIDC/JWT with JWKS, API keys, OPA policies                            |
+| 🤖 **AI agents**           | —                                       | MCP server over the same API, with its own OAuth authorization server |
+| 🧭 **Route table**         | every route of every specification      | only the specifications your configuration exposes                    |
+| ♲ **Provider instances**   | rebuilt on every request                | reused, with an explicit thread-safety opt-in                         |
 
-Two numbers from the measurements behind those last rows: a bbox query on
+Three numbers from the measurements behind those rows: a bbox query on
 Overture's `division-areas` (4.47 GB, read from Europe) went from **44 s to
-0.9 s** once warm, and reusing provider instances took HTTP latency from
-**73 ms to 24 ms**.
+0.9 s** once warm; twenty vector tiles that take **8–11 s** one at a time come
+back in **1.7–2.6 s** with eight awaited together, on a single vCPU; and reusing
+provider instances took HTTP latency from **73 ms to 24 ms**.
 
 👉 **[What fastgeoapi adds to pygeoapi](https://geobeyond.github.io/fastgeoapi/operators/explanation/why-fastgeoapi/)** explains each row, with links to the how-to guides.
 
@@ -64,6 +76,24 @@ This diagram gives an overview of the basic architecture:
 ![general architecture](docs/images/fastgeoapi_architecture.png)
 
 ## Features
+
+### 🧊 Cloud-Native Geospatial, served as an OGC API
+
+- **GeoParquet collections, queried in place** - DuckDB with the spatial extension reads the file where it sits; `bbox`, `datetime`, property filters and full CQL2 (text and JSON, spatial predicates included) become SQL pushed into the engine, so the network carries the answer and not the dataset
+- **PMTiles archives as a tile collection** - one file of any size, read by byte range: Overture's 18 GB `places.pmtiles` is a collection with no copy on the server, and a tile costs one ranged read once its directory is cached
+- **Any object store, one code path** - S3, GCS, Azure, Tigris, MinIO or a local path, with per-dataset region, endpoint and anonymous access; the configuration document itself can live in the same bucket
+- **No ETL step in the middle** - nothing is loaded into a database or pre-cut into a tile tree, so there is no second copy to keep in step with the first
+- **Cloud Optimized GeoTIFF, worked end to end** - the provider pattern applied to a real COG with [async-tiff](https://github.com/developmentseed/async-tiff), in the contributor guide, for the format we do not ship a provider for
+- **Locality measured, not assumed** - same-region and cross-region numbers are published, so staging an extract is a decision with figures behind it
+
+### ⚡ Async-first, where waiting is the cost
+
+- **One awaited route** - tile data is served on the event loop when the provider says it can be; everything else keeps pygeoapi's behaviour byte for byte
+- **A pattern, not a fork** - `AsyncProviderMixin` gives a provider a second face beside its synchronous one, which pygeoapi's own chain goes on using
+- **Sans-I/O cores** - reading an archive is written as a generator that asks for byte ranges; a blocking driver and an awaiting driver feed the same code, so one implementation serves both faces
+- **A storage layer that speaks ranges** - with single-flight de-duplication: a cold burst of fifty tiles went from **245 ranged reads to 54**
+- **A guard in the test suite** - [blockbuster](https://github.com/cbornet/blockbuster) fails any test that blocks the loop, so async stays a property of the code rather than an intention
+- **Honest about where it does not apply** - DuckDB scanning GeoParquet is CPU-bound work, so it is dispatched to a thread; awaiting it would change the syntax and nothing else
 
 ### 🔐 Security & Authentication
 
@@ -88,19 +118,18 @@ This diagram gives an overview of the basic architecture:
 - **Writing is not activating** - the editor mounts no reload webhook: putting a configuration into service stays a separate, deliberate gesture
 - **JSON endpoints too** - the same checks run from `curl` or in CI, with no browser involved
 
-### 🚀 Performance & Modern Stack
+### 🧰 The stack underneath
 
-- **FastAPI Framework** - High-performance async API built on Starlette and Pydantic
-- **Async I/O** - Non-blocking operations for better scalability
-- **Modern Python** - Python 3.12+ with type hints and modern language features
-- **Fast Dependency Management** - UV-based tooling for lightning-fast installations
+- **FastAPI and Starlette** - the ASGI application pygeoapi is mounted into, built programmatically rather than at import time
+- **Modern Python** - 3.12+, typed throughout, checked with `ty` in CI
+- **uv** - one lockfile for the application, the tools and the container image
 
 ### 🗺️ Geospatial API Standards
 
-- **OGC API Compliance** - Full support for OGC API - Features, Processes, and more
-- **OpenAPI Integration** - Auto-generated, security-enhanced OpenAPI specifications
-- **Geospatial Data Access** - Seamless access to vector and raster geospatial data
-- **pygeoapi Extension** - Extends vanilla pygeoapi with enterprise-ready security
+- **OGC API Compliance** - Features, Tiles, Processes, Records, EDR and STAC, from pygeoapi unchanged
+- **Only what you configured** - the route table and `/conformance` are built from your resources, so they describe what this server can really do
+- **OpenAPI Integration** - auto-generated, with the security schemes of the chain you configured and external `$ref`s resolved deterministically
+- **Standards on top of cloud-native data** - the same conformance classes whether a collection is a local GeoJSON file or a 18 GB PMTiles archive in a bucket
 
 ### 🛡️ Security Testing & Quality
 
