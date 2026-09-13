@@ -49,6 +49,29 @@ class OwnReceive:
         return self.data
 
 
+def challenge(request: Request) -> str:
+    """The ``WWW-Authenticate`` a refused request is owed (RFC 6750 §3).
+
+    A `401` without one is a dead end: the client is told no, and not
+    what would have worked. The realm is the resource identifier a token
+    has to be audienced for — the `resource` parameter whose absence is
+    the commonest reason a perfectly valid token is refused — falling
+    back to the address the request arrived at.
+
+    The `error` attribute is added **only** when credentials were
+    presented. RFC 6750 §3.1 reserves it for that case, and a client
+    discovering the API sends nothing the first time: telling it its
+    token was invalid when it never had one sends it looking for a fault
+    that is not there.
+    """
+    realm = cfg.OAUTH2_EXPECTED_AUDIENCE or str(request.base_url)
+    # A quoted-string may hold neither a quote nor a backslash (RFC 9110).
+    parts = [f'realm="{realm.translate({34: None, 92: None})}"']
+    if request.headers.get("authorization"):
+        parts.append('error="invalid_token"')
+    return "Bearer " + ", ".join(parts)
+
+
 class Oauth2Middleware:
     """OAuth2 security middleware."""
 
@@ -107,12 +130,17 @@ class Oauth2Middleware:
         if isinstance(user_info_or_auth_redirect, RedirectResponse):
             return await user_info_or_auth_redirect.__call__(scope, receive, send)
         if not successful:
-            return await self.get_unauthorized_response(scope, receive, send)
+            return await self.get_unauthorized_response(scope, receive, send, request=request)
 
         await self.app(scope, receive, send)
 
     @staticmethod
-    async def get_unauthorized_response(scope: Scope, receive: Receive, send: Send) -> None:
-        """Prepare response for unauthorized access."""
-        response = JSONResponse(status_code=401, content={"message": "Unauthenticated"})
+    async def get_unauthorized_response(
+        scope: Scope, receive: Receive, send: Send, request: Request | None = None
+    ) -> None:
+        """Refuse the request, and say how to come back with credentials."""
+        headers = {"WWW-Authenticate": challenge(request)} if request is not None else None
+        response = JSONResponse(
+            status_code=401, content={"message": "Unauthenticated"}, headers=headers
+        )
         return await response(scope, receive, send)
