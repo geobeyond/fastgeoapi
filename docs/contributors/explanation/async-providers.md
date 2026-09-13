@@ -132,9 +132,15 @@ A provider does not touch the store directly. `StorageBackedMixin`
 resolves the `data` URL and the `store_options` from the captured
 definition and hands back a `ByteRanges` bound to that one object. The
 parser sees offsets; the mixin sees a key in a store; only the storage
-layer sees a bucket. A library that reads through obstore itself, as
-async-tiff does, gets the store object and the key from the same mixin
-and does its own ranged reads: the provider still imports no obstore.
+layer sees a bucket.
+
+That shape pays off twice, because the libraries worth using ask for the
+same thing. A reader that does its own ranged requests — async-geotiff
+for COGs, for instance — wants an object with `get_range_async` and
+`get_ranges_async`, and the store the mixin already holds is one. It is
+handed over as `native_store`, with `object_key` beside it: the library
+does its own reads, and the provider still imports no object-storage
+library.
 
 ## What this does not promise
 
