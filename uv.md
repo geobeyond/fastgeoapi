@@ -168,4 +168,4 @@ uv pip freeze > requirements.txt
 ## Additional Resources
 
 - [UV Documentation](https://github.com/astral-sh/uv)
-- [FastGeoAPI Documentation](https://fastgeoapi.readthedocs.io)
+- [fastgeoapi documentation](https://geobeyond.github.io/fastgeoapi/)
