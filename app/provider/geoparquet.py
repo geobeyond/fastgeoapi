@@ -19,6 +19,8 @@ Configure it by dotted path::
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from pygeoapi.provider.base import BaseProvider, ProviderQueryError
 
 from app.config.logging import create_logger
@@ -45,6 +47,26 @@ _TYPE_MAP: tuple[tuple[str, tuple[str, str | None]], ...] = (
     ("DATE", ("string", "date")),
     ("TIME", ("string", "time")),
 )
+
+
+def _instant(value: str) -> str:
+    """One end of a `datetime` parameter, proven to be one before it is a literal.
+
+    The value reaches SQL as a literal, and it is client input:
+    pygeoapi parses `datetime` only for a collection that declares
+    `extents.temporal`, so without that it arrives as it was typed. An
+    apostrophe in it would close the literal and leave the rest to be
+    read as logic — `'2020-01-01' OR 1=1 --` selects the whole
+    collection and comments the `LIMIT` away.
+
+    Parsing decides it rather than escaping: what RFC 3339 admits cannot
+    contain a quote, and what it does not is refused by name instead of
+    being quietly repaired.
+    """
+    try:
+        return datetime.fromisoformat(value).isoformat()
+    except ValueError as error:
+        raise ProviderQueryError(f"datetime is not RFC 3339: {value}") from error
 
 
 class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
@@ -243,13 +265,13 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
             )
         column = f'"{self.time_field}"'
         if "/" not in datetime_:
-            return f"{column} = '{datetime_}'"
+            return f"{column} = '{_instant(datetime_)}'"
         start, _, end = datetime_.partition("/")
         bounds = []
         if start not in ("..", ""):
-            bounds.append(f"{column} >= '{start}'")
+            bounds.append(f"{column} >= '{_instant(start)}'")
         if end not in ("..", ""):
-            bounds.append(f"{column} <= '{end}'")
+            bounds.append(f"{column} <= '{_instant(end)}'")
         if not bounds:
             raise ProviderQueryError(f"unbounded datetime interval: {datetime_}")
         return "(" + " AND ".join(bounds) + ")"
