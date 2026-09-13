@@ -206,7 +206,7 @@ Install [UV](https://github.com/astral-sh/uv) - a fast Python package installer 
 **macOS / Linux:**
 
 ```bash
-curl -sSf https://install.ultraviolet.dev | sh
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 **Windows (PowerShell):**

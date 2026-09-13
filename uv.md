@@ -9,7 +9,7 @@ Install UV before getting started:
 ### macOS / Linux
 
 ```bash
-curl -sSf https://install.ultraviolet.dev | sh
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ### Windows - PowerShell
