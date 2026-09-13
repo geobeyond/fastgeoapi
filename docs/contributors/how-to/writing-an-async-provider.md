@@ -10,7 +10,7 @@ the asynchronous face sits beside it, and the tile route uses it when a
 provider says it can. This page shows how to write both kinds, with two
 worked examples: a format read piecewise through a parser of our own,
 and a real Cloud Optimized GeoTIFF served through
-[async-tiff](https://pypi.org/project/async-tiff/), a library that is
+[async-geotiff](https://pypi.org/project/async-geotiff/), a library that is
 asynchronous itself. Why it is shaped this way is in
 [Two faces for a provider](../explanation/async-providers.md).
 
@@ -278,46 +278,52 @@ route serves it from the threadpool, honestly. Feeding the library's
 pure functions (parsers, lookups) into a core of your own is the way to
 a native provider without rewriting the format.
 
-## A real one: a Cloud Optimized GeoTIFF with async-tiff
+## A real one: a Cloud Optimized GeoTIFF with async-geotiff
 
-[async-tiff](https://github.com/developmentseed/async-tiff) by
-Development Seed (0.7.2 at the time of writing) reads TIFF metadata and
-tiles with ranged requests through an obstore store, and it is
-asynchronous only: `TIFF.open` and `fetch_tile` are coroutines. That
-makes it the other kind of native provider: the library does the
-awaiting, the storage layer hands it the store object, and there is no
+[async-geotiff](https://developmentseed.org/async-geotiff/) by
+Development Seed (0.5.1 at the time of writing) is a GeoTIFF and
+[COG](https://cogeo.org/) reader that fetches metadata, overviews and
+tiles with ranged requests, and it is **asynchronous only**: `open`,
+`read` and `fetch_tile` are all coroutines. That makes it the other kind
+of native provider: the library does the awaiting, and there is no
 parser of ours in between.
 
 ```bash
-pip install async-tiff
+pip install async-geotiff
 ```
 
-The example serves the internal tiles of a web-optimised COG as
-`image/jpeg`, **without decoding**. A COG written on the WebMercatorQuad
-tiling scheme has 256-pixel tiles that coincide with the map tiles, one
-zoom level per overview, so a tile request is one ranged read and one
-small splice. GDAL writes such a file with:
+It reads through an object called a `Store`, and that is the whole
+integration: the protocol it asks for is two methods, `get_range_async`
+and `get_ranges_async`, which is exactly what the store behind
+`StorageBackedMixin` already offers. `self.native_store` satisfies it as
+it is — the provider imports no object-storage library at all.
+
+The example serves 256-pixel PNG tiles on WebMercatorQuad from a COG
+written on the matching tiling scheme, which GDAL produces with:
 
 ```bash
 gdal_translate -of COG -co TILING_SCHEME=GoogleMapsCompatible \
   -co COMPRESS=JPEG -co QUALITY=75 -co BLOCKSIZE=256 input.tif places.tif
 ```
 
-Three facts about the file drive the code. The base IFD carries the
-georeferencing (`model_tiepoint`, `model_pixel_scale`) and its pixel
-size names the zoom: 156 543.03 m per pixel at zoom 0, halved per level.
-Overviews are further IFDs, each half the size of the previous one, and
-GDAL's mask band adds IFDs of its own (`new_subfile_type` with bit 4
-set) that must be skipped. JPEG tiles share their quantisation and
-Huffman tables in the IFD's `jpeg_tables` tag, so a tile on its own is a
-JPEG without tables; putting them back is a three-line splice.
+Two facts about such a file drive the code. Its pixel size names a zoom —
+156 543.03 m per pixel at zoom 0, halved per level — so the base image is
+one zoom and each overview is the next one down. And its tiles do **not**
+always line up with the map's: the tiling scheme aligns the base level,
+but a raster whose top-left falls on an odd tile index there sits half a
+tile off one level up. So the example does not chase internal tiles; it
+asks for the window the map tile covers, which is right at any alignment
+and is what the library is for.
 
 ```python
 import asyncio
 import math
+import struct
 import threading
+import zlib
 
-from async_tiff import TIFF
+import numpy as np
+from async_geotiff import GeoTIFF, Window
 from pygeoapi.models.provider.base import TileMatrixSetEnum
 from pygeoapi.provider.tile import BaseTileProvider, ProviderTileNotFoundError
 
@@ -325,38 +331,23 @@ from app.provider.base import AsyncProviderMixin, StorageBackedMixin
 
 HALF_WORLD = 20037508.342789244        # WebMercatorQuad extent, metres
 Z0_RESOLUTION = 2 * HALF_WORLD / 256   # metres per pixel at zoom 0, 256-pixel tiles
-MASK = 4                               # NewSubfileType bit: transparency mask
 
 
-def zoom_of(ifd) -> int:
-    """The WebMercatorQuad zoom whose resolution this full-resolution IFD has."""
-    return round(math.log2(Z0_RESOLUTION / ifd.model_pixel_scale[0]))
+def png(bands) -> bytes:
+    """The smallest honest PNG: 8-bit RGB, no filtering, band-first input."""
+    height, width = bands.shape[1:]
+    raw = b"".join(b"\0" + bands[:, row, :].T.tobytes() for row in range(height))
 
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        body = tag + data
+        return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body))
 
-def image_levels(tiff) -> dict[int, object]:
-    """`{zoom: ifd}` for the image IFDs: masks skipped, overviews by size ratio."""
-    base = tiff.ifds[0]
-    z0 = zoom_of(base)
-    levels = {}
-    for ifd in tiff.ifds:
-        if (ifd.new_subfile_type or 0) & MASK:
-            continue
-        levels[z0 - round(math.log2(base.image_width / ifd.image_width))] = ifd
-    return levels
-
-
-def grid_origin(base, zoom: int) -> tuple[int, int]:
-    """The WebMercatorQuad column and row of the raster's top-left tile at `zoom`."""
-    resolution = Z0_RESOLUTION / 2**zoom
-    x0, y0 = base.model_tiepoint[3], base.model_tiepoint[4]
-    return round((x0 + HALF_WORLD) / (256 * resolution)), round((HALF_WORLD - y0) / (256 * resolution))
-
-
-def standalone_jpeg(tile: bytes, tables: bytes | None) -> bytes:
-    """A COG stores the JPEG tables once, in the IFD: put them back into the tile."""
-    if not tables:
-        return tile
-    return tile[:2] + tables[2:-2] + tile[2:]   # SOI, the tables without their SOI/EOI, the rest
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(raw, 6))
+        + chunk(b"IEND", b"")
+    )
 
 
 class CogTiles(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
@@ -365,32 +356,55 @@ class CogTiles(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
 
     def __init__(self, provider_def):
         super().__init__(provider_def)
-        self._tiff = None
+        self._cog = None
         self._lock = threading.Lock()
 
     async def _open(self):
-        if self._tiff is None:
-            tiff = await TIFF.open(self.object_key, store=self.native_store, prefetch=65536)
+        if self._cog is None:
+            cog = await GeoTIFF.open(self.object_key, store=self.native_store)
             with self._lock:
-                if self._tiff is None:
-                    self._tiff = tiff
-        return self._tiff
+                if self._cog is None:
+                    self._cog = cog
+        return self._cog
 
-    async def aget_tiles(self, layer, tileset, z, y, x, format_):
-        tiff = await self._open()
-        ifd = image_levels(tiff).get(int(z))
-        if ifd is None:
-            raise ProviderTileNotFoundError(f"zoom {z} is not in this archive")
-        col0, row0 = grid_origin(tiff.ifds[0], int(z))
-        tx, ty = int(x) - col0, int(y) - row0
-        across, down = ifd.tile_count
-        if not (0 <= tx < across and 0 <= ty < down):
+    def _level(self, cog, zoom: int):
+        """The base image or the overview whose resolution is this zoom's."""
+        base = round(math.log2(Z0_RESOLUTION / cog.res[0]))
+        if zoom == base:
+            return cog
+        index = base - zoom - 1
+        if not 0 <= index < len(cog.overviews):
+            raise ProviderTileNotFoundError(f"zoom {zoom} is not in this file")
+        return cog.overviews[index]
+
+    async def aget_tiles(self, layer=None, tileset=None, z=None, y=None, x=None, format_=None):
+        cog = await self._open()
+        try:
+            zoom, col, row = int(z), int(x), int(y)
+        except (TypeError, ValueError):
+            raise ProviderTileNotFoundError(f"tile {z}/{x}/{y} is not a tile")
+        level = self._level(cog, zoom)
+
+        # The tile's top-left corner, in this level's pixel space.
+        size = 256 * (Z0_RESOLUTION / 2**zoom)
+        row_off, col_off = level.index(col * size - HALF_WORLD, HALF_WORLD - row * size)
+
+        # Clipped to the raster: a window may not start outside it, and a
+        # tile at the edge is partly empty.
+        left, top = max(col_off, 0), max(row_off, 0)
+        right, bottom = min(col_off + 256, level.width), min(row_off + 256, level.height)
+        if left >= right or top >= bottom:
             return None
-        tile = await ifd.fetch_tile(tx, ty)
-        return standalone_jpeg(bytes(tile.compressed_bytes), ifd.jpeg_tables)
+
+        patch = await level.read(
+            window=Window(col_off=left, row_off=top, width=right - left, height=bottom - top)
+        )
+        canvas = np.zeros((cog.count, 256, 256), dtype=patch.data.dtype)
+        canvas[:, top - row_off : bottom - row_off, left - col_off : right - col_off] = patch.data
+        return png(canvas)
 
     def get_tiles(self, layer=None, tileset=None, z=None, y=None, x=None, format_=None):
-        # async-tiff has no synchronous API. pygeoapi calls this from a
+        # async-geotiff has no synchronous API. pygeoapi calls this from a
         # worker thread where no loop runs; never call it from inside one.
         return asyncio.run(self.aget_tiles(layer, tileset, z, y, x, format_))
 
@@ -401,21 +415,25 @@ class CogTiles(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
         return [TileMatrixSetEnum.WEBMERCATORQUAD.value]
 ```
 
-Two details of the class. `native_store` and `object_key` come from
-`StorageBackedMixin`: the obstore store built from `data` and
-`store_options`, and the key of the object inside it, which is exactly
-the pair `TIFF.open` takes. The provider still imports no obstore. And
-the sync face runs the coroutine with `asyncio.run`: async-tiff has no
-synchronous API, pygeoapi calls `get_tiles` from a worker thread where
-no loop is running, and the rule is the storage bridge's, never from
-inside a running loop. The opened `TIFF` is cached on the instance and
-reused across calls and across loops; the library's Rust side performs
-the reads.
+Three details of the class. `native_store` and `object_key` come from
+`StorageBackedMixin` — the store built from `data` and `store_options`,
+and the key of the object inside it — which is exactly the pair
+`GeoTIFF.open` takes. The sync face runs the coroutine with
+`asyncio.run`: the library has no synchronous API, pygeoapi calls
+`get_tiles` from a worker thread where no loop is running, and the rule
+is the storage bridge's, never from inside a running loop. And the opened
+`GeoTIFF` is cached on the instance and reused across calls and across
+loops; the library's Rust side performs the reads.
 
-`BaseTileProvider` leaves the same holes as `BaseMVTProvider` in Step
-4, minus the MVT metadata: `get_tiles_service` and `get_metadata` are
-yours to fill. The configuration is the one of Step 5 with the raster's
-format:
+What the library gives back is a `RasterArray`: `.data` is a NumPy array
+shaped `(bands, height, width)`, with `.mask`, `.bounds`, `.crs`,
+`.transform` and `.index` beside it. Turning pixels into a picture is the
+provider's business, which is what the fifteen-line `png` is doing; a
+deployment that wants JPEG or WebP reaches for an encoder instead.
+
+`BaseTileProvider` leaves the same holes as `BaseMVTProvider` in Step 4,
+minus the MVT metadata: `get_tiles_service` and `get_metadata` are yours
+to fill. The configuration is the one of Step 5 with the raster's format:
 
 ```yaml
 providers:
@@ -426,22 +444,26 @@ providers:
       region: eu-central-1
     options:
       zoom:
-        min: 18
-        max: 20
+        min: 11
+        max: 15
       schemes: [WebMercatorQuad]
     format:
-      name: jpeg
-      mimetype: image/jpeg
+      name: png
+      mimetype: image/png
 ```
 
-Run against a file written by the command above, the provider answers a
-zoom 20 tile in a fraction of a millisecond from a local store, returns
-`None` outside the raster, raises `ProviderTileNotFoundError` for a zoom
-the archive lacks, passes the blocking guard, and the recomposed bytes
-open as a 256 × 256 three-band JPEG in GDAL. When a request needs
-several tiles, `fetch_tiles` fetches them concurrently; and
-`header_byte_size` after the first open is the `prefetch` that reads all
-the metadata in a single request next time.
+Run against a file written by the command above — 2304 × 2304 pixels,
+four overviews, zooms 11 to 15 — the provider answers a tile in **3 to
+10 ms** from a local store at every one of those zooms, returns `None`
+outside the raster, raises `ProviderTileNotFoundError` for a zoom the
+file lacks and for a URL template pasted literally, and the bytes open as
+a 256 × 256 three-band PNG in GDAL. Four tiles awaited together under the
+blocking guard of Step 6 pass without a complaint.
+
+Two knobs worth knowing. `GeoTIFF.open` takes a `prefetch` (32 KiB by
+default) — the first read, sized to swallow the whole header so the
+metadata costs one request. And `fetch_tiles` fetches several internal
+tiles concurrently, for a provider that does match them one to one.
 
 ## Step 6: prove it does not block
 

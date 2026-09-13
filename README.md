@@ -83,7 +83,7 @@ This diagram gives an overview of the basic architecture:
 - **PMTiles archives as a tile collection** - one file of any size, read by byte range: Overture's 18 GB `places.pmtiles` is a collection with no copy on the server, and a tile costs one ranged read once its directory is cached
 - **Any object store, one code path** - S3, GCS, Azure, Tigris, MinIO or a local path, with per-dataset region, endpoint and anonymous access; the configuration document itself can live in the same bucket
 - **No ETL step in the middle** - nothing is loaded into a database or pre-cut into a tile tree, so there is no second copy to keep in step with the first
-- **Cloud Optimized GeoTIFF, worked end to end** - the provider pattern applied to a real COG with [async-tiff](https://github.com/developmentseed/async-tiff), in the contributor guide, for the format we do not ship a provider for
+- **Cloud Optimized GeoTIFF, worked end to end** - the provider pattern applied to a real COG with [async-geotiff](https://developmentseed.org/async-geotiff/), in the contributor guide, for the format we do not ship a provider for
 - **Locality measured, not assumed** - same-region and cross-region numbers are published, so staging an extract is a decision with figures behind it
 
 ### ⚡ Async-first, where waiting is the cost
