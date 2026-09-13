@@ -38,14 +38,26 @@ environment, exactly as the deployment has them — see
 
 ## The page
 
-A form built from the schema of the pygeoapi you are actually running.
-The schema is served by the editor rather than compiled into the page,
-so it cannot drift from the version in front of you.
+It asks for that token once, and nothing else:
+
+![The editor's first screen: a card asking for the token the command printed](../../images/editor/00-token.png)
+
+Behind it, a form built from the schema of the pygeoapi you are actually
+running. The schema is served by the editor rather than compiled into
+the page, so it cannot drift from the version in front of you.
 
 ### Two tabs, both editable
 
 **Form** and **YAML** are two views of one document. Change something in
 one and the other follows.
+
+![The Form tab: the server section as fields, with the placeholders left as written](../../images/editor/01-form.png)
+
+The header says which document is open and whether anything is pending.
+Opening one changes nothing: the form is a view, and it does not write
+what the schema merely suggests.
+
+![The YAML tab: the same document as text, scrolled to the resources](../../images/editor/02-yaml.png)
 
 The text view is editable rather than a preview, and the reason is a
 limit rather than a preference: pygeoapi's schema does not describe
@@ -97,6 +109,12 @@ deployment even by mistake. A header has no such limit.
 If the command says the page is not compiled, the API still works — that
 is what it is for. `cd frontend && npm install && npm run build` adds the
 page; a release installed from PyPI has it already.
+
+The screenshots on this page are taken by the editor itself:
+`scripts/qgis_tutorial_screenshots.py`'s counterpart,
+`scripts/editor_tutorial_screenshots.py`, starts it on a copy of a
+configuration and photographs the four screens, so they cannot drift
+from the software.
 
 ---
 
@@ -247,6 +265,12 @@ API - Processes, and this is where you find that out.
 the OpenAPI document, which the dry run has already built, and named by
 FastMCP rather than by us, so the list is what a client would really
 receive.
+
+On the page the same answer reads like this — the variables it resolved
+included, because a green that does not say where it came from is worth
+less than it looks:
+
+![The dry run on the page: built here yes, the collections, the variables it resolved, the specifications it would mount and the MCP tools an agent would see](../../images/editor/03-dry-run.png)
 
 **`not_reported`** — whichever half could not be produced, and why. The
 flag never fails: someone may pass it against a pygeoapi they do not

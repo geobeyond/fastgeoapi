@@ -152,6 +152,15 @@ export default function App({ onLocked }: { onLocked: () => void }) {
             templates={templates}
             liveValidate={false}
             noValidate
+            // The document is the truth and the form is a view of it, so
+            // the form may not add what the document does not say. Left
+            // to itself the library fills in every default on mount and
+            // materialises whole optional sections — pygeoapi's `pubsub`
+            // among them — which reports changes nobody made and sends
+            // back a document the server refuses as incomplete.
+            experimental_defaultFormStateBehavior={{
+              emptyObjectFields: "skipDefaults",
+            }}
           >
             <></>
           </Form>

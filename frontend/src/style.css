@@ -21,8 +21,14 @@
   --color-ring: oklch(0.708 0 0);
 }
 
+/* The dark scheme overrides the variables `@theme` declared, rather than
+   declaring them again: a second `@theme` is hoisted out of the media
+   query at build time and would simply overwrite the light palette, so
+   the page would be dark for everyone. Plain custom properties stay
+   inside the query and follow the reader's preference, which is what
+   both palettes are here for. */
 @media (prefers-color-scheme: dark) {
-  @theme {
+  :root {
     --color-background: oklch(0.145 0 0);
     --color-foreground: oklch(0.985 0 0);
     --color-card: oklch(0.205 0 0);
