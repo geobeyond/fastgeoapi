@@ -10,29 +10,82 @@ declarations, the providers and the HTML templates all come from upstream, and
 fastgeoapi tracks its releases. Anything you can serve with pygeoapi you can
 serve with fastgeoapi, and the responses are the same.
 
-What differs is everything around that engine — how the server is built, where
-its configuration comes from, who is allowed to call it, which routes exist at
-all, and how fast it reads data that lives in a bucket.
+What differs starts from one question: **your data is already cloud-native, and
+something needs a standard API in front of it.** GeoParquet in a bucket, a
+PMTiles archive, a COG — formats designed to be read in ranges over HTTP by
+clients that know them. An OGC API is what the clients that _don't_ know them
+need: QGIS, a browser, a partner's harvester, an agent. The usual way to bridge
+the two is a conversion step — load it into PostGIS, cut a tile tree — which
+buys the API at the price of a second copy that has to be kept in step.
 
-| Area               | pygeoapi                                | fastgeoapi                                                            |
-| ------------------ | --------------------------------------- | --------------------------------------------------------------------- |
-| Authentication     | not in scope                            | OIDC/JWT with JWKS, API keys, OPA policies                            |
-| AI agents          | —                                       | MCP server over the same API, with its own OAuth authorization server |
-| Configuration      | a local file named by `PYGEOAPI_CONFIG` | any object store: S3, GCS, Azure, Tigris, local                       |
-| Reconfiguration    | restart the process                     | `POST /admin/config/reload`, atomic swap                              |
-| Route table        | every route of every specification      | only the specifications the configuration exposes                     |
-| GeoParquet         | `s3://` via s3fs, no CQL2               | any cloud, full CQL2 pushed into DuckDB                               |
-| Vector tiles       | pre-cut directories, databases, a proxy | PMTiles archives read in place from any cloud, awaited                |
-| Provider instances | rebuilt on every request                | reused, with an explicit thread-safety opt-in                         |
+fastgeoapi serves the API **from the format itself**, where it is. That single
+choice decides most of the rest of this page: the providers, the storage layer
+they read through, the shape of the request path, and why the configuration is
+allowed to live in the same bucket as the data.
+
+| Area                | pygeoapi                                | fastgeoapi                                                            |
+| ------------------- | --------------------------------------- | --------------------------------------------------------------------- |
+| GeoParquet          | `s3://` via s3fs, no CQL2               | any cloud, full CQL2 pushed down into DuckDB                          |
+| Vector tiles        | pre-cut directories, databases, a proxy | PMTiles archives read in place from any cloud, by range               |
+| Reads over the wire | every handler on a five-thread executor | ranged reads awaited together; threads left to CPU-bound work         |
+| Configuration       | a local file named by `PYGEOAPI_CONFIG` | any object store: S3, GCS, Azure, Tigris, local                       |
+| Reconfiguration     | restart the process                     | `POST /admin/config/reload`, atomic swap                              |
+| Authentication      | not in scope                            | OIDC/JWT with JWKS, API keys, OPA policies                            |
+| AI agents           | —                                       | MCP server over the same API, with its own OAuth authorization server |
+| Route table         | every route of every specification      | only the specifications the configuration exposes                     |
+| Provider instances  | rebuilt on every request                | reused, with an explicit thread-safety opt-in                         |
 
 The rest of this page explains each line, and links to the how-to guide that
 covers it in depth.
 
-## Security is the reason fastgeoapi exists
+## Cloud-native formats are the first-class citizens
 
-pygeoapi deliberately leaves authentication and authorization to the
-deployment. fastgeoapi fills that gap with a stack you configure rather than
-code:
+A cloud-native geospatial format is one you can read usefully without
+downloading it: the bytes are arranged so that a client can ask for the part it
+needs. GeoParquet keeps statistics per row group; a PMTiles archive keeps a
+directory it can look a tile up in; a COG keeps its tiles addressable. All three
+answer the same question — _give me this window_ — in one or a few HTTP range
+requests.
+
+pygeoapi can serve some of them, with the shape of an ordinary provider: its
+Parquet provider reads `s3://` through s3fs and filters on bbox, datetime and
+property equality, and its tile providers expect a directory of pre-cut tiles,
+a database, or another tile server to proxy. fastgeoapi treats these formats as
+the normal case instead of the special one:
+
+- **What can be a collection.** A GeoParquet file, glob or hive-partitioned
+  root; a PMTiles archive of any size. Nothing is converted first, so there is
+  no pipeline to run again when the data changes and no second copy to keep in
+  step.
+- **Where it is read from.** One storage layer for `s3://`, `gs://`, `az://`,
+  any S3-compatible endpoint and a local path, with per-dataset region,
+  endpoint and anonymous access — because a public bucket and a private one are
+  routinely both in the same configuration.
+- **What travels.** Filters are pushed down, not applied after the fact: full
+  CQL2 including the spatial predicates becomes SQL inside DuckDB, and the
+  covering bbox column of GeoParquet 1.1 is used before the exact geometry test.
+  The network carries the answer rather than the dataset.
+- **What it costs, measured.** A tile from Overture's 18 GB `places.pmtiles` is
+  one ranged read once its directory is cached; a bbox query on a 4.47 GB
+  GeoParquet dataset read across an ocean is seconds, and 0.9 s once warm beside
+  the server. Both figures are in the how-to guides, with the method.
+
+The demo runs the same theme twice on purpose — read where Overture publishes
+it, and staged in a bucket in the deployment's own region — because "read it in
+place" is a decision with a latency attached, not a slogan.
+
+See [GeoParquet provider](../how-to/geoparquet.md) and
+[PMTiles provider](../how-to/pmtiles.md). For a format with no provider yet, the
+contributor guide walks a
+[Cloud Optimized GeoTIFF](../../contributors/how-to/writing-an-async-provider.md)
+from nothing to a working one.
+
+## Security is where fastgeoapi started
+
+Serving data in place only helps if the serving is safe to expose, and this is
+the part fastgeoapi was first written for. pygeoapi deliberately leaves
+authentication and authorization to the deployment; fastgeoapi fills that gap
+with a stack you configure rather than code:
 
 - **OpenID Connect** — OAuth2/JWT bearer tokens validated against the issuer's
   JWKS, with multiple identity providers supported side by side.
@@ -199,6 +252,51 @@ identical requests shares its reads instead of repeating them. The same
 class still honours pygeoapi's synchronous contract for everything else.
 
 See [PMTiles provider](../how-to/pmtiles.md).
+
+## Async where waiting is the cost, threads where work is
+
+Serving a cloud-native format means reading it in ranges over the network, and
+that changes what the request path should look like.
+
+pygeoapi's handlers all run through the default executor, which Python sizes at
+`min(32, cpu_count + 4)` — **five threads** on the single-vCPU machine the demo
+runs on. Five requests waiting on a round trip, and the sixth is queued no
+matter what it asked for. A map view asks for twenty to fifty tiles at once, and
+each tile is one to three ranged reads: exactly the shape that a thread pool
+serves worst and an event loop serves best.
+
+So fastgeoapi does not make everything asynchronous. It makes **the waiting**
+asynchronous:
+
+- **One awaited route.** Tile data is served on the loop when the collection's
+  provider declares it can be. It sits in the same route table, behind the same
+  authentication, and falls back to pygeoapi's handler — byte for byte — for a
+  provider that does not.
+- **A second face, not a replacement.** A provider gains an asynchronous twin of
+  a method and keeps the synchronous one, so pygeoapi's own chain, the CLI and
+  the dry run go on using it unchanged.
+- **One implementation behind both.** The logic that parses an archive is
+  written as a generator that asks for byte ranges and is fed by two drivers,
+  one blocking and one awaiting. There is no second copy of the parsing to keep
+  correct.
+- **Reads that de-duplicate themselves.** Identical ranges in flight share one
+  request: a cold burst of fifty tiles went from **245 ranged reads to 54**,
+  fewer than the thread pool made.
+- **Proof rather than intent.** The test suite runs with a guard that fails any
+  test which blocks the loop, so "this is async" is a property that gets
+  checked.
+
+Measured on the demo, twenty vector tiles that take **8–11 s** one at a time
+come back in **1.7–2.6 s** with eight awaited together, on one vCPU.
+
+And where the cost is not waiting, nothing changes: DuckDB scanning a GeoParquet
+dataset is CPU-bound work, a thread is where work belongs, and awaiting it would
+change the syntax and nothing else.
+
+The design and its reasoning are in
+[Two faces for a provider](../../contributors/explanation/async-providers.md);
+[Writing an async provider](../../contributors/how-to/writing-an-async-provider.md)
+builds one.
 
 ## Provider instances are reused
 

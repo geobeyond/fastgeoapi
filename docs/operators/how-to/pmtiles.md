@@ -6,11 +6,12 @@ icon: material/grid
 
 An OGC API - Tiles provider that serves Mapbox Vector Tiles straight
 from a [PMTiles](https://github.com/protomaps/PMTiles) archive on a
-local path or an object-storage bucket. The archive is read by byte
-range and never copied, so a collection can sit on Overture Maps'
-18 GB `places.pmtiles` as easily as on a 100 MB regional extract. The
-provider is natively asynchronous: the tile route awaits it, and one
-process keeps many tiles in flight instead of one per thread.
+local path or an object-storage bucket — **no tile tree cut in advance,
+no tile database**. The archive is read by byte range and never copied,
+so a collection can sit on Overture Maps' 18 GB `places.pmtiles` as
+easily as on a 100 MB regional extract. The provider is natively
+asynchronous: the tile route awaits it, and one process keeps many tiles
+in flight instead of one per thread.
 
 Install the extra:
 

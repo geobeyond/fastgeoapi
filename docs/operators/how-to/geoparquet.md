@@ -4,9 +4,12 @@ icon: material/database-outline
 
 # :material-database-outline: GeoParquet provider
 
-A read-only OGC API Features provider that serves GeoParquet from a
-local path or an object-storage bucket, with CQL2 filters — spatial
-predicates included — evaluated inside [DuckDB](https://duckdb.org/).
+A read-only OGC API Features provider that serves
+[GeoParquet](https://geoparquet.org/) as a collection **without converting
+it first**: the file stays on a local path or in an object-storage bucket,
+and the query goes to it. CQL2 filters — spatial predicates included — are
+evaluated inside [DuckDB](https://duckdb.org/), so the network carries the
+answer rather than the dataset.
 
 Install the extra:
 

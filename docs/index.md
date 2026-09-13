@@ -7,42 +7,50 @@ icon: material/home
   <img src="images/lockup-stacked.svg" width="260" alt="fastgeoapi" />
 </p>
 
-An OGC API server built on [pygeoapi](https://pygeoapi.io), with the
-things a deployment needs around it: authentication, data read straight
-from object storage, a configuration you can change without a restart,
-and an endpoint AI agents can use.
+**An OGC API for data that is already cloud-native.** Your GeoParquet,
+your PMTiles, your COG sit in a bucket, and something still needs a
+standard API in front of them: QGIS, a browser, a partner, an agent.
+fastgeoapi serves one straight from those formats, where they are, with
+[pygeoapi](https://pygeoapi.io) as the engine — and because reading them
+means ranged requests over the network, it awaits those reads instead of
+parking a thread on each.
 
 <div class="grid cards" markdown>
 
-- **Serve standard geospatial APIs**
+- **Cloud-native formats, in place**
 
-    OGC API — Features, Processes, Tiles, and more, from pygeoapi
-    unchanged. Everything upstream serves, this serves.
+    GeoParquet queried by DuckDB and PMTiles read by byte range, from S3,
+    GCS, Azure or Tigris. No load into a database, no pre-cut tile tree,
+    no second copy — and the configuration can live in the same bucket.
+
+    [GeoParquet provider](operators/how-to/geoparquet.md) ·
+    [PMTiles provider](operators/how-to/pmtiles.md) ·
+    [Config from cloud storage](operators/how-to/cloud-config.md)
+
+- **Async where waiting is the cost**
+
+    A ranged read is a round trip, and a map view asks for fifty at once.
+    Those are awaited together rather than five at a time on a thread
+    pool — with a guard in the test suite that fails if the loop blocks.
+
+    [Two faces for a provider](contributors/explanation/async-providers.md)
+
+- **Standard, and only what you configured**
+
+    OGC API — Features, Tiles, Processes, Records, EDR and STAC, from
+    pygeoapi unchanged. The route table and `/conformance` are built from
+    your resources, so they describe this server rather than the
+    catalogue.
 
     [Why fastgeoapi](operators/explanation/why-fastgeoapi.md)
 
-- **Put it behind authentication**
+- **Behind authentication, and usable by agents**
 
-    OAuth2 with JWKS, an API key, or Open Policy Agent — pygeoapi has no
-    authentication of its own, and this is most of what fastgeoapi is
-    for.
-
-    [Getting started](operators/tutorials/getting-started.md)
-
-- **Read data where it lives**
-
-    GeoParquet from S3, GCS or Azure, queried in place with DuckDB — no
-    copy held by the server, and the configuration itself can live in a
-    bucket.
-
-    [GeoParquet provider](operators/how-to/geoparquet.md) ·
-    [Config from cloud storage](operators/how-to/cloud-config.md)
-
-- **Let agents use it**
-
-    An MCP endpoint with its own authorization server, so a client like
+    OAuth2 with JWKS, an API key or Open Policy Agent in front; an MCP
+    endpoint with its own authorization server behind, so a client like
     Claude can query your collections as tools.
 
+    [Getting started](operators/tutorials/getting-started.md) ·
     [MCP server](consumers/index.md)
 
 </div>
@@ -63,9 +71,15 @@ If you are **connecting an agent**, start at
 ## Live demo
 
 A running instance is at
-[fastgeoapi.fly.dev](https://fastgeoapi.fly.dev/geoapi), serving both a
-local dataset and Overture Maps data read directly from object storage.
-Its [OpenAPI document](consumers/reference/openapi.md) is published here.
+[fastgeoapi.fly.dev](https://fastgeoapi.fly.dev/geoapi), on one vCPU in
+Paris. Four of its collections are cloud-native formats served in place:
+Overture Maps places, as GeoParquet and as an 18 GB PMTiles archive, both
+read where Overture publishes them in `us-west-2`; and a Lazio road
+extract in the same two shapes, staged in a bucket beside the server —
+the pair that shows what locality is worth. Its
+[OpenAPI document](consumers/reference/openapi.md) is published here, and
+[Using fastgeoapi from QGIS](consumers/tutorials/using-qgis.md) puts two
+of those collections on a map.
 
 ## Installation
 

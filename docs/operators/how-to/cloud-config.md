@@ -4,9 +4,15 @@ icon: material/cloud-lock
 
 # :material-cloud-lock: Config from cloud object storage
 
+If the data is in a bucket, the document that describes it may as well be
+too — the same credentials already reach it, and a deployment that
+reads its collections from object storage should not need a file baked
+into its image to know which ones they are.
+
 `PYGEOAPI_CONFIG` (per-environment: `DEV_PYGEOAPI_CONFIG` /
 `PROD_PYGEOAPI_CONFIG`) accepts a local path or an object-storage URL —
-one code path for both, built on [obstore](https://developmentseed.org/obstore/):
+one code path for both, the same layer the providers read through, built
+on [obstore](https://developmentseed.org/obstore/):
 
 | Source                        | Example                                           |
 | ----------------------------- | ------------------------------------------------- |
