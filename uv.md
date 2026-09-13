@@ -9,7 +9,7 @@ Install UV before getting started:
 ### macOS / Linux
 
 ```bash
-curl -sSf https://install.ultraviolet.dev | sh
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ### Windows - PowerShell
@@ -168,4 +168,4 @@ uv pip freeze > requirements.txt
 ## Additional Resources
 
 - [UV Documentation](https://github.com/astral-sh/uv)
-- [FastGeoAPI Documentation](https://fastgeoapi.readthedocs.io)
+- [fastgeoapi documentation](https://geobeyond.github.io/fastgeoapi/)
