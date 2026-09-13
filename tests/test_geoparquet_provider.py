@@ -160,6 +160,30 @@ def test_open_ended_interval(provider):
     assert sorted(f["id"] for f in fc["features"]) == [2, 3]
 
 
+@pytest.mark.parametrize(
+    "hostile",
+    [
+        "2020-01-01' OR 1=1 --",
+        "../2020-01-01'); DROP TABLE x; --",
+        "2020-01-01/2021-01-01' OR '1'='1",
+        "whenever",
+    ],
+)
+def test_a_datetime_that_is_not_one_is_refused(provider, hostile):
+    """The parameter is client input, and it reaches SQL as a literal.
+
+    pygeoapi parses `datetime` only for a collection that declares
+    `extents.temporal`; without that the string arrives here as it was
+    typed. An apostrophe in it would end the literal and the rest would
+    be read as logic — `'2020-01-01' OR 1=1 --` selects the whole
+    collection.
+    """
+    from pygeoapi.provider.base import ProviderQueryError
+
+    with pytest.raises(ProviderQueryError):
+        provider.query(datetime_=hostile)
+
+
 def test_datetime_without_time_field_is_refused(dataset):
     from pygeoapi.provider.base import ProviderQueryError
 
