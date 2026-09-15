@@ -24,8 +24,9 @@ authorization of its own.
 
 -   :material-book-open-variant: **[Reference](reference/openapi.md)**
 
-    Information-oriented. The OpenAPI document the demo serves, and the
-    MCP specifications this implements.
+    Information-oriented. The OpenAPI document the demo serves, the
+    [interoperability notes](reference/interoperability.md) for testing
+    against a deployment, and the MCP specifications this implements.
 
 -   :material-lightbulb: **[Explanation](explanation/mcp-server.md)**
 
@@ -44,3 +45,9 @@ including the security schemes, which is what tells your client how to
 authenticate. For a desktop client, [Using fastgeoapi from
 QGIS](tutorials/using-qgis.md) walks through the token, the features
 and the vector tiles on the public demo.
+
+If you are testing a deployment rather than using one — a conformance
+harness, a gateway, your own client — the [interoperability
+notes](reference/interoperability.md) collect what the server declares,
+where the declaration and the behaviour part company, and how each of
+the two surfaces expects to be authenticated.

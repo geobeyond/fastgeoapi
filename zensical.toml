@@ -61,6 +61,7 @@ nav = [
     ] },
     { "Reference" = [
       { "OpenAPI" = "consumers/reference/openapi.md" },
+      { "Interoperability notes" = "consumers/reference/interoperability.md" },
       { "MCP specifications" = "consumers/reference/mcp-specifications.md" },
     ] },
     { "Explanation" = [
