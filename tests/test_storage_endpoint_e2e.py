@@ -65,3 +65,46 @@ def test_without_an_explicit_endpoint_the_environment_still_applies(bucket, monk
     monkeypatch.setenv("AWS_ENDPOINT_URL_S3", bucket)
     store = load_store(f"s3://{BUCKET}/", _options(None))
     assert store.get(KEY) == BODY
+
+
+def test_a_virtual_hosted_endpoint_is_given_the_bucket(monkeypatch):
+    """`store_options` speaks DuckDB's vocabulary, and the two readers differ.
+
+    DuckDB takes the service's host and prefixes the bucket itself when
+    `url_style` is virtual-hosted; the object store builds the address
+    from the endpoint as given, so the same options would send it to the
+    service's host with no bucket at all — or, if an operator wrote the
+    bucket in, to `bucket.bucket.service`. One document has to serve both
+    providers, so the translation does the prefixing.
+    """
+    monkeypatch.setenv("AWS_ALLOW_HTTP", "true")
+    store = load_store(
+        "s3://fastgeoapi-demo/",
+        {"endpoint": "fly.storage.tigris.dev", "url_style": "vhost", "region": "auto"},
+    )
+
+    assert store.backend.config["endpoint"] == "https://fastgeoapi-demo.fly.storage.tigris.dev"
+
+
+def test_a_bucket_already_in_the_endpoint_is_not_doubled(monkeypatch):
+    monkeypatch.setenv("AWS_ALLOW_HTTP", "true")
+    store = load_store(
+        "s3://fastgeoapi-demo/",
+        {
+            "endpoint": "fastgeoapi-demo.fly.storage.tigris.dev",
+            "url_style": "vhost",
+            "region": "auto",
+        },
+    )
+
+    assert store.backend.config["endpoint"] == "https://fastgeoapi-demo.fly.storage.tigris.dev"
+
+
+def test_the_path_style_endpoint_is_left_alone(monkeypatch):
+    monkeypatch.setenv("AWS_ALLOW_HTTP", "true")
+    store = load_store(
+        "s3://fastgeoapi-demo/",
+        {"endpoint": "fly.storage.tigris.dev", "url_style": "path", "region": "auto"},
+    )
+
+    assert store.backend.config["endpoint"] == "https://fly.storage.tigris.dev"

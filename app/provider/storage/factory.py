@@ -45,7 +45,25 @@ def split_source(source: str) -> tuple[str, str]:
     return str(path.parent), path.name
 
 
-def _for_obstore(store_options: dict) -> dict:
+def _virtual_hosted(endpoint: str, base: str) -> str:
+    """Put the bucket in the host, where a virtual-hosted address carries it.
+
+    The two readers disagree about whose job this is. DuckDB takes the
+    service's host and prefixes the bucket itself; the object store builds
+    the address from the endpoint exactly as given, so the same options
+    would send it to the service with no bucket in the name at all. Since
+    ``store_options`` is written once, in DuckDB's vocabulary, the
+    translation reconciles them here — and leaves an endpoint that already
+    names the bucket alone, rather than doubling it.
+    """
+    bucket = base.split("://", 1)[-1].split("/", 1)[0]
+    scheme, _, host = endpoint.rpartition("://")
+    if not bucket or host.startswith(f"{bucket}."):
+        return endpoint
+    return f"{scheme}://{bucket}.{host}" if scheme else f"{bucket}.{host}"
+
+
+def _for_obstore(store_options: dict, base: str = "") -> dict:
     """Spell a dataset's store options the way obstore expects them.
 
     ``store_options`` are written in DuckDB's secret vocabulary, because
@@ -75,7 +93,10 @@ def _for_obstore(store_options: dict) -> dict:
     endpoint = options.pop("endpoint", None)
     if endpoint is not None:
         scheme = "https" if use_ssl else "http"
-        translated["endpoint"] = endpoint if "://" in str(endpoint) else f"{scheme}://{endpoint}"
+        endpoint = endpoint if "://" in str(endpoint) else f"{scheme}://{endpoint}"
+        if translated.get("virtual_hosted_style_request"):
+            endpoint = _virtual_hosted(endpoint, base)
+        translated["endpoint"] = endpoint
 
     return {**options, **translated}
 
@@ -122,7 +143,7 @@ def load_store(base: str, store_options: dict | None = None) -> ObjectStore:
         from obstore.store import from_url
 
         if store_options:
-            config = _for_obstore(store_options)
+            config = _for_obstore(store_options, base)
             with _explicit_endpoint_wins(config):
                 # ty: `from_url` is overloaded per provider-specific config
                 # type, and ours is a plain mapping read from the tenant's

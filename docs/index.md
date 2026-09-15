@@ -81,6 +81,13 @@ the pair that shows what locality is worth. Its
 [Using fastgeoapi from QGIS](consumers/tutorials/using-qgis.md) puts two
 of those collections on a map.
 
+Nothing about it is private: [the configuration it
+serves](https://fastgeoapi-demo.fly.storage.tigris.dev/pygeoapi-config.demo.yml)
+is readable, the datasets it names are readable, and the same document is
+`pygeoapi-config.demo.yml` in the repository — so it can be run, diffed
+and disagreed with. [How to read it](operators/how-to/index.md#the-demos-own-configuration-and-where-to-read-it),
+and why your own should not be public.
+
 ## Installation
 
 ```bash
