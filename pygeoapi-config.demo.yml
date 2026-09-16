@@ -57,6 +57,20 @@ server:
   map:
     url: https://tile.openstreetmap.org/{z}/{x}/{y}.png
     attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap contributors</a>'
+  # Without a manager pygeoapi falls back to one whose `is_async` is
+  # false, and then it leaves `/jobs`, `/jobs/{jobId}` and
+  # `/jobs/{jobId}/results` out of the OpenAPI document — although the
+  # routes are served either way, and OGC API - Processes Part 1 makes
+  # them unconditional (Requirement 35: "The server SHALL support the
+  # HTTP GET operation at the path /jobs/{jobID}"). The consequence is
+  # not only a document that understates the server: the MCP tools are
+  # generated from that document, so an agent could start an execution
+  # and then had no way to ask how it went. TinyDB keeps its own file
+  # lock, and this deployment runs a single worker anyway.
+  manager:
+    name: TinyDB
+    connection: /tmp/pygeoapi-process-manager.db
+    output_dir: /tmp/
 logging:
   level: ERROR
 metadata:
