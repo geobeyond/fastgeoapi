@@ -180,6 +180,62 @@ def fix_queryables_response_schema(doc: dict) -> dict:
     return doc
 
 
+def describe_tilesets(doc: dict) -> dict:
+    """Write in the tileset description the server already answers.
+
+    `GET /collections/{collectionId}/tiles/{tileMatrixSetId}` is the
+    tileset resource. pygeoapi routes it (`starlette_app.py:195-203`) and
+    answers it — measured against the demo on 2026-09-16, 200 with the
+    tileset document — while `api/tiles.py` writes only the list at
+    `…/tiles` (line 471) and the tile data path (line 499). Nothing in
+    between, for any collection.
+
+    OGC API - Tiles states it with the verb it reserves for requirements:
+    `/req/tileset/description`, "the tileset endpoint SHALL support
+    negotiation of an application/json response". So the document
+    understates a server that conforms, and since the MCP tools are
+    generated from the document, an agent has no way to describe a
+    tileset it can already fetch tiles from.
+
+    The operation is built from the list beside it rather than written
+    from scratch: same tags, same error responses, same parameter
+    references, so the addition reads like the rest of the document
+    instead of like a patch. Remove once fixed upstream in pygeoapi.
+    """
+    from pygeoapi.openapi import OPENAPI_YAML
+
+    tiles_openapi = OPENAPI_YAML["oapit"]
+    tile_set_response = f"{tiles_openapi.rsplit('/', 1)[0]}/responses/tiles-core/rTileSet.yaml"
+
+    paths = doc.get("paths", {})
+    for path in list(paths):
+        if not path.endswith("/tiles"):
+            continue
+        target = f"{path}/{{tileMatrixSetId}}"
+        listing = paths[path].get("get")
+        if target in paths or not listing:
+            continue
+
+        responses = dict(listing.get("responses", {}))
+        responses["200"] = {"$ref": tile_set_response}
+
+        operation_id = listing.get("operationId", "")
+        paths[target] = {
+            "get": {
+                "tags": list(listing.get("tags", [])),
+                "summary": "Describe a tileset of this collection",
+                "description": listing.get("description", ""),
+                "operationId": operation_id.replace("getTileSetsList", "getTileSet"),
+                "parameters": [
+                    {"$ref": f"{tiles_openapi}#/components/parameters/tileMatrixSetId"},
+                    *listing.get("parameters", []),
+                ],
+                "responses": responses,
+            }
+        }
+    return doc
+
+
 def drop_unused_tags(doc: dict) -> dict:
     """Declare only the tags the document's own operations use.
 
