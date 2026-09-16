@@ -65,6 +65,7 @@ jobs:
               validate_ogc_api,
               get_specification_keys,
               group_conformance_by_spec,
+              validate_conformance,
           )
 
           SERVER_URL = os.environ.get('SERVER_URL', 'https://fastgeoapi.fly.dev/geoapi')
@@ -155,6 +156,22 @@ jobs:
                   for cc in classes:
                       print(f'  - {cc.conformance_class_name}')
               print()
+              # What the published standards say about that declaration.
+              # Nothing here fails the run: a class the catalogue does not
+              # know may come from a standard it does not cover yet, and a
+              # sibling that is absent is usually absent on purpose. Both
+              # are worth reading.
+              published = validate_conformance(conformance_classes)
+              if published.unrecognised:
+                  print(f'Not defined by any catalogued standard ({len(published.unrecognised)}):')
+                  for uri in published.unrecognised:
+                      print(f'  - {uri}')
+                  print()
+              if published.undeclared_siblings:
+                  print(f'Published by a standard in use, not declared here ({len(published.undeclared_siblings)}):')
+                  for known in published.undeclared_siblings:
+                      print(f'  - {known.spec}/conf/{known.name}   [OGC {known.document}]')
+                  print()
           except Exception as e:
               print(f'ERROR: Could not fetch conformance classes: {e}')
               if auth_required:
@@ -230,6 +247,22 @@ jobs:
                       f.write(f'### {spec_key}\\n\\n')
                       for cc in classes:
                           f.write(f'- {cc.conformance_class_name}\\n')
+                      f.write('\\n')
+
+              if conformance_classes:
+                  published = validate_conformance(conformance_classes)
+                  if published.undeclared_siblings:
+                      f.write('## Published, and not declared here\\n\\n')
+                      f.write('Read rather than failed on: most of these are optional. ')
+                      f.write('A capability this server implements and does not advertise ')
+                      f.write('is invisible to a client that negotiates on the declaration.\\n\\n')
+                      for known in published.undeclared_siblings:
+                          f.write(f'- `{known.spec}/conf/{known.name}` (OGC {known.document})\\n')
+                      f.write('\\n')
+                  if published.unrecognised:
+                      f.write('## Declared, and not found in any catalogued standard\\n\\n')
+                      for uri in published.unrecognised:
+                          f.write(f'- `{uri}`\\n')
                       f.write('\\n')
 
               f.write('## Summary\\n\\n')
