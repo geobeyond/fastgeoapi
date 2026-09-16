@@ -267,7 +267,7 @@ The demo's card:
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json",
   "name": "dev.fly.fastgeoapi/fastgeoapi",
-  "version": "0.0.12",
+  "version": "0.1.0",
   "title": "fastgeoapi demo",
   "description": "pygeoapi provides an API to geospatial data",
   "websiteUrl": "https://fastgeoapi.fly.dev/geoapi",

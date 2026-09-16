@@ -1,6 +1,6 @@
 [project]
 name = "fastgeoapi"
-version = "0.0.12"
+version = "0.1.0"
 description = "fastgeoapi"
 authors = [{ name = "Francesco Bartoli", email = "francesco.bartoli@geobeyond.it" }]
 maintainers = [{ name = "Youssef Harby", email = "youssef.harby@geobeyond.it" }]
@@ -237,8 +237,23 @@ filterwarnings = [
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-tag_format = "$version"
+# The repository tags `v0.0.12`, and the release workflow pushes
+# `v$version` (.github/workflows/release.yml). Without the prefix
+# commitizen finds no tag matching its configuration and cannot see the
+# last release at all, so `cz changelog` and `cz bump` both start from
+# nothing.
+tag_format = "v$version"
 version_scheme = "semver"
 version_provider = "pep621"
 update_changelog_on_bump = true
 major_version_zero = true
+
+# How the sections read in CHANGELOG.md. The commit types stay the
+# conventional `feat:`/`fix:` — that is what the parser matches on — and
+# only the headings are spelled out, since the changelog is read by
+# people who did not write the commits.
+[tool.commitizen.change_type_map]
+feat = "Features"
+fix = "Fixes"
+perf = "Performance"
+refactor = "Refactoring"
