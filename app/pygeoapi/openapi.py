@@ -180,6 +180,42 @@ def fix_queryables_response_schema(doc: dict) -> dict:
     return doc
 
 
+def drop_unused_tags(doc: dict) -> dict:
+    """Declare only the tags the document's own operations use.
+
+    Each pygeoapi API module returns a module-level tag object whether or
+    not it contributes a path, and the guard meant to drop them
+    (``pygeoapi/openapi.py:556``, 0.24) reads ``if not sub_tags and not
+    sub_paths`` — a conjunction over a list literal that is never empty,
+    so it never fires. Those module tags then go unused even when their
+    spec group is active, because operations are tagged with the id of
+    the collection or process they serve: on the demo, ``tiles`` and
+    ``features`` had no operation while tile and feature collections were
+    being served. Measured there on 2026-09-15: fifteen declared tags,
+    eight of them with no operation and no description.
+
+    An unused tag is not invalid, it is noise that spreads: a renderer
+    draws an empty section for each, and a generator makes an empty group.
+    Which is why the rule here is not the registry's — ``active_specs``
+    answers what the configuration mounts, and would keep ``tiles``
+    anyway — but the document's own: a tag survives if an operation
+    claims it. Remove once fixed upstream in pygeoapi.
+    """
+    if not doc.get("tags"):
+        return doc
+    used = {
+        tag
+        for item in doc.get("paths", {}).values()
+        for operation in item.values()
+        # A path item also holds `parameters`, `servers`, `summary` and
+        # may hold a `$ref`: only the operations carry tags.
+        if isinstance(operation, dict)
+        for tag in operation.get("tags", [])
+    }
+    doc["tags"] = [tag for tag in doc["tags"] if tag.get("name") in used]
+    return doc
+
+
 def generate_openapi_document(cfg_file, output_format="yaml"):
     """Generate the pygeoapi OpenAPI document with fastgeoapi corrections.
 
