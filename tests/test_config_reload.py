@@ -8,13 +8,14 @@ one keeps serving, security = the same auth chain configured for the API.
 import copy
 import os
 import sys
-import time
 from pathlib import Path
 from unittest import mock
 
 import pytest
 import yaml
 from starlette.testclient import TestClient
+
+from tests.reload_helpers import reload_now
 
 BASE_ENV = {
     "ENV_STATE": "dev",
@@ -60,17 +61,6 @@ def app_with_tmp_config(tmp_path):
         yield _reload_app(env), target, base
 
 
-def _wait_outcome(client, expected: set[str], timeout: float = 15.0) -> dict:
-    last: dict = {}
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        last = client.get("/admin/config/reload").json().get("last") or {}
-        if last.get("outcome") in expected:
-            return last
-        time.sleep(0.1)
-    raise AssertionError(f"reload outcome not in {expected} within {timeout}s: {last}")
-
-
 def test_post_returns_202_immediately(app_with_tmp_config):
     app, _, _ = app_with_tmp_config
     with TestClient(app) as client:
@@ -82,8 +72,7 @@ def test_post_returns_202_immediately(app_with_tmp_config):
 def test_unchanged_etag_is_a_noop(app_with_tmp_config):
     app, _, _ = app_with_tmp_config
     with TestClient(app) as client:
-        client.post("/admin/config/reload")
-        assert _wait_outcome(client, {"unchanged"})["outcome"] == "unchanged"
+        assert reload_now(client)["outcome"] == "unchanged"
 
 
 def test_new_collection_appears_after_reload(app_with_tmp_config):
@@ -96,8 +85,7 @@ def test_new_collection_appears_after_reload(app_with_tmp_config):
         changed["resources"]["lakes-bis"] = copy.deepcopy(base["resources"]["lakes"])
         changed["resources"]["lakes-bis"]["title"] = {"en": "Lakes bis"}
         _write_config(target, changed)
-        client.post("/admin/config/reload")
-        assert _wait_outcome(client, {"applied"})["outcome"] == "applied"
+        assert reload_now(client)["outcome"] == "applied"
         assert "lakes-bis" in {
             c["id"] for c in client.get("/geoapi/collections?f=json").json()["collections"]
         }
@@ -107,8 +95,7 @@ def test_broken_config_keeps_serving_the_old_one(app_with_tmp_config):
     app, target, _ = app_with_tmp_config
     with TestClient(app) as client:
         target.write_text("resources: [broken")
-        client.post("/admin/config/reload")
-        last = _wait_outcome(client, {"failed"})
+        last = reload_now(client)
         assert "error" in last
         # The old config still serves.
         assert client.get("/geoapi/collections?f=json").status_code == 200
@@ -130,8 +117,7 @@ def test_route_set_follows_reload(app_with_tmp_config):
             }
         }
         _write_config(target, {**base, **without_processes})
-        client.post("/admin/config/reload")
-        assert _wait_outcome(client, {"applied"})["outcome"] == "applied"
+        assert reload_now(client)["outcome"] == "applied"
         assert client.get("/geoapi/processes?f=json").status_code == 404
         # The feature surface is untouched.
         assert client.get("/geoapi/collections?f=json").status_code == 200
@@ -180,8 +166,7 @@ def test_html_reflects_the_reloaded_config(app_with_tmp_config):
         changed = copy.deepcopy(base)
         changed["resources"]["lakes"]["title"] = {"en": "Renamed Lakes"}
         _write_config(target, changed)
-        client.post("/admin/config/reload")
-        assert _wait_outcome(client, {"applied"})["outcome"] == "applied"
+        assert reload_now(client)["outcome"] == "applied"
 
         # JSON already follows the new config...
         as_json = client.get("/geoapi/collections/lakes?f=json").json()
@@ -209,8 +194,7 @@ def test_html_reflects_config_derived_values_after_reload(app_with_tmp_config):
         changed["metadata"]["identification"]["title"] = {"en": "Renamed Service"}
         changed["server"]["limits"] = {"default_items": 7, "max_items": 33}
         _write_config(target, changed)
-        client.post("/admin/config/reload")
-        assert _wait_outcome(client, {"applied"})["outcome"] == "applied"
+        assert reload_now(client)["outcome"] == "applied"
 
         after = client.get("/geoapi/collections/lakes/items?f=html&limit=1")
         assert after.status_code == 200, after.text[:200]
@@ -277,8 +261,7 @@ def test_a_schema_invalid_config_keeps_the_previous_one_serving(app_with_tmp_con
         invalid["resources"] = ["lakes"]
         _write_config(target, invalid)
 
-        client.post("/admin/config/reload")
-        last = _wait_outcome(client, {"failed"})
+        last = reload_now(client)
 
         assert "resources" in last["error"], last
         after = {c["id"] for c in client.get("/geoapi/collections?f=json").json()["collections"]}

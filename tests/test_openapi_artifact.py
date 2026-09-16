@@ -9,13 +9,14 @@ read the artifact back (ADR-0003), so an output must not kill the boot.
 import copy
 import os
 import sys
-import time
 from contextlib import contextmanager
 from pathlib import Path
 from unittest import mock
 
 import yaml
 from starlette.testclient import TestClient
+
+from tests.reload_helpers import reload_now
 
 BASE_ENV = {
     "ENV_STATE": "dev",
@@ -76,17 +77,6 @@ def test_unwritable_artifact_target_is_not_fatal(tmp_path):
         assert not target.exists()
 
 
-def _wait_outcome(client, expected: set[str], timeout: float = 15.0) -> dict:
-    last: dict = {}
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        last = client.get("/admin/config/reload").json().get("last") or {}
-        if last.get("outcome") in expected:
-            return last
-        time.sleep(0.1)
-    raise AssertionError(f"reload outcome not in {expected} within {timeout}s: {last}")
-
-
 def test_applied_reload_rewrites_the_artifact(tmp_path):
     target = tmp_path / "pygeoapi-openapi.yml"
     with _boot(tmp_path, str(target)) as (app, config_path, base):
@@ -99,8 +89,7 @@ def test_applied_reload_rewrites_the_artifact(tmp_path):
         config_path.write_text(yaml.safe_dump(changed))
 
         with TestClient(app) as client:
-            client.post("/admin/config/reload")
-            assert _wait_outcome(client, {"applied"})["outcome"] == "applied"
+            assert reload_now(client)["outcome"] == "applied"
         assert "lakes-bis" in target.read_text()
 
 
