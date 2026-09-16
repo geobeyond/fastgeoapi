@@ -35,7 +35,11 @@ from starlette.staticfiles import StaticFiles
 
 from app.pygeoapi.api import patch_validate_datetime_overflow
 from app.pygeoapi.api_async import tiles as async_tiles
-from app.pygeoapi.openapi import drop_unused_tags, fix_queryables_response_schema
+from app.pygeoapi.openapi import (
+    describe_tilesets,
+    drop_unused_tags,
+    fix_queryables_response_schema,
+)
 from app.pygeoapi.plugin import invalidate_plugin_cache, patch_load_plugin
 
 # The fastgeoapi runtime patches apply once, at factory import: every
@@ -125,6 +129,7 @@ def build_openapi(config: dict) -> dict:
     """Generate the OpenAPI in memory, with the fastgeoapi fixes at the source."""
     doc = get_oas(normalize_config(config))
     fix_queryables_response_schema(doc)
+    describe_tilesets(doc)
     drop_unused_tags(doc)
     return doc
 

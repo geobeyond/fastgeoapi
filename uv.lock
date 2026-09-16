@@ -874,7 +874,7 @@ wheels = [
 
 [[package]]
 name = "fastgeoapi"
-version = "0.0.12"
+version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "authlib" },
@@ -925,6 +925,7 @@ dev = [
     { name = "joserfc" },
     { name = "ministack" },
     { name = "nox", extra = ["uv"] },
+    { name = "ogcapi-registry" },
     { name = "openapi-resolver" },
     { name = "pre-commit" },
     { name = "pre-commit-hooks" },
@@ -988,6 +989,7 @@ dev = [
     { name = "joserfc", specifier = ">=1.6,<1.7" },
     { name = "ministack", specifier = ">=1.5,<2" },
     { name = "nox", extras = ["uv"], specifier = ">=2025.11.12" },
+    { name = "ogcapi-registry", specifier = "==0.4.0" },
     { name = "openapi-resolver", specifier = ">=0.0.6,<0.0.7" },
     { name = "pre-commit", specifier = ">=4.0.0,<5" },
     { name = "pre-commit-hooks", specifier = ">=6,<7" },
@@ -2133,6 +2135,21 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/35/2c/c2fe082816b255159373b15be3f28b2515d0eb954e248e2f65449c456a14/obstore-0.11.1-cp311-abi3-musllinux_1_2_i686.whl", hash = "sha256:128da07f3a1b9c70159e2b2be9e27f458a9d531d57b1856dd7c4ddb73b4c9937", size = 5361812, upload-time = "2026-08-21T23:56:44.871Z" },
     { url = "https://files.pythonhosted.org/packages/43/9c/656eb5cce818e7e3985d27f4bd403feb0b6e620494775a55a0943c8d2fff/obstore-0.11.1-cp311-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:67b8acfbbab960c2cb14c34294a96556caa67fcff15ee77c716d5c1bd1558606", size = 5790855, upload-time = "2026-08-21T23:56:46.391Z" },
     { url = "https://files.pythonhosted.org/packages/c1/5c/94ece1c902ff5cdbe1140997d1f720221a0d5defa902fdd93715297604f5/obstore-0.11.1-cp311-abi3-win_amd64.whl", hash = "sha256:e23ea15cebe5f5be5d11005043d7b5ff56848e39499681ef52f8227bd385bd51", size = 5308846, upload-time = "2026-08-21T23:56:47.774Z" },
+]
+
+[[package]]
+name = "ogcapi-registry"
+version = "0.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+    { name = "openapi-pydantic" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4a/2e/42a7766f1aef89a05e090178868c68de9e283cca63b80803b5a41d1b7cee/ogcapi_registry-0.4.0.tar.gz", hash = "sha256:4a81fdfbdd83ee25112f12e3ad9a312335437b18815ff9094633cd1163939d80", size = 38648, upload-time = "2026-09-16T16:30:36.876Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/de/61/2d20496699e6485ab0e28a0ae200833a71da2bfa9d1c6fce329680dc762c/ogcapi_registry-0.4.0-py3-none-any.whl", hash = "sha256:518e67c56da563f6aae1859f074c53977e5c0967534dc55b38306cc750071f35", size = 51393, upload-time = "2026-09-16T16:30:35.617Z" },
 ]
 
 [[package]]

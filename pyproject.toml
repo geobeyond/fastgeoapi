@@ -95,6 +95,7 @@ dev = [
     # canaille/joserfc incompatibility is fixed upstream.
     "joserfc>=1.6,<1.7",
     "blockbuster>=1.5,<2",
+    "ogcapi-registry==0.4.0",
 ]
 docs = [
     "mkdocstrings-python>=2.0.7",
