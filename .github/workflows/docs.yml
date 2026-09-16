@@ -49,8 +49,11 @@ jobs:
       - name: Build the site
         run: uv run zensical build --strict
 
+      # Pinned to the commit v4 pointed at, not to the tag: this step
+      # receives GITHUB_TOKEN and writes the gh-pages branch, and a tag
+      # can be moved by whoever owns the action's repository.
       - name: Publish to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: docs_build/site

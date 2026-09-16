@@ -4,6 +4,11 @@ on:
   - push
   - pull_request
 
+# This workflow only reads the repository and lints a document. It
+# declared nothing, so it ran on whatever the repository defaults grant.
+permissions:
+  contents: read
+
 jobs:
   spectral-oas:
     name: Lint and validate OpenAPI document for pygeoapi configuration
@@ -83,9 +88,11 @@ jobs:
           UV_SYSTEM_PYTHON: 1
           UV_BREAK_SYSTEM_PACKAGES: 1
       # The ruleset version is pinned inside .spectral.owasp-top.10.yaml;
-      # the CLI is pinned here for the same reason.
+      # the CLI is pinned here for the same reason. `@6` was a major
+      # range, not a pin — the comment claimed something the line did not
+      # do, and any 6.x published upstream would have run here.
       - name: Install Spectral CLI
-        run: npm install -g @stoplight/spectral-cli@6
+        run: npm install -g @stoplight/spectral-cli@6.16.3
 
       - name: Show OWASP ruleset
         run: cat .spectral.owasp-top.10.yaml
