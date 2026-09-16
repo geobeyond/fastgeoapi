@@ -66,6 +66,7 @@ class ResourceConfig:
     name: str
     resource_type: str
     provider_types: tuple[str, ...]
+    has_editable_provider: bool = False
 
     @classmethod
     def from_config_dict(cls, name: str, config: dict) -> ResourceConfig:
@@ -77,12 +78,23 @@ class ResourceConfig:
             name=name,
             resource_type=resource_type,
             provider_types=provider_types,
+            has_editable_provider=any(p.get("editable", False) for p in providers),
         )
 
 
 # =============================================================================
 # SERVICE: Conformance building logic
 # =============================================================================
+
+#: OGC API - Features Part 4. It says the server accepts writes, and it
+#: reaches this list through ``CONFORMANCE_CLASSES_FEATURES``, a static
+#: constant in pygeoapi (``api/itemtypes.py:81-89``, 0.24) that carries
+#: it whether or not any provider is editable. A read-only deployment
+#: therefore advertises transactions and refuses every one: measured on
+#: the demo on 2026-09-16, ``POST /items`` and ``PUT /items/{id}`` both
+#: answer ``400 InvalidParameterValue`` with "Collection is not
+#: editable". Declared here only when some provider says ``editable``.
+TRANSACTIONS_CLASS = "http://www.opengis.net/spec/ogcapi-features-4/1.0/conf/create-replace-delete"
 
 
 def get_provider_conformance(
@@ -129,9 +141,11 @@ def build_conformance_list(
     itemtypes_module = apis_dict["itemtypes"]
 
     conformance_set: set[str] = set(CONFORMANCE_CLASSES)
+    anything_editable = False
 
     for name, config in resources.items():
         resource = ResourceConfig.from_config_dict(name, config)
+        anything_editable = anything_editable or resource.has_editable_provider
 
         if resource.resource_type == "process":
             conformance_set.update(apis_dict["process"].CONFORMANCE_CLASSES)
@@ -144,6 +158,9 @@ def build_conformance_list(
 
     if has_pubsub:
         conformance_set.update(apis_dict["pubsub"].CONFORMANCE_CLASSES)
+
+    if not anything_editable:
+        conformance_set.discard(TRANSACTIONS_CLASS)
 
     return ConformanceResponse(conforms_to=tuple(sorted(conformance_set)))
 

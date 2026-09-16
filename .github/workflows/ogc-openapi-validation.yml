@@ -30,8 +30,19 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --dev
 
+      # Pinned like everything else this workflow runs. It decides
+      # whether this deployment is reported as conformant, so the verdict
+      # should not be able to change without a commit.
+      #
+      # 0.4.0 stops demanding two things the standards do not: the tiling
+      # schemes endpoint, which OGC API - Tiles states as a SHOULD and
+      # only where the tile matrix set is absent from a register, and
+      # `bbox-crs` on the single-feature path, which Features Part 2
+      # Requirement 10 ties to operations supporting `bbox`. It also
+      # carries the catalogue of published conformance classes, and
+      # records each expectation with the clause and the verb behind it.
       - name: Install ogcapi-registry
-        run: uv add ogcapi-registry
+        run: uv add ogcapi-registry==0.4.0
 
       - name: Validate OGC API Server
         id: ogcapi-validate

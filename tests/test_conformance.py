@@ -37,12 +37,18 @@ FEATURES_CONFORMANCE = {
     "http://www.opengis.net/spec/ogcapi-features-2/1.0/conf/crs",
     "http://www.opengis.net/spec/ogcapi-features-3/1.0/conf/queryables",
     "http://www.opengis.net/spec/ogcapi-features-3/1.0/conf/queryables-query-parameters",
-    "http://www.opengis.net/spec/ogcapi-features-4/1.0/conf/create-replace-delete",
     "http://www.opengis.net/spec/ogcapi-common-3/1.0/conf/schemas",
     "http://www.opengis.net/spec/ogcapi-common-3/1.0/conf/advanced-property-roles",
     "http://www.opengis.net/spec/cql2/1.0/conf/cql2-text",
     "http://www.opengis.net/spec/cql2/1.0/conf/basic-cql2",
 }
+
+# Part 4, which promises the server accepts writes. Kept apart from the
+# classes above because it is the one that depends on a provider saying
+# `editable`, not on a feature provider being present at all.
+TRANSACTIONS_CONFORMANCE = (
+    "http://www.opengis.net/spec/ogcapi-features-4/1.0/conf/create-replace-delete"
+)
 
 # OGC API Processes conformance classes
 PROCESSES_CONFORMANCE = {
@@ -349,6 +355,55 @@ class TestBuildConformanceList:
         response = build_conformance_list(resources=resources, has_pubsub=False)
 
         assert PROCESSES_CONFORMANCE.issubset(set(response.conforms_to))
+
+    def test_writing_is_not_declared_when_no_provider_is_editable(self) -> None:
+        """A class that promises writes needs something that can be written.
+
+        pygeoapi lists `create-replace-delete` in a static constant, so a
+        read-only deployment advertises transactions and then refuses
+        every one of them: measured on the demo, `POST /items` and
+        `PUT /items/{id}` both answer 400 "Collection is not editable".
+        """
+        resources = {
+            "lakes": {
+                "type": "collection",
+                "providers": [{"type": "feature", "name": "GeoJSON"}],
+            },
+        }
+
+        response = build_conformance_list(resources=resources, has_pubsub=False)
+
+        assert TRANSACTIONS_CONFORMANCE not in response.conforms_to
+
+    def test_writing_is_declared_when_a_provider_is_editable(self) -> None:
+        """And it is declared where a provider accepts the writes."""
+        resources = {
+            "lakes": {
+                "type": "collection",
+                "providers": [{"type": "feature", "name": "GeoJSON", "editable": True}],
+            },
+        }
+
+        response = build_conformance_list(resources=resources, has_pubsub=False)
+
+        assert TRANSACTIONS_CONFORMANCE in response.conforms_to
+
+    def test_one_editable_provider_is_enough(self) -> None:
+        """The declaration is about the server, not about each collection."""
+        resources = {
+            "read-only": {
+                "type": "collection",
+                "providers": [{"type": "feature", "name": "GeoJSON"}],
+            },
+            "writable": {
+                "type": "collection",
+                "providers": [{"type": "feature", "name": "GeoJSON", "editable": True}],
+            },
+        }
+
+        response = build_conformance_list(resources=resources, has_pubsub=False)
+
+        assert TRANSACTIONS_CONFORMANCE in response.conforms_to
 
     def test_build_conformance_list_returns_sorted_unique(self) -> None:
         """Test build_conformance_list returns sorted, deduplicated classes."""
