@@ -116,7 +116,10 @@ def activate_virtualenv_in_precommit_hooks(session: Session) -> None:
 
         text = hook.read_text()
         bindir = repr(session.bin)[1:-1]  # strip quotes
-        if not ((Path("A") == Path("a") and bindir.lower() in text.lower()) or bindir in text):
+        if not (
+            (Path("A") == Path("a") and bindir.lower() in text.lower())
+            or bindir in text
+        ):
             continue
 
         lines = text.splitlines()
@@ -256,6 +259,9 @@ def ty(session: Session) -> None:
     args = session.posargs or ["check", "app", "tests"]
     _install_project(session)
     session.install(
+        # The OGC conformance validator for `tests/test_ogc_conformance_local.py`
+        # in the `dev` group, which these sessions do not install.
+        "ogcapi-registry==0.4.0",
         "ty",
         "pytest",
         "schemathesis>=4.0",
@@ -296,6 +302,9 @@ def tests(session: Session) -> None:
     """Run the test suite."""
     _install_project(session)
     session.install(
+        # The OGC conformance validator for `tests/test_ogc_conformance_local.py`
+        # in the `dev` group, which these sessions do not install.
+        "ogcapi-registry==0.4.0",
         "coverage[toml]",
         "pytest",
         "pygments",
@@ -326,7 +335,9 @@ def tests(session: Session) -> None:
         "blockbuster>=1.5,<2",
     )
     try:
-        session.run("coverage", "run", "--parallel", "-m", "pytest", *session.posargs)
+        session.run(
+            "coverage", "run", "--parallel", "-m", "pytest", *session.posargs
+        )
     finally:
         if session.interactive:
             session.notify("coverage", posargs=[])
@@ -350,6 +361,9 @@ def typeguard(session: Session) -> None:
     """Runtime type checking using Typeguard."""
     _install_project(session)
     session.install(
+        # The OGC conformance validator for `tests/test_ogc_conformance_local.py`
+        # in the `dev` group, which these sessions do not install.
+        "ogcapi-registry==0.4.0",
         "pytest",
         "typeguard",
         "pygments",
