@@ -1,3 +1,15 @@
+## v0.1.1 (2026-09-17)
+
+### Features
+
+- **ci**: say which classes the standards publish and this server does not
+
+### Fixes
+
+- **ci**: the conformance validator belongs in the sessions that run it
+- **openapi**: describe the tileset the server already answers
+- **conformance**: declare writes only where something is writable
+
 ## v0.1.0 (2026-09-16)
 
 ### Features
