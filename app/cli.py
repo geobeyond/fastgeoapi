@@ -60,8 +60,20 @@ def run(
         fastgeoapi run --host 127.0.0.1 --port 8000
         fastgeoapi run --reload
         fastgeoapi run -h 0.0.0.0 -p 5000 -r
+        fastgeoapi run --workers 4
     """
     log_console.log(f"Starting fastgeoapi server on {host}:{port}")
+
+    if workers > 1 and not reload:
+        # With several workers the reload webhook reaches one process and
+        # the others keep serving the previous revision (issue #455). The
+        # cure is each worker polling the source for its ETag, and asking
+        # for it here means using `--workers` never silently breaks the
+        # reload. Seeded through the environment because uvicorn spawns
+        # the workers, which inherit it, and the settings read the name
+        # with the ENV_STATE prefix. An explicit value wins.
+        prefix = f"{os.environ.get('ENV_STATE', 'dev').upper()}_"
+        os.environ.setdefault(f"{prefix}FASTGEOAPI_CONFIG_POLL_SECONDS", "5")
 
     uvicorn.run(
         "app.main:app",
