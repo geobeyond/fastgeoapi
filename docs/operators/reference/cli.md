@@ -26,14 +26,15 @@ Serve the API.
 fastgeoapi run
 fastgeoapi run --host 127.0.0.1 --port 8000
 fastgeoapi run --reload
+fastgeoapi run --workers 4
 ```
 
-| Option            | Default   | Meaning                                    |
-| ----------------- | --------- | ------------------------------------------ |
-| `--host`, `-h`    | `0.0.0.0` | address to bind                            |
-| `--port`, `-p`    | `5000`    | port to bind                               |
-| `--reload`, `-r`  | off       | restart on code changes; forces one worker |
-| `--workers`, `-w` | `1`       | worker processes                           |
+| Option            | Default   | Meaning                                                                                                                                                                                                                                                    |
+| ----------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--host`, `-h`    | `0.0.0.0` | address to bind                                                                                                                                                                                                                                            |
+| `--port`, `-p`    | `5000`    | port to bind                                                                                                                                                                                                                                               |
+| `--reload`, `-r`  | off       | restart on code changes; forces one worker                                                                                                                                                                                                                 |
+| `--workers`, `-w` | `1`       | worker processes; more than one turns on the configuration poll (`FASTGEOAPI_CONFIG_POLL_SECONDS=5` unless you set it), so a reload reaches every worker within that interval — see [More than one worker](../how-to/cloud-config.md#more-than-one-worker) |
 
 The configuration it reads comes from `PYGEOAPI_CONFIG` (or the
 `DEV_`/`PROD_` variant for your `ENV_STATE`), and it may be a local path

@@ -69,11 +69,14 @@ curl -X POST https://example.org/admin/config/reload
   specifications the configured resources actually expose are served
   (a deployment without EDR resources answers 404 on the EDR paths),
   and the set is recomputed on every applied reload.
-- `GET /admin/config/reload` returns the last outcome:
+- `GET /admin/config/reload` returns what this process serves and what
+  its last reload did:
 
 ```json
 {
   "status": "idle",
+  "instance": "9f2c1a7b",
+  "etag": "\"abc-123\"",
   "last": {
     "outcome": "applied",
     "at": "2026-08-22T17:00:00+00:00",
@@ -82,9 +85,40 @@ curl -X POST https://example.org/admin/config/reload
 }
 ```
 
+`instance` names the process answering — an opaque value drawn at
+startup, not the PID. `etag` is the revision **in service**; `last.etag`
+is what the last attempt saw. They differ exactly when it matters: a
+worker whose last reload `failed` still serves the previous revision.
+
 The endpoint is protected by the same authentication chain configured
 for the API (API key, JWT via JWKS, or OPA) — no separate secret to
 manage.
+
+### More than one worker
+
+The reload swaps the configuration of **the process that receives the
+webhook**. With `fastgeoapi run --workers N` there are N processes, each
+with its own copy, and a `POST` reaches one of them: the others keep
+serving the previous revision, and `202` tells you nothing about it.
+
+The cure is convergence rather than broadcast. Set
+`FASTGEOAPI_CONFIG_POLL_SECONDS` (with the `DEV_`/`PROD_` prefix of your
+`ENV_STATE`) and every worker asks the source for its ETag at that
+interval, reloading only when it changed — a `HEAD` per worker per
+interval when nothing did, a `stat` on a local file. `fastgeoapi run --workers N` with N > 1 sets it to `5` for you unless you set it
+yourself; `0`, the default, turns it off, which is right for one worker.
+The webhook stays useful: the worker that receives it reloads at once,
+the others within the interval.
+
+To know that **every** worker serves a revision, sample
+`GET /admin/config/reload` until each `instance` you have seen reports
+the `etag` you wrote, and the window is longer than the interval. Through
+a load balancer, the instances you have seen are a lower bound, not the
+worker count.
+
+Convergence is between the workers of one instance. Scaling across
+machines is the orchestrator's job — a rolling restart or a `POST` to
+each — and this setting does not change that.
 
 **If the reload answers `unchanged` right after you changed the file,
 the store is still serving the old one.** Idempotence compares the

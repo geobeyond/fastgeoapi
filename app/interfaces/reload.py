@@ -9,7 +9,8 @@ chain of the configured mode (``main._wrap_pygeoapi_asgi``).
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+import secrets
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -24,6 +25,15 @@ if TYPE_CHECKING:
     from app.pygeoapi.holder import PygeoapiHolder
 
 logger = create_logger("app.interfaces.reload")
+
+#: Names this process in the status endpoint, so a control plane sampling
+#: it through a load balancer can tell one worker from another and read
+#: whether every worker it has seen serves the same revision. Drawn at
+#: import, hence once per process. Deliberately not the PID: this is
+#: opaque, not enumerable, and says nothing about the host — the status
+#: endpoint sits behind the auth chain, but there is no reason to hand
+#: out operating-system identifiers even there.
+INSTANCE = secrets.token_hex(4)
 
 
 class ReloadManager:
@@ -53,9 +63,18 @@ class ReloadManager:
         self._last: dict | None = None
 
     def status(self) -> dict:
-        """The last reload outcome plus whether one is currently running."""
+        """What this process serves, and what its last reload did.
+
+        ``etag`` is the revision **in service** — the holder's, not the
+        last attempt's. The two differ exactly when it matters: a worker
+        whose last reload failed still serves the previous revision, and a
+        control plane waiting for every worker to converge has to read
+        that as "not yet", not as progress.
+        """
         return {
             "status": "running" if self._running else "idle",
+            "instance": INSTANCE,
+            "etag": self._holder.etag,
             "last": self._last,
         }
 
@@ -135,6 +154,40 @@ class ReloadManager:
 
         openapi = build_openapi(config)
         return build_pygeoapi_subapp(config, openapi), openapi
+
+
+class ConfigPoller:
+    """Ask for a reload at a fixed interval, so every worker converges.
+
+    The reload is per process: with several uvicorn workers the webhook
+    reaches one and the others keep serving the previous revision
+    (issue #455). There is no shared memory to fix that with, and none
+    wanted — the source of truth is the configuration source, and each
+    process converges to it by asking ``ReloadManager.trigger()`` on a
+    timer. Everything that makes that cheap and safe already exists in
+    the manager: the ETag comparison that turns a poll into a ``HEAD``
+    and nothing else when nothing changed, the atomic swap, the rollback
+    on a bad document, the coalescing of concurrent runs.
+
+    The loop never dies. A source that blinks is a log line and another
+    attempt one interval later, not a worker frozen on an old revision.
+    Cancellation is the only way out, and it is honoured promptly.
+    """
+
+    def __init__(self, trigger: Callable[[], Awaitable[dict]], interval: float) -> None:
+        self._trigger = trigger
+        self._interval = interval
+
+    async def run(self) -> None:
+        """Poll until cancelled; a failed attempt is logged and retried."""
+        while True:
+            try:
+                await self._trigger()
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.warning(f"configuration poll failed, will retry: {type(e).__name__}: {e}")
+            await asyncio.sleep(self._interval)
 
 
 def build_admin_app(manager: ReloadManager) -> Starlette:

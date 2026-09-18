@@ -77,6 +77,11 @@ class DevConfig(GlobalConfig):
     FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED: bool = False
     FASTGEOAPI_CACHE_DIR: str | None = None
     FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS: int | None = None
+    # Every N seconds each worker asks the configuration source for its
+    # ETag and reloads if it changed, so `--workers N` converges instead
+    # of leaving N-1 processes on the previous revision (issue #455).
+    # 0 turns it off: one worker needs only the webhook.
+    FASTGEOAPI_CONFIG_POLL_SECONDS: int = 0
     # Comma-separated issuers whose ID-JAG assertions this authorization
     # server accepts (Enterprise-Managed Authorization). Empty by default:
     # the grant stays off until an operator names the enterprise IdPs it
@@ -143,6 +148,11 @@ class ProdConfig(GlobalConfig):
     FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED: bool = False
     FASTGEOAPI_CACHE_DIR: str | None = None
     FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS: int | None = None
+    # Every N seconds each worker asks the configuration source for its
+    # ETag and reloads if it changed, so `--workers N` converges instead
+    # of leaving N-1 processes on the previous revision (issue #455).
+    # 0 turns it off: one worker needs only the webhook.
+    FASTGEOAPI_CONFIG_POLL_SECONDS: int = 0
     # Comma-separated issuers whose ID-JAG assertions this authorization
     # server accepts (Enterprise-Managed Authorization). Empty by default:
     # the grant stays off until an operator names the enterprise IdPs it

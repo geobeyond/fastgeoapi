@@ -236,6 +236,42 @@ def _openapi_cache_dir() -> Path:
     return base / "openapi_refs"
 
 
+def _start_config_poller(app: FastAPI):
+    """One poller per process, when the operator asked for one.
+
+    The reload swaps this process's sub-app and nothing else: with several
+    uvicorn workers the webhook reaches one and the others keep serving
+    the previous revision (issue #455). Each process therefore asks the
+    reload manager on a timer, and the ETag comparison the manager
+    already performs turns a poll into a HEAD and nothing more when
+    nothing changed. Started here — the lifespan runs once per worker —
+    and only when ``FASTGEOAPI_CONFIG_POLL_SECONDS`` is positive.
+    """
+    interval = cfg.FASTGEOAPI_CONFIG_POLL_SECONDS
+    manager = getattr(app.state, "reload_manager", None)
+    if interval <= 0 or manager is None:
+        return None
+    import asyncio
+
+    from app.interfaces.reload import INSTANCE, ConfigPoller
+
+    task = asyncio.get_running_loop().create_task(ConfigPoller(manager.trigger, interval).run())
+    app.state.config_poller = task
+    logger.info(f"configuration poll every {interval}s in instance {INSTANCE}")
+    return task
+
+
+async def _stop_config_poller(task) -> None:
+    if task is None:
+        return
+    import asyncio
+    import contextlib
+
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+
+
 def create_app(lifespan=None):
     """Handle application creation.
 
@@ -252,11 +288,15 @@ def create_app(lifespan=None):
         logging, so a filter attached here survives.
         """
         silence_probe_access_logs()
-        if lifespan is None:
-            yield
-        else:
-            async with lifespan(app) as state:
-                yield state
+        poller = _start_config_poller(app)
+        try:
+            if lifespan is None:
+                yield
+            else:
+                async with lifespan(app) as state:
+                    yield state
+        finally:
+            await _stop_config_poller(poller)
 
     app = FastGeoAPI(
         title="fastgeoapi",
