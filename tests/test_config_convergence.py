@@ -27,6 +27,10 @@ from app.interfaces.reload import ConfigPoller, ReloadManager
 from app.pygeoapi.holder import PygeoapiHolder
 
 
+async def _asgi(scope, receive, send) -> None:
+    """A stand-in sub-app: `PygeoapiHolder.swap` expects a callable."""
+
+
 class TestStatusNamesTheProcess:
     def test_the_instance_is_an_opaque_eight_hex_identifier(self):
         """Not the PID: opaque, not enumerable, says nothing about the host."""
@@ -43,7 +47,7 @@ class TestStatusNamesTheProcess:
 
     def test_the_etag_is_the_revision_in_service(self):
         holder = PygeoapiHolder()
-        holder.swap(object(), etag='"served"')
+        holder.swap(_asgi, etag='"served"')
         manager = ReloadManager(holder, source="unused")
 
         assert manager.status()["etag"] == '"served"'
@@ -56,7 +60,7 @@ class TestStatusNamesTheProcess:
         told that rather than read the failure as progress.
         """
         holder = PygeoapiHolder()
-        holder.swap(object(), etag='"previous"')
+        holder.swap(_asgi, etag='"previous"')
         manager = ReloadManager(holder, source="unused")
         manager._record("failed", error="boom", etag='"attempted"')
 
