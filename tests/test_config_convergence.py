@@ -32,9 +32,7 @@ async def _asgi(scope, receive, send) -> None:
 
 
 def _manager(holder: PygeoapiHolder | None = None) -> ReloadManager:
-    return ReloadManager(
-        holder or PygeoapiHolder(), source="unused", instance="0badf00d"
-    )
+    return ReloadManager(holder or PygeoapiHolder(), source="unused", instance="0badf00d")
 
 
 class TestStatusNamesTheProcess:
@@ -107,9 +105,7 @@ class TestSetting:
 
         from app.config.app import DevConfig
 
-        with mock.patch.dict(
-            os.environ, {"DEV_FASTGEOAPI_CONFIG_POLL_SECONDS": "3"}
-        ):
+        with mock.patch.dict(os.environ, {"DEV_FASTGEOAPI_CONFIG_POLL_SECONDS": "3"}):
             assert DevConfig().FASTGEOAPI_CONFIG_POLL_SECONDS == 3
 
 
@@ -134,9 +130,7 @@ class TestLifespan:
             "DEV_FASTGEOAPI_CONFIG_POLL_SECONDS": poll,
         }
 
-    def test_a_positive_interval_starts_a_poller_and_shutdown_stops_it(
-        self, tmp_path
-    ):
+    def test_a_positive_interval_starts_a_poller_and_shutdown_stops_it(self, tmp_path):
         from unittest import mock
 
         from starlette.testclient import TestClient

@@ -48,21 +48,15 @@ def _etag_of(path: Path) -> str:
     from app.config.source import astat_config_source
 
     etag = asyncio.run(astat_config_source(str(path))).etag
-    assert etag is not None, (
-        "a local file always carries an ETag (inode-mtime-size)"
-    )
+    assert etag is not None, "a local file always carries an ETag (inode-mtime-size)"
     return etag
 
 
 @contextmanager
-def _serve(
-    tmp_path: Path, poll_seconds: str, workers: int = 2
-) -> Iterator[tuple[str, Path]]:
+def _serve(tmp_path: Path, poll_seconds: str, workers: int = 2) -> Iterator[tuple[str, Path]]:
     """Start uvicorn with `workers` processes on a configuration file on disk."""
     config_path = tmp_path / "pygeoapi-config.yml"
-    config_path.write_text(
-        Path(REPO, "tests/data/pygeoapi-config.yml").read_text()
-    )
+    config_path.write_text(Path(REPO, "tests/data/pygeoapi-config.yml").read_text())
     port = _free_port()
     env = {
         **os.environ,
@@ -106,24 +100,18 @@ def _serve(
         log.close()
 
 
-def _wait_ready(
-    base: str, server: subprocess.Popen, log: Path, timeout: float = 90.0
-) -> None:
+def _wait_ready(base: str, server: subprocess.Popen, log: Path, timeout: float = 90.0) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if server.poll() is not None:
-            raise AssertionError(
-                f"the server exited early:\n{log.read_text()[-3000:]}"
-            )
+            raise AssertionError(f"the server exited early:\n{log.read_text()[-3000:]}")
         try:
             if httpx.get(f"{base}/readyz", timeout=2).status_code == 200:
                 return
         except httpx.HTTPError:
             pass
         time.sleep(0.25)
-    raise AssertionError(
-        f"the server was not ready within {timeout}s:\n{log.read_text()[-3000:]}"
-    )
+    raise AssertionError(f"the server was not ready within {timeout}s:\n{log.read_text()[-3000:]}")
 
 
 def _sample(base: str, rounds: int = 32) -> dict[str, str]:
@@ -138,9 +126,7 @@ def _sample(base: str, rounds: int = 32) -> dict[str, str]:
     """
 
     def one(_: int) -> tuple[str, str]:
-        body = httpx.get(
-            f"{base}{STATUS}", headers={"Connection": "close"}, timeout=5
-        ).json()
+        body = httpx.get(f"{base}{STATUS}", headers={"Connection": "close"}, timeout=5).json()
         return body["instance"], body["etag"]
 
     with ThreadPoolExecutor(max_workers=rounds) as pool:
@@ -167,9 +153,7 @@ def _sample_two(base: str, timeout: float = 30.0) -> dict[str, str]:
 
 def _add_a_collection(config_path: Path) -> str:
     config = yaml.safe_load(config_path.read_text())
-    config["resources"]["lakes-bis"] = copy.deepcopy(
-        config["resources"]["lakes"]
-    )
+    config["resources"]["lakes-bis"] = copy.deepcopy(config["resources"]["lakes"])
     config["resources"]["lakes-bis"]["title"] = {"en": "Lakes bis"}
     config_path.write_text(yaml.safe_dump(config))
     return _etag_of(config_path)
@@ -197,13 +181,9 @@ def test_the_defect_the_issue_describes(tmp_path):
                 break
             time.sleep(0.5)
         else:
-            raise AssertionError(
-                f"no worker ever served the new revision: {after}"
-            )
+            raise AssertionError(f"no worker ever served the new revision: {after}")
 
-        assert len(after) >= 2, (
-            f"only one worker answered after the reload: {after}"
-        )
+        assert len(after) >= 2, f"only one worker answered after the reload: {after}"
         assert set(after.values()) == {old_etag, new_etag}, (
             f"expected one worker reloaded and one not, but they report {after}"
         )
@@ -231,15 +211,13 @@ def test_every_worker_converges_to_the_source(tmp_path):
                 break
             time.sleep(0.5)
         else:
-            raise AssertionError(
-                f"the workers did not converge on {new_etag}: {after}"
-            )
+            raise AssertionError(f"the workers did not converge on {new_etag}: {after}")
 
         # The new collection is served too, whichever worker answers.
         ids = {
             c["id"]
-            for c in httpx.get(
-                f"{base}/geoapi/collections?f=json", timeout=10
-            ).json()["collections"]
+            for c in httpx.get(f"{base}/geoapi/collections?f=json", timeout=10).json()[
+                "collections"
+            ]
         }
         assert "lakes-bis" in ids
