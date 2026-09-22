@@ -85,40 +85,49 @@ curl -X POST https://example.org/admin/config/reload
 }
 ```
 
-`instance` names the process answering — an opaque value drawn at
-startup, not the PID. `etag` is the revision **in service**; `last.etag`
-is what the last attempt saw. They differ exactly when it matters: a
-worker whose last reload `failed` still serves the previous revision.
+`instance` is an opaque identifier of the worker process that handled
+the request, and `etag` identifies the configuration version active on
+that worker. `last.etag` is the version the worker found the last time
+it looked. After an `applied` or `unchanged` reload the two are equal.
+When the last attempt `failed`, `last` carries the error instead of an
+ETag, and `etag` still names the previous version, which is the one
+still being served.
 
 The endpoint is protected by the same authentication chain configured
 for the API (API key, JWT via JWKS, or OPA) — no separate secret to
 manage.
 
-### More than one worker
+### Hot reloading when there is more than one worker
 
-The reload swaps the configuration of **the process that receives the
-webhook**. With `fastgeoapi run --workers N` there are N processes, each
-with its own copy, and a `POST` reaches one of them: the others keep
-serving the previous revision, and `202` tells you nothing about it.
+When using `fastgeoapi run --workers N` there are N processes, each with
+its own copy of the configuration read from the source during startup.
 
-The cure is convergence rather than broadcast. Set
-`FASTGEOAPI_CONFIG_POLL_SECONDS` (with the `DEV_`/`PROD_` prefix of your
-`ENV_STATE`) and every worker asks the source for its ETag at that
-interval, reloading only when it changed — a `HEAD` per worker per
-interval when nothing did, a `stat` on a local file. `fastgeoapi run --workers N` with N > 1 sets it to `5` for you unless you set it
-yourself; `0`, the default, turns it off, which is right for one worker.
-The webhook stays useful: the worker that receives it reloads at once,
-the others within the interval.
+Requests to `POST /admin/config/reload` are handled by the single worker
+that happens to pick up the request. That worker reloads its own
+configuration immediately; the other processes do so only when they get
+a chance to re-read the source.
 
-To know that **every** worker serves a revision, sample
-`GET /admin/config/reload` until each `instance` you have seen reports
-the `etag` you wrote, and the window is longer than the interval. Through
-a load balancer, the instances you have seen are a lower bound, not the
-worker count.
+You can configure how long it takes for the other workers to notice by
+setting `FASTGEOAPI_CONFIG_POLL_SECONDS` (with the `DEV_`/`PROD_` prefix
+of your `ENV_STATE`). Workers then poll the source at that interval and
+reload themselves whenever they detect a change; a poll that finds
+nothing new costs one `HEAD` per worker, or a `stat` on a local file.
+`fastgeoapi run --workers N` with N > 1 sets it to `5` unless you set it
+yourself. At `0`, the default, there is no polling, so the hot reload
+reaches a single worker only.
 
-Convergence is between the workers of one instance. Scaling across
-machines is the orchestrator's job — a rolling restart or a `POST` to
-each — and this setting does not change that.
+The same setting matters with `--workers 1` behind an external
+orchestrator. If several fastgeoapi instances read their configuration
+from a shared location, polling is the only way for all of them to
+converge after a change, because the webhook, like any other request,
+is served by one instance.
+
+To check that every worker serves a revision, sample
+`GET /admin/config/reload` for longer than the poll interval and confirm
+that each `instance` you have seen reports the `etag` you wrote. Behind
+a load balancer you cannot tell how many workers exist from the
+instances you have seen, so this confirms convergence only for the
+workers that answered.
 
 **If the reload answers `unchanged` right after you changed the file,
 the store is still serving the old one.** Idempotence compares the
