@@ -84,5 +84,7 @@ RUN python -c "import compileall; compileall.compile_path(maxlevels=10)"
 # Use tini as the init process
 ENTRYPOINT ["tini", "-g", "--"]
 
-# Run using fastapi CLI directly
-CMD ["fastapi", "run", "app/main.py", "--app", "app", "--host", "0.0.0.0", "--port", "5000", "--proxy-headers"]
+# Run using the fastapi CLI directly, with one worker. The worker count is
+# stated here because nothing in .flyio.env can set it (see the note at
+# the top of that file).
+CMD ["fastapi", "run", "app/main.py", "--app", "app", "--host", "0.0.0.0", "--port", "5000", "--proxy-headers", "--workers", "1"]
