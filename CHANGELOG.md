@@ -1,3 +1,13 @@
+## v0.2.0 (2026-09-22)
+
+### Features
+
+- **reload**: every worker converges to the configuration source
+
+### Refactoring
+
+- **reload**: fold the poller into ReloadManager and inject the instance id
+
 ## v0.1.1 (2026-09-17)
 
 ### Features
