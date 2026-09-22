@@ -233,6 +233,7 @@ def test_reload_announces_the_new_openapi_document(tmp_path):
             str(target),
             artifact_target=None,
             on_reload=announced.append,
+            instance="0badf00d",
         )
         asyncio.run(manager._run())
 

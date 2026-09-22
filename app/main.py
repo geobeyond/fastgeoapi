@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import os
+import secrets
 import sys
 from pathlib import Path
 from typing import Any
@@ -25,6 +28,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.config.app import configuration as cfg
 from app.config.logging import create_logger, silence_probe_access_logs
+from app.interfaces.reload import ReloadManager, build_admin_app
 from app.mcp.route_maps import openapi_route_maps
 from app.middleware.mcp_identity import MCPClientIdentityMiddleware
 from app.middleware.oauth2 import Oauth2Middleware
@@ -236,40 +240,13 @@ def _openapi_cache_dir() -> Path:
     return base / "openapi_refs"
 
 
-def _start_config_poller(app: FastAPI):
-    """One poller per process, when the operator asked for one.
-
-    The reload swaps this process's sub-app and nothing else: with several
-    uvicorn workers the webhook reaches one and the others keep serving
-    the previous revision (issue #455). Each process therefore asks the
-    reload manager on a timer, and the ETag comparison the manager
-    already performs turns a poll into a HEAD and nothing more when
-    nothing changed. Started here — the lifespan runs once per worker —
-    and only when ``FASTGEOAPI_CONFIG_POLL_SECONDS`` is positive.
-    """
-    interval = cfg.FASTGEOAPI_CONFIG_POLL_SECONDS
-    manager = getattr(app.state, "reload_manager", None)
-    if interval <= 0 or manager is None:
-        return None
-    import asyncio
-
-    from app.interfaces.reload import INSTANCE, ConfigPoller
-
-    task = asyncio.get_running_loop().create_task(ConfigPoller(manager.trigger, interval).run())
-    app.state.config_poller = task
-    logger.info(f"configuration poll every {interval}s in instance {INSTANCE}")
-    return task
-
-
-async def _stop_config_poller(task) -> None:
-    if task is None:
-        return
-    import asyncio
-    import contextlib
-
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await task
+#: Identifies this process. A control plane sampling the reload status
+#: through a load balancer needs to tell one worker from another, and to
+#: check whether every worker it has seen serves the same revision. The
+#: token is generated once per process, at import time. The PID would
+#: also be unique, but it can be enumerated and says something about the
+#: host; a random token does neither.
+INSTANCE = secrets.token_hex(4)
 
 
 def create_app(lifespan=None):
@@ -288,7 +265,17 @@ def create_app(lifespan=None):
         logging, so a filter attached here survives.
         """
         silence_probe_access_logs()
-        poller = _start_config_poller(app)
+        poller = None
+        interval = cfg.FASTGEOAPI_CONFIG_POLL_SECONDS
+        if interval > 0:
+            # The lifespan runs once per worker, so each process gets its
+            # own poller, and the reload it triggers only affects that
+            # process.
+            poller = asyncio.get_running_loop().create_task(
+                app.state.reload_manager.poll_forever(interval)
+            )
+            app.state.config_poller = poller
+            logger.info(f"configuration poll every {interval}s in instance {INSTANCE}")
         try:
             if lifespan is None:
                 yield
@@ -296,7 +283,10 @@ def create_app(lifespan=None):
                 async with lifespan(app) as state:
                     yield state
         finally:
-            await _stop_config_poller(poller)
+            if poller is not None:
+                poller.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await poller
 
     app = FastGeoAPI(
         title="fastgeoapi",
@@ -362,8 +352,6 @@ def create_app(lifespan=None):
 
     # Reload webhook (ADR-0003): protected by the SAME auth chain as the
     # pygeoapi surface — "security according to the configuration".
-    from app.interfaces.reload import ReloadManager, build_admin_app
-
     # The MCP tools are generated from the OpenAPI document, so they have
     # to follow it across a reload — otherwise the server keeps offering
     # the collections the previous configuration exposed and only a
@@ -384,6 +372,7 @@ def create_app(lifespan=None):
         cfg.PYGEOAPI_CONFIG,
         artifact_target=cfg.PYGEOAPI_OPENAPI,
         on_reload=on_reload,
+        instance=INSTANCE,
     )
     wrapped_admin, _ = _wrap_pygeoapi_asgi(build_admin_app(reload_manager))
     app.mount("/admin", wrapped_admin)
