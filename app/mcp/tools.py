@@ -70,9 +70,10 @@ def refresh_tools(
     # refresh raising "External or non-local reference not supported"
     # into the listener's error handler, so the reload looked fine and
     # the tools never moved.
+    from app.pygeoapi.openapi import type_execute_request_maps
     from app.utils.openapi_resolver import resolve_external_refs
 
-    resolved = resolve_external_refs(openapi_spec, cache_dir=cache_dir)
+    resolved = type_execute_request_maps(resolve_external_refs(openapi_spec, cache_dir=cache_dir))
     rebuilt = FastMCP.from_openapi(
         openapi_spec=resolved, client=client, name=name, route_maps=openapi_route_maps()
     )

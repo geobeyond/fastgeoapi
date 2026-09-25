@@ -180,6 +180,77 @@ def fix_queryables_response_schema(doc: dict) -> dict:
     return doc
 
 
+def fix_conformance_and_collections_responses(doc: dict) -> dict:
+    """Point /conformance and /collections at their own Part 1 responses.
+
+    pygeoapi references ``responses/LandingPage`` of OGC API - Features
+    Part 1 for the landing page, the conformance declaration and the list
+    of collections (``pygeoapi/openapi.py:298,347,365``, still in 0.24).
+    The landing page schema requires ``links``, and a conformance
+    declaration carries only ``conformsTo``, so a client that validates a
+    response against the document rejects a correct answer. The MCP tools
+    inherit the schema, and on the demo the Claude connector rejected every
+    result of ``getConformanceDeclaration``. The same Part 1 document
+    defines ``ConformanceDeclaration`` and ``Collections``, so only the
+    fragment of the reference changes. Remove once fixed upstream in
+    pygeoapi.
+    """
+    own_response = {"/conformance": "ConformanceDeclaration", "/collections": "Collections"}
+    paths = doc.get("paths", {})
+    for path, name in own_response.items():
+        response = paths.get(path, {}).get("get", {}).get("responses", {}).get("200")
+        reference = response.get("$ref", "") if isinstance(response, dict) else ""
+        if reference.endswith("#/components/responses/LandingPage"):
+            response["$ref"] = f"{reference.split('#')[0]}#/components/responses/{name}"
+    return doc
+
+
+def _local_target(doc: dict, node):
+    """Follow a local ``#/...`` reference, or return the node as it is."""
+    while isinstance(node, dict) and str(node.get("$ref", "")).startswith("#/"):
+        target = doc
+        for part in node["$ref"][2:].split("/"):
+            target = target.get(part.replace("~1", "/").replace("~0", "~"), {})
+        node = target
+    return node
+
+
+def type_execute_request_maps(doc: dict) -> dict:
+    """Declare ``inputs`` and ``outputs`` of an execute request as objects.
+
+    The OGC API - Processes ``execute.yaml`` describes both as maps,
+    through ``additionalProperties``, and gives them no ``type``. A JSON
+    Schema reader may then accept any value for them, and on the demo the
+    Claude connector sent ``inputs`` as a JSON string: pygeoapi answered
+    400 ``'str' object has no attribute 'get'``. This runs on the
+    document after its remote references are resolved, because before
+    that the request body is a single ``$ref`` to the OGC file. A
+    property changes only when it has ``additionalProperties`` or
+    ``properties`` and no ``type``. Remove once the OGC schema declares
+    the type.
+    """
+    for path, item in doc.get("paths", {}).items():
+        if not path.endswith("/execution") or not isinstance(item, dict):
+            continue
+        body = _local_target(doc, item.get("post", {}).get("requestBody"))
+        if not isinstance(body, dict):
+            continue
+        schema = _local_target(
+            doc, body.get("content", {}).get("application/json", {}).get("schema")
+        )
+        if not isinstance(schema, dict):
+            continue
+        for name in ("inputs", "outputs"):
+            prop = _local_target(doc, schema.get("properties", {}).get(name))
+            if (
+                isinstance(prop, dict)
+                and "type" not in prop
+                and ("additionalProperties" in prop or "properties" in prop)
+            ):
+                prop["type"] = "object"
+    return doc
+
+
 def describe_tilesets(doc: dict) -> dict:
     """Write in the tileset description the server already answers.
 

@@ -286,12 +286,13 @@ def _mcp_tools(openapi: dict) -> list[str]:
     from fastmcp import FastMCP
 
     from app.mcp.route_maps import openapi_route_maps
+    from app.pygeoapi.openapi import type_execute_request_maps
     from app.utils.openapi_resolver import resolve_external_refs
 
     async def listed() -> list[str]:
         # The generated document carries external `$ref`s to the OGC
         # schemas and FastMCP resolves only local ones.
-        resolved = resolve_external_refs(openapi)
+        resolved = type_execute_request_maps(resolve_external_refs(openapi))
         async with httpx2.AsyncClient(base_url="http://the-tools-are-not-called") as client:
             server = FastMCP.from_openapi(
                 openapi_spec=resolved,

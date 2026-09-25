@@ -38,6 +38,7 @@ from app.pygeoapi.api_async import tiles as async_tiles
 from app.pygeoapi.openapi import (
     describe_tilesets,
     drop_unused_tags,
+    fix_conformance_and_collections_responses,
     fix_queryables_response_schema,
 )
 from app.pygeoapi.plugin import invalidate_plugin_cache, patch_load_plugin
@@ -129,6 +130,7 @@ def build_openapi(config: dict) -> dict:
     """Generate the OpenAPI in memory, with the fastgeoapi fixes at the source."""
     doc = get_oas(normalize_config(config))
     fix_queryables_response_schema(doc)
+    fix_conformance_and_collections_responses(doc)
     describe_tilesets(doc)
     drop_unused_tags(doc)
     return doc
