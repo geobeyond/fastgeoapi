@@ -261,7 +261,7 @@ def ty(session: Session) -> None:
         "ogcapi-registry==0.4.0",
         "ty",
         "pytest",
-        "schemathesis>=4.0",
+        "schemathesis>=4.26",
         "pytest-asyncio",
         # Mirror the `tests` session test deps so ty can resolve imports
         # in tests/test_mcp_oauth_e2e.py (pytest-iam pulls in portpicker).
@@ -305,7 +305,7 @@ def tests(session: Session) -> None:
         "coverage[toml]",
         "pytest",
         "pygments",
-        "schemathesis>=4.0",
+        "schemathesis>=4.26",
         "pytest-asyncio",
         "pytest-iam",
         "canaille[sqlite]",
@@ -362,7 +362,7 @@ def typeguard(session: Session) -> None:
         "pytest",
         "typeguard",
         "pygments",
-        "schemathesis>=4.0",
+        "schemathesis>=4.26",
         "pytest-asyncio",
         "pytest-iam",
         "canaille[sqlite]",
