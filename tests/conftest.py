@@ -768,3 +768,26 @@ def s3_endpoint() -> Iterator[str]:
 
     process.terminate()
     process.wait(timeout=10)
+
+
+@pytest.fixture
+def mcp_main():
+    """Boot fastgeoapi with MCP enabled and no auth; yield app.main."""
+    env = {
+        "ENV_STATE": "dev",
+        "DEV_FASTGEOAPI_WITH_MCP": "true",
+        "DEV_FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED": "true",
+        "DEV_API_KEY_ENABLED": "false",
+        "DEV_JWKS_ENABLED": "false",
+        "DEV_OPA_ENABLED": "false",
+    }
+    with mock.patch.dict(os.environ, env, clear=False):
+        for key in list(sys.modules):
+            if key.startswith("app."):
+                del sys.modules[key]
+        from app.config.app import FactoryConfig
+
+        FactoryConfig.get_config.cache_clear()
+        import app.main as main_mod
+
+        yield main_mod
