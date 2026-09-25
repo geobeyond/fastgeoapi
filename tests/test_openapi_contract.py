@@ -137,6 +137,13 @@ schema_bearer = (
     .exclude(method="OPTIONS")
 )
 
+# Timeout for each contract request, in seconds. Since schemathesis 4.26
+# the ASGI transport applies one, 10 s by default. The bearer cases
+# validate every token against the identity provider's JWKS, fetched over
+# the network on each request, and on CI that fetch has taken longer than
+# 10 s.
+REQUEST_TIMEOUT = 30
+
 
 def not_unauthorized(ctx, response, case):
     """Fail the fuzz run on 401 Unauthorized for positive cases.
@@ -166,8 +173,8 @@ def not_unauthorized(ctx, response, case):
 # schemathesis itself recommends disabling hypothesis's per-example
 # deadline for API tests, where response times are not deterministic
 # (CI showed intermittent ~30s stalls that pass on replay, turning the
-# deadline into a flake generator). Genuine hangs still fail through
-# the test client's 30s transport timeout (conftest), as a ReadTimeout.
+# deadline into a flake generator). A request that hangs still fails
+# with a ReadTimeout after REQUEST_TIMEOUT seconds.
 @settings(max_examples=50, deadline=None, phases=[Phase.generate])
 def test_api_with_apikey(case):
     """Test the API with API-KEY protection."""
@@ -183,7 +190,10 @@ def test_api_with_apikey(case):
     case.headers = {"X-API-KEY": "pygeoapi"}
     # response = case.call()
     # Only check for server errors, skip schema validation due to pygeoapi issues
-    case.call_and_validate(checks=(schemathesis.checks.not_a_server_error, not_unauthorized))
+    case.call_and_validate(
+        checks=(schemathesis.checks.not_a_server_error, not_unauthorized),
+        timeout=REQUEST_TIMEOUT,
+    )
 
 
 @pytest.mark.skipif(
@@ -195,8 +205,8 @@ def test_api_with_apikey(case):
 # schemathesis itself recommends disabling hypothesis's per-example
 # deadline for API tests, where response times are not deterministic
 # (CI showed intermittent ~30s stalls that pass on replay, turning the
-# deadline into a flake generator). Genuine hangs still fail through
-# the test client's 30s transport timeout (conftest), as a ReadTimeout.
+# deadline into a flake generator). A request that hangs still fails
+# with a ReadTimeout after REQUEST_TIMEOUT seconds.
 @settings(max_examples=50, deadline=None, phases=[Phase.generate])
 def test_api_with_bearer(case):
     """Test the API with Authorization Bearer token protection."""
@@ -213,4 +223,7 @@ def test_api_with_bearer(case):
     # provider registered in conftest (schemathesis dynamic auth:
     # cached token, refetched and replayed on 401).
     # Only check for server errors, skip schema validation due to pygeoapi issues
-    case.call_and_validate(checks=(schemathesis.checks.not_a_server_error, not_unauthorized))
+    case.call_and_validate(
+        checks=(schemathesis.checks.not_a_server_error, not_unauthorized),
+        timeout=REQUEST_TIMEOUT,
+    )
