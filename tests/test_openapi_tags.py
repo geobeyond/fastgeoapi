@@ -24,9 +24,19 @@ def config_dict() -> dict:
     return yaml_load(Path("tests/data/pygeoapi-config.yml").open())
 
 
+def _dropped(doc: dict) -> dict:
+    from openapi_pydantic.v3.v3_0 import OpenAPI
+
+    from app.pygeoapi.openapi import drop_unused_tags, dump_openapi
+
+    return dump_openapi(drop_unused_tags(OpenAPI.model_validate(doc)))
+
+
 def _document() -> dict:
     """A document shaped like pygeoapi's: two tags nobody uses."""
     return {
+        "openapi": "3.0.2",
+        "info": {"title": "test", "version": "1"},
         "tags": [
             {"name": "server", "description": "the server"},
             {"name": "obs", "description": "my cool observations"},
@@ -48,17 +58,13 @@ def _document() -> dict:
 
 
 def test_a_tag_no_operation_uses_is_dropped():
-    from app.pygeoapi.openapi import drop_unused_tags
-
-    doc = drop_unused_tags(_document())
+    doc = _dropped(_document())
 
     assert [tag["name"] for tag in doc["tags"]] == ["server", "obs"]
 
 
 def test_a_used_tag_keeps_its_description_and_its_place():
-    from app.pygeoapi.openapi import drop_unused_tags
-
-    doc = drop_unused_tags(_document())
+    doc = _dropped(_document())
 
     assert doc["tags"][1] == {"name": "obs", "description": "my cool observations"}
 
@@ -70,18 +76,16 @@ def test_what_is_not_an_operation_does_not_keep_a_tag_alive():
     elsewhere: a ``parameters`` list has no ``tags`` member, but a
     ``get`` that is a string ``$ref`` would raise.
     """
-    from app.pygeoapi.openapi import drop_unused_tags
-
     doc = _document()
     doc["paths"]["/collections/obs/items"]["$ref"] = "#/components/pathItems/items"
 
-    assert [tag["name"] for tag in drop_unused_tags(doc)["tags"]] == ["server", "obs"]
+    assert [tag["name"] for tag in _dropped(doc)["tags"]] == ["server", "obs"]
 
 
 def test_a_document_without_tags_is_left_alone():
-    from app.pygeoapi.openapi import drop_unused_tags
+    doc = {"openapi": "3.0.2", "info": {"title": "test", "version": "1"}, "paths": {}}
 
-    assert drop_unused_tags({"paths": {}}) == {"paths": {}}
+    assert _dropped(doc) == doc
 
 
 def test_the_built_document_declares_no_tag_it_does_not_use(config_dict):

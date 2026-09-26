@@ -6,11 +6,14 @@ import yaml
 from openapi_pydantic.v3.v3_0 import (
     DataType,
     OpenAPI,
+    Operation,
+    PathItem,
     Reference,
     RequestBody,
     Schema,
     SecurityScheme,
 )
+from pydantic import BaseModel
 from pydantic_core import ValidationError
 from pygeoapi.openapi import generate_openapi_document as _upstream_generate_openapi_document
 
@@ -100,6 +103,9 @@ def augment_security(doc: str, security_schemes: list[SecurityScheme]) -> OpenAP
     except ValidationError as e:
         logger.error(e)
         raise
+    # The served spec must be as honest as the one handed to fastmcp:
+    # correct pygeoapi's queryables wrapper here too (Bug 3b).
+    fix_queryables_response_schema(openapi)
     security_scheme_types = [security_scheme.type for security_scheme in security_schemes]
     _security_schemes = {"securitySchemes": {}}  # type: dict[str, dict]
     if all(item in ["http", "apiKey", "oauth2", "openIdConnect"] for item in security_scheme_types):
@@ -118,9 +124,6 @@ def augment_security(doc: str, security_schemes: list[SecurityScheme]) -> OpenAP
     if components:
         components.update(_security_schemes)
     content["components"] = components
-    # The served spec must be as honest as the one handed to fastmcp:
-    # correct pygeoapi's queryables wrapper here too (Bug 3b).
-    fix_queryables_response_schema(content)
     describe_servers(content)
     describe_jwt_validation(content)
     paths = openapi.paths
@@ -153,7 +156,7 @@ def augment_security(doc: str, security_schemes: list[SecurityScheme]) -> OpenAP
     return OpenAPI(**content)
 
 
-def fix_queryables_response_schema(doc: dict) -> dict:
+def fix_queryables_response_schema(openapi: OpenAPI) -> OpenAPI:
     """Replace pygeoapi's queryables wrapper schema with the real shape.
 
     Upstream declares ``components.schemas.queryables`` as a wrapper
@@ -168,28 +171,28 @@ def fix_queryables_response_schema(doc: dict) -> dict:
     property" (vault: Bug 3b). Rewrite the component to the truthful,
     permissive shape. Remove once fixed upstream in pygeoapi.
     """
-    schemas = doc.get("components", {}).get("schemas", {})
-    if "queryables" in schemas:
-        schemas["queryables"] = {
-            "type": "object",
-            "description": (
+    schemas = openapi.components.schemas if openapi.components else None
+    if schemas and "queryables" in schemas:
+        schemas["queryables"] = Schema(
+            type=DataType.OBJECT,
+            description=(
                 "A JSON Schema document describing the queryable/"
                 "returnable properties of the collection "
                 "(OGC API - Features Part 3 / Part 5)."
             ),
-            "properties": {
-                "$schema": {"type": "string"},
-                "$id": {"type": "string"},
-                "type": {"type": "string"},
-                "title": {"type": "string"},
-                "properties": {"type": "object"},
+            properties={
+                "$schema": Schema(type=DataType.STRING),
+                "$id": Schema(type=DataType.STRING),
+                "type": Schema(type=DataType.STRING),
+                "title": Schema(type=DataType.STRING),
+                "properties": Schema(type=DataType.OBJECT),
             },
-            "additionalProperties": True,
-        }
-    return doc
+            additionalProperties=True,
+        )
+    return openapi
 
 
-def fix_conformance_and_collections_responses(doc: dict) -> dict:
+def fix_conformance_and_collections_responses(openapi: OpenAPI) -> OpenAPI:
     """Point /conformance and /collections at their own Part 1 responses.
 
     pygeoapi references ``responses/LandingPage`` of OGC API - Features
@@ -205,13 +208,14 @@ def fix_conformance_and_collections_responses(doc: dict) -> dict:
     pygeoapi.
     """
     own_response = {"/conformance": "ConformanceDeclaration", "/collections": "Collections"}
-    paths = doc.get("paths", {})
     for path, name in own_response.items():
-        response = paths.get(path, {}).get("get", {}).get("responses", {}).get("200")
-        reference = response.get("$ref", "") if isinstance(response, dict) else ""
-        if reference.endswith("#/components/responses/LandingPage"):
-            response["$ref"] = f"{reference.split('#')[0]}#/components/responses/{name}"
-    return doc
+        item = (openapi.paths or {}).get(path)
+        response = item.get.responses.get("200") if item and item.get else None
+        if isinstance(response, Reference) and response.ref.endswith(
+            "#/components/responses/LandingPage"
+        ):
+            response.ref = f"{response.ref.split('#')[0]}#/components/responses/{name}"
+    return openapi
 
 
 def _dereference(openapi: OpenAPI, node):
@@ -293,20 +297,99 @@ def allow_unlocated_features(openapi: OpenAPI) -> OpenAPI:
     return openapi
 
 
+#: The ``Schema`` fields openapi-pydantic types as ``float``, which turns
+#: the ``0`` pygeoapi writes into ``0.0``.
+_FLOAT_FIELDS = ("minimum", "maximum", "multipleOf")
+
+
+def _whole_numbers_back(node) -> None:
+    """Give the float fields of every schema under a node their integers back."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key in _FLOAT_FIELDS and isinstance(value, float) and value.is_integer():
+                node[key] = int(value)
+            else:
+                _whole_numbers_back(value)
+    elif isinstance(node, list):
+        for value in node:
+            _whole_numbers_back(value)
+
+
+def _ordered_like(node, original):
+    """Put the keys of every mapping in the order the original has them.
+
+    Keys the original does not have come last, in the order of the model.
+    """
+    if isinstance(node, dict) and isinstance(original, dict):
+        keys = [key for key in original if key in node]
+        keys += [key for key in node if key not in original]
+        return {key: _ordered_like(node[key], original.get(key)) for key in keys}
+    if isinstance(node, list) and isinstance(original, list) and len(node) == len(original):
+        return [_ordered_like(value, before) for value, before in zip(node, original, strict=True)]
+    return node
+
+
+def dump_openapi(openapi: OpenAPI, like: dict | None = None) -> dict:
+    """The document a model holds, with nothing added and nothing retyped.
+
+    ``exclude_unset`` keeps out the defaults the model would otherwise
+    write, ``deprecated: false`` on every operation among them, so only
+    what the corrections touched changes. The float fields get their
+    integers back, and the document reads ``minimum: 0`` as pygeoapi and
+    the OGC schemas write it. The model writes its fields in its own
+    order, ``name`` and ``in`` last in a parameter, so ``like`` is the
+    document to take the order of the keys from.
+    """
+    doc = openapi.model_dump(mode="json", by_alias=True, exclude_unset=True)
+    _whole_numbers_back(doc)
+    return doc if like is None else _ordered_like(doc, like)
+
+
+def _unset(model: BaseModel, field: str) -> None:
+    """Remove a field from a model so that the dump leaves it out.
+
+    Setting it to ``None`` alone would write ``null``: the field stays
+    among the ones set, and ``exclude_unset`` keeps it.
+    """
+    setattr(model, field, None)
+    model.model_fields_set.discard(field)
+
+
+def _references(node):
+    """Every ``$ref`` under a node, whether the node is a model or plain data.
+
+    openapi-pydantic has no visitor of its own. Iterating a model yields
+    its fields and its extra members alike, and a reference can sit in
+    either.
+    """
+    if isinstance(node, Reference):
+        yield node.ref
+    elif isinstance(node, BaseModel):
+        for _, value in node:
+            yield from _references(value)
+    elif isinstance(node, dict):
+        for key, value in node.items():
+            if key == "$ref" and isinstance(value, str):
+                yield value
+            else:
+                yield from _references(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _references(value)
+
+
 def fix_resolved_document(doc: dict) -> dict:
     """Apply the corrections that need the remote references resolved.
 
     Every MCP server built from our document (runtime, reload, editor
     preview) calls this on the output of ``resolve_external_refs``, so the
     three agree on the tool schemas. The document goes through the
-    openapi-pydantic model once: validated, corrected, then dumped with
-    ``exclude_unset`` so that nothing the corrections did not touch
-    changes, defaults included.
+    openapi-pydantic model once: validated, corrected, dumped.
     """
     openapi = OpenAPI.model_validate(doc)
     type_execute_request_maps(openapi)
     allow_unlocated_features(openapi)
-    return openapi.model_dump(mode="json", by_alias=True, exclude_unset=True)
+    return dump_openapi(openapi)
 
 
 #: Provider classes whose ``query`` applies the CQL2 filter it receives
@@ -369,7 +452,7 @@ def _items_provider(resource: dict) -> dict | None:
     return None
 
 
-def drop_unfiltered_cql2_operations(doc: dict, config: dict) -> dict:
+def drop_unfiltered_cql2_operations(openapi: OpenAPI, config: dict) -> OpenAPI:
     """Describe the CQL2 operation only where the provider filters.
 
     pygeoapi writes ``POST /collections/{id}/items`` with a CQL2 JSON body
@@ -381,22 +464,22 @@ def drop_unfiltered_cql2_operations(doc: dict, config: dict) -> dict:
     because the same ``POST`` adds a feature. Remove once pygeoapi writes
     the operation according to what the provider supports.
     """
-    paths = doc.get("paths", {})
+    paths = openapi.paths or {}
     for name, resource in (config.get("resources") or {}).items():
         if not isinstance(resource, dict) or resource.get("type") != "collection":
             continue
         item = paths.get(f"/collections/{name}/items")
-        if not isinstance(item, dict) or "post" not in item:
+        if item is None or item.post is None:
             continue
         provider = _items_provider(resource)
         if provider is None or provider.get("editable", False):
             continue
         if not _provider_filters_cql2(str(provider.get("name", ""))):
-            del item["post"]
-    return doc
+            _unset(item, "post")
+    return openapi
 
 
-def describe_tilesets(doc: dict) -> dict:
+def describe_tilesets(openapi: OpenAPI) -> OpenAPI:
     """Write in the tileset description the server already answers.
 
     `GET /collections/{collectionId}/tiles/{tileMatrixSetId}` is the
@@ -423,36 +506,79 @@ def describe_tilesets(doc: dict) -> dict:
     tiles_openapi = OPENAPI_YAML["oapit"]
     tile_set_response = f"{tiles_openapi.rsplit('/', 1)[0]}/responses/tiles-core/rTileSet.yaml"
 
-    paths = doc.get("paths", {})
+    paths = openapi.paths or {}
     for path in list(paths):
         if not path.endswith("/tiles"):
             continue
         target = f"{path}/{{tileMatrixSetId}}"
-        listing = paths[path].get("get")
-        if target in paths or not listing:
+        listing = paths[path].get
+        if target in paths or listing is None:
             continue
 
-        responses = dict(listing.get("responses", {}))
-        responses["200"] = {"$ref": tile_set_response}
+        responses = dict(listing.responses)
+        responses["200"] = Reference(ref=tile_set_response)
 
-        operation_id = listing.get("operationId", "")
-        paths[target] = {
-            "get": {
-                "tags": list(listing.get("tags", [])),
-                "summary": "Describe a tileset of this collection",
-                "description": listing.get("description", ""),
-                "operationId": operation_id.replace("getTileSetsList", "getTileSet"),
-                "parameters": [
-                    {"$ref": f"{tiles_openapi}#/components/parameters/tileMatrixSetId"},
-                    *listing.get("parameters", []),
+        paths[target] = PathItem(
+            get=Operation(
+                tags=list(listing.tags or []),
+                summary="Describe a tileset of this collection",
+                description=listing.description or "",
+                operationId=(listing.operationId or "").replace("getTileSetsList", "getTileSet"),
+                parameters=[
+                    Reference(ref=f"{tiles_openapi}#/components/parameters/tileMatrixSetId"),
+                    *(listing.parameters or []),
                 ],
-                "responses": responses,
-            }
-        }
-    return doc
+                responses=responses,
+            )
+        )
+    return openapi
 
 
-def drop_unused_tags(doc: dict) -> dict:
+def fix_tileset_list_response(openapi: OpenAPI) -> OpenAPI:
+    """Describe the tileset list with the response OGC API - Tiles gives it.
+
+    pygeoapi answers `GET /collections/{collectionId}/tiles` with a
+    TileSetsList, `{links, tilesets}` (`api/tiles.py:110-174`, 0.24),
+    which is what the `tilesets-list` class it declares asks for. The
+    document points the 200 at `#/components/responses/Tiles`
+    (`api/tiles.py:491`) and from there at a local schema from an
+    earlier draft that requires `tileMatrixSetLinks`
+    (`openapi.py:526-543`). No answer has that field, so a client that
+    checks results against the tool schema drops every one of them: the
+    Claude connector did, on the demo.
+
+    The function points the 200 at `responses/tiles-core/rTileSetsList.yaml`
+    of the OGC document, which requires only `tilesets`, as
+    `describe_tilesets` does with `rTileSet.yaml` for a single tileset.
+    The draft components go once nothing refers to them. Remove once
+    fixed upstream in pygeoapi.
+    """
+    from pygeoapi.openapi import OPENAPI_YAML
+
+    tiles_openapi = OPENAPI_YAML["oapit"]
+    tile_sets_list = f"{tiles_openapi.rsplit('/', 1)[0]}/responses/tiles-core/rTileSetsList.yaml"
+
+    for path, item in (openapi.paths or {}).items():
+        if not path.endswith("/tiles") or item.get is None:
+            continue
+        response = item.get.responses.get("200")
+        if isinstance(response, Reference) and response.ref == "#/components/responses/Tiles":
+            item.get.responses["200"] = Reference(ref=tile_sets_list)
+
+    # In this order: each component is the only user of the next one.
+    for section, name in (
+        ("responses", "Tiles"),
+        ("schemas", "tiles"),
+        ("schemas", "tilematrixsetlink"),
+    ):
+        entries = getattr(openapi.components, section, None) if openapi.components else None
+        pointer = f"#/components/{section}/{name}"
+        if entries and name in entries and pointer not in set(_references(openapi)):
+            del entries[name]
+    return openapi
+
+
+def drop_unused_tags(openapi: OpenAPI) -> OpenAPI:
     """Declare only the tags the document's own operations use.
 
     Each pygeoapi API module returns a module-level tag object whether or
@@ -473,19 +599,19 @@ def drop_unused_tags(doc: dict) -> dict:
     anyway — but the document's own: a tag survives if an operation
     claims it. Remove once fixed upstream in pygeoapi.
     """
-    if not doc.get("tags"):
-        return doc
+    if not openapi.tags:
+        return openapi
     used = {
         tag
-        for item in doc.get("paths", {}).values()
-        for operation in item.values()
+        for item in (openapi.paths or {}).values()
+        for _, operation in item
         # A path item also holds `parameters`, `servers`, `summary` and
         # may hold a `$ref`: only the operations carry tags.
-        if isinstance(operation, dict)
-        for tag in operation.get("tags", [])
+        if isinstance(operation, Operation)
+        for tag in operation.tags or []
     }
-    doc["tags"] = [tag for tag in doc["tags"] if tag.get("name") in used]
-    return doc
+    openapi.tags = [tag for tag in openapi.tags if tag.name in used]
+    return openapi
 
 
 def generate_openapi_document(cfg_file, output_format="yaml"):
@@ -502,9 +628,9 @@ def generate_openapi_document(cfg_file, output_format="yaml"):
     if output_format == "json":
         import json
 
-        doc = json.loads(raw)
-        fix_queryables_response_schema(doc)
-        return json.dumps(doc, default=str)
-    doc = yaml.safe_load(raw)
-    fix_queryables_response_schema(doc)
-    return yaml.safe_dump(doc, sort_keys=False)
+        generated = json.loads(raw)
+        openapi = fix_queryables_response_schema(OpenAPI.model_validate(generated))
+        return json.dumps(dump_openapi(openapi, like=generated), default=str)
+    generated = yaml.safe_load(raw)
+    openapi = fix_queryables_response_schema(OpenAPI.model_validate(generated))
+    return yaml.safe_dump(dump_openapi(openapi, like=generated), sort_keys=False)
