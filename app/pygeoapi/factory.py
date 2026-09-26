@@ -24,6 +24,7 @@ import pygeoapi.api.maps as maps_api
 import pygeoapi.api.processes as processes_api
 import pygeoapi.api.stac as stac_api
 import pygeoapi.api.tiles as tiles_api
+from openapi_pydantic.v3.v3_0 import OpenAPI
 from pygeoapi.api import API, APIRequest, apply_gzip
 from pygeoapi.openapi import get_oas
 from pygeoapi.util import get_api_rules
@@ -39,8 +40,10 @@ from app.pygeoapi.openapi import (
     describe_tilesets,
     drop_unfiltered_cql2_operations,
     drop_unused_tags,
+    dump_openapi,
     fix_conformance_and_collections_responses,
     fix_queryables_response_schema,
+    fix_tileset_list_response,
 )
 from app.pygeoapi.plugin import invalidate_plugin_cache, patch_load_plugin
 
@@ -128,14 +131,20 @@ def normalize_config(config: dict) -> dict:
 
 
 def build_openapi(config: dict) -> dict:
-    """Generate the OpenAPI in memory, with the fastgeoapi fixes at the source."""
-    doc = get_oas(normalize_config(config))
-    fix_queryables_response_schema(doc)
-    fix_conformance_and_collections_responses(doc)
-    drop_unfiltered_cql2_operations(doc, config)
-    describe_tilesets(doc)
-    drop_unused_tags(doc)
-    return doc
+    """Generate the OpenAPI in memory, with the fastgeoapi fixes at the source.
+
+    The document goes through the openapi-pydantic model once: validated,
+    corrected, dumped.
+    """
+    generated = get_oas(normalize_config(config))
+    openapi = OpenAPI.model_validate(generated)
+    fix_queryables_response_schema(openapi)
+    fix_conformance_and_collections_responses(openapi)
+    drop_unfiltered_cql2_operations(openapi, config)
+    fix_tileset_list_response(openapi)
+    describe_tilesets(openapi)
+    drop_unused_tags(openapi)
+    return dump_openapi(openapi, like=generated)
 
 
 def build_api(config: dict, openapi: dict) -> API:

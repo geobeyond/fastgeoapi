@@ -107,24 +107,22 @@ and the MCP tools generated from it, therefore describe the CQL2
 that filters: on the demo `overture-places` and `lazio-roads`, not
 `lakes` or `obs`.
 
-**Two places where the published OpenAPI does not describe the
-response.** A harness that validates against the document will reject
-correct answers:
+**One place where the published OpenAPI does not describe the
+response.** `skipGeometry=true` produces `"geometry": null`, which
+RFC 7946 §3.2 allows and the declared `featureGeoJSON` schema forbids,
+since its `geometry` is a `oneOf` over the seven geometry types with no
+null. It is an upstream schema defect rather than a server fault. The
+MCP tools carry a corrected schema: fastgeoapi lets the feature geometry
+be `null` in the document it generates the tools from. The published
+OpenAPI still references the OGC schema, so a harness that validates
+against it rejects those responses. Validate the data, not the document,
+until it is fixed.
 
-- the tileset list of a collection responds `{links, tilesets}`, while
-  the schema declared for it requires `tileMatrixSetLinks` — a member no
-  response contains;
-- `skipGeometry=true` produces `"geometry": null`, which RFC 7946 §3.2
-  allows and the declared `featureGeoJSON` schema forbids, since its
-  `geometry` is a `oneOf` over the seven geometry types with no null.
-
-Both are upstream schema defects rather than server faults. The MCP
-tools carry a corrected schema for the second: fastgeoapi lets the
-feature geometry be `null` in the document it generates the tools from.
-The published OpenAPI still references the OGC schema, so a harness that
-validates against it rejects those responses, and so does one that
-checks the tileset list in either place. Validate the data, not the
-document, until they are fixed.
+pygeoapi also declares, for the tileset list of a collection, a schema
+that requires `tileMatrixSetLinks`, a member no response contains.
+fastgeoapi's document refers to the `TileSetsList` response of OGC API -
+Tiles instead, so the list validates against the published OpenAPI and
+against the MCP tools alike.
 
 **A tile archive may not hold every zoom.** Tiles come from PMTiles
 archives, and an archive is free to hold a narrow range: the demo's
