@@ -22,6 +22,7 @@ import httpx2
 from fastmcp import FastMCP
 from loguru import logger
 
+from app.mcp.annotations import annotate_component
 from app.mcp.route_maps import openapi_route_maps
 
 
@@ -75,7 +76,11 @@ def refresh_tools(
 
     resolved = fix_resolved_document(resolve_external_refs(openapi_spec, cache_dir=cache_dir))
     rebuilt = FastMCP.from_openapi(
-        openapi_spec=resolved, client=client, name=name, route_maps=openapi_route_maps()
+        openapi_spec=resolved,
+        client=client,
+        name=name,
+        route_maps=openapi_route_maps(),
+        mcp_component_fn=annotate_component,
     )
     # `providers` is a plain list on FastMCP 4 (checked through 4.0.3)
     # and not a declared contract; tests/test_mcp_tool_refresh.py guards
