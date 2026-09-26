@@ -32,13 +32,14 @@ dependencies = [
     "json-ref-dict>=0.7.2,<=1.0",
     "pyyaml>=6.0.2,<7",
     "scalar-fastapi>=1.4.3,<2",
-    # 4.0.3 rather than 4.0.0: the first stable release whose OpenAPI
-    # tools stop inferring an output schema for unconstrained sequences.
-    # `fastmcp` is a thin package that depends on `fastmcp-slim[client,
-    # server]` at the same version, so naming it alone is enough — the
-    # explicit `fastmcp-slim` line that lived here only existed to make
-    # the resolver see the 4.0 pre-releases.
-    "fastmcp>=4.0.3,<5",
+    # At least 4.0.10. 4.0.4 stops the OAuth proxy from accepting a token
+    # marked as an ID-JAG grant when identity assertions are not
+    # configured (PrefectHQ/fastmcp#5115), 4.0.6 rewrites the references
+    # inside `prefixItems` that the CQL2 tools carry, and 4.0.10 is the
+    # release the suite runs on. `fastmcp` is a thin package that depends
+    # on `fastmcp-slim[client, server]` at the same version, so naming it
+    # alone is enough.
+    "fastmcp>=4.0.10,<5",
     "obstore>=0.11.1,<0.12",
 ]
 
