@@ -37,6 +37,7 @@ from app.pygeoapi.api import patch_validate_datetime_overflow
 from app.pygeoapi.api_async import tiles as async_tiles
 from app.pygeoapi.openapi import (
     describe_tilesets,
+    drop_unfiltered_cql2_operations,
     drop_unused_tags,
     fix_conformance_and_collections_responses,
     fix_queryables_response_schema,
@@ -131,6 +132,7 @@ def build_openapi(config: dict) -> dict:
     doc = get_oas(normalize_config(config))
     fix_queryables_response_schema(doc)
     fix_conformance_and_collections_responses(doc)
+    drop_unfiltered_cql2_operations(doc, config)
     describe_tilesets(doc)
     drop_unused_tags(doc)
     return doc

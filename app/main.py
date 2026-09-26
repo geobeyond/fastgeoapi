@@ -418,7 +418,7 @@ def create_mcp_server(
         - well_known_routes are the OAuth discovery routes to mount at root level
         - api_client is the httpx2.AsyncClient used by MCP (for lifecycle management)
     """
-    from app.pygeoapi.openapi import type_execute_request_maps
+    from app.pygeoapi.openapi import fix_resolved_document
     from app.utils.openapi_resolver import resolve_external_refs
 
     base_spec = openapi_spec if openapi_spec is not None else _pygeoapi_openapi
@@ -426,7 +426,7 @@ def create_mcp_server(
     # Resolve external $ref references with disk caching
     cache_dir = _openapi_cache_dir()
     logger.info("Resolving external OpenAPI references...")
-    openapi_spec = type_execute_request_maps(resolve_external_refs(base_spec, cache_dir=cache_dir))
+    openapi_spec = fix_resolved_document(resolve_external_refs(base_spec, cache_dir=cache_dir))
     logger.info("OpenAPI references resolved successfully")
 
     # When no client is provided, build a default that routes MCP→pygeoapi
