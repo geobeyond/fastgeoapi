@@ -1,3 +1,18 @@
+## v0.3.0 (2026-09-27)
+
+### Features
+
+- **mcp**: give the tileset tools names that FastMCP does not cut
+- **mcp**: annotate the generated tools and title them from the summaries
+- **mcp**: report the fastgeoapi version, the API address and instructions
+
+### Fixes
+
+- **openapi**: describe the tileset list with the OGC response
+- **deps**: require fastmcp 4.0.10 for the ID-JAG token fix
+- **openapi**: allow unlocated features and drop CQL2 where nothing filters
+- **openapi**: make two generated tool schemas match what the server does
+
 ## v0.2.0 (2026-09-22)
 
 ### Features
