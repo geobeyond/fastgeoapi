@@ -30,6 +30,7 @@ from app.config.app import configuration as cfg
 from app.config.logging import create_logger, silence_probe_access_logs
 from app.interfaces.reload import ReloadManager, build_admin_app
 from app.mcp.annotations import annotate_component
+from app.mcp.names import tool_names
 from app.mcp.route_maps import openapi_route_maps
 from app.middleware.mcp_identity import MCPClientIdentityMiddleware
 from app.middleware.oauth2 import Oauth2Middleware
@@ -525,6 +526,7 @@ def create_mcp_server(
         auth=auth,
         route_maps=openapi_route_maps(),
         mcp_component_fn=annotate_component,
+        mcp_names=tool_names(openapi_spec),
         # The handshake reports the fastgeoapi version and the API
         # address, the same two values the server card publishes, and the
         # instructions the client hands to the model.
