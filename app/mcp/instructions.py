@@ -23,6 +23,7 @@ only for collections whose data source applies the filter.
 Processes are listed by getProcesses and run with execute<Process>Job, \
 which takes the process inputs in an object named inputs. When the \
 server runs a process asynchronously, follow the job with getJob and \
-getJobResults. Tile collections have tools that describe their \
-tilesets; the tiles themselves are not tools.
+getJobResults. On a tile collection, get<Collection>TileSets lists its \
+tilesets and get<Collection>TileSet describes one; the tiles themselves \
+are not tools.
 """

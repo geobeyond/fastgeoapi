@@ -127,6 +127,17 @@ If OGC API - Processes is enabled in your pygeoapi configuration (names below ar
 | `getJobs` / `getJob`         | List jobs / get the status of a job       |
 | `getJobResults`              | Get the results of a completed job        |
 
+### OGC API - Tiles Tools
+
+If a collection serves tiles (names below are for the demo `lazio-roads-tiles` collection):
+
+| Tool                           | Description                                     |
+| ------------------------------ | ----------------------------------------------- |
+| `getLazio_roads_tilesTileSets` | List the tilesets of the collection             |
+| `getLazio_roads_tilesTileSet`  | Describe one tileset, given its tile matrix set |
+
+The tiles themselves are not tools, since a model cannot use a binary tile. pygeoapi takes the `operationId`s of these two operations from OGC API - Tiles and puts the collection in front: `describeLazio-roads-tiles.collection.vector.getTileSetsList` has 59 characters, and FastMCP cuts tool names at 56. fastgeoapi names them after `get<Collection>Features` and `get<Collection>Feature` instead.
+
 ### Example Tool Usage
 
 When using Claude Desktop with the MCP server, you can ask questions like:
