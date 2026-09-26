@@ -94,9 +94,15 @@ handshake, down to `2024-11-05`. The mode is negotiated per connection,
 so clients on either side of the change work without configuration.
 
 The version you actually get is the one your client asks for. Observed
-in production: Claude's connector negotiates `2025-11-25`, and the
-server answers on that version — not a downgrade, just the handshake
-doing its job.
+in production on 23 September 2026: Claude's connector
+(`Anthropic/Toolbox 1.0.0`) negotiates `2026-07-28`, and the server
+answers on that version.
+
+On either protocol the server reports the fastgeoapi version and the
+address of the API in `serverInfo`, the same two values the server card
+publishes. It also sends instructions, which the client passes to the
+model: how the tool names are formed, where to start, and which tools
+exist only for some collections.
 
 Before FastMCP 4 a client that defaulted to `2026-07-28` with no
 fallback was answered with `Bad Request: Unsupported protocol version`

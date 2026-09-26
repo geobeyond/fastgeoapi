@@ -418,6 +418,8 @@ def create_mcp_server(
         - well_known_routes are the OAuth discovery routes to mount at root level
         - api_client is the httpx2.AsyncClient used by MCP (for lifecycle management)
     """
+    from app.mcp.card import fastgeoapi_version
+    from app.mcp.instructions import SERVER_INSTRUCTIONS
     from app.pygeoapi.openapi import fix_resolved_document
     from app.utils.openapi_resolver import resolve_external_refs
 
@@ -521,6 +523,12 @@ def create_mcp_server(
         name="OGC API MCP",
         auth=auth,
         route_maps=openapi_route_maps(),
+        # The handshake reports the fastgeoapi version and the API
+        # address, the same two values the server card publishes, and the
+        # instructions the client hands to the model.
+        version=fastgeoapi_version(),
+        website_url=f"{_public_base_url().rstrip('/')}{cfg.FASTGEOAPI_CONTEXT}",
+        instructions=SERVER_INSTRUCTIONS,
     )
 
     # Make requests attributable to a client. Neither the User-Agent nor
