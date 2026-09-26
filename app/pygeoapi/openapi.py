@@ -1,7 +1,16 @@
 """Override vanilla openapi module."""
 
+import importlib
+
 import yaml
-from openapi_pydantic.v3.v3_0 import OpenAPI, SecurityScheme
+from openapi_pydantic.v3.v3_0 import (
+    DataType,
+    OpenAPI,
+    Reference,
+    RequestBody,
+    Schema,
+    SecurityScheme,
+)
 from pydantic_core import ValidationError
 from pygeoapi.openapi import generate_openapi_document as _upstream_generate_openapi_document
 
@@ -205,17 +214,16 @@ def fix_conformance_and_collections_responses(doc: dict) -> dict:
     return doc
 
 
-def _local_target(doc: dict, node):
-    """Follow a local ``#/...`` reference, or return the node as it is."""
-    while isinstance(node, dict) and str(node.get("$ref", "")).startswith("#/"):
-        target = doc
-        for part in node["$ref"][2:].split("/"):
-            target = target.get(part.replace("~1", "/").replace("~0", "~"), {})
-        node = target
+def _dereference(openapi: OpenAPI, node):
+    """Follow a local ``#/components/...`` reference, or return the node as it is."""
+    while isinstance(node, Reference) and node.ref.startswith("#/components/"):
+        _, _, section, name = node.ref.split("/", 3)
+        entries = getattr(openapi.components, section, None) or {}
+        node = entries.get(name.replace("~1", "/").replace("~0", "~"))
     return node
 
 
-def type_execute_request_maps(doc: dict) -> dict:
+def type_execute_request_maps(openapi: OpenAPI) -> OpenAPI:
     """Declare ``inputs`` and ``outputs`` of an execute request as objects.
 
     The OGC API - Processes ``execute.yaml`` describes both as maps,
@@ -229,25 +237,162 @@ def type_execute_request_maps(doc: dict) -> dict:
     ``properties`` and no ``type``. Remove once the OGC schema declares
     the type.
     """
-    for path, item in doc.get("paths", {}).items():
-        if not path.endswith("/execution") or not isinstance(item, dict):
+    for path, item in (openapi.paths or {}).items():
+        if not path.endswith("/execution") or item.post is None:
             continue
-        body = _local_target(doc, item.get("post", {}).get("requestBody"))
-        if not isinstance(body, dict):
+        body = _dereference(openapi, item.post.requestBody)
+        if not isinstance(body, RequestBody):
             continue
-        schema = _local_target(
-            doc, body.get("content", {}).get("application/json", {}).get("schema")
-        )
-        if not isinstance(schema, dict):
+        media = body.content.get("application/json")
+        schema = _dereference(openapi, media.media_type_schema if media else None)
+        if not isinstance(schema, Schema) or not schema.properties:
             continue
         for name in ("inputs", "outputs"):
-            prop = _local_target(doc, schema.get("properties", {}).get(name))
+            prop = _dereference(openapi, schema.properties.get(name))
             if (
-                isinstance(prop, dict)
-                and "type" not in prop
-                and ("additionalProperties" in prop or "properties" in prop)
+                isinstance(prop, Schema)
+                and prop.type is None
+                and (prop.additionalProperties is not None or prop.properties)
             ):
-                prop["type"] = "object"
+                prop.type = DataType.OBJECT
+    return openapi
+
+
+def allow_unlocated_features(openapi: OpenAPI) -> OpenAPI:
+    """Let the geometry of a GeoJSON feature be ``null``.
+
+    The OGC ``featureGeoJSON.yaml`` of Features Part 1 requires a
+    ``geometry``, while RFC 7946 section 3.2 allows ``null`` for a feature
+    that has no location. pygeoapi returns ``null`` when a request asks
+    for ``skipGeometry=true``, and on the demo the Claude connector
+    rejected those results against the tool's output schema. FastMCP
+    turns ``nullable: true`` next to ``allOf`` into ``anyOf`` with
+    ``null`` and drops it next to a bare ``$ref``, so a referenced
+    geometry becomes ``allOf: [$ref]`` plus ``nullable: true``.
+
+    The function looks only at ``components.schemas``. The resolver
+    moves the schemas of the remote OGC documents there, and in the
+    resolved document the feature schema is
+    ``ogcapi-features-1__featureGeoJSON``. The call with
+    ``skipGeometry=true`` in ``tests/test_mcp_tool_schemas.py`` fails if
+    that stops being true. Remove once the OGC schema allows a null
+    geometry.
+    """
+    schemas = openapi.components.schemas if openapi.components else None
+    for schema in (schemas or {}).values():
+        if not isinstance(schema, Schema) or not schema.properties:
+            continue
+        kind = schema.properties.get("type")
+        if not (isinstance(kind, Schema) and kind.enum == ["Feature"]):
+            continue
+        geometry = schema.properties.get("geometry")
+        if isinstance(geometry, Reference):
+            schema.properties["geometry"] = Schema(allOf=[geometry], nullable=True)
+        elif isinstance(geometry, Schema):
+            geometry.nullable = True
+    return openapi
+
+
+def fix_resolved_document(doc: dict) -> dict:
+    """Apply the corrections that need the remote references resolved.
+
+    Every MCP server built from our document (runtime, reload, editor
+    preview) calls this on the output of ``resolve_external_refs``, so the
+    three agree on the tool schemas. The document goes through the
+    openapi-pydantic model once: validated, corrected, then dumped with
+    ``exclude_unset`` so that nothing the corrections did not touch
+    changes, defaults included.
+    """
+    openapi = OpenAPI.model_validate(doc)
+    type_execute_request_maps(openapi)
+    allow_unlocated_features(openapi)
+    return openapi.model_dump(mode="json", by_alias=True, exclude_unset=True)
+
+
+#: Provider classes whose ``query`` applies the CQL2 filter it receives
+#: as ``filterq``, checked against pygeoapi 0.24. The other bundled
+#: providers accept the argument and ignore it.
+CQL2_FILTERING_PROVIDERS = frozenset(
+    {
+        "pygeoapi.provider.sql.GenericSQLProvider",
+        "pygeoapi.provider.sql.PostgreSQLProvider",
+        "pygeoapi.provider.sql.MySQLProvider",
+        "pygeoapi.provider.elasticsearch_.ElasticsearchProvider",
+        "pygeoapi.provider.elasticsearch_.ElasticsearchCatalogueProvider",
+        "pygeoapi.provider.opensearch_.OpenSearchProvider",
+        "pygeoapi.provider.opensearch_.OpenSearchCatalogueProvider",
+        "pygeoapi.provider.oracle.OracleProvider",
+        "app.provider.geoparquet.GeoParquetProvider",
+    }
+)
+
+
+def _provider_filters_cql2(name: str) -> bool:
+    """Say whether the configured provider applies a CQL2 filter.
+
+    The name is resolved the way pygeoapi's ``load_plugin`` does: a short
+    name through the plugin registry, anything else as a dotted path. A
+    class that is not in ``CQL2_FILTERING_PROVIDERS`` still counts when
+    one of its bases is, so a subclass of the SQL provider keeps the
+    operation. The known classes are matched by name, without importing
+    their modules and the database drivers they need.
+    """
+    from pygeoapi.plugin import PLUGINS
+
+    dotted = PLUGINS["provider"].get(name, name)
+    if dotted in CQL2_FILTERING_PROVIDERS:
+        return True
+    module_name, _, class_name = dotted.rpartition(".")
+    if not module_name:
+        return False
+    try:
+        cls = getattr(importlib.import_module(module_name), class_name)
+    except (ImportError, AttributeError):
+        return False
+    return any(
+        f"{base.__module__}.{base.__qualname__}" in CQL2_FILTERING_PROVIDERS
+        for base in getattr(cls, "__mro__", ())
+    )
+
+
+def _items_provider(resource: dict) -> dict | None:
+    """The provider pygeoapi uses for the items of a collection.
+
+    ``get_oas_30`` takes the first ``record`` provider when there is one,
+    otherwise the first ``feature`` provider.
+    """
+    providers = resource.get("providers") or []
+    for provider_type in ("record", "feature"):
+        for provider in providers:
+            if isinstance(provider, dict) and provider.get("type") == provider_type:
+                return provider
+    return None
+
+
+def drop_unfiltered_cql2_operations(doc: dict, config: dict) -> dict:
+    """Describe the CQL2 operation only where the provider filters.
+
+    pygeoapi writes ``POST /collections/{id}/items`` with a CQL2 JSON body
+    for every feature and record collection (``api/itemtypes.py``, 0.24).
+    Providers that do not use ``filterq``, CSV and GeoJSON among them,
+    answer that request with the whole collection, and an MCP agent that
+    calls the generated tool takes the result as filtered. This removes
+    the operation for those collections. An editable provider keeps it,
+    because the same ``POST`` adds a feature. Remove once pygeoapi writes
+    the operation according to what the provider supports.
+    """
+    paths = doc.get("paths", {})
+    for name, resource in (config.get("resources") or {}).items():
+        if not isinstance(resource, dict) or resource.get("type") != "collection":
+            continue
+        item = paths.get(f"/collections/{name}/items")
+        if not isinstance(item, dict) or "post" not in item:
+            continue
+        provider = _items_provider(resource)
+        if provider is None or provider.get("editable", False):
+            continue
+        if not _provider_filters_cql2(str(provider.get("name", ""))):
+            del item["post"]
     return doc
 
 

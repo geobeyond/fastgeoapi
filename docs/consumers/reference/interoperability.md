@@ -99,6 +99,14 @@ one, enables filter pushdown only when both classes are present, so a
 subset set on the layer produces no request at all. If your client
 negotiates on the declaration, expect to filter locally.
 
+The filter works only where the provider applies it. The GeoParquet,
+SQL, Elasticsearch, OpenSearch and Oracle providers do; CSV and GeoJSON
+accept a filter and return the whole collection. The OpenAPI document,
+and the MCP tools generated from it, therefore describe the CQL2
+`POST /collections/{id}/items` only for collections served by a provider
+that filters: on the demo `overture-places` and `lazio-roads`, not
+`lakes` or `obs`.
+
 **Two places where the published OpenAPI does not describe the
 response.** A harness that validates against the document will reject
 correct answers:
@@ -110,10 +118,13 @@ correct answers:
   allows and the declared `featureGeoJSON` schema forbids, since its
   `geometry` is a `oneOf` over the seven geometry types with no null.
 
-Both are upstream schema defects rather than server faults. If your
-harness validates structured output — an MCP client does — it will
-discard good responses; validate the data, not the document, until they
-are fixed.
+Both are upstream schema defects rather than server faults. The MCP
+tools carry a corrected schema for the second: fastgeoapi lets the
+feature geometry be `null` in the document it generates the tools from.
+The published OpenAPI still references the OGC schema, so a harness that
+validates against it rejects those responses, and so does one that
+checks the tileset list in either place. Validate the data, not the
+document, until they are fixed.
 
 **A tile archive may not hold every zoom.** Tiles come from PMTiles
 archives, and an archive is free to hold a narrow range: the demo's
