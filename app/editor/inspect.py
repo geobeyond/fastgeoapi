@@ -285,6 +285,7 @@ def _mcp_tools(openapi: dict) -> list[str]:
     import httpx2
     from fastmcp import FastMCP
 
+    from app.mcp.annotations import annotate_component
     from app.mcp.route_maps import openapi_route_maps
     from app.pygeoapi.openapi import fix_resolved_document
     from app.utils.openapi_resolver import resolve_external_refs
@@ -299,6 +300,7 @@ def _mcp_tools(openapi: dict) -> list[str]:
                 client=client,
                 name="preview",
                 route_maps=openapi_route_maps(),
+                mcp_component_fn=annotate_component,
             )
             return [tool.name for tool in await server.list_tools()]
 
