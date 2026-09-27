@@ -26,6 +26,7 @@ import pygeoapi.api.stac as stac_api
 import pygeoapi.api.tiles as tiles_api
 from openapi_pydantic.v3.v3_0 import OpenAPI
 from pygeoapi.api import API, APIRequest, apply_gzip
+from pygeoapi.formats import F_JSON
 from pygeoapi.openapi import get_oas
 from pygeoapi.util import get_api_rules
 from starlette.applications import Starlette
@@ -209,6 +210,26 @@ def _path_param(request: Request, name: str):
     return request.path_params.get(name)
 
 
+def _collection_tiles_metadata(
+    api: API, request: APIRequest, dataset: str | None, matrix_id: str | None
+) -> tuple:
+    """pygeoapi's tileset description, in JSON when the request asks for no format.
+
+    With no ``f`` and an ``Accept`` that pygeoapi does not map to a format,
+    httpx's ``*/*`` among them, the format is empty. pygeoapi answers such
+    requests in JSON elsewhere (``api/__init__.py:421``, 0.24), but
+    ``get_collection_tiles_metadata`` hands the empty value to the tile
+    provider, which calls ``.upper()`` on it (``api/tiles.py:321``,
+    ``provider/base_mvt.py:205``). Such a request fails with a 500, and it
+    is exactly what the MCP tool of a single tileset sends. Setting the
+    format here is what pygeoapi itself does in ``api/stac.py:247``. Remove
+    once fixed upstream in pygeoapi.
+    """
+    if not request._format:
+        request._format = F_JSON
+    return tiles_api.get_collection_tiles_metadata(api, request, dataset, matrix_id)
+
+
 def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
     """The route table, closed over the ``api`` instance.
 
@@ -272,7 +293,7 @@ def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
     async def collection_tiles_metadata(request: Request) -> Response:
         return await execute(
             api,
-            tiles_api.get_collection_tiles_metadata,
+            _collection_tiles_metadata,
             request,
             _path_param(request, "collection_id"),
             _path_param(request, "tileMatrixSetId"),
