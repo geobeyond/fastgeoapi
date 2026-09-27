@@ -1,15 +1,17 @@
 """Override vanilla openapi module."""
 
-import importlib
-
 import yaml
 from openapi_pydantic.v3.v3_0 import (
     DataType,
+    MediaType,
     OpenAPI,
     Operation,
+    Parameter,
+    ParameterLocation,
     PathItem,
     Reference,
     RequestBody,
+    Response,
     Schema,
     SecurityScheme,
 )
@@ -422,15 +424,13 @@ def _provider_filters_cql2(name: str) -> bool:
     """
     from pygeoapi.plugin import PLUGINS
 
+    from app.pygeoapi.plugin import resolve_provider_class
+
     dotted = PLUGINS["provider"].get(name, name)
     if dotted in CQL2_FILTERING_PROVIDERS:
         return True
-    module_name, _, class_name = dotted.rpartition(".")
-    if not module_name:
-        return False
-    try:
-        cls = getattr(importlib.import_module(module_name), class_name)
-    except (ImportError, AttributeError):
+    cls = resolve_provider_class(dotted)
+    if cls is None:
         return False
     return any(
         f"{base.__module__}.{base.__qualname__}" in CQL2_FILTERING_PROVIDERS
@@ -531,6 +531,58 @@ def describe_tilesets(openapi: OpenAPI) -> OpenAPI:
                 responses=responses,
             )
         )
+    return openapi
+
+
+def fix_map_operations(openapi: OpenAPI, config: dict) -> OpenAPI:
+    """Give each map path its own id, an image response and, with styles, its styled path.
+
+    pygeoapi writes ``operationId: getMap`` for the map path of every
+    collection (``api/maps.py``, ``get_oas_30``, 0.24), while OpenAPI
+    wants the ids unique; it describes the 200 as ``application/json``
+    for what is an image; and it routes
+    ``/collections/{id}/styles/{styleId}/map`` without writing it. The id
+    follows pygeoapi's own ``get<Collection>Features`` form, the
+    response takes the provider's format, and the styled path is written
+    only for a provider with ``options.styles``. Remove once fixed
+    upstream in pygeoapi.
+    """
+    paths = openapi.paths or {}
+    for name, resource in (config.get("resources") or {}).items():
+        item = paths.get(f"/collections/{name}/map")
+        providers = (resource.get("providers") or []) if isinstance(resource, dict) else []
+        provider = next(
+            (p for p in providers if isinstance(p, dict) and p.get("type") == "map"), None
+        )
+        if item is None or item.get is None or provider is None:
+            continue
+        operation = item.get
+        operation.operationId = f"get{name.capitalize()}Map"
+        mimetype = (provider.get("format") or {}).get("mimetype", "image/png")
+        ok = operation.responses.get("200")
+        if isinstance(ok, Response):
+            ok.content = {mimetype: MediaType()}
+        styles = ((provider.get("options") or {}).get("styles")) or {}
+        target = f"/collections/{name}/styles/{{styleId}}/map"
+        if styles and target not in paths:
+            paths[target] = PathItem(
+                get=Operation(
+                    tags=list(operation.tags or []),
+                    summary="Get a styled map",
+                    description=operation.description or "",
+                    operationId=f"get{name.capitalize()}StyledMap",
+                    parameters=[
+                        Parameter(
+                            name="styleId",
+                            param_in=ParameterLocation.PATH,
+                            required=True,
+                            param_schema=Schema(type=DataType.STRING, enum=sorted(styles)),
+                        ),
+                        *(operation.parameters or []),
+                    ],
+                    responses=dict(operation.responses),
+                )
+            )
     return openapi
 
 

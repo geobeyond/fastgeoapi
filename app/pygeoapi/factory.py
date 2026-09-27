@@ -36,6 +36,7 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from app.pygeoapi.api import patch_validate_datetime_overflow
+from app.pygeoapi.api_async import maps as async_maps
 from app.pygeoapi.api_async import tiles as async_tiles
 from app.pygeoapi.openapi import (
     describe_tilesets,
@@ -43,6 +44,7 @@ from app.pygeoapi.openapi import (
     drop_unused_tags,
     dump_openapi,
     fix_conformance_and_collections_responses,
+    fix_map_operations,
     fix_queryables_response_schema,
     fix_tileset_list_response,
 )
@@ -144,6 +146,7 @@ def build_openapi(config: dict) -> dict:
     drop_unfiltered_cql2_operations(openapi, config)
     fix_tileset_list_response(openapi)
     describe_tilesets(openapi)
+    fix_map_operations(openapi, config)
     drop_unused_tags(openapi)
     return dump_openapi(openapi, like=generated)
 
@@ -407,14 +410,31 @@ def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
             skip_valid_check=True,
         )
 
+    # Which collections have a natively async map provider, probed once
+    # per collection like the tile providers above.
+    map_natives: dict[str, tuple | None] = {}
+
     async def collection_map(request: Request) -> Response:
-        return await execute(
-            api,
-            maps_api.get_collection_map,
-            request,
-            _path_param(request, "collection_id"),
-            _path_param(request, "style_id"),
-        )
+        dataset = _path_param(request, "collection_id")
+        style = _path_param(request, "style_id")
+        if dataset in map_natives:
+            probe = map_natives[dataset]
+        else:
+            probe = await asyncio.to_thread(async_maps.native_map_provider, api, dataset)
+            if dataset in api.config["resources"]:
+                map_natives[dataset] = probe
+        if probe is None:
+            return await execute(api, maps_api.get_collection_map, request, dataset, style)
+        api_request = await APIRequest.from_starlette(request, api.locales)
+        if not api_request.is_valid():
+            headers, status, content = api.get_format_exception(api_request)
+        else:
+            headers, status, content = await async_maps.get_collection_map(
+                api, api_request, dataset, style, *probe
+            )
+        if status != HTTPStatus.NO_CONTENT:
+            content = apply_gzip(headers, content)
+        return _to_response(headers, status, content)
 
     async def get_processes(request: Request) -> Response:
         return await execute(
@@ -566,16 +586,21 @@ def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
                 collection_coverage,
             ),
         ),
-        (
-            "maps",
-            Route("/collections/{collection_id:path}/map", collection_map),
-        ),
+        # The styled path comes first: `{collection_id:path}` is greedy, and
+        # after the plain `/map` it would swallow `roads/styles/night` as a
+        # collection id. pygeoapi lists them the other way round
+        # (`starlette_app.py:733-734`, 0.24), so in pygeoapi no styled map
+        # is ever reached.
         (
             "maps",
             Route(
                 "/collections/{collection_id:path}/styles/{style_id:path}/map",
                 collection_map,
             ),
+        ),
+        (
+            "maps",
+            Route("/collections/{collection_id:path}/map", collection_map),
         ),
         ("processes", Route("/processes", get_processes)),
         ("processes", Route("/processes/{process_id}", get_processes)),
