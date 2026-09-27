@@ -30,6 +30,7 @@ from app.config.app import configuration as cfg
 from app.config.logging import create_logger, silence_probe_access_logs
 from app.interfaces.reload import ReloadManager, build_admin_app
 from app.mcp.annotations import annotate_component
+from app.mcp.maps import add_map_tools
 from app.mcp.names import tool_names
 from app.mcp.route_maps import openapi_route_maps
 from app.middleware.mcp_identity import MCPClientIdentityMiddleware
@@ -534,6 +535,7 @@ def create_mcp_server(
         website_url=f"{_public_base_url().rstrip('/')}{cfg.FASTGEOAPI_CONTEXT}",
         instructions=SERVER_INSTRUCTIONS,
     )
+    add_map_tools(mcp_server, openapi_spec, api_client)
 
     # Make requests attributable to a client. Neither the User-Agent nor
     # the source address can do it — see the middleware module for why.

@@ -23,7 +23,9 @@ only for collections whose data source applies the filter.
 Processes are listed by getProcesses and run with execute<Process>Job, \
 which takes the process inputs in an object named inputs. When the \
 server runs a process asynchronously, follow the job with getJob and \
-getJobResults. On a tile collection, get<Collection>TileSets lists its \
-tilesets and get<Collection>TileSet describes one; the tiles themselves \
-are not tools.
+getJobResults. A collection that serves maps has a get<Collection>Map \
+tool, which returns a PNG of a bbox given in longitude and latitude, \
+512 pixels a side unless you ask otherwise. On a tile collection, \
+get<Collection>TileSets lists its tilesets and get<Collection>TileSet \
+describes one; the tiles themselves are not tools.
 """
