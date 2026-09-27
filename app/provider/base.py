@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable, Coroutine
+from datetime import timedelta
 from functools import cached_property
 from typing import Any, ClassVar
 
@@ -122,6 +123,17 @@ class StorageBackedMixin:
         """The key of the ``data`` object within :attr:`store`."""
         _, key = split_source(self._captured_provider_def()["data"])
         return key
+
+    def signed_url(self, expires_in: timedelta) -> str:
+        """A presigned URL of the ``data`` object, for a reader outside this process.
+
+        The reader fetches the object over HTTP with the URL alone, and the
+        credentials stay with the store.
+        """
+        sign = getattr(self.store, "sign", None)
+        if sign is None:
+            raise TypeError(f"{type(self.store).__name__} cannot sign URLs")
+        return sign(self.object_key, expires_in)
 
     def _captured_provider_def(self) -> dict:
         provider_def = getattr(self, "provider_def", None)

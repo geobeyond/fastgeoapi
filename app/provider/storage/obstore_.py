@@ -9,7 +9,10 @@ this module reduces both to the contract shapes (bytes,
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import timedelta
 from typing import Any
+
+import obstore
 
 from app.provider.storage.base import ObjectMeta
 
@@ -30,6 +33,14 @@ class ObstoreStore:
         place that knows how the store was built.
         """
         return self._store
+
+    def sign(self, path: str, expires_in: timedelta) -> str:
+        """A presigned GET URL for ``path``, valid for ``expires_in``.
+
+        Only the cloud stores sign: obstore raises ``ValueError`` for a
+        local or in-memory store.
+        """
+        return obstore.sign(self._store, "GET", path, expires_in)
 
     def get(self, path: str) -> bytes:
         """Read the whole object as bytes."""
