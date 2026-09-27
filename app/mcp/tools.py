@@ -23,6 +23,7 @@ from fastmcp import FastMCP
 from loguru import logger
 
 from app.mcp.annotations import annotate_component
+from app.mcp.maps import add_map_tools
 from app.mcp.names import tool_names
 from app.mcp.route_maps import openapi_route_maps
 
@@ -84,6 +85,7 @@ def refresh_tools(
         mcp_component_fn=annotate_component,
         mcp_names=tool_names(resolved),
     )
+    add_map_tools(rebuilt, resolved, client)
     # `providers` is a plain list on FastMCP 4 (checked through 4.0.3)
     # and not a declared contract; tests/test_mcp_tool_refresh.py guards
     # the shape so an upgrade that changes it fails loudly instead of

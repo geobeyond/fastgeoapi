@@ -37,6 +37,11 @@ def _slug(text: str) -> str:
     return re.sub(r"_+", "_", slug).strip("_")
 
 
+def fastmcp_name(name: str) -> str:
+    """The tool name FastMCP would give an operation called ``name``."""
+    return _slug(name)[:MAX_NAME_LENGTH]
+
+
 def tool_names(openapi_spec: dict) -> dict[str, str]:
     """The ``mcp_names`` to pass to ``FastMCP.from_openapi``.
 
