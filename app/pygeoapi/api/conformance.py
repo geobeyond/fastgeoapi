@@ -27,6 +27,8 @@ from pygeoapi.api import (
 )
 from pygeoapi.util import render_j2_template
 
+from app.pygeoapi.plugin import resolve_provider_class
+
 if TYPE_CHECKING:
     from pygeoapi.api import API, APIRequest
 
@@ -67,6 +69,7 @@ class ResourceConfig:
     resource_type: str
     provider_types: tuple[str, ...]
     has_editable_provider: bool = False
+    provider_names: tuple[str, ...] = ()
 
     @classmethod
     def from_config_dict(cls, name: str, config: dict) -> ResourceConfig:
@@ -79,6 +82,7 @@ class ResourceConfig:
             resource_type=resource_type,
             provider_types=provider_types,
             has_editable_provider=any(p.get("editable", False) for p in providers),
+            provider_names=tuple(p.get("name", "") for p in providers),
         )
 
 
@@ -155,6 +159,9 @@ def build_conformance_list(
                     provider_type, apis_dict, itemtypes_module
                 )
                 conformance_set.update(provider_classes)
+            for provider_name in resource.provider_names:
+                declared = getattr(resolve_provider_class(provider_name), "conformance_classes", ())
+                conformance_set.update(declared or ())
 
     if has_pubsub:
         conformance_set.update(apis_dict["pubsub"].CONFORMANCE_CLASSES)

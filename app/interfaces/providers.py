@@ -59,3 +59,14 @@ class AsyncFeatureProvider(Protocol):
     async def aget(self, identifier: Any, **kwargs: Any) -> dict:
         """The async twin of ``get``."""
         ...
+
+
+@runtime_checkable
+class AsyncMapProvider(Protocol):
+    """A map provider that can be awaited for a rendered map."""
+
+    native_async: ClassVar[bool]
+
+    async def aquery(self, **kwargs: Any) -> bytes:
+        """The async twin of ``query``: same keyword arguments, the image bytes."""
+        ...

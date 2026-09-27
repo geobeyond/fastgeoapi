@@ -1,0 +1,345 @@
+"""The map provider: styles, limits and errors, with a renderer that draws nothing."""
+
+import asyncio
+from http import HTTPStatus
+
+import pytest
+
+from tests.maps_fixtures import FakeRenderer, map_provider
+from tests.pmtiles_fixtures import TILE_BYTES, write_archive
+
+ROME = (1379000.0, 5140000.0, 1403000.0, 5160000.0)  # EPSG:3857 metres
+WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
+
+
+@pytest.fixture
+def archive(tmp_path):
+    return write_archive(
+        tmp_path / "roads.pmtiles",
+        {(0, 0, 0): TILE_BYTES(0, 0, 0)},
+        metadata={"name": "roads", "vector_layers": [{"id": "roads"}]},
+    )
+
+
+@pytest.fixture(autouse=True)
+def _fresh_fakes():
+    FakeRenderer.instances.clear()
+    FakeRenderer.gate = None
+    yield
+    FakeRenderer.instances.clear()
+
+
+def _provider(archive, **options):
+    from app.provider.maplibre import MapLibreMapProvider
+
+    return MapLibreMapProvider(map_provider(archive, **options))
+
+
+async def _map(provider, **kwargs):
+    args = {"bbox": list(ROME), "width": 64, "height": 64, "crs": WEB_MERCATOR}
+    return await provider.aquery(**{**args, **kwargs})
+
+
+async def _until(condition, timeout=2.0):
+    """Wait for a state of the provider instead of guessing how long it takes."""
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+    while not condition():
+        assert loop.time() < deadline, "the provider never reached the expected state"
+        await asyncio.sleep(0.005)
+
+
+@pytest.mark.asyncio
+async def test_a_map_is_drawn_from_the_archive(archive):
+    png = await _map(_provider(archive))
+
+    (request,) = FakeRenderer.instances[0].requests
+    assert png.startswith(b"\x89PNG")
+    assert request.bbox == ROME
+    assert (request.width, request.height) == (64, 64)
+    assert request.style["sources"]["archive"]["url"] == f"pmtiles://file://{archive.resolve()}"
+
+
+@pytest.mark.asyncio
+async def test_the_constructor_reads_nothing(tmp_path):
+    """pygeoapi builds the provider while writing the OpenAPI document."""
+    _provider(tmp_path / "not-there.pmtiles")
+
+
+@pytest.mark.asyncio
+async def test_web_mercator_is_recognised_whatever_the_case(archive):
+    """pygeoapi's get_uri lowercases a CRS URI before it reaches the provider."""
+    png = await _map(_provider(archive), crs=WEB_MERCATOR.lower())
+
+    assert png.startswith(b"\x89PNG")
+
+
+@pytest.mark.asyncio
+async def test_an_https_archive_is_read_as_it_is(tmp_path):
+    from app.provider.maplibre import MapLibreMapProvider
+
+    style = tmp_path / "plain.json"
+    style.write_text('{"version": 8, "sources": {}, "layers": []}')
+    definition = map_provider(
+        tmp_path / "unused.pmtiles", styles={"plain": str(style)}, default_style="plain"
+    )
+    definition["data"] = "https://example.org/tiles/roads.pmtiles"
+
+    await _map(MapLibreMapProvider(definition))
+
+    (request,) = FakeRenderer.instances[0].requests
+    assert request.style["sources"]["archive"]["url"] == (
+        "pmtiles://https://example.org/tiles/roads.pmtiles"
+    )
+
+
+def test_a_public_bucket_needs_the_archive_url(tmp_path):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    from app.provider.maplibre import MapLibreMapProvider
+
+    definition = map_provider(tmp_path / "unused.pmtiles")
+    definition["data"] = "s3://overturemaps-extras-us-west-2/tiles/places.pmtiles"
+    definition["store_options"] = {"skip_signature": True}
+
+    with pytest.raises(ProviderGenericError) as error:
+        MapLibreMapProvider(definition)
+    assert "archive_url" in error.value.message
+
+
+@pytest.mark.asyncio
+async def test_a_signing_failure_is_a_provider_error(tmp_path):
+    from unittest.mock import patch
+
+    from pygeoapi.provider.base import ProviderGenericError
+
+    from app.provider.maplibre import MapLibreMapProvider
+
+    style = tmp_path / "plain.json"
+    style.write_text('{"version": 8, "sources": {}, "layers": []}')
+    definition = map_provider(
+        tmp_path / "unused.pmtiles", styles={"plain": str(style)}, default_style="plain"
+    )
+    definition["data"] = "s3://bucket/tiles/roads.pmtiles"
+    provider = MapLibreMapProvider(definition)
+
+    with patch.object(provider, "signed_url", side_effect=ValueError("cannot sign SECRET")):
+        with pytest.raises(ProviderGenericError) as error:
+            await _map(provider)
+    assert "SECRET" not in error.value.message
+
+
+def test_a_source_the_provider_cannot_read_is_refused(tmp_path):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    from app.provider.maplibre import MapLibreMapProvider
+
+    definition = map_provider(tmp_path / "roads.parquet")
+
+    with pytest.raises(ProviderGenericError) as error:
+        MapLibreMapProvider(definition)
+    assert "map source not supported" in error.value.message
+
+
+@pytest.mark.asyncio
+async def test_another_crs_is_a_bad_parameter(archive):
+    from app.provider.maplibre import MapParameterError
+
+    with pytest.raises(MapParameterError) as error:
+        await _map(_provider(archive), crs="http://www.opengis.net/def/crs/OGC/1.3/CRS84")
+    assert error.value.http_status_code == HTTPStatus.BAD_REQUEST
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("width", "height"), [(2000, 64), (64, 0)])
+async def test_the_size_is_limited(archive, width, height):
+    from app.provider.maplibre import MapParameterError
+
+    with pytest.raises(MapParameterError):
+        await _map(_provider(archive, max_size=1024), width=width, height=height)
+
+
+@pytest.mark.asyncio
+async def test_another_format_is_a_bad_parameter(archive):
+    from app.provider.maplibre import MapParameterError
+
+    with pytest.raises(MapParameterError):
+        await _map(_provider(archive), format_="jpeg")
+
+
+@pytest.mark.asyncio
+async def test_an_inverted_bbox_is_a_bad_parameter(archive):
+    from app.provider.maplibre import MapParameterError
+
+    with pytest.raises(MapParameterError):
+        await _map(_provider(archive), bbox=[ROME[2], ROME[1], ROME[0], ROME[3]])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("value", [False, "false", "False", "0"])
+async def test_transparent_false_keeps_the_background(archive, value):
+    await _map(_provider(archive), transparent=value)
+
+    (request,) = FakeRenderer.instances[0].requests
+    assert request.style["layers"][0]["type"] == "background"
+    assert request.transparent is False
+
+
+@pytest.mark.asyncio
+async def test_transparent_by_default_drops_the_background(archive):
+    await _map(_provider(archive))
+
+    (request,) = FakeRenderer.instances[0].requests
+    assert all(layer["type"] != "background" for layer in request.style["layers"])
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_style_is_not_found(archive):
+    from pygeoapi.provider.base import ProviderItemNotFoundError
+
+    with pytest.raises(ProviderItemNotFoundError):
+        await _map(_provider(archive), style="missing")
+
+
+@pytest.mark.asyncio
+async def test_a_named_style_is_used(archive, tmp_path):
+    style = tmp_path / "night.json"
+    style.write_text('{"version": 8, "sources": {}, "layers": [{"id": "n", "type": "background"}]}')
+
+    await _map(_provider(archive, styles={"night": str(style)}), style="night", transparent="false")
+
+    (request,) = FakeRenderer.instances[0].requests
+    assert request.style["layers"][0]["id"] == "n"
+
+
+@pytest.mark.asyncio
+async def test_a_full_queue_answers_503(archive):
+    from app.provider.maplibre import MapRendererBusyError
+
+    FakeRenderer.gate = asyncio.Event()
+    provider = _provider(archive, fake="gate", queue=1)
+    rendering = asyncio.create_task(_map(provider))
+    waiting = asyncio.create_task(_map(provider))
+    await _until(lambda: provider.waiting == 2)
+
+    with pytest.raises(MapRendererBusyError) as error:
+        await _map(provider)
+    assert error.value.http_status_code == HTTPStatus.SERVICE_UNAVAILABLE
+
+    FakeRenderer.gate.set()
+    await asyncio.gather(rendering, waiting)
+
+
+@pytest.mark.asyncio
+async def test_a_slow_render_answers_504_and_replaces_the_renderer(archive):
+    from app.provider.maplibre import MapRenderTimeoutError
+
+    provider = _provider(archive, fake="slow", timeout=0.05)
+    with pytest.raises(MapRenderTimeoutError) as error:
+        await _map(provider)
+    assert error.value.http_status_code == HTTPStatus.GATEWAY_TIMEOUT
+
+    await asyncio.sleep(0.01)
+    assert FakeRenderer.instances[0].closed
+    assert provider.renderer_is_built is False
+
+
+@pytest.mark.asyncio
+async def test_a_crash_answers_500_and_the_next_map_gets_a_new_renderer(archive):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    from app.provider.maplibre import MapRendererBusyError, MapRenderTimeoutError
+
+    provider = _provider(archive, fake="crash-once")
+    with pytest.raises(ProviderGenericError) as error:
+        await _map(provider)
+    assert not isinstance(error.value, (MapRendererBusyError, MapRenderTimeoutError))
+    assert error.value.http_status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+
+    png = await _map(provider)
+
+    assert png.startswith(b"\x89PNG")
+    assert len(FakeRenderer.instances) == 2
+    assert FakeRenderer.instances[0].closed
+
+
+@pytest.mark.asyncio
+async def test_any_renderer_failure_replaces_it_and_keeps_its_message_private(archive):
+    """A renderer may fail with anything; its message can carry a signed URL."""
+    from pygeoapi.provider.base import ProviderGenericError
+
+    provider = _provider(archive, fake="oserror-once")
+    with pytest.raises(ProviderGenericError) as error:
+        await _map(provider)
+    assert "SECRET" not in error.value.message
+    assert "SECRET" not in str(error.value)
+
+    png = await _map(provider)
+
+    assert png.startswith(b"\x89PNG")
+    assert len(FakeRenderer.instances) == 2
+
+
+@pytest.mark.asyncio
+async def test_the_renderer_is_built_once(archive):
+    provider = _provider(archive)
+    await _map(provider)
+    await _map(provider)
+
+    assert len(FakeRenderer.instances) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_missing_renderer_says_what_to_install(archive):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    with pytest.raises(ProviderGenericError) as error:
+        await _map(_provider(archive, renderer="app.maps.not_installed.create_renderer"))
+    assert "maps dependency group" in error.value.message
+
+
+@pytest.mark.asyncio
+async def test_the_sync_face_hands_the_map_to_the_loop(archive):
+    provider = _provider(archive)
+    await _map(provider)
+
+    png = await asyncio.to_thread(
+        provider.query, bbox=list(ROME), width=32, height=32, crs=WEB_MERCATOR
+    )
+
+    assert png.startswith(b"\x89PNG")
+
+
+@pytest.mark.asyncio
+async def test_close_leaves_no_renderer_behind_the_queued_maps(archive):
+    """A reload closes the provider while maps are still queued on it."""
+    FakeRenderer.gate = asyncio.Event()
+    provider = _provider(archive, fake="gate")
+    rendering = asyncio.create_task(_map(provider))
+    queued = asyncio.create_task(_map(provider))
+    await _until(lambda: provider.waiting == 2)
+
+    provider.close()
+    FakeRenderer.gate.set()
+    await asyncio.gather(rendering, queued)
+    late = await _map(provider)  # the old sub-app may still serve one more map
+
+    assert late.startswith(b"\x89PNG")
+    await _until(lambda: all(renderer.closed for renderer in FakeRenderer.instances))
+    assert provider.renderer_is_built is False
+
+
+@pytest.mark.asyncio
+async def test_close_waits_for_the_map_in_flight(archive):
+    FakeRenderer.gate = asyncio.Event()
+    provider = _provider(archive, fake="gate")
+    rendering = asyncio.create_task(_map(provider))
+    await _until(lambda: FakeRenderer.instances and FakeRenderer.instances[0].calls == 1)
+
+    provider.close()
+    await asyncio.sleep(0.01)
+    assert not FakeRenderer.instances[0].closed
+
+    FakeRenderer.gate.set()
+    await rendering
+    await _until(lambda: FakeRenderer.instances[0].closed)
