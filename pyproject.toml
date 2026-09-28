@@ -245,6 +245,9 @@ docstring-code-format = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
+markers = [
+    "renderer: draws with the real MapLibre Native renderer (the maps group, on Linux)",
+]
 filterwarnings = [
     # passlib uses deprecated crypt module, will be fixed in future versions
     "ignore:'crypt' is deprecated:DeprecationWarning",

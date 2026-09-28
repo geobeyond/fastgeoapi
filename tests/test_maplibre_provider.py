@@ -171,8 +171,9 @@ async def test_another_format_is_a_bad_parameter(archive):
 async def test_an_inverted_bbox_is_a_bad_parameter(archive):
     from app.provider.maplibre import MapParameterError
 
+    # Only in latitude: a west edge east of the east edge crosses the antimeridian.
     with pytest.raises(MapParameterError):
-        await _map(_provider(archive), bbox=[ROME[2], ROME[1], ROME[0], ROME[3]])
+        await _map(_provider(archive), bbox=[ROME[0], ROME[3], ROME[2], ROME[1]])
 
 
 @pytest.mark.asyncio
@@ -231,17 +232,52 @@ async def test_a_full_queue_answers_503(archive):
 
 
 @pytest.mark.asyncio
-async def test_a_slow_render_answers_504_and_replaces_the_renderer(archive):
+async def test_a_slow_render_answers_504_and_keeps_drawing_for_the_cache(archive):
     from app.provider.maplibre import MapRenderTimeoutError
 
-    provider = _provider(archive, fake="slow", timeout=0.05)
+    FakeRenderer.gate = asyncio.Event()
+    provider = _provider(archive, fake="gate", timeout=0.05, render_limit=5)
     with pytest.raises(MapRenderTimeoutError) as error:
         await _map(provider)
     assert error.value.http_status_code == HTTPStatus.GATEWAY_TIMEOUT
 
-    await asyncio.sleep(0.01)
-    assert FakeRenderer.instances[0].closed
+    # The render goes on, so the tiles it reads stay cached for the next maps.
+    (renderer,) = FakeRenderer.instances
+    assert not renderer.closed and provider.renderer_is_built
+    FakeRenderer.gate.set()
+    await _map(provider)
+    assert FakeRenderer.instances == [renderer]
+    assert renderer.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_a_render_past_its_limit_replaces_the_renderer(archive):
+    from app.provider.maplibre import MapRenderTimeoutError
+
+    # Four times the timeout by default; the limit given here comes much sooner.
+    provider = _provider(archive, fake="slow", timeout=1, render_limit=0.1)
+    with pytest.raises(MapRenderTimeoutError):
+        await _map(provider)
+
+    await _until(lambda: FakeRenderer.instances[0].closed, timeout=0.5)
     assert provider.renderer_is_built is False
+
+
+@pytest.mark.asyncio
+async def test_a_map_waiting_behind_a_long_render_answers_504_in_time(archive):
+    from app.provider.maplibre import MapRenderTimeoutError
+
+    FakeRenderer.gate = asyncio.Event()
+    provider = _provider(archive, fake="gate", timeout=0.05, render_limit=5)
+    with pytest.raises(MapRenderTimeoutError):
+        await _map(provider)
+
+    loop = asyncio.get_running_loop()
+    started = loop.time()
+    with pytest.raises(MapRenderTimeoutError):
+        await _map(provider)
+    assert loop.time() - started < 1
+    FakeRenderer.gate.set()
 
 
 @pytest.mark.asyncio
@@ -343,3 +379,55 @@ async def test_close_waits_for_the_map_in_flight(archive):
     FakeRenderer.gate.set()
     await rendering
     await _until(lambda: FakeRenderer.instances[0].closed)
+
+
+@pytest.mark.asyncio
+async def test_a_renderer_that_cannot_be_built_says_what_is_missing(archive):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    provider = _provider(archive, renderer="tests.maps_fixtures.create_missing_renderer")
+
+    with pytest.raises(ProviderGenericError) as error:
+        await _map(provider)
+    assert "maps dependency group" in error.value.message
+    assert not provider.renderer_is_built
+
+
+@pytest.mark.asyncio
+async def test_aclose_waits_for_the_renderer_to_close(archive):
+    provider = _provider(archive)
+    await _map(provider)
+    (renderer,) = FakeRenderer.instances
+
+    await provider.aclose()
+
+    assert renderer.closed and not provider.renderer_is_built
+
+
+def test_the_map_errors_name_their_problem_in_the_log():
+    from app.provider.maplibre import MapRendererBusyError, MapRenderTimeoutError
+
+    assert str(MapRenderTimeoutError()) == "the map took too long to render"
+    assert str(MapRendererBusyError()) == "the map renderer is busy, retry later"
+
+
+@pytest.mark.asyncio
+async def test_a_bbox_across_the_antimeridian_is_drawn(archive):
+    from app.maps.camera import HALF_WORLD
+
+    # West edge in the east, east edge in the west: the bbox crosses 180°.
+    west, east = HALF_WORLD - 1_000_000.0, -HALF_WORLD + 1_000_000.0
+    provider = _provider(archive)
+    await _map(provider, bbox=[west, 5_140_000.0, east, 5_160_000.0])
+
+    (request,) = FakeRenderer.instances[0].requests
+    assert request.bbox[0] == west
+    assert request.bbox[2] == pytest.approx(east + 2 * HALF_WORLD)
+
+
+@pytest.mark.asyncio
+async def test_html_is_answered_with_the_image(archive):
+    """pygeoapi's map route serves the image when asked for HTML: there is no HTML map."""
+    png = await _map(_provider(archive), format_="html")
+
+    assert png.startswith(b"\x89PNG")

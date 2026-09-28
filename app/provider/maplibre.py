@@ -44,6 +44,10 @@ DEFAULTS: dict[str, Any] = {
     "max_size": 1024,
     "queue": 8,
     "timeout": 30,
+    # Seconds a render may go on after its map answered 504; four times
+    # the timeout when unset.
+    "render_limit": None,
+    "max_rss_mb": 600,
     "sign_ttl": 3600,
     "styles": {},
     "default_style": None,
@@ -53,7 +57,18 @@ DEFAULTS: dict[str, Any] = {
 }
 
 
-class MapParameterError(ProviderGenericError):
+class _MapError(ProviderGenericError):
+    """A map error whose message, when none is given, is its ``default_msg``.
+
+    pygeoapi's errors pass ``msg`` on to the exception, so one raised
+    without a message logs as ``None``.
+    """
+
+    def __init__(self, msg: str | None = None, *args: Any, user_msg: str | None = None) -> None:
+        super().__init__(msg or user_msg or self.default_msg, *args, user_msg=user_msg)
+
+
+class MapParameterError(_MapError):
     """A map parameter this server cannot honour."""
 
     ogc_exception_code = "InvalidParameterValue"
@@ -61,14 +76,14 @@ class MapParameterError(ProviderGenericError):
     default_msg = "invalid map parameter"
 
 
-class MapRendererBusyError(ProviderGenericError):
+class MapRendererBusyError(_MapError):
     """Too many maps are already waiting for the renderer."""
 
     http_status_code = HTTPStatus.SERVICE_UNAVAILABLE
     default_msg = "the map renderer is busy, retry later"
 
 
-class MapRenderTimeoutError(ProviderGenericError):
+class MapRenderTimeoutError(_MapError):
     """The renderer took longer than the configured timeout."""
 
     http_status_code = HTTPStatus.GATEWAY_TIMEOUT
@@ -145,6 +160,7 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         self._waiting = 0
         self._map_styles: MapStyles | None = None
         self._closing: set[asyncio.Task] = set()
+        self._drawing: set[asyncio.Task] = set()
         self._closed = False
 
     @property
@@ -209,7 +225,9 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         # pygeoapi's get_uri lowercases a CRS URI on its way here.
         if crs is not None and crs.lower() != WEB_MERCATOR.lower():
             raise MapParameterError(user_msg=f"maps are drawn in {WEB_MERCATOR} only")
-        if format_ not in (None, "png"):
+        # pygeoapi's map route answers f=html with the image itself, as there is no
+        # HTML map page: the provider draws a PNG for it too.
+        if format_ not in (None, "png", "html"):
             raise MapParameterError(user_msg="maps are drawn as PNG only")
         limit = int(self.options["max_size"])
         if not (1 <= int(width) <= limit and 1 <= int(height) <= limit):
@@ -220,8 +238,13 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         except KeyError as error:
             raise ProviderItemNotFoundError(user_msg=f"style {style} not found") from error
         try:
+            xmin, ymin, xmax, ymax = (_clamp(float(value)) for value in bbox)
+            if xmin > xmax:
+                # The west edge lies east of the east edge: the bbox crosses the
+                # antimeridian, and its east edge is one world further on.
+                xmax += 2 * HALF_WORLD
             return MapRequest(
-                bbox=tuple(_clamp(float(value)) for value in bbox),
+                bbox=(xmin, ymin, xmax, ymax),
                 width=int(width),
                 height=int(height),
                 style=chosen,
@@ -261,8 +284,7 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             raise MapRendererBusyError()
         self._waiting += 1
         try:
-            async with self._semaphore:
-                return await self._render(request)
+            return await self._draw(request)
         finally:
             self._waiting -= 1
             # After close(), the renderer goes as soon as nothing is left to draw:
@@ -271,16 +293,57 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             if self._closed and self._waiting == 0 and self._renderer is not None:
                 self._discard(self._renderer)
 
+    async def _draw(self, request: MapRequest) -> bytes:
+        """The map within ``timeout``, the wait for the renderer included.
+
+        Past the timeout the map answers 504, and its render goes on,
+        holding the renderer: cancelling a command would kill the
+        renderer's process, and with it the tiles it has cached.
+        ``render_limit`` bounds the render.
+        """
+        loop = asyncio.get_running_loop()
+        timeout = float(self.options["timeout"])
+        deadline = loop.time() + timeout
+        try:
+            await asyncio.wait_for(self._semaphore.acquire(), timeout)
+        except TimeoutError:
+            raise MapRenderTimeoutError() from None
+        drawing = loop.create_task(self._render_then_release(request))
+        self._drawing.add(drawing)
+        drawing.add_done_callback(self._drawn)
+        try:
+            return await asyncio.wait_for(asyncio.shield(drawing), max(0.0, deadline - loop.time()))
+        except TimeoutError:
+            raise MapRenderTimeoutError() from None
+
+    async def _render_then_release(self, request: MapRequest) -> bytes:
+        try:
+            return await self._render(request)
+        finally:
+            self._semaphore.release()
+
+    def _drawn(self, drawing: asyncio.Task) -> None:
+        self._drawing.discard(drawing)
+        # A render that outlived its map fails with nobody awaiting it; its
+        # error is already logged, and reading it keeps asyncio quiet.
+        if not drawing.cancelled():
+            drawing.exception()
+
+    def _render_limit(self) -> float:
+        limit = self.options["render_limit"]
+        return float(limit) if limit is not None else 4 * float(self.options["timeout"])
+
     async def _render(self, request: MapRequest) -> bytes:
         if self._renderer is None:
-            self._renderer = _load_factory(self.options["renderer"])(self.options)
+            # In a thread: the first build imports the renderer's modules and looks
+            # up its binary on disk.
+            self._renderer = await self.run_sync(self._build_renderer)
         renderer = self._renderer
         try:
-            return await asyncio.wait_for(
-                renderer.render(request), timeout=float(self.options["timeout"])
-            )
+            return await asyncio.wait_for(renderer.render(request), timeout=self._render_limit())
         except TimeoutError as error:
             self._discard(renderer)
+            logger.warning("map render went past render_limit; the renderer is replaced")
             raise MapRenderTimeoutError() from error
         except Exception as error:
             # Any failure counts as a broken renderer. Its message may name
@@ -289,6 +352,15 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             self._discard(renderer)
             logger.warning(f"map renderer failed with {type(error).__name__}; it is replaced")
             raise ProviderGenericError(user_msg="the map renderer failed") from None
+
+    def _build_renderer(self) -> MapRenderer:
+        factory = _load_factory(self.options["renderer"])
+        try:
+            return factory({**self.options, "render_limit": self._render_limit()})
+        except ImportError as error:
+            raise ProviderGenericError(
+                user_msg=f"map rendering is not available: {error}"
+            ) from error
 
     def _discard(self, renderer: MapRenderer) -> None:
         if self._renderer is renderer:
@@ -309,6 +381,18 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
                 user_msg="maps are drawn on the async route; no event loop owns the renderer"
             )
         return asyncio.run_coroutine_threadsafe(self.aquery(**kwargs), loop).result()
+
+    async def aclose(self) -> None:
+        """The async twin of :meth:`close`, which also waits for the renderer to close.
+
+        With maps still drawn or waiting, the last of them closes the renderer,
+        as with :meth:`close`.
+        """
+        self._closed = True
+        if self._waiting == 0 and self._renderer is not None:
+            self._discard(self._renderer)
+        if self._closing:
+            await asyncio.gather(*self._closing, return_exceptions=True)
 
     def close(self) -> None:
         """Close the renderer once no map is being drawn or waiting for it.
