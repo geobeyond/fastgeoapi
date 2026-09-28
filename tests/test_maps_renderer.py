@@ -11,6 +11,7 @@ from PIL import Image
 
 from tests.maps_fixtures import map_provider
 from tests.mvt_fixtures import land_archive
+from tests.pmtiles_fixtures import raster_archive
 
 pytestmark = pytest.mark.renderer
 mlnative = pytest.importorskip("mlnative")
@@ -210,3 +211,16 @@ async def test_the_whole_world_in_a_small_image_is_drawn(archive):
 
     assert Image.open(io.BytesIO(png)).size == (500, 300)
     assert _share(png, OPAQUE) > 0.9
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["PNG", "JPEG", "WEBP"])
+async def test_a_raster_archive_is_drawn_in_the_colour_of_its_tiles(tmp_path, kind):
+    archive = raster_archive(tmp_path / "hills.pmtiles", kind=kind)
+    provider = _provider(map_provider(archive, renderer=REAL))
+    try:
+        png = await _map(provider)
+    finally:
+        await provider.aclose()
+
+    assert _share(png, (200, 30, 30)) > 0.9

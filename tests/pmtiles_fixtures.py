@@ -34,11 +34,12 @@ def write_archive(
     *,
     metadata: dict | None = None,
     tile_compression: Compression = Compression.GZIP,
+    tile_type: TileType = TileType.MVT,
 ) -> Path:
     """Write `tiles` (already compressed as declared) into a PMTiles archive at `path`."""
     zooms = sorted({z for z, _, _ in tiles})
     header = {
-        "tile_type": TileType.MVT,
+        "tile_type": tile_type,
         "tile_compression": tile_compression,
         **WORLD_E7,
         "center_zoom": zooms[0],
@@ -66,3 +67,30 @@ def leafy_archive(path: Path, *, z: int = 8, count: int = 20_000) -> Path:
         x, y = i % side, (i // side) % side
         tiles[z, x, y] = TILE_BYTES(z, x, y)
     return write_archive(path, tiles)
+
+
+def raster_tile(
+    size: int = 256, colour: tuple[int, int, int] = (200, 30, 30), kind: str = "PNG"
+) -> bytes:
+    """One square raster tile of a single colour, encoded as `kind` (PNG, JPEG, WEBP, AVIF)."""
+    import io
+
+    from PIL import Image
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (size, size), colour).save(buffer, format=kind)
+    return buffer.getvalue()
+
+
+def raster_archive(
+    path: Path, *, size: int = 256, kind: str = "PNG", gzipped: bool = False
+) -> Path:
+    """A raster PMTiles archive with one tile, z0, the whole world in one colour."""
+    tile = raster_tile(size, kind=kind)
+    return write_archive(
+        path,
+        {(0, 0, 0): gzip.compress(tile) if gzipped else tile},
+        metadata={"name": path.stem},
+        tile_compression=Compression.GZIP if gzipped else Compression.NONE,
+        tile_type=TileType[kind],
+    )
