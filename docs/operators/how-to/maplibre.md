@@ -72,20 +72,21 @@ providers:
 
 `storage_crs` must be EPSG:3857: maps are drawn in Web Mercator only.
 
-| Option          | Default                             | Meaning                                                                                                                   |
-| --------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `max_size`      | 2048                                | The largest `width` or `height`; larger answers 413, and below 1 answers 400.                                             |
-| `queue`         | 8                                   | Maps that may wait for the renderer; one more answers 503.                                                                |
-| `timeout`       | 30                                  | Seconds a map may take, the wait for the renderer included; longer answers 504.                                           |
-| `render_limit`  | four times `timeout`                | Seconds a render goes on after its map answered 504, so the tiles it reads stay cached; past it the renderer is replaced. |
-| `max_rss_mb`    | 600                                 | Memory of the renderer process after a map; above it the process is replaced.                                             |
-| `styles`        | none                                | Style names mapped to MapLibre style files, local or in a bucket.                                                         |
-| `default_style` | none                                | The style drawn when a request names none; without it, a plain style of the archive's vector layers or raster tiles.      |
-| `style_source`  | `archive`                           | The name the styles give the collection's source in their `sources`.                                                      |
-| `data_url`      | none                                | The https address of the data in a public bucket; required when the bucket is read with `skip_signature`.                 |
-| `sign_ttl`      | 3600                                | Seconds a presigned data URL lasts; it is renewed when a fifth is left.                                                   |
-| `renderer`      | `app.maps.mlnative.create_renderer` | The function that builds the renderer from these options; another engine plugs in here.                                   |
-| `tile_size`     | the first tile's width              | The width in pixels of the tiles of a raster archive.                                                                     |
+| Option          | Default                                  | Meaning                                                                                                                                             |
+| --------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `max_size`      | 2048                                     | The largest `width` or `height`; larger answers 413, and below 1 answers 400.                                                                       |
+| `queue`         | 8                                        | Maps that may wait for the renderer; one more answers 503.                                                                                          |
+| `timeout`       | 30                                       | Seconds a map may take, the wait for the renderer included; longer answers 504.                                                                     |
+| `render_limit`  | four times `timeout`                     | Seconds a render goes on after its map answered 504, so the tiles it reads stay cached; past it the renderer is replaced.                           |
+| `max_rss_mb`    | 600                                      | Memory of the renderer process after a map; above it the process is replaced.                                                                       |
+| `styles`        | none                                     | Style names mapped to MapLibre style files, local or in a bucket.                                                                                   |
+| `default_style` | none                                     | The style drawn when a request names none; without it, a plain style of the archive's vector layers or raster tiles.                                |
+| `style_source`  | `archive`                                | The name the styles give the collection's source in their `sources`.                                                                                |
+| `data_url`      | none                                     | The https address of the data in a public bucket; required when the bucket is read with `skip_signature`.                                           |
+| `sign_ttl`      | 3600                                     | Seconds a presigned data URL lasts; it is renewed when a fifth is left.                                                                             |
+| `renderer`      | `app.maps.mlnative.create_renderer`      | The function that builds the renderer from these options; another engine plugs in here.                                                             |
+| `tile_size`     | the first tile's width                   | The width in pixels of the tiles of a raster archive.                                                                                               |
+| `style_factory` | `app.maps.styles.create_maplibre_styles` | The function that builds the styles from the source, the style documents and these options; it must give styles in the language the renderer reads. |
 
 A private bucket works without `data_url`: the server signs a URL with
 the store's credentials and gives only that URL to the renderer.

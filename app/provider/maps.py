@@ -25,7 +25,14 @@ from pygeoapi.provider.base import ProviderGenericError, ProviderItemNotFoundErr
 
 from app.config.logging import create_logger
 from app.maps.camera import HALF_WORLD
-from app.maps.contract import MapRenderer, MapRequest, RenderError, SourceNotDrawableError
+from app.maps.contract import (
+    MapRenderer,
+    MapRequest,
+    MapSource,
+    MapStyles,
+    RenderError,
+    SourceNotDrawableError,
+)
 from app.maps.queue import DrawTimeoutError, QueueFullError, RenderQueue
 from app.maps.sources import ObjectUrl, SourceFormat, source_for
 from app.provider.storage import load_store, split_source
@@ -159,25 +166,49 @@ def render_limit(options: dict[str, Any]) -> float:
     return float(limit) if limit is not None else 4 * float(options["timeout"])
 
 
-def build_renderer(options: dict[str, Any]) -> MapRenderer:
-    """The renderer the ``renderer`` option names, built from the options."""
-    dotted = options.get("renderer")
+def load_factory(
+    options: dict[str, Any], option: str, *, unavailable: str, hint: str = ""
+) -> Callable[..., Any]:
+    """The function the dotted path in ``options[option]`` names.
+
+    When it cannot be loaded, the error message starts with ``unavailable``.
+    """
+    dotted = options.get(option)
     if not dotted:
-        raise ProviderGenericError(user_msg="map rendering is not available: no renderer is named")
+        raise ProviderGenericError(user_msg=f"{unavailable}: options.{option} names nothing")
     module_name, _, name = dotted.rpartition(".")
     try:
-        factory = getattr(importlib.import_module(module_name), name)
+        return getattr(importlib.import_module(module_name), name)
     except (ImportError, AttributeError) as error:
         raise ProviderGenericError(
-            user_msg=(
-                f"map rendering is not available: {dotted} could not be loaded; "
-                "install the maps dependency group"
-            )
+            user_msg=f"{unavailable}: {dotted} could not be loaded{hint}"
         ) from error
+
+
+def build_renderer(options: dict[str, Any]) -> MapRenderer:
+    """The renderer the ``renderer`` option names, built from the options."""
+    factory = load_factory(
+        options,
+        "renderer",
+        unavailable="map rendering is not available",
+        hint="; install the maps dependency group",
+    )
     try:
         return factory({**options, "render_limit": render_limit(options)})
     except ImportError as error:
         raise ProviderGenericError(user_msg=f"map rendering is not available: {error}") from error
+
+
+def build_styles(
+    source: MapSource, documents: dict[str, dict], options: dict[str, Any]
+) -> MapStyles:
+    """The styles the ``style_factory`` option names, over ``source``.
+
+    Styles and renderer go together: the factory must give styles in the
+    language the renderer reads.
+    """
+    factory = load_factory(options, "style_factory", unavailable="map styles are not available")
+    return factory(source, documents, options)
 
 
 def _flag(value: Any) -> bool:

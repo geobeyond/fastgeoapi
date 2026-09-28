@@ -145,3 +145,19 @@ class MapLibreStyles:
                 layer for layer in style.get("layers", []) if layer.get("type") != "background"
             ]
         return style
+
+
+def create_maplibre_styles(
+    source: MapSource, documents: Mapping[str, dict[str, Any]], options: Mapping[str, Any]
+) -> MapLibreStyles:
+    """The MapLibre styles of a map provider: the default ``style_factory``.
+
+    ``options`` gives the default style (``default_style``) and the name the
+    styles give the collection's source (``style_source``).
+    """
+    return MapLibreStyles(
+        source,
+        documents,
+        default=options.get("default_style"),
+        source_id=options.get("style_source", "archive"),
+    )
