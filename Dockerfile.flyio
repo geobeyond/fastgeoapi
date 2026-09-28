@@ -1,6 +1,8 @@
 FROM ghcr.io/osgeo/gdal:ubuntu-small-3.11.0 AS builder
 
-# Install security updates and system dependencies, then clean up
+# Install security updates and system dependencies, then clean up. The
+# libraries after git are for the map renderer: those the MapLibre Native
+# binary links, and Vulkan with lavapipe to draw without a GPU.
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update && \
     apt-get --yes upgrade && \
@@ -8,7 +10,9 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
         python3-dev \
         build-essential \
         tini \
-        git && \
+        git \
+        libuv1 libvulkan1 mesa-vulkan-drivers libicu74 libcurl4t64 \
+        libpng16-16t64 libjpeg-turbo8 libwebp7 && \
     apt-get --yes clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -29,7 +33,7 @@ COPY pyproject.toml uv.lock pygeoapi-config.yml ./
 # broke /mcp in production with its new Host validation the day after
 # its release.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv export --frozen --no-dev --no-emit-project --no-hashes \
+    uv export --frozen --no-dev --group maps --no-emit-project --no-hashes \
     --extra geoparquet --extra pmtiles -o /tmp/requirements.lock && \
     uv pip install --system --break-system-packages -r /tmp/requirements.lock
 
