@@ -391,3 +391,25 @@ resources:
         format:
           name: pbf
           mimetype: application/vnd.mapbox-vector-tile
+      - type: map
+        name: app.provider.maplibre.MapLibreMapProvider
+        data: s3://fastgeoapi-demo/tiles/lazio-roads.pmtiles
+        storage_crs: http://www.opengis.net/def/crs/EPSG/0/3857
+        store_options:
+          endpoint: fly.storage.tigris.dev
+          region: auto
+          url_style: vhost
+          skip_signature: true
+        options:
+          # The archive is public: the renderer reads it at its own https
+          # address, and the store above only reads its metadata.
+          archive_url: https://fastgeoapi-demo.fly.storage.tigris.dev/tiles/lazio-roads.pmtiles
+          # One renderer on a 1 GB, 1 vCPU machine: images up to 1024 pixels,
+          # a short queue, and a process replaced above 600 MB.
+          max_size: 1024
+          queue: 8
+          timeout: 30
+          max_rss_mb: 600
+        format:
+          name: png
+          mimetype: image/png

@@ -8,12 +8,13 @@ This section contains practical guides for configuring and using fastgeoapi feat
 
 ## Serve a cloud-native format as a collection
 
-The two providers fastgeoapi adds read their data where it already is, with no conversion step in between:
+The three providers fastgeoapi adds read their data where it already is, with no conversion step in between:
 
 - [**GeoParquet**](geoparquet.md) — a file, a glob or a hive-partitioned root as an OGC API - Features collection, with CQL2 pushed down into DuckDB.
 - [**PMTiles**](pmtiles.md) — one archive of any size as an OGC API - Tiles collection, read by byte range and awaited.
+- [**MapLibre**](maplibre.md) — a PMTiles archive drawn as PNG maps by MapLibre Native, as an OGC API - Maps collection; Linux only.
 
-Both take their bucket settings per dataset, and [the configuration itself](cloud-config.md) can live in the same place. For a format with no provider yet, the contributor guide walks a [Cloud Optimized GeoTIFF](../../contributors/how-to/writing-an-async-provider.md) from nothing to a working one.
+All three take their bucket settings per dataset, and [the configuration itself](cloud-config.md) can live in the same place. For a format with no provider yet, the contributor guide walks a [Cloud Optimized GeoTIFF](../../contributors/how-to/writing-an-async-provider.md) from nothing to a working one.
 
 ### The demo's own configuration, and where to read it
 

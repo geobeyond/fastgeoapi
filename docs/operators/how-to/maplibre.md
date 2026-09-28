@@ -1,0 +1,122 @@
+---
+icon: material/map
+---
+
+# :material-map: MapLibre provider
+
+An OGC API - Maps provider that draws PNG maps of a PMTiles archive with
+MapLibre Native, the engine behind MapLibre GL. The renderer runs in its
+own process and reads the archive in place, from a local path or a
+bucket, the way the [PMTiles provider](pmtiles.md) does. The map route
+awaits the provider, so a map being drawn keeps no worker thread busy.
+
+## Install
+
+The renderer ships as Linux wheels of the mlnative fork, for x86_64 and
+aarch64. They need glibc 2.39 or later, as on Ubuntu 24.04. From a
+checkout, install the `maps` dependency group with the `pmtiles` extra,
+which the provider needs to read the archive:
+
+```bash
+uv sync --group maps --extra pmtiles
+```
+
+`uv sync` removes the packages the command does not name, so add every
+other extra the server uses, such as `--extra geoparquet`.
+
+Dependency groups are not published to PyPI. An installation from PyPI
+needs the `pmtiles` extra, Pillow and the mlnative wheel for the machine,
+from the [fork's release](https://github.com/francbartoli/mlnative/releases/tag/v0.4.0.dev1)
+(`x86_64` or `aarch64` in the file name):
+
+```bash
+pip install "fastgeoapi[pmtiles]" "pillow>=11" \
+  https://github.com/francbartoli/mlnative/releases/download/v0.4.0.dev1/mlnative-0.4.0.dev1-py3-none-manylinux_2_39_x86_64.whl
+```
+
+The system needs the libraries the MapLibre Native binary links, and
+Vulkan with lavapipe to draw without a GPU:
+
+```bash
+apt-get install libuv1 libvulkan1 mesa-vulkan-drivers libicu74 libcurl4t64 \
+  libpng16-16t64 libjpeg-turbo8 libwebp7
+```
+
+Without the group, a map answers 500 with "map rendering is not available"
+and says what to install. The rest of the server does not need it.
+
+## Configuration
+
+Add a provider of type `map` to a collection, next to its tiles if it has
+them:
+
+```yaml
+providers:
+  - type: map
+    name: app.provider.maplibre.MapLibreMapProvider
+    data: s3://my-bucket/tiles/roads.pmtiles
+    storage_crs: http://www.opengis.net/def/crs/EPSG/0/3857
+    store_options:
+      endpoint: fly.storage.tigris.dev
+      region: auto
+    options:
+      styles:
+        night: s3://my-bucket/styles/night.json
+      default_style: night
+    format:
+      name: png
+      mimetype: image/png
+```
+
+`storage_crs` must be EPSG:3857: maps are drawn in Web Mercator only.
+
+| Option          | Default                             | Meaning                                                                                                                   |
+| --------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `max_size`      | 1024                                | The largest `width` or `height`; larger answers 400.                                                                      |
+| `queue`         | 8                                   | Maps that may wait for the renderer; one more answers 503.                                                                |
+| `timeout`       | 30                                  | Seconds a map may take, the wait for the renderer included; longer answers 504.                                           |
+| `render_limit`  | four times `timeout`                | Seconds a render goes on after its map answered 504, so the tiles it reads stay cached; past it the renderer is replaced. |
+| `max_rss_mb`    | 600                                 | Memory of the renderer process after a map; above it the process is replaced.                                             |
+| `styles`        | none                                | Style names mapped to MapLibre style files, local or in a bucket.                                                         |
+| `default_style` | none                                | The style drawn when a request names none; without it, a plain style drawn from the archive's layers.                     |
+| `source`        | `archive`                           | The name the styles give the collection's archive in their `sources`.                                                     |
+| `archive_url`   | none                                | The https address of a public archive; required when `skip_signature` is set on a bucket.                                 |
+| `sign_ttl`      | 3600                                | Seconds a presigned archive URL lasts; it is renewed when a fifth is left.                                                |
+| `renderer`      | `app.maps.mlnative.create_renderer` | The function that builds the renderer from these options; another engine plugs in here.                                   |
+
+A private bucket works without `archive_url`: the server signs a URL with
+the store's credentials and gives only that URL to the renderer.
+
+## What a request can ask
+
+A request can pass `bbox`, `bbox-crs`, `crs`, `width`, `height`,
+`transparent` and `f`, as in OGC API - Maps. `crs`, when given, must be the
+EPSG:3857 URI: any other CRS answers 400. `f` takes `png`, and `f=html`
+returns the same PNG, as pygeoapi's map route does, since there is no HTML
+map page.
+
+The bbox is read in CRS84 unless `bbox-crs` names another CRS. Two values
+answer 500, because of how pygeoapi reads the parameter: the CRS84 URI
+itself, so leave `bbox-crs` out for CRS84, and a bare EPSG code such as
+`4326`, so give the EPSG URI instead.
+
+A bbox with another aspect than the image is stretched to it, as a WMS
+GetMap does. `datetime`, `subset` and `properties` are ignored.
+
+## Limits to know
+
+One renderer process serves each map provider and draws one map at a
+time. Under load, maps wait in a queue of `queue` places; past it they
+get a 503 with "the map renderer is busy, retry later", and a client
+should retry. A map that answers 504 is still drawn in the background, up
+to `render_limit`, so asking for it again a little later is often quick.
+The first map of a new area waits for the tiles it needs to be read from
+the bucket. A small view took from 2 to 9 seconds in our measurements,
+depending on how far the bucket is. A wide view over a large archive needs
+many more tiles: the whole world from the Overture divisions archive, read
+from Europe, took more than 90 seconds cold and answered 504 while the
+render went on in the background.
+
+A style with labels needs a `glyphs` URL the renderer can reach. The MCP
+server gives each map collection a tool that returns the image to the
+model.
