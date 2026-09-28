@@ -96,7 +96,7 @@ async def test_an_https_archive_is_read_as_it_is(tmp_path):
     )
 
 
-def test_a_public_bucket_needs_the_archive_url(tmp_path):
+def test_a_public_bucket_needs_the_data_url(tmp_path):
     from pygeoapi.provider.base import ProviderGenericError
 
     from app.provider.maplibre import MapLibreMapProvider
@@ -107,7 +107,39 @@ def test_a_public_bucket_needs_the_archive_url(tmp_path):
 
     with pytest.raises(ProviderGenericError) as error:
         MapLibreMapProvider(definition)
-    assert "archive_url" in error.value.message
+    assert "data_url" in error.value.message
+
+
+@pytest.mark.asyncio
+async def test_the_data_url_is_what_the_renderer_reads(tmp_path):
+    from app.provider.maplibre import MapLibreMapProvider
+
+    style = tmp_path / "plain.json"
+    # The style declares its source, so the archive is never read.
+    style.write_text('{"version": 8, "sources": {"archive": {"type": "vector"}}, "layers": []}')
+    public = "https://overturemaps.example/tiles/places.pmtiles"
+    definition = map_provider(
+        tmp_path / "unused.pmtiles",
+        styles={"plain": str(style)},
+        default_style="plain",
+        data_url=public,
+    )
+    definition["data"] = "s3://overturemaps-extras-us-west-2/tiles/places.pmtiles"
+    definition["store_options"] = {"skip_signature": True}
+
+    await _map(MapLibreMapProvider(definition))
+
+    (request,) = FakeRenderer.instances[0].requests
+    assert request.style["sources"]["archive"]["url"] == f"pmtiles://{public}"
+
+
+@pytest.mark.asyncio
+async def test_style_source_names_the_collection_source_in_the_styles(archive):
+    await _map(_provider(archive, style_source="roads"))
+
+    (request,) = FakeRenderer.instances[0].requests
+    assert request.style["sources"]["roads"]["url"] == f"pmtiles://file://{archive.resolve()}"
+    assert "archive" not in request.style["sources"]
 
 
 @pytest.mark.asyncio

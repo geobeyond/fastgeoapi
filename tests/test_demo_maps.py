@@ -20,7 +20,7 @@ def test_the_lazio_roads_tiles_have_a_map_on_the_same_archive(providers):
     assert map_provider["name"] == "app.provider.maplibre.MapLibreMapProvider"
     assert map_provider["data"] == tiles["data"]
     assert map_provider["storage_crs"] == "http://www.opengis.net/def/crs/EPSG/0/3857"
-    assert map_provider["options"]["archive_url"] == (
+    assert map_provider["options"]["data_url"] == (
         "https://fastgeoapi-demo.fly.storage.tigris.dev/tiles/lazio-roads.pmtiles"
     )
 

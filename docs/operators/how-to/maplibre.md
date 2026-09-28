@@ -81,13 +81,13 @@ providers:
 | `max_rss_mb`    | 600                                 | Memory of the renderer process after a map; above it the process is replaced.                                             |
 | `styles`        | none                                | Style names mapped to MapLibre style files, local or in a bucket.                                                         |
 | `default_style` | none                                | The style drawn when a request names none; without it, a plain style of the archive's vector layers or raster tiles.      |
-| `source`        | `archive`                           | The name the styles give the collection's archive in their `sources`.                                                     |
-| `archive_url`   | none                                | The https address of a public archive; required when `skip_signature` is set on a bucket.                                 |
-| `sign_ttl`      | 3600                                | Seconds a presigned archive URL lasts; it is renewed when a fifth is left.                                                |
+| `style_source`  | `archive`                           | The name the styles give the collection's source in their `sources`.                                                      |
+| `data_url`      | none                                | The https address of the data in a public bucket; required when the bucket is read with `skip_signature`.                 |
+| `sign_ttl`      | 3600                                | Seconds a presigned data URL lasts; it is renewed when a fifth is left.                                                   |
 | `renderer`      | `app.maps.mlnative.create_renderer` | The function that builds the renderer from these options; another engine plugs in here.                                   |
 | `tile_size`     | the first tile's width              | The width in pixels of the tiles of a raster archive.                                                                     |
 
-A private bucket works without `archive_url`: the server signs a URL with
+A private bucket works without `data_url`: the server signs a URL with
 the store's credentials and gives only that URL to the renderer.
 
 The first map reads the archive header to tell vector tiles from raster
