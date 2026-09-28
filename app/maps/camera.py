@@ -25,6 +25,9 @@ parameter of :func:`camera_for_bbox`.
 HALF_WORLD = 20037508.342789244
 """Half the width of the EPSG:3857 world, in metres."""
 
+MAX_ZOOM = 24
+"""The highest zoom MapLibre and the other GL renderers take."""
+
 
 @dataclass(frozen=True, slots=True)
 class Camera:
@@ -51,7 +54,10 @@ def camera_for_bbox(bbox: tuple[float, float, float, float], width: int, height:
     image's, the bbox fills one side and ``size`` is the smaller render
     that shows all of it. The caller resamples it to ``width`` by
     ``height``, the stretch a WMS GetMap makes. The render is never
-    larger than the image.
+    larger than the image, except below zoom 0: renderers take no lower
+    zoom, so a bbox wider than the image at zoom 0 is drawn at zoom 0 and
+    scaled down. Above ``MAX_ZOOM`` it is drawn at ``MAX_ZOOM``, smaller,
+    and scaled up.
     """
     xmin, ymin, xmax, ymax = bbox
     world = 2 * HALF_WORLD
@@ -60,8 +66,15 @@ def camera_for_bbox(bbox: tuple[float, float, float, float], width: int, height:
     dx, dy = x1 - x0, y1 - y0
     scale = min(width / dx, height / dy)  # pixels per world width
     zoom = math.log2(scale / TILE_SIZE)
-    lon = (xmin + xmax) / 2 / HALF_WORLD * 180.0
+    # A bbox past the antimeridian has its centre beyond 180°. Renderers draw
+    # the world again there, so the centre is wrapped back within ±180°.
+    lon = ((xmin + xmax) / 2 / HALF_WORLD * 180.0 + 180.0) % 360.0 - 180.0
     lat = _y_to_lat((y0 + y1) / 2)
+    if not 0 <= zoom <= MAX_ZOOM:
+        zoom = min(max(zoom, 0.0), float(MAX_ZOOM))
+        scale = TILE_SIZE * 2**zoom
+        size = (max(1, round(dx * scale)), max(1, round(dy * scale)))
+        return Camera(center=(lon, lat), zoom=zoom, size=size)
     return Camera(
         center=(lon, lat),
         zoom=zoom,

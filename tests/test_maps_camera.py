@@ -101,3 +101,34 @@ def test_a_request_does_not_print_its_style():
     request = MapRequest(bbox=(0, 0, 1, 1), width=1, height=1, style=style)
 
     assert "SECRET" not in repr(request)
+
+
+def test_a_bbox_past_the_antimeridian_is_centred_within_the_world():
+    from app.maps.camera import HALF_WORLD, camera_for_bbox
+
+    bbox = (HALF_WORLD - 1_000_000.0, 0.0, HALF_WORLD + 3_000_000.0, 1_000_000.0)
+    camera = camera_for_bbox(bbox, 512, 128)
+
+    assert -180 <= camera.center[0] <= 180
+    assert camera.center[0] == pytest.approx((HALF_WORLD + 1_000_000.0) / HALF_WORLD * 180 - 360)
+
+
+def test_an_image_smaller_than_the_world_at_zoom_zero_is_drawn_at_zoom_zero():
+    from app.maps.camera import HALF_WORLD, TILE_SIZE, camera_for_bbox
+
+    world = (-HALF_WORLD, -HALF_WORLD, HALF_WORLD, HALF_WORLD)
+    camera = camera_for_bbox(world, 500, 300)
+
+    # Renderers take no zoom below 0: the render is larger and is scaled down.
+    assert camera.zoom == 0
+    assert camera.size == (TILE_SIZE, TILE_SIZE)
+
+
+def test_a_bbox_smaller_than_zoom_24_shows_is_drawn_at_zoom_24():
+    from app.maps.camera import camera_for_bbox
+
+    camera = camera_for_bbox((1_400_000.0, 5_150_000.0, 1_400_002.0, 5_150_002.0), 1024, 1024)
+
+    # Renderers take no zoom above 24: the render is smaller and is scaled up.
+    assert camera.zoom == 24
+    assert camera.size[0] < 1024 and camera.size == (camera.size[0], camera.size[0])
