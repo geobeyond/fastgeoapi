@@ -44,8 +44,9 @@ DEFAULTS: dict[str, Any] = {
     "styles": {},
     "default_style": None,
     # The name the styles give the collection's source in their `sources`.
-    "source": "archive",
-    "archive_url": None,
+    "style_source": "archive",
+    # For data in a public bucket: the https address the renderer reads it at.
+    "data_url": None,
     "renderer": "app.maps.mlnative.create_renderer",
 }
 
@@ -87,7 +88,7 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
     def _object_url(self) -> ObjectUrl:
         return object_url(
             self.provider_def["data"],
-            public_url=self.options["archive_url"],
+            public_url=self.options["data_url"],
             sign=lambda ttl: self.signed_url(ttl),
             ttl=timedelta(seconds=self.options["sign_ttl"]),
         )
@@ -112,7 +113,7 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
                 self._source(),
                 documents,
                 default=self.options["default_style"],
-                source_id=self.options["source"],
+                source_id=self.options["style_source"],
             )
         return self._map_styles
 

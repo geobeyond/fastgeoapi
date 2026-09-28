@@ -101,7 +101,7 @@ def check_definition(provider_def: dict, options: dict[str, Any]) -> SourceForma
 
     Raises :class:`ProviderGenericError` for a storage CRS other than
     EPSG:3857, for data that no registered source reads, and for a public
-    bucket without ``archive_url``.
+    bucket without ``data_url``.
     """
     storage_crs = provider_def.get("storage_crs", WEB_MERCATOR)
     if storage_crs != WEB_MERCATOR:
@@ -116,10 +116,10 @@ def check_definition(provider_def: dict, options: dict[str, Any]) -> SourceForma
     # without signatures has no URL to sign, and obstore would first spend
     # seconds looking for credentials.
     store_options = provider_def.get("store_options") or {}
-    if store_options.get("skip_signature") and not options.get("archive_url"):
+    if store_options.get("skip_signature") and not options.get("data_url"):
         if is_bucket(provider_def["data"]):
             raise ProviderGenericError(
-                user_msg="a public bucket needs options.archive_url, the https URL of the archive"
+                user_msg="a public bucket needs options.data_url, the https URL of the data"
             )
     return source_format
 
@@ -139,8 +139,8 @@ def object_url(
         try:
             return sign(expires_in)
         except Exception as error:
-            logger.warning(f"could not sign the archive URL: {type(error).__name__}")
-            raise ProviderGenericError(user_msg="the archive URL could not be signed") from None
+            logger.warning(f"could not sign the data URL: {type(error).__name__}")
+            raise ProviderGenericError(user_msg="the data URL could not be signed") from None
 
     return ObjectUrl(signer=signer, ttl=ttl)
 
