@@ -127,8 +127,6 @@ class ReloadManager:
             document = await aload_config_source(self._source)
             subapp, openapi = await asyncio.to_thread(self._build, document.config)
             self._holder.swap(subapp, etag=document.etag)
-            self._record("applied", etag=document.etag)
-            logger.info(f"pygeoapi config reloaded from {self._source} (etag={document.etag})")
             if self._on_reload is not None:
                 # Deliberately not fatal: the configuration is already
                 # serving, and a listener that fails should not turn a
@@ -138,6 +136,10 @@ class ReloadManager:
                 except Exception as e:
                     logger.warning(f"a reload listener failed: {type(e).__name__}: {e}")
             await self._write_artifact(openapi)
+            # Recorded last: whoever waits for "applied" finds the listeners
+            # and the artifact up to date as well.
+            self._record("applied", etag=document.etag)
+            logger.info(f"pygeoapi config reloaded from {self._source} (etag={document.etag})")
         except Exception as e:  # the old one keeps serving: rollback for free
             self._record("failed", error=f"{type(e).__name__}: {e}")
             logger.error(f"config reload failed, still serving the previous config: {e}")

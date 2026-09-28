@@ -6,6 +6,7 @@ control plane); a write failure is never fatal — the runtime does not
 read the artifact back (ADR-0003), so an output must not kill the boot.
 """
 
+import asyncio
 import copy
 import os
 import sys
@@ -91,6 +92,29 @@ def test_applied_reload_rewrites_the_artifact(tmp_path):
         with TestClient(app) as client:
             assert reload_now(client)["outcome"] == "applied"
         assert "lakes-bis" in target.read_text()
+
+
+def test_applied_is_reported_once_the_artifact_is_written(tmp_path):
+    """A client that waits for ``applied`` finds the artifact already rewritten."""
+    target = tmp_path / "pygeoapi-openapi.yml"
+    with _boot(tmp_path, str(target)) as (app, config_path, base):
+        # Imported after the boot: it purged app.* and imported them again.
+        from app.provider import storage
+
+        write = storage.StorageBridge.awrite
+
+        async def slow_write(self, key, data):
+            await asyncio.sleep(0.5)
+            return await write(self, key, data)
+
+        changed = copy.deepcopy(base)
+        changed["resources"]["lakes-bis"] = copy.deepcopy(base["resources"]["lakes"])
+        config_path.write_text(yaml.safe_dump(changed))
+
+        with mock.patch.object(storage.StorageBridge, "awrite", slow_write):
+            with TestClient(app) as client:
+                assert reload_now(client)["outcome"] == "applied"
+                assert "lakes-bis" in target.read_text()
 
 
 def test_boot_does_not_clobber_an_existing_artifact(tmp_path):
