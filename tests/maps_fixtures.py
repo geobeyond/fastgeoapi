@@ -81,3 +81,51 @@ def map_provider(archive: Path, **options) -> dict:
         "options": {"renderer": "tests.maps_fixtures.create_fake_renderer", **options},
         "format": {"name": "png", "mimetype": "image/png"},
     }
+
+
+class FakeProcess:
+    """Stands in for a renderer process such as ``mlnative.AsyncRenderer``.
+
+    It records what it is asked and draws flat images.
+    """
+
+    def __init__(self, width: int, height: int, style: str, *, command=None, timeout=None):
+        self.created_with = (width, height, style)
+        self.command = command
+        self.timeout = timeout
+        self.calls: list[tuple] = []
+        self.closed = False
+        self.fail: BaseException | None = None
+        self._pid: int | None = None
+
+    @property
+    def pid(self) -> int | None:
+        return self._pid
+
+    async def start(self) -> None:
+        self.calls.append(("start",))
+        self._pid = 4242
+
+    async def render(self, center, zoom, *, size, output):
+        self.calls.append(("render", tuple(size), output))
+        if self.fail is not None:
+            raise self.fail
+        if output == "png":
+            return tiny_png(*size)
+        from types import SimpleNamespace
+
+        return SimpleNamespace(width=size[0], height=size[1], data=bytes(size[0] * size[1] * 4))
+
+    async def reload_style(self, style: str) -> None:
+        self.calls.append(("reload", style))
+
+    async def aclose(self) -> None:
+        self.closed = True
+        self._pid = None
+
+
+def create_missing_renderer(options: dict):
+    """A renderer factory that behaves as if mlnative were not installed."""
+    raise ImportError(
+        "MapLibre Native is not installed: map rendering needs the maps dependency group"
+    )
