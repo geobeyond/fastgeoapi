@@ -5,6 +5,8 @@
 and the parity tests compare the two routes on the same requests.
 """
 
+import asyncio
+
 import pytest
 from pygeoapi.provider.base import BaseProvider
 from starlette.testclient import TestClient
@@ -111,10 +113,120 @@ def test_the_native_route_answers_like_pygeoapi(client, params):
         assert native.headers.get(header) == threaded.headers.get(header)
 
 
+def test_a_map_past_max_size_answers_413(client):
+    response = client.get("/collections/native/map", params={"width": 5000, "height": 64})
+
+    assert response.status_code == 413
+    assert "at most 2048" in response.text
+
+
 def test_another_format_is_a_bad_parameter(client):
     response = client.get("/collections/native/map", params={"f": "jpeg"})
 
     assert response.status_code == 400
+
+
+def _gated_app(tmp_path, **options):
+    """A sub-app over one map collection whose fake renderer waits for its gate."""
+    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
+
+    archive = write_archive(
+        tmp_path / "gated.pmtiles",
+        {(0, 0, 0): TILE_BYTES(0, 0, 0)},
+        metadata={"name": "gated", "vector_layers": [{"id": "roads"}]},
+    )
+    definition = map_provider(archive, fake="gate", **options)
+    config = _config({"gated": _collection("Gated", [definition])})
+    return build_pygeoapi_subapp(config, build_openapi(config)), definition
+
+
+async def _get(app, left: asyncio.Event | None = None) -> dict:
+    """One map through the ASGI app; setting ``left`` is its client going away."""
+    left = left or asyncio.Event()
+    sent: list[dict] = []
+    requested = False
+
+    async def receive():
+        nonlocal requested
+        if not requested:
+            requested = True
+            return {"type": "http.request", "body": b"", "more_body": False}
+        await left.wait()
+        return {"type": "http.disconnect"}
+
+    async def send(message):
+        sent.append(message)
+
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/collections/gated/map",
+        "raw_path": b"/collections/gated/map",
+        "root_path": "",
+        "query_string": b"width=16&height=16",
+        "headers": [(b"host", b"testserver")],
+        "client": ("127.0.0.1", 50000),
+        "server": ("testserver", 80),
+    }
+    await app(scope, receive, send)
+    return next(message for message in sent if message["type"] == "http.response.start")
+
+
+async def _until(condition, timeout=2.0):
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+    while not condition():
+        assert loop.time() < deadline, "the provider never reached the expected state"
+        await asyncio.sleep(0.005)
+
+
+@pytest.mark.asyncio
+async def test_a_map_whose_client_left_gives_its_place_in_the_queue_back(tmp_path):
+    import pygeoapi.plugin
+
+    app, definition = _gated_app(tmp_path, queue=1, timeout=5)
+    provider = pygeoapi.plugin.load_plugin("provider", definition)
+    FakeRenderer.gate = asyncio.Event()
+    left = asyncio.Event()
+    try:
+        drawing = asyncio.create_task(_get(app))
+        abandoned = asyncio.create_task(_get(app, left))
+        await _until(lambda: provider.waiting == 2)
+
+        left.set()
+        await _until(lambda: provider.waiting == 1)
+        later = asyncio.create_task(_get(app))
+        await _until(lambda: provider.waiting == 2)
+    finally:
+        FakeRenderer.gate.set()
+    first, gone, second = await asyncio.gather(drawing, abandoned, later)
+
+    assert (first["status"], second["status"]) == (200, 200)
+    # Nginx's code for a client that closed the request; nobody reads it.
+    assert gone["status"] == 499
+
+
+@pytest.mark.asyncio
+async def test_a_full_queue_answers_503_with_retry_after(tmp_path):
+    import pygeoapi.plugin
+
+    app, definition = _gated_app(tmp_path, queue=1, timeout=5)
+    provider = pygeoapi.plugin.load_plugin("provider", definition)
+    FakeRenderer.gate = asyncio.Event()
+    try:
+        drawing = asyncio.create_task(_get(app))
+        waiting = asyncio.create_task(_get(app))
+        await _until(lambda: provider.waiting == 2)
+        busy = await _get(app)
+    finally:
+        FakeRenderer.gate.set()
+    await asyncio.gather(drawing, waiting)
+
+    assert busy["status"] == 503
+    assert dict(busy["headers"]).get(b"retry-after") == b"5"
 
 
 def test_the_native_provider_blocks_nothing_on_the_loop(client):
