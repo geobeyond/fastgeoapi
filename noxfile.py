@@ -281,6 +281,8 @@ def ty(session: Session) -> None:
         "fsspec>=2024.6",
         # The pmtiles extra (ADR-0011): pure Python, named for the unlocked lanes.
         "pmtiles>=3.7,<4",
+        # Pillow decodes PNGs in the map tests; the locked lanes get it from the dev group.
+        "pillow>=11",
         # The bucket end-to-end tests import boto3 against a local S3
         # (ministack). Both live in the `dev` group, which the locked
         # install brings along and this unlocked list did not — so `ty`
@@ -323,6 +325,8 @@ def tests(session: Session) -> None:
         "fsspec>=2024.6",
         # The pmtiles extra (ADR-0011): pure Python, named for the unlocked lanes.
         "pmtiles>=3.7,<4",
+        # Pillow decodes PNGs in the map tests; the locked lanes get it from the dev group.
+        "pillow>=11",
         # Local S3 for the bucket end-to-end tests (see the `dev` group);
         # without these the unlocked lane silently skips them.
         "ministack>=1.5,<2",
@@ -380,6 +384,8 @@ def typeguard(session: Session) -> None:
         "fsspec>=2024.6",
         # The pmtiles extra (ADR-0011): pure Python, named for the unlocked lanes.
         "pmtiles>=3.7,<4",
+        # Pillow decodes PNGs in the map tests; the locked lanes get it from the dev group.
+        "pillow>=11",
         # Local S3 for the bucket end-to-end tests (see the `dev` group);
         # without these the unlocked lane silently skips them.
         "ministack>=1.5,<2",
