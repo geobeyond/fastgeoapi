@@ -44,6 +44,9 @@ class PlainMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
 
 def test_the_maplibre_provider_is_one_line_of_bases_like_the_others():
+    # Imported here, not at the top: tests that purge `app.*` from sys.modules
+    # re-import the mixins, and the provider inherits from the new ones.
+    from app.provider.base import AsyncProviderMixin, StorageBackedMixin
     from app.provider.maplibre import MapLibreMapProvider
 
     assert MapLibreMapProvider.__bases__ == (AsyncProviderMixin, StorageBackedMixin, BaseProvider)
