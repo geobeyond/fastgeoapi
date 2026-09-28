@@ -18,11 +18,11 @@ from pygeoapi.provider.base import BaseProvider, ProviderGenericError
 from app.maps.contract import MapRequest, MapSource, MapStyles
 from app.maps.queue import RenderQueue
 from app.maps.sources import ObjectUrl, SourceContext
-from app.maps.styles import MapLibreStyles
 from app.provider.base import AsyncProviderMixin, StorageBackedMixin
 from app.provider.maps import (
     MAPS_CONFORMANCE,
     build_renderer,
+    build_styles,
     check_definition,
     draw_map,
     map_request,
@@ -48,6 +48,8 @@ DEFAULTS: dict[str, Any] = {
     # For data in a public bucket: the https address the renderer reads it at.
     "data_url": None,
     "renderer": "app.maps.mlnative.create_renderer",
+    # The styles go with the renderer: MapLibre styles for MapLibre Native.
+    "style_factory": "app.maps.styles.create_maplibre_styles",
 }
 
 
@@ -109,12 +111,7 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
                 name: read_style(where, store_options)
                 for name, where in self.options["styles"].items()
             }
-            self._map_styles = MapLibreStyles(
-                self._source(),
-                documents,
-                default=self.options["default_style"],
-                source_id=self.options["style_source"],
-            )
+            self._map_styles = build_styles(self._source(), documents, self.options)
         return self._map_styles
 
     def _request(self, **parameters: Any) -> MapRequest:

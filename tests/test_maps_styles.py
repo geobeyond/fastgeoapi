@@ -3,7 +3,7 @@
 import pytest
 
 from app.maps.contract import MapStyles, SourceContent
-from app.maps.styles import MapLibreStyles, default_style
+from app.maps.styles import MapLibreStyles, create_maplibre_styles, default_style
 
 ROADS = SourceContent("vector", layers=("roads",))
 
@@ -143,3 +143,14 @@ def test_tiles_maplibre_cannot_decode_are_refused_before_drawing():
 
     with pytest.raises(ValueError, match="AVIF"):
         MapLibreStyles(_Source(content=avif)).style(None, transparent=False)
+
+
+def test_the_maplibre_factory_builds_styles_from_the_provider_options():
+    night = {"version": 8, "sources": {}, "layers": [{"id": "n", "type": "background"}]}
+    styles = create_maplibre_styles(
+        _Source(), {"night": night}, {"default_style": "night", "style_source": "roads"}
+    )
+
+    assert isinstance(styles, MapStyles)
+    assert styles.names() == ["night"]
+    assert "roads" in styles.style(None, transparent=False)["sources"]

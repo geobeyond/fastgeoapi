@@ -129,3 +129,25 @@ def create_missing_renderer(options: dict):
     raise ImportError(
         "MapLibre Native is not installed: map rendering needs the maps dependency group"
     )
+
+
+class PlainStyles:
+    """Styles of a family that is not MapLibre: the style is the source URL."""
+
+    def __init__(self, source, documents, options):
+        self.source = source
+        self.documents = documents
+        self.options = options
+
+    def names(self) -> list[str]:
+        return sorted(self.documents)
+
+    def style(self, name, transparent):
+        if name is not None and name not in self.documents:
+            raise KeyError(name)
+        return {"url": self.source.url(), "name": name, "transparent": transparent}
+
+
+def create_plain_styles(source, documents, options) -> PlainStyles:
+    """The factory a provider definition names in ``options.style_factory``."""
+    return PlainStyles(source, documents, options)

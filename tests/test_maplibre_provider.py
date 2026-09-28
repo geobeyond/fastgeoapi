@@ -254,6 +254,34 @@ async def test_a_broken_style_file_is_not_called_an_undrawable_source(archive, t
 
 
 @pytest.mark.asyncio
+async def test_the_style_factory_option_gives_the_styles_of_another_family(archive):
+    await _map(_provider(archive, style_factory="tests.maps_fixtures.create_plain_styles"))
+
+    (request,) = FakeRenderer.instances[0].requests
+    assert request.style == {
+        "url": f"file://{archive.resolve()}",
+        "name": None,
+        "transparent": True,
+    }
+
+
+@pytest.mark.asyncio
+async def test_a_style_factory_that_cannot_be_loaded_says_so(archive):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    with pytest.raises(ProviderGenericError) as error:
+        await _map(_provider(archive, style_factory="tests.nowhere.create_styles"))
+    assert "tests.nowhere.create_styles" in error.value.message
+    assert FakeRenderer.instances == []
+
+
+def test_the_default_styles_are_maplibre_styles():
+    from app.provider.maplibre import DEFAULTS
+
+    assert DEFAULTS["style_factory"] == "app.maps.styles.create_maplibre_styles"
+
+
+@pytest.mark.asyncio
 async def test_another_crs_is_a_bad_parameter(archive):
     from app.provider.maps import MapParameterError
 
