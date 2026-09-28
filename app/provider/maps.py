@@ -1,0 +1,263 @@
+"""The parts every OGC API Maps provider composes, as functions and errors.
+
+A map provider is one line of classes, like every provider here: the
+async mixin and pygeoapi's root. From this module it takes what it shares
+with the other map providers: the checks of its definition, the URL of
+its data, its style documents, its renderer, the
+:class:`~app.maps.contract.MapRequest` of the OGC API Maps parameters,
+and the errors pygeoapi turns into HTTP answers. It adds a
+:class:`~app.maps.queue.RenderQueue` and the styles of its family. Maps
+are drawn in EPSG:3857, the CRS of the contract's request.
+"""
+
+from __future__ import annotations
+
+import importlib
+import json
+import math
+from collections.abc import Callable
+from datetime import timedelta
+from http import HTTPStatus
+from pathlib import Path
+from typing import Any
+
+from pygeoapi.provider.base import ProviderGenericError, ProviderItemNotFoundError
+
+from app.config.logging import create_logger
+from app.maps.camera import HALF_WORLD
+from app.maps.contract import MapRenderer, MapRequest, RenderError, SourceNotDrawableError
+from app.maps.queue import DrawTimeoutError, QueueFullError, RenderQueue
+from app.maps.sources import ObjectUrl, SourceFormat, source_for
+from app.provider.storage import load_store, split_source
+
+logger = create_logger("app.provider.maps")
+
+WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
+"""The only CRS maps are drawn in."""
+
+_MAPS = "http://www.opengis.net/spec/ogcapi-maps-1/1.0/conf"
+
+MAPS_CONFORMANCE: tuple[str, ...] = (
+    f"{_MAPS}/core",
+    f"{_MAPS}/collection-map",
+    f"{_MAPS}/png",
+    f"{_MAPS}/scaling",
+    f"{_MAPS}/spatial-subsetting",
+    f"{_MAPS}/background",
+)
+"""The OGC API Maps classes a provider built from these parts passes."""
+
+
+class _MapError(ProviderGenericError):
+    """A map error whose message, when none is given, is its ``default_msg``.
+
+    pygeoapi's errors pass ``msg`` on to the exception, so one raised
+    without a message logs as ``None``.
+    """
+
+    def __init__(self, msg: str | None = None, *args: Any, user_msg: str | None = None) -> None:
+        super().__init__(msg or user_msg or self.default_msg, *args, user_msg=user_msg)
+
+
+class MapParameterError(_MapError):
+    """A map parameter this server cannot honour."""
+
+    ogc_exception_code = "InvalidParameterValue"
+    http_status_code = HTTPStatus.BAD_REQUEST
+    default_msg = "invalid map parameter"
+
+
+class MapTooLargeError(MapParameterError):
+    """A width or height above ``max_size``: OGC API - Maps prefers a 413 for it."""
+
+    http_status_code = HTTPStatus.REQUEST_ENTITY_TOO_LARGE
+    default_msg = "the map is larger than this server draws"
+
+
+class MapRendererBusyError(_MapError):
+    """Too many maps are already waiting for the renderer."""
+
+    http_status_code = HTTPStatus.SERVICE_UNAVAILABLE
+    default_msg = "the map renderer is busy, retry later"
+    # Seconds for the Retry-After header: a warm map takes well under one, the
+    # first map of a small area from 2 to 9.
+    retry_after = 5
+
+
+class MapRenderTimeoutError(_MapError):
+    """The renderer took longer than the configured timeout."""
+
+    http_status_code = HTTPStatus.GATEWAY_TIMEOUT
+    default_msg = "the map took too long to render"
+
+
+def is_bucket(data: str) -> bool:
+    """Whether ``data`` is a bucket key, neither a local path nor an http URL."""
+    return "://" in data and not data.startswith(("file://", "http://", "https://"))
+
+
+def check_definition(provider_def: dict, options: dict[str, Any]) -> SourceFormat:
+    """The source format of a map provider's data, once its definition holds together.
+
+    Raises :class:`ProviderGenericError` for a storage CRS other than
+    EPSG:3857, for data that no registered source reads, and for a public
+    bucket without ``archive_url``.
+    """
+    storage_crs = provider_def.get("storage_crs", WEB_MERCATOR)
+    if storage_crs != WEB_MERCATOR:
+        raise ProviderGenericError(
+            user_msg=f"the map provider draws in {WEB_MERCATOR}, not in {storage_crs}"
+        )
+    try:
+        source_format = source_for(provider_def["data"])
+    except LookupError as error:
+        raise ProviderGenericError(user_msg=f"map source not supported: {error}") from None
+    # The renderer fetches the data with plain HTTP. A public bucket read
+    # without signatures has no URL to sign, and obstore would first spend
+    # seconds looking for credentials.
+    store_options = provider_def.get("store_options") or {}
+    if store_options.get("skip_signature") and not options.get("archive_url"):
+        if is_bucket(provider_def["data"]):
+            raise ProviderGenericError(
+                user_msg="a public bucket needs options.archive_url, the https URL of the archive"
+            )
+    return source_format
+
+
+def object_url(
+    data: str, *, public_url: str | None, sign: Callable[[timedelta], str], ttl: timedelta
+) -> ObjectUrl:
+    """The URL of the data object for a renderer: public, local, or signed by ``sign``."""
+    if public_url:
+        return ObjectUrl(public_url=public_url)
+    if data.startswith(("http://", "https://")):
+        return ObjectUrl(public_url=data)
+    if not is_bucket(data):
+        return ObjectUrl(local_path=Path(data.removeprefix("file://")))
+
+    def signer(expires_in: timedelta) -> str:
+        try:
+            return sign(expires_in)
+        except Exception as error:
+            logger.warning(f"could not sign the archive URL: {type(error).__name__}")
+            raise ProviderGenericError(user_msg="the archive URL could not be signed") from None
+
+    return ObjectUrl(signer=signer, ttl=ttl)
+
+
+def read_style(location: str, store_options: dict | None) -> dict:
+    """A style document from a local path or a bucket."""
+    if "://" not in location:
+        return json.loads(Path(location).read_text())
+    base, key = split_source(location)
+    return json.loads(load_store(base, store_options).get(key))
+
+
+def render_limit(options: dict[str, Any]) -> float:
+    """Seconds a render may go on after its map answered 504: four times the timeout by default."""
+    limit = options.get("render_limit")
+    return float(limit) if limit is not None else 4 * float(options["timeout"])
+
+
+def build_renderer(options: dict[str, Any]) -> MapRenderer:
+    """The renderer the ``renderer`` option names, built from the options."""
+    dotted = options.get("renderer")
+    if not dotted:
+        raise ProviderGenericError(user_msg="map rendering is not available: no renderer is named")
+    module_name, _, name = dotted.rpartition(".")
+    try:
+        factory = getattr(importlib.import_module(module_name), name)
+    except (ImportError, AttributeError) as error:
+        raise ProviderGenericError(
+            user_msg=(
+                f"map rendering is not available: {dotted} could not be loaded; "
+                "install the maps dependency group"
+            )
+        ) from error
+    try:
+        return factory({**options, "render_limit": render_limit(options)})
+    except ImportError as error:
+        raise ProviderGenericError(user_msg=f"map rendering is not available: {error}") from error
+
+
+def _flag(value: Any) -> bool:
+    if isinstance(value, str):
+        return value.strip().lower() not in ("false", "0", "no")
+    return bool(value)
+
+
+def _clamp(value: float) -> float:
+    if math.isnan(value):
+        return value
+    return max(-HALF_WORLD, min(HALF_WORLD, value))
+
+
+def map_request(
+    style_for: Callable[[str | None, bool], Any],
+    *,
+    max_size: int,
+    style: str | None = None,
+    bbox: list[float] | None = None,
+    width: int = 500,
+    height: int = 300,
+    crs: str | None = None,
+    transparent: Any = True,
+    format_: str | None = "png",
+) -> MapRequest:
+    """The map to draw for the OGC API Maps parameters of one request.
+
+    ``style_for(name, transparent)`` resolves the style of the family.
+    Raises the errors of this module, and pygeoapi's not-found error for
+    a style that is not configured.
+    """
+    # pygeoapi's get_uri lowercases a CRS URI on its way here.
+    if crs is not None and crs.lower() != WEB_MERCATOR.lower():
+        raise MapParameterError(user_msg=f"maps are drawn in {WEB_MERCATOR} only")
+    # pygeoapi's map route answers f=html with the image itself, as there is no
+    # HTML map page: a PNG is drawn for it too.
+    if format_ not in (None, "png", "html"):
+        raise MapParameterError(user_msg="maps are drawn as PNG only")
+    if int(width) < 1 or int(height) < 1:
+        raise MapParameterError(user_msg="width and height must be at least 1")
+    if int(width) > max_size or int(height) > max_size:
+        raise MapTooLargeError(user_msg=f"width and height must be at most {max_size}")
+    transparent = _flag(transparent)
+    try:
+        chosen = style_for(style, transparent)
+    except KeyError as error:
+        raise ProviderItemNotFoundError(user_msg=f"style {style} not found") from error
+    except ImportError as error:
+        # A source imports the library of its format at its first read, and
+        # the library may come from an extra that is not installed.
+        raise ProviderGenericError(user_msg=f"map source not available: {error}") from error
+    except SourceNotDrawableError as error:
+        raise ProviderGenericError(user_msg=f"map source not drawable: {error}") from error
+    if bbox is None:
+        bbox = [-HALF_WORLD, -HALF_WORLD, HALF_WORLD, HALF_WORLD]
+    try:
+        xmin, ymin, xmax, ymax = (_clamp(float(value)) for value in bbox)
+        if xmin > xmax:
+            # The west edge lies east of the east edge: the bbox crosses the
+            # antimeridian, and its east edge is one world further on.
+            xmax += 2 * HALF_WORLD
+        return MapRequest(
+            bbox=(xmin, ymin, xmax, ymax),
+            width=int(width),
+            height=int(height),
+            style=chosen,
+            transparent=transparent,
+        )
+    except ValueError as error:
+        raise MapParameterError(user_msg=str(error)) from error
+
+
+async def draw_map(queue: RenderQueue, request: MapRequest) -> bytes:
+    """The PNG of ``request`` from ``queue``, with its outcomes as pygeoapi errors."""
+    try:
+        return await queue.draw(request)
+    except QueueFullError:
+        raise MapRendererBusyError() from None
+    except DrawTimeoutError:
+        raise MapRenderTimeoutError() from None
+    except RenderError:
+        raise ProviderGenericError(user_msg="the map renderer failed") from None

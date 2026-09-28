@@ -223,7 +223,7 @@ async def test_a_broken_style_file_is_not_called_an_undrawable_source(archive, t
 
 @pytest.mark.asyncio
 async def test_another_crs_is_a_bad_parameter(archive):
-    from app.provider.maplibre import MapParameterError
+    from app.provider.maps import MapParameterError
 
     with pytest.raises(MapParameterError) as error:
         await _map(_provider(archive), crs="http://www.opengis.net/def/crs/OGC/1.3/CRS84")
@@ -232,7 +232,7 @@ async def test_another_crs_is_a_bad_parameter(archive):
 
 @pytest.mark.asyncio
 async def test_a_map_larger_than_max_size_answers_413(archive):
-    from app.provider.maplibre import MapTooLargeError
+    from app.provider.maps import MapTooLargeError
 
     with pytest.raises(MapTooLargeError) as error:
         await _map(_provider(archive, max_size=1024), width=2000, height=64)
@@ -241,7 +241,7 @@ async def test_a_map_larger_than_max_size_answers_413(archive):
 
 @pytest.mark.asyncio
 async def test_a_size_below_one_is_a_bad_parameter(archive):
-    from app.provider.maplibre import MapParameterError, MapTooLargeError
+    from app.provider.maps import MapParameterError, MapTooLargeError
 
     with pytest.raises(MapParameterError) as error:
         await _map(_provider(archive), width=64, height=0)
@@ -252,7 +252,7 @@ async def test_a_size_below_one_is_a_bad_parameter(archive):
 @pytest.mark.asyncio
 async def test_the_default_limit_fits_a_wide_browser_map(archive):
     """The collection page of pygeoapi asks for an image as wide as its map."""
-    from app.provider.maplibre import MapTooLargeError
+    from app.provider.maps import MapTooLargeError
 
     png = await _map(_provider(archive), width=2048, height=400)
 
@@ -263,7 +263,7 @@ async def test_the_default_limit_fits_a_wide_browser_map(archive):
 
 @pytest.mark.asyncio
 async def test_another_format_is_a_bad_parameter(archive):
-    from app.provider.maplibre import MapParameterError
+    from app.provider.maps import MapParameterError
 
     with pytest.raises(MapParameterError):
         await _map(_provider(archive), format_="jpeg")
@@ -271,7 +271,7 @@ async def test_another_format_is_a_bad_parameter(archive):
 
 @pytest.mark.asyncio
 async def test_an_inverted_bbox_is_a_bad_parameter(archive):
-    from app.provider.maplibre import MapParameterError
+    from app.provider.maps import MapParameterError
 
     # Only in latitude: a west edge east of the east edge crosses the antimeridian.
     with pytest.raises(MapParameterError):
@@ -317,7 +317,7 @@ async def test_a_named_style_is_used(archive, tmp_path):
 
 @pytest.mark.asyncio
 async def test_a_full_queue_answers_503(archive):
-    from app.provider.maplibre import MapRendererBusyError
+    from app.provider.maps import MapRendererBusyError
 
     FakeRenderer.gate = asyncio.Event()
     provider = _provider(archive, fake="gate", queue=1)
@@ -335,7 +335,7 @@ async def test_a_full_queue_answers_503(archive):
 
 @pytest.mark.asyncio
 async def test_a_slow_render_answers_504_and_keeps_drawing_for_the_cache(archive):
-    from app.provider.maplibre import MapRenderTimeoutError
+    from app.provider.maps import MapRenderTimeoutError
 
     FakeRenderer.gate = asyncio.Event()
     provider = _provider(archive, fake="gate", timeout=0.05, render_limit=5)
@@ -354,7 +354,7 @@ async def test_a_slow_render_answers_504_and_keeps_drawing_for_the_cache(archive
 
 @pytest.mark.asyncio
 async def test_a_render_past_its_limit_replaces_the_renderer(archive):
-    from app.provider.maplibre import MapRenderTimeoutError
+    from app.provider.maps import MapRenderTimeoutError
 
     # Four times the timeout by default; the limit given here comes much sooner.
     provider = _provider(archive, fake="slow", timeout=1, render_limit=0.1)
@@ -367,7 +367,7 @@ async def test_a_render_past_its_limit_replaces_the_renderer(archive):
 
 @pytest.mark.asyncio
 async def test_a_map_waiting_behind_a_long_render_answers_504_in_time(archive):
-    from app.provider.maplibre import MapRenderTimeoutError
+    from app.provider.maps import MapRenderTimeoutError
 
     FakeRenderer.gate = asyncio.Event()
     provider = _provider(archive, fake="gate", timeout=0.05, render_limit=5)
@@ -386,7 +386,7 @@ async def test_a_map_waiting_behind_a_long_render_answers_504_in_time(archive):
 async def test_a_crash_answers_500_and_the_next_map_gets_a_new_renderer(archive):
     from pygeoapi.provider.base import ProviderGenericError
 
-    from app.provider.maplibre import MapRendererBusyError, MapRenderTimeoutError
+    from app.provider.maps import MapRendererBusyError, MapRenderTimeoutError
 
     provider = _provider(archive, fake="crash-once")
     with pytest.raises(ProviderGenericError) as error:
@@ -507,7 +507,7 @@ async def test_aclose_waits_for_the_renderer_to_close(archive):
 
 
 def test_the_map_errors_name_their_problem_in_the_log():
-    from app.provider.maplibre import MapRendererBusyError, MapRenderTimeoutError
+    from app.provider.maps import MapRendererBusyError, MapRenderTimeoutError
 
     assert str(MapRenderTimeoutError()) == "the map took too long to render"
     assert str(MapRendererBusyError()) == "the map renderer is busy, retry later"
