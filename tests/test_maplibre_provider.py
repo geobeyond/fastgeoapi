@@ -1,7 +1,9 @@
 """The map provider: styles, limits and errors, with a renderer that draws nothing."""
 
 import asyncio
+import sys
 from http import HTTPStatus
+from unittest import mock
 
 import pytest
 
@@ -79,7 +81,8 @@ async def test_an_https_archive_is_read_as_it_is(tmp_path):
     from app.provider.maplibre import MapLibreMapProvider
 
     style = tmp_path / "plain.json"
-    style.write_text('{"version": 8, "sources": {}, "layers": []}')
+    # The style declares its source, so the archive is never read.
+    style.write_text('{"version": 8, "sources": {"archive": {"type": "vector"}}, "layers": []}')
     definition = map_provider(
         tmp_path / "unused.pmtiles", styles={"plain": str(style)}, default_style="plain"
     )
@@ -116,7 +119,8 @@ async def test_a_signing_failure_is_a_provider_error(tmp_path):
     from app.provider.maplibre import MapLibreMapProvider
 
     style = tmp_path / "plain.json"
-    style.write_text('{"version": 8, "sources": {}, "layers": []}')
+    # The style declares its source, so the archive is never read.
+    style.write_text('{"version": 8, "sources": {"archive": {"type": "vector"}}, "layers": []}')
     definition = map_provider(
         tmp_path / "unused.pmtiles", styles={"plain": str(style)}, default_style="plain"
     )
@@ -139,6 +143,82 @@ def test_a_source_the_provider_cannot_read_is_refused(tmp_path):
     with pytest.raises(ProviderGenericError) as error:
         MapLibreMapProvider(definition)
     assert "map source not supported" in error.value.message
+
+
+@pytest.mark.asyncio
+async def test_a_registered_source_is_drawn_without_touching_the_provider(tmp_path):
+    """A new map source is a class and its registration; the provider stays as it is."""
+    from app.maps import sources, styles
+
+    class GeoJSONSource:
+        format = "geojson"
+
+        def __init__(self, context):
+            self._location = context.location()
+
+        def url(self):
+            return self._location.current()
+
+        def content(self):
+            from app.maps.contract import SourceContent
+
+            return SourceContent("vector")
+
+    data = tmp_path / "roads.geojson"
+    data.write_text('{"type": "FeatureCollection", "features": []}')
+    plain = tmp_path / "plain.json"
+    plain.write_text(
+        '{"version": 8, "sources": {}, "layers": [{"id": "r", "type": "line", "source": "archive"}]}'
+    )
+    translate = {"geojson": lambda url, content: {"type": "geojson", "data": url}}
+    with mock.patch.dict(sources._REGISTRY), mock.patch.dict(styles._SOURCES, translate):
+        sources.register_source(
+            "geojson", matches=lambda data: data.endswith(".geojson"), build=GeoJSONSource
+        )
+        await _map(_provider(data, styles={"plain": str(plain)}, default_style="plain"))
+
+    (request,) = FakeRenderer.instances[0].requests
+    assert request.style["sources"]["archive"] == {
+        "type": "geojson",
+        "data": f"file://{data.resolve()}",
+    }
+
+
+@pytest.mark.asyncio
+async def test_without_the_pmtiles_extra_a_map_says_what_to_install(archive, monkeypatch):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    monkeypatch.setitem(sys.modules, "pmtiles", None)
+    monkeypatch.setitem(sys.modules, "pmtiles.reader", None)
+
+    with pytest.raises(ProviderGenericError) as error:
+        await _map(_provider(archive))
+    assert "pmtiles extra" in error.value.message
+
+
+@pytest.mark.asyncio
+async def test_an_avif_archive_is_refused_without_a_render(tmp_path):
+    """MapLibre Native has no AVIF decoder: every render would fail and replace the renderer."""
+    from pygeoapi.provider.base import ProviderGenericError
+
+    from tests.pmtiles_fixtures import raster_archive
+
+    archive = raster_archive(tmp_path / "hills.pmtiles", kind="AVIF")
+
+    with pytest.raises(ProviderGenericError) as error:
+        await _map(_provider(archive))
+    assert "AVIF" in error.value.message
+    assert FakeRenderer.instances == []
+
+
+@pytest.mark.asyncio
+async def test_a_broken_style_file_is_not_called_an_undrawable_source(archive, tmp_path):
+    broken = tmp_path / "broken.json"
+    broken.write_text("{not json")
+
+    with pytest.raises(Exception) as error:
+        await _map(_provider(archive, styles={"broken": str(broken)}), style="broken")
+    assert "not drawable" not in str(error.value)
 
 
 @pytest.mark.asyncio

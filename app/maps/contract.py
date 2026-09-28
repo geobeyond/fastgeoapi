@@ -34,9 +34,30 @@ class MapRequest:
             raise ValueError("width and height must be positive")
 
 
+@dataclass(frozen=True, slots=True)
+class SourceContent:
+    """What a source holds, for a style that does not declare it."""
+
+    kind: str
+    """``"vector"`` or ``"raster"``, as MapLibre names its source types."""
+    layers: tuple[str, ...] = ()
+    """The data layers of a vector source, for a default style that draws all of them."""
+    tile_size: int | None = None
+    """The width in pixels of one tile of a raster source, when known."""
+    encoding: str | None = None
+    """How the tiles are encoded, when the data says so: ``"mvt"``, ``"png"``, ``"avif"``."""
+
+
 @runtime_checkable
 class MapSource(Protocol):
-    """A collection's data, as a renderer outside this process reads it."""
+    """A collection's data, as a renderer outside this process reads it.
+
+    Every source is read this way today: the renderer fetches the data at
+    the source's URL. Two other ways are possible and not written yet: the
+    data put inline in the style, such as the GeoJSON of a features
+    collection, and the data read in this process and handed to the
+    renderer, such as the windows of a raster.
+    """
 
     format: str
     """The format of the data, which tells a style how to point at it: ``"pmtiles"``."""
@@ -45,8 +66,8 @@ class MapSource(Protocol):
         """Where to read the data now: a file URL, a public URL or a presigned one."""
         ...
 
-    def layers(self) -> list[str]:
-        """The names of the data layers, for a default style that draws all of them."""
+    def content(self) -> SourceContent:
+        """What the data holds: vector layers, or raster tiles and their size."""
         ...
 
 
@@ -69,6 +90,10 @@ class MapStyles(Protocol):
 
 class RenderError(RuntimeError):
     """The renderer could not produce an image."""
+
+
+class SourceNotDrawableError(ValueError):
+    """The styles cannot point the renderer at this source; raised before any render."""
 
 
 @runtime_checkable

@@ -21,14 +21,13 @@ from datetime import timedelta
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any, ClassVar
-from urllib.parse import urlsplit
 
 from pygeoapi.provider.base import BaseProvider, ProviderGenericError, ProviderItemNotFoundError
 
 from app.config.logging import create_logger
 from app.maps.camera import HALF_WORLD
-from app.maps.contract import MapRenderer, MapRequest, MapSource, MapStyles
-from app.maps.sources import ObjectUrl, PMTilesSource
+from app.maps.contract import MapRenderer, MapRequest, MapSource, MapStyles, SourceNotDrawableError
+from app.maps.sources import ObjectUrl, SourceContext, source_for
 from app.maps.styles import MapLibreStyles
 from app.provider.base import AsyncProviderMixin, StorageBackedMixin
 from app.provider.storage import load_store, split_source
@@ -149,10 +148,10 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             raise ProviderGenericError(
                 user_msg=f"the map provider draws in {WEB_MERCATOR}, not in {storage_crs}"
             )
-        if not self._is_pmtiles(provider_def["data"]):
-            raise ProviderGenericError(
-                user_msg="map source not supported: the map provider reads PMTiles archives only"
-            )
+        try:
+            self._source_format = source_for(provider_def["data"])
+        except LookupError as error:
+            raise ProviderGenericError(user_msg=f"map source not supported: {error}") from None
         # The renderer fetches the archive with plain HTTP. A public bucket
         # read without signatures has no URL to sign, and obstore would
         # first spend seconds looking for credentials.
@@ -189,10 +188,6 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         return sorted(self.options["styles"])
 
     @staticmethod
-    def _is_pmtiles(data: str) -> bool:
-        return Path(urlsplit(data).path).suffix.lower() == ".pmtiles"
-
-    @staticmethod
     def _is_bucket(data: str) -> bool:
         return "://" in data and not data.startswith(("file://", "http://", "https://"))
 
@@ -214,7 +209,13 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             raise ProviderGenericError(user_msg="the archive URL could not be signed") from None
 
     def _source(self) -> MapSource:
-        return PMTilesSource(self._object_url(), self.byte_ranges().read)
+        context = SourceContext(
+            data=self.provider_def["data"],
+            options=self.options,
+            location=self._object_url,
+            ranges=lambda: self.byte_ranges().read,
+        )
+        return self._source_format.build(context)
 
     def _read_style(self, location: str) -> dict:
         if "://" not in location:
@@ -250,6 +251,12 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             chosen = self._styles().style(style, transparent)
         except KeyError as error:
             raise ProviderItemNotFoundError(user_msg=f"style {style} not found") from error
+        except ImportError as error:
+            # A source imports the library of its format at its first read, and
+            # the library may come from an extra that is not installed.
+            raise ProviderGenericError(user_msg=f"map source not available: {error}") from error
+        except SourceNotDrawableError as error:
+            raise ProviderGenericError(user_msg=f"map source not drawable: {error}") from error
         try:
             xmin, ymin, xmax, ymax = (_clamp(float(value)) for value in bbox)
             if xmin > xmax:

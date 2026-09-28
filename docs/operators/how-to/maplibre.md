@@ -4,8 +4,8 @@ icon: material/map
 
 # :material-map: MapLibre provider
 
-An OGC API - Maps provider that draws PNG maps of a PMTiles archive with
-MapLibre Native, the engine behind MapLibre GL. The renderer runs in its
+An OGC API - Maps provider that draws PNG maps of a PMTiles archive, of
+vector or raster tiles, with MapLibre Native, the engine behind MapLibre GL. The renderer runs in its
 own process and reads the archive in place, from a local path or a
 bucket, the way the [PMTiles provider](pmtiles.md) does. The map route
 awaits the provider, so a map being drawn keeps no worker thread busy.
@@ -43,7 +43,9 @@ apt-get install libuv1 libvulkan1 mesa-vulkan-drivers libicu74 libcurl4t64 \
 ```
 
 Without the group, a map answers 500 with "map rendering is not available"
-and says what to install. The rest of the server does not need it.
+and says what to install; without the `pmtiles` extra, it answers 500 with
+"map source not available" and names the extra. The rest of the server
+needs neither.
 
 ## Configuration
 
@@ -78,14 +80,22 @@ providers:
 | `render_limit`  | four times `timeout`                | Seconds a render goes on after its map answered 504, so the tiles it reads stay cached; past it the renderer is replaced. |
 | `max_rss_mb`    | 600                                 | Memory of the renderer process after a map; above it the process is replaced.                                             |
 | `styles`        | none                                | Style names mapped to MapLibre style files, local or in a bucket.                                                         |
-| `default_style` | none                                | The style drawn when a request names none; without it, a plain style drawn from the archive's layers.                     |
+| `default_style` | none                                | The style drawn when a request names none; without it, a plain style of the archive's vector layers or raster tiles.      |
 | `source`        | `archive`                           | The name the styles give the collection's archive in their `sources`.                                                     |
 | `archive_url`   | none                                | The https address of a public archive; required when `skip_signature` is set on a bucket.                                 |
 | `sign_ttl`      | 3600                                | Seconds a presigned archive URL lasts; it is renewed when a fifth is left.                                                |
 | `renderer`      | `app.maps.mlnative.create_renderer` | The function that builds the renderer from these options; another engine plugs in here.                                   |
+| `tile_size`     | the first tile's width              | The width in pixels of the tiles of a raster archive.                                                                     |
 
 A private bucket works without `archive_url`: the server signs a URL with
 the store's credentials and gives only that URL to the renderer.
+
+The first map reads the archive header to tell vector tiles from raster
+ones. A raster archive of PNG, JPEG or WebP tiles is drawn as a raster
+layer; an archive of AVIF tiles answers 500 with "map source not
+drawable", because MapLibre Native cannot decode AVIF. A style that declares the
+archive's source with its `type` keeps that source and its settings, and
+the header is not read for it.
 
 ## What a request can ask
 
