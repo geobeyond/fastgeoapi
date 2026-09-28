@@ -41,7 +41,8 @@ WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
 _MAPS = "http://www.opengis.net/spec/ogcapi-maps-1/1.0/conf"
 
 DEFAULTS: dict[str, Any] = {
-    "max_size": 1024,
+    # The collection page of pygeoapi asks for an image as wide as its map.
+    "max_size": 2048,
     "queue": 8,
     "timeout": 30,
     # Seconds a render may go on after its map answered 504; four times
@@ -76,11 +77,21 @@ class MapParameterError(_MapError):
     default_msg = "invalid map parameter"
 
 
+class MapTooLargeError(MapParameterError):
+    """A width or height above ``max_size``: OGC API - Maps prefers a 413 for it."""
+
+    http_status_code = HTTPStatus.REQUEST_ENTITY_TOO_LARGE
+    default_msg = "the map is larger than this server draws"
+
+
 class MapRendererBusyError(_MapError):
     """Too many maps are already waiting for the renderer."""
 
     http_status_code = HTTPStatus.SERVICE_UNAVAILABLE
     default_msg = "the map renderer is busy, retry later"
+    # Seconds for the Retry-After header: a warm map takes well under one, the
+    # first map of a small area from 2 to 9.
+    retry_after = 5
 
 
 class MapRenderTimeoutError(_MapError):
@@ -230,8 +241,10 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         if format_ not in (None, "png", "html"):
             raise MapParameterError(user_msg="maps are drawn as PNG only")
         limit = int(self.options["max_size"])
-        if not (1 <= int(width) <= limit and 1 <= int(height) <= limit):
-            raise MapParameterError(user_msg=f"width and height must be between 1 and {limit}")
+        if int(width) < 1 or int(height) < 1:
+            raise MapParameterError(user_msg="width and height must be at least 1")
+        if int(width) > limit or int(height) > limit:
+            raise MapTooLargeError(user_msg=f"width and height must be at most {limit}")
         transparent = _flag(transparent)
         try:
             chosen = self._styles().style(style, transparent)

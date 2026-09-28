@@ -151,12 +151,34 @@ async def test_another_crs_is_a_bad_parameter(archive):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(("width", "height"), [(2000, 64), (64, 0)])
-async def test_the_size_is_limited(archive, width, height):
-    from app.provider.maplibre import MapParameterError
+async def test_a_map_larger_than_max_size_answers_413(archive):
+    from app.provider.maplibre import MapTooLargeError
 
-    with pytest.raises(MapParameterError):
-        await _map(_provider(archive, max_size=1024), width=width, height=height)
+    with pytest.raises(MapTooLargeError) as error:
+        await _map(_provider(archive, max_size=1024), width=2000, height=64)
+    assert error.value.http_status_code == HTTPStatus.REQUEST_ENTITY_TOO_LARGE
+
+
+@pytest.mark.asyncio
+async def test_a_size_below_one_is_a_bad_parameter(archive):
+    from app.provider.maplibre import MapParameterError, MapTooLargeError
+
+    with pytest.raises(MapParameterError) as error:
+        await _map(_provider(archive), width=64, height=0)
+    assert not isinstance(error.value, MapTooLargeError)
+    assert error.value.http_status_code == HTTPStatus.BAD_REQUEST
+
+
+@pytest.mark.asyncio
+async def test_the_default_limit_fits_a_wide_browser_map(archive):
+    """The collection page of pygeoapi asks for an image as wide as its map."""
+    from app.provider.maplibre import MapTooLargeError
+
+    png = await _map(_provider(archive), width=2048, height=400)
+
+    assert png.startswith(b"\x89PNG")
+    with pytest.raises(MapTooLargeError):
+        await _map(_provider(archive), width=2049, height=400)
 
 
 @pytest.mark.asyncio

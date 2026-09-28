@@ -404,9 +404,10 @@ resources:
           # The archive is public: the renderer reads it at its own https
           # address, and the store above only reads its metadata.
           archive_url: https://fastgeoapi-demo.fly.storage.tigris.dev/tiles/lazio-roads.pmtiles
-          # One renderer on a 1 GB, 1 vCPU machine: images up to 1024 pixels,
-          # a short queue, and a process replaced above 600 MB.
-          max_size: 1024
+          # One renderer on a 1 GB, 1 vCPU machine: images up to 2048 pixels,
+          # as wide as the collection page's map may ask, a short queue, and a
+          # process replaced above 600 MB.
+          max_size: 2048
           queue: 8
           timeout: 30
           max_rss_mb: 600

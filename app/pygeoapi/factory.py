@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import asyncio
 import os
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
+from contextlib import suppress
 from http import HTTPStatus
 from pathlib import Path
 
@@ -211,6 +212,40 @@ async def execute(
 
 def _path_param(request: Request, name: str):
     return request.path_params.get(name)
+
+
+CLIENT_CLOSED_REQUEST = 499
+"""Nginx's status for a request whose client left; no client is there to read it."""
+
+
+async def _disconnected(request: Request) -> None:
+    """Return once the client of ``request`` has gone."""
+    while (await request.receive())["type"] != "http.disconnect":
+        pass
+
+
+async def _unless_disconnected[T](request: Request, work: Awaitable[T]) -> T | None:
+    """The result of ``work``, or None once the client has gone and ``work`` is cancelled.
+
+    Starlette runs a handler to its end even when the client leaves. A map
+    waiting for its renderer would keep its place in the queue until its
+    timeout, and turn away the maps of the clients still there.
+    """
+    task = asyncio.ensure_future(work)
+    gone = asyncio.ensure_future(_disconnected(request))
+    try:
+        await asyncio.wait({task, gone}, return_when=asyncio.FIRST_COMPLETED)
+    except BaseException:
+        task.cancel()
+        raise
+    finally:
+        gone.cancel()
+    if task.done():
+        return task.result()
+    task.cancel()
+    with suppress(asyncio.CancelledError):
+        await task
+    return None
 
 
 def _collection_tiles_metadata(
@@ -429,9 +464,13 @@ def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
         if not api_request.is_valid():
             headers, status, content = api.get_format_exception(api_request)
         else:
-            headers, status, content = await async_maps.get_collection_map(
-                api, api_request, dataset, style, *probe
+            drawn = await _unless_disconnected(
+                request,
+                async_maps.get_collection_map(api, api_request, dataset, style, *probe),
             )
+            if drawn is None:
+                return Response(status_code=CLIENT_CLOSED_REQUEST)
+            headers, status, content = drawn
         if status != HTTPStatus.NO_CONTENT:
             content = apply_gzip(headers, content)
         return _to_response(headers, status, content)

@@ -72,7 +72,7 @@ providers:
 
 | Option          | Default                             | Meaning                                                                                                                   |
 | --------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `max_size`      | 1024                                | The largest `width` or `height`; larger answers 400.                                                                      |
+| `max_size`      | 2048                                | The largest `width` or `height`; larger answers 413, and below 1 answers 400.                                             |
 | `queue`         | 8                                   | Maps that may wait for the renderer; one more answers 503.                                                                |
 | `timeout`       | 30                                  | Seconds a map may take, the wait for the renderer included; longer answers 504.                                           |
 | `render_limit`  | four times `timeout`                | Seconds a render goes on after its map answered 504, so the tiles it reads stay cached; past it the renderer is replaced. |
@@ -107,15 +107,23 @@ GetMap does. `datetime`, `subset` and `properties` are ignored.
 
 One renderer process serves each map provider and draws one map at a
 time. Under load, maps wait in a queue of `queue` places; past it they
-get a 503 with "the map renderer is busy, retry later", and a client
-should retry. A map that answers 504 is still drawn in the background, up
-to `render_limit`, so asking for it again a little later is often quick.
+get a 503 with "the map renderer is busy, retry later" and
+`Retry-After: 5`. A map whose client disconnects leaves the queue at once,
+so a browser map that pans or zooms before its image arrives does not
+fill it. A map that answers 504 is still drawn in the background, up to
+`render_limit`, so asking for it again a little later is often quick; a
+render that has started goes on even after its client has left, for the
+same reason.
 The first map of a new area waits for the tiles it needs to be read from
 the bucket. A small view took from 2 to 9 seconds in our measurements,
 depending on how far the bucket is. A wide view over a large archive needs
 many more tiles: the whole world from the Overture divisions archive, read
 from Europe, took more than 90 seconds cold and answered 504 while the
 render went on in the background.
+
+The collection page asks for an image as wide as its map, so `max_size`
+should stay above the widest map a browser will show: a wider map gets a
+413 and keeps its previous image.
 
 A style with labels needs a `glyphs` URL the renderer can reach. The MCP
 server gives each map collection a tool that returns the image to the

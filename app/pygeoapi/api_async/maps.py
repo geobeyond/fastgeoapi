@@ -138,6 +138,10 @@ async def get_collection_map(
         data = await provider.aquery(**query_args)
     except (ProviderGenericError, ProviderInvalidDataError) as err:
         headers["Content-Type"] = FORMAT_TYPES[F_JSON]
+        # A provider error may say when to try again, as a full queue does.
+        retry_after = getattr(err, "retry_after", None)
+        if retry_after is not None:
+            headers["Retry-After"] = str(retry_after)
         return api.get_exception(
             err.http_status_code, headers, request.format, err.ogc_exception_code, err.message
         )
