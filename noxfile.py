@@ -398,6 +398,23 @@ def typeguard(session: Session) -> None:
 
 
 @session(python=python_versions)
+def maps(session: Session) -> None:
+    """Run the tests that draw with the real MapLibre Native renderer (Linux)."""
+    # Always from the lock: the mlnative fork is reachable only through the
+    # wheel URLs in [tool.uv.sources], never from PyPI.
+    session.run_install(
+        "uv",
+        "sync",
+        "--group",
+        "maps",
+        "--extra",
+        "pmtiles",
+        env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
+    )
+    session.run("pytest", "-m", "renderer", "-rs", *session.posargs)
+
+
+@session(python=python_versions)
 def xdoctest(session: Session) -> None:
     """Run examples with xdoctest."""
     if session.posargs:
