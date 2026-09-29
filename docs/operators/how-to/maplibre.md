@@ -82,8 +82,9 @@ providers:
 | `styles`        | none                                     | Style names mapped to MapLibre style files, local or in a bucket.                                                                                   |
 | `default_style` | none                                     | The style drawn when a request names none, one of `styles`; without it, a plain style of the archive's vector layers or raster tiles.               |
 | `style_source`  | `archive`                                | The name the styles give the collection's source in their `sources`.                                                                                |
-| `data_url`      | none                                     | The https address of the data in a public bucket; required when the bucket is read with `skip_signature`.                                           |
+| `data_url`      | none                                     | The https address of the data in a public bucket; needed only when the range cache is off and the bucket is read with `skip_signature`.             |
 | `sign_ttl`      | 3600                                     | Seconds a presigned data URL lasts; it is renewed when a fifth is left.                                                                             |
+| `range_cache`   | true                                     | Read a remote archive through the range cache; `false` gives the renderer the public or signed URL instead.                                         |
 | `renderer`      | `app.maps.mlnative.create_renderer`      | The function that builds the renderer from these options; another engine plugs in here.                                                             |
 | `tile_size`     | the first tile's width                   | The width in pixels of the tiles of a raster archive.                                                                                               |
 | `style_factory` | `app.maps.styles.create_maplibre_styles` | The function that builds the styles from the source, the style documents and these options; it must give styles in the language the renderer reads. |
@@ -92,8 +93,14 @@ Each style is read at its first map. A style file that cannot be read
 answers 500 "style ... could not be read" for that style only; the other
 styles keep drawing.
 
-A private bucket works without `data_url`: the server signs a URL with
-the store's credentials and gives only that URL to the renderer.
+The renderer reads a remote archive through this process: a server on
+127.0.0.1, on a port the system picks and with a random token in every
+path, hands it the byte ranges from the range cache described in the
+PMTiles guide. The renderer never sees a signed URL, and a renderer
+process started again finds the ranges an earlier one read. With the
+range cache off, a private bucket still works without `data_url`: the
+server signs a URL with the store's credentials and gives only that URL
+to the renderer.
 
 The first map reads the archive header to tell vector tiles from raster
 ones. A raster archive of PNG, JPEG or WebP tiles is drawn as a raster
@@ -135,6 +142,11 @@ depending on how far the bucket is. A wide view over a large archive needs
 many more tiles: the whole world from the Overture divisions archive, read
 from Europe, took more than 90 seconds cold and answered 504 while the
 render went on in the background.
+
+When the archive changes, a map already being drawn may fail with a 500:
+it asks for ranges of the old version, the ones not cached any more
+answer 404, and the renderer gives the map up. The next map reads the new
+version.
 
 The collection page asks for an image as wide as its map, so `max_size`
 should stay above the widest map a browser will show: a wider map gets a
