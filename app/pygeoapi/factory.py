@@ -219,9 +219,20 @@ CLIENT_CLOSED_REQUEST = 499
 
 
 async def _disconnected(request: Request) -> None:
-    """Return once the client of ``request`` has gone."""
-    while (await request.receive())["type"] != "http.disconnect":
-        pass
+    """Return once the client of ``request`` has gone.
+
+    Past the body, only a disconnect should arrive. A receive that hands the
+    body out again, as fastapi-opa's buffering receive does, says nothing
+    about the client, so the wait stops listening there instead of spinning.
+    """
+    body_done = False
+    while True:
+        message = await request.receive()
+        if message["type"] == "http.disconnect":
+            return
+        if body_done:
+            await asyncio.Future()  # Listen no more: the caller cancels this wait.
+        body_done = not message.get("more_body", False)
 
 
 async def _unless_disconnected[T](request: Request, work: Awaitable[T]) -> T | None:
@@ -229,7 +240,9 @@ async def _unless_disconnected[T](request: Request, work: Awaitable[T]) -> T | N
 
     Starlette runs a handler to its end even when the client leaves. A map
     waiting for its renderer would keep its place in the queue until its
-    timeout, and turn away the maps of the clients still there.
+    timeout, and turn away the maps of the clients still there. When the
+    wait for a disconnect fails, which a middleware's receive can cause,
+    the client's state is unknown and ``work`` runs to its end.
     """
     task = asyncio.ensure_future(work)
     gone = asyncio.ensure_future(_disconnected(request))
@@ -242,6 +255,8 @@ async def _unless_disconnected[T](request: Request, work: Awaitable[T]) -> T | N
         gone.cancel()
     if task.done():
         return task.result()
+    if not gone.cancelled() and gone.exception() is not None:
+        return await task
     task.cancel()
     with suppress(asyncio.CancelledError):
         await task

@@ -229,6 +229,31 @@ async def test_a_full_queue_answers_503_with_retry_after(tmp_path):
     assert dict(busy["headers"]).get(b"retry-after") == b"5"
 
 
+def _behind_opa_and_the_proxy(app):
+    """The chain of OPA_ENABLED with FASTGEOAPI_REVERSE_PROXY: OPA's buffering receive,
+    then the proxy's BaseHTTPMiddleware, then the sub-app."""
+    from fastapi_opa.opa.opa_middleware import OwnReceive
+
+    from app.middleware.proxy import ForwardedLinksMiddleware
+
+    proxied = ForwardedLinksMiddleware(app)
+
+    async def opa(scope, receive, send):
+        await proxied(scope, OwnReceive(receive), send)
+
+    return opa
+
+
+@pytest.mark.asyncio
+async def test_a_map_behind_opa_and_the_proxy_is_drawn(tmp_path):
+    """OPA's receive hands the body out again and the proxy raises on it; the map is drawn."""
+    app, _ = _gated_app(tmp_path)
+
+    answer = await asyncio.wait_for(_get(_behind_opa_and_the_proxy(app)), timeout=10)
+
+    assert answer["status"] == 200
+
+
 def test_the_native_provider_blocks_nothing_on_the_loop(client):
     from blockbuster import blockbuster_ctx
 
