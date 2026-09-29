@@ -40,6 +40,7 @@ from app.middleware.proxy import (
     MCPMountRootRewriteMiddleware,
 )
 from app.middleware.pygeoapi import OpenapiSecurityMiddleware
+from app.provider.storage import loopback
 from app.provider.storage.cache import cache_base_dir
 from app.pygeoapi.holder import PygeoapiHolder
 from app.utils.app_exceptions import AppExceptionError, app_exception_handler
@@ -289,6 +290,8 @@ def create_app(lifespan=None):
                 poller.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await poller
+            # The loopback server of byte ranges, when a map started it.
+            await loopback.close_range_server()
 
     app = FastGeoAPI(
         title="fastgeoapi",
