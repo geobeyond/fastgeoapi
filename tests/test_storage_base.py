@@ -46,10 +46,22 @@ class _FakeStore:
     def keys(self, prefix: str = "") -> list[str]:
         return [key for key in self._objects if key.startswith(prefix)]
 
-    def get_range(self, path: str, offset: int, length: int) -> bytes:
+    def entries(self, prefix: str = "") -> list[ObjectMeta]:
+        return [self.head(key) for key in self.keys(prefix)]
+
+    async def aentries(self, prefix: str = "") -> list[ObjectMeta]:
+        return self.entries(prefix)
+
+    def delete(self, path: str) -> None:
+        self._objects.pop(path, None)
+
+    async def adelete(self, path: str) -> None:
+        self.delete(path)
+
+    def get_range(self, path: str, offset: int, length: int, *, if_match=None) -> bytes:
         return self._objects[path][offset : offset + length]
 
-    async def aget_range(self, path: str, offset: int, length: int) -> bytes:
+    async def aget_range(self, path: str, offset: int, length: int, *, if_match=None) -> bytes:
         return self.get_range(path, offset, length)
 
     def get_ranges(self, path: str, ranges) -> list[bytes]:
@@ -93,3 +105,17 @@ class _ReaderOnly:
 def test_protocol_requires_write_primitives():
     """ADR-0005 follow-up: the openapi artifact needs ``put``/``aput``."""
     assert not isinstance(_ReaderOnly(), ObjectStore)
+
+
+def test_protocol_requires_delete_and_listing_with_metadata():
+    """The range cache deletes its entries and lists them with size and date."""
+    older = type(
+        "_Older",
+        (),
+        {
+            name: getattr(_FakeStore, name)
+            for name in dir(_FakeStore)
+            if not name.startswith("_") and name not in {"delete", "adelete", "entries", "aentries"}
+        },
+    )
+    assert not isinstance(older(), ObjectStore)

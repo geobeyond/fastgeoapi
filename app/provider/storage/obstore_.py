@@ -9,12 +9,14 @@ this module reduces both to the contract shapes (bytes,
 from __future__ import annotations
 
 from collections.abc import Sequence
+from contextlib import suppress
 from datetime import timedelta
 from typing import Any
 
 import obstore
+from obstore.exceptions import PreconditionError
 
-from app.provider.storage.base import ObjectMeta
+from app.provider.storage.base import ObjectChangedError, ObjectMeta
 
 
 class ObstoreStore:
@@ -71,13 +73,59 @@ class ObstoreStore:
         """Object keys under a prefix, recursively."""
         return [entry["path"] for batch in self._store.list(prefix) for entry in batch]
 
-    def get_range(self, path: str, offset: int, length: int) -> bytes:
-        """``length`` bytes from ``offset`` in one ranged request."""
-        return bytes(self._store.get_range(path, start=offset, length=length))
+    def entries(self, prefix: str = "") -> list[ObjectMeta]:
+        """The objects under a prefix, recursively, with their metadata."""
+        return [self._meta(entry) for batch in obstore.list(self._store, prefix) for entry in batch]
 
-    async def aget_range(self, path: str, offset: int, length: int) -> bytes:
+    async def aentries(self, prefix: str = "") -> list[ObjectMeta]:
+        """Async twin of :meth:`entries`."""
+        return [
+            self._meta(entry)
+            async for batch in obstore.list(self._store, prefix)
+            for entry in batch
+        ]
+
+    def delete(self, path: str) -> None:
+        """Remove the object; a local store raises for a missing one, a bucket does not."""
+        with suppress(FileNotFoundError):
+            obstore.delete(self._store, path)
+
+    async def adelete(self, path: str) -> None:
+        """Async twin of :meth:`delete`."""
+        with suppress(FileNotFoundError):
+            await obstore.delete_async(self._store, path)
+
+    def get_range(
+        self, path: str, offset: int, length: int, *, if_match: str | None = None
+    ) -> bytes:
+        """``length`` bytes from ``offset`` in one request; ``if_match`` pins the version."""
+        if if_match is None:
+            return bytes(self._store.get_range(path, start=offset, length=length))
+        try:
+            result = obstore.get(
+                self._store,
+                path,
+                options={"if_match": if_match, "range": (offset, offset + length)},
+            )
+        except PreconditionError:
+            raise ObjectChangedError(path) from None
+        return bytes(result.bytes())
+
+    async def aget_range(
+        self, path: str, offset: int, length: int, *, if_match: str | None = None
+    ) -> bytes:
         """Async twin of :meth:`get_range`."""
-        return bytes(await self._store.get_range_async(path, start=offset, length=length))
+        if if_match is None:
+            return bytes(await self._store.get_range_async(path, start=offset, length=length))
+        try:
+            result = await obstore.get_async(
+                self._store,
+                path,
+                options={"if_match": if_match, "range": (offset, offset + length)},
+            )
+        except PreconditionError:
+            raise ObjectChangedError(path) from None
+        return bytes(await result.bytes_async())
 
     def get_ranges(self, path: str, ranges: Sequence[tuple[int, int]]) -> list[bytes]:
         """Several ranges at once; obstore coalesces neighbours less than 1 MiB apart."""

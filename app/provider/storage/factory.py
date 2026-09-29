@@ -45,6 +45,11 @@ def split_source(source: str) -> tuple[str, str]:
     return str(path.parent), path.name
 
 
+def is_remote(source: str) -> bool:
+    """Whether ``source`` names an object across a network: a bucket key or an http(s) URL."""
+    return source.startswith(_URL_SCHEMES) and not source.startswith("file://")
+
+
 def _virtual_hosted(endpoint: str, base: str) -> str:
     """Put the bucket in the host, where a virtual-hosted address carries it.
 
