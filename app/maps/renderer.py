@@ -33,11 +33,16 @@ from app.maps.contract import MapRequest, RenderError
 logger = create_logger("app.maps.renderer")
 
 _QUERY = re.compile(r"\?[^\s\"'<>]*")
+_LOOPBACK_PATH = re.compile(r"(//127\.0\.0\.1:\d+/)[^\s\"'<>]*")
 
 
 def redact(text: str) -> str:
-    """``text`` with URL query strings cut: a presigned URL carries its signature there."""
-    return _QUERY.sub("?<redacted>", text)
+    """``text`` with the secrets of its URLs cut.
+
+    A presigned URL carries its signature in the query string; a URL of
+    the loopback range server carries its token in the path.
+    """
+    return _LOOPBACK_PATH.sub(r"\1<redacted>", _QUERY.sub("?<redacted>", text))
 
 
 class RedactQueries(logging.Filter):
