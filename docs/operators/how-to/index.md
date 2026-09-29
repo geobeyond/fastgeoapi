@@ -104,7 +104,7 @@ fastgeoapi exposes two probe endpoints at the application root — outside the `
 - `GET /healthz` — liveness: returns `200 {"status": "ok"}` as soon as the process is serving
 - `GET /readyz` — readiness: returns `200 {"status": "ready"}` once the pygeoapi OpenAPI document is available, `503` otherwise
 
-Related knob: `FASTGEOAPI_CACHE_DIR` relocates the external-refs schema cache (default `<cwd>/.cache`) for containerized layouts with read-only or non-stable working directories.
+Related knob: `FASTGEOAPI_CACHE_DIR` relocates the external-refs schema cache and the range cache (default `<cwd>/.cache`) for containerized layouts with read-only or non-stable working directories.
 
 ## Configure the MCP Server
 

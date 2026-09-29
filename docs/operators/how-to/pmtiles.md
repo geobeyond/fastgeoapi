@@ -60,6 +60,7 @@ resources:
 | `store_options`                | no       | Store settings: `region`, `skip_signature`, `endpoint`              |
 | `options.inline_inflate_limit` | no       | Bytes above which a tile is decompressed in a worker (256 KiB)      |
 | `options.leaf_cache`           | no       | Leaf directories kept in memory per process (256)                   |
+| `options.range_cache`          | no       | `false` keeps a remote archive out of the range cache (true)        |
 
 The archive itself carries zoom limits, in the `vector_layers` of its
 metadata. The collection serves the intersection: a request outside it
@@ -215,8 +216,36 @@ is 1 MB compressed and 4.7 MB decompressed, and a Lazio z6 tile
 straight out of `tippecanoe -zg` is 770 KB — and it is decided when the
 archive is built, not at request time. Tiles above
 `inline_inflate_limit` are decompressed in a worker so a large one does
-not stall the loop; there is no tile cache in the process, so heavy
-public traffic belongs behind a CDN.
+not stall the loop. The range cache below keeps the archive's bytes and
+every tile is decompressed again on each request, so heavy public traffic
+still belongs behind a CDN.
+
+## Range cache
+
+A remote archive (a bucket, or an `http`/`https` URL) is read through a
+cache of byte ranges shared by the processes of the machine. A process
+that starts again, or another worker, finds on disk the header, the
+directories and the tiles an earlier one read, instead of asking the
+bucket again. A local archive skips the cache and is read from disk.
+
+| Setting (with the `DEV_`/`PROD_` prefix)    | Default                    | Meaning                                                                      |
+| ------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------- |
+| `FASTGEOAPI_RANGE_CACHE`                    | `ranges` in the cache root | A directory, or a store URL such as `s3://…`; `off` turns the cache off.     |
+| `FASTGEOAPI_RANGE_CACHE_MAX_MB`             | 512                        | The cap; past it the entries written first are deleted, down to nine tenths. |
+| `FASTGEOAPI_RANGE_CACHE_REVALIDATE_SECONDS` | 300                        | How long the archive's ETag is trusted before a HEAD asks for it again.      |
+
+The cache root is `FASTGEOAPI_CACHE_DIR`, or `.cache` in the working
+directory. The directory is created readable by this user only, since
+it holds bytes of private buckets too. `options.range_cache: false`
+keeps one collection out of the cache.
+
+Entries are keyed by the archive's ETag. An archive replaced in place is
+picked up within `FASTGEOAPI_RANGE_CACHE_REVALIDATE_SECONDS`, or at once
+when a read finds it changed; the provider then opens the new archive,
+and later sweeps delete the entries of the old one. An archive served
+without an ETag is always read from its bucket. A failure of the cache
+store, such as a full disk, only logs a warning: tiles keep coming from
+the bucket.
 
 ## Preparing an archive
 
@@ -263,4 +292,5 @@ read in place, which is the point.
 - **Vector tiles only**: a raster PMTiles archive is refused.
 - **Read-only**, one archive per collection.
 - Directories must be gzip-compressed (every writer's default).
-- No tile cache in the process: put a CDN in front for public traffic.
+- The range cache keeps the archive's bytes and every tile is decompressed
+  again: put a CDN in front for public traffic.
