@@ -33,16 +33,23 @@ class ObjectUrl:
         local_path: Path | None = None,
         public_url: str | None = None,
         signer: Callable[[timedelta], str] | None = None,
+        resolver: Callable[[], str] | None = None,
         ttl: timedelta = timedelta(hours=1),
         renew_at: float = 0.2,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        """Give exactly one of a local path, a public URL or a signer."""
-        if sum(value is not None for value in (local_path, public_url, signer)) != 1:
-            raise ValueError("give exactly one of local_path, public_url or signer")
+        """Give exactly one of a local path, a public URL, a signer or a resolver.
+
+        A resolver is asked at every use, for a URL that can change: one that
+        names a version of the object, for instance.
+        """
+        given = (local_path, public_url, signer, resolver)
+        if sum(value is not None for value in given) != 1:
+            raise ValueError("give exactly one of local_path, public_url, signer or resolver")
         self._local_path = local_path
         self._public_url = public_url
         self._signer = signer
+        self._resolver = resolver
         self._ttl = ttl
         self._renew_at = renew_at
         self._clock = clock
@@ -51,6 +58,8 @@ class ObjectUrl:
 
     def current(self) -> str:
         """The URL to read the object at now, signed again when needed."""
+        if self._resolver is not None:
+            return self._resolver()
         if self._local_path is not None:
             return f"file://{self._local_path.resolve()}"
         if self._public_url is not None:

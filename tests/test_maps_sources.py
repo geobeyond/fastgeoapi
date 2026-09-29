@@ -138,3 +138,11 @@ def test_the_map_provider_imports_without_the_pmtiles_extra():
         [sys.executable, "-c", code], capture_output=True, text=True, check=False
     )
     assert result.returncode == 0, result.stderr[-800:]
+
+
+def test_a_resolver_url_is_asked_at_every_use():
+    answers = iter(["http://127.0.0.1:1/t/s/v1", "http://127.0.0.1:1/t/s/v2"])
+    location = ObjectUrl(resolver=lambda: next(answers))
+
+    assert location.current() == "http://127.0.0.1:1/t/s/v1"
+    assert location.current() == "http://127.0.0.1:1/t/s/v2"

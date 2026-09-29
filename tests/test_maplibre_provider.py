@@ -623,3 +623,121 @@ async def test_html_is_answered_with_the_image(archive):
     png = await _map(_provider(archive), format_="html")
 
     assert png.startswith(b"\x89PNG")
+
+
+def _bucket_provider(tmp_path, content=bytes(range(256)), **options):
+    from app.provider.maplibre import MapLibreMapProvider
+    from app.provider.storage import CachedRanges
+    from tests.range_cache_fixtures import CountingStore, memory_store, range_cache
+
+    style = tmp_path / "plain.json"
+    # The style declares its source, so the archive is never read for its content.
+    style.write_text('{"version": 8, "sources": {"archive": {"type": "vector"}}, "layers": []}')
+    definition = map_provider(
+        tmp_path / "unused.pmtiles", styles={"plain": str(style)}, default_style="plain", **options
+    )
+    definition["data"] = "s3://bucket/tiles/roads.pmtiles"
+    provider = MapLibreMapProvider(definition)
+    origin = CountingStore(memory_store())
+    origin.put("roads.pmtiles", content)
+    provider.cached_ranges = CachedRanges(
+        origin, "roads.pmtiles", range_cache(memory_store()), source=definition["data"]
+    )
+    return provider
+
+
+def _style_url():
+    (request,) = FakeRenderer.instances[0].requests
+    return request.style["sources"]["archive"]["url"].removeprefix("pmtiles://")
+
+
+@pytest.mark.asyncio
+async def test_a_bucket_is_read_by_the_renderer_through_the_loopback_server(tmp_path):
+    import httpx
+
+    from app.provider.storage.cache import version_of
+    from app.provider.storage.loopback import close_range_server
+
+    provider = _bucket_provider(tmp_path)
+    try:
+        await _map(provider)
+        url = _style_url()
+        cached = provider.cached_ranges
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers={"Range": "bytes=0-9"})
+    finally:
+        await provider.aclose()
+        await close_range_server()
+
+    assert url.startswith("http://127.0.0.1:")
+    assert url.endswith(f"/{cached.source}/{version_of(cached.meta())}")
+    assert (response.status_code, response.content) == (206, bytes(range(10)))
+
+
+@pytest.mark.asyncio
+async def test_range_cache_false_keeps_the_signed_url(tmp_path):
+    from unittest.mock import patch
+
+    from app.provider.maplibre import MapLibreMapProvider
+    from app.provider.storage import cache as range_caches
+    from tests.range_cache_fixtures import memory_store, range_cache
+
+    style = tmp_path / "plain.json"
+    style.write_text('{"version": 8, "sources": {"archive": {"type": "vector"}}, "layers": []}')
+    definition = map_provider(
+        tmp_path / "unused.pmtiles",
+        styles={"plain": str(style)},
+        default_style="plain",
+        range_cache=False,
+    )
+    definition["data"] = "s3://bucket/tiles/roads.pmtiles"
+    with patch.object(
+        range_caches, "default_range_cache", return_value=range_cache(memory_store())
+    ):
+        provider = MapLibreMapProvider(definition)
+        assert provider.cached_ranges is None
+        with patch.object(
+            provider, "signed_url", return_value="https://b.example/roads.pmtiles?sig=1"
+        ):
+            await _map(provider)
+
+    assert _style_url() == "https://b.example/roads.pmtiles?sig=1"
+
+
+def test_a_public_bucket_without_data_url_is_accepted_with_the_range_cache(tmp_path):
+    from unittest.mock import patch
+
+    from app.provider.maplibre import MapLibreMapProvider
+    from app.provider.storage import cache as range_caches
+
+    definition = map_provider(tmp_path / "unused.pmtiles")
+    definition["data"] = "s3://overturemaps-extras-us-west-2/tiles/places.pmtiles"
+    definition["store_options"] = {"skip_signature": True}
+
+    with patch.object(range_caches, "range_cache_enabled", return_value=True):
+        MapLibreMapProvider(definition)
+
+
+@pytest.mark.asyncio
+async def test_after_a_reload_the_old_url_is_gone_and_the_new_provider_serves(tmp_path):
+    import httpx
+
+    from app.provider.storage.loopback import close_range_server
+
+    first = _bucket_provider(tmp_path)
+    second = _bucket_provider(tmp_path)
+    try:
+        await _map(first)
+        old_url = _style_url()
+        await first.aclose()
+        async with httpx.AsyncClient() as client:
+            gone = await client.get(old_url, headers={"Range": "bytes=0-9"})
+            FakeRenderer.instances.clear()
+            await _map(second)
+            served = await client.get(_style_url(), headers={"Range": "bytes=0-9"})
+    finally:
+        await second.aclose()
+        await close_range_server()
+
+    assert gone.status_code == 404
+    assert (served.status_code, served.content) == (206, bytes(range(10)))

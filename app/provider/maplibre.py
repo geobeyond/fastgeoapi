@@ -30,6 +30,7 @@ from app.provider.maps import (
     object_url,
     render_limit,
 )
+from app.provider.storage.loopback import SOURCES, RangeServer, ensure_range_server
 
 DEFAULTS: dict[str, Any] = {
     # The collection page of pygeoapi asks for an image as wide as its map.
@@ -47,6 +48,7 @@ DEFAULTS: dict[str, Any] = {
     "style_source": "archive",
     # For data in a public bucket: the https address the renderer reads it at.
     "data_url": None,
+    "range_cache": True,
     "renderer": "app.maps.mlnative.create_renderer",
     # The styles go with the renderer: MapLibre styles for MapLibre Native.
     "style_factory": "app.maps.styles.create_maplibre_styles",
@@ -66,6 +68,7 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         self.options = {**DEFAULTS, **(provider_def.get("options") or {})}
         self._source_format = check_definition(provider_def, self.options)
         self._map_styles: MapStyles | None = None
+        self._range_server: RangeServer | None = None
         self._queue = RenderQueue(
             lambda: build_renderer(self.options),
             size=int(self.options["queue"]),
@@ -88,6 +91,10 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         return sorted(self.options["styles"])
 
     def _object_url(self) -> ObjectUrl:
+        cached, server = self.cached_ranges, self._range_server
+        if cached is not None and server is not None:
+            # The renderer reads the object through this process, by version.
+            return ObjectUrl(resolver=lambda: server.url_for(cached, cached.meta()))
         return object_url(
             self.provider_def["data"],
             public_url=self.options["data_url"],
@@ -96,11 +103,16 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         )
 
     def _source(self) -> MapSource:
+        cached = self.cached_ranges
         context = SourceContext(
             data=self.provider_def["data"],
             options=self.options,
             location=self._object_url,
-            ranges=lambda: self.byte_ranges().read,
+            ranges=(
+                (lambda: cached.at(cached.meta()).read)
+                if cached is not None
+                else (lambda: self.byte_ranges().read)
+            ),
         )
         return self._source_format.build(context)
 
@@ -135,6 +147,10 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         :func:`~app.provider.maps.map_request` checks its parameters, and its
         render waits in the :class:`~app.maps.queue.RenderQueue`.
         """
+        cached = self.cached_ranges
+        if cached is not None:
+            self._range_server = await ensure_range_server()
+            SOURCES.register(cached)
         # In a thread: at the first map the styles read their documents and the source.
         request = await self.run_sync(
             self._request,
@@ -162,6 +178,7 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
     async def aclose(self) -> None:
         """The async twin of :meth:`close`, which also waits for the renderer to close."""
+        self._forget_source()
         await self._queue.aclose()
 
     def close(self) -> None:
@@ -170,4 +187,11 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         Safe to call from any thread: the plugin cache calls it on reload,
         while the old sub-app may still be serving maps with this instance.
         """
+        self._forget_source()
         self._queue.close()
+
+    def _forget_source(self) -> None:
+        # Only a source that was built can have been registered.
+        cached = self.__dict__.get("cached_ranges")
+        if cached is not None:
+            SOURCES.unregister(cached)
