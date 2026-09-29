@@ -625,7 +625,7 @@ async def test_html_is_answered_with_the_image(archive):
     assert png.startswith(b"\x89PNG")
 
 
-def _bucket_provider(tmp_path, content=bytes(range(256)), **options):
+def _bucket_provider(tmp_path, content=bytes(range(256)), origin=None, **options):
     from app.provider.maplibre import MapLibreMapProvider
     from app.provider.storage import CachedRanges
     from tests.range_cache_fixtures import CountingStore, memory_store, range_cache
@@ -638,7 +638,7 @@ def _bucket_provider(tmp_path, content=bytes(range(256)), **options):
     )
     definition["data"] = "s3://bucket/tiles/roads.pmtiles"
     provider = MapLibreMapProvider(definition)
-    origin = CountingStore(memory_store())
+    origin = origin if origin is not None else CountingStore(memory_store())
     origin.put("roads.pmtiles", content)
     provider.cached_ranges = CachedRanges(
         origin, "roads.pmtiles", range_cache(memory_store()), source=definition["data"]
@@ -741,3 +741,85 @@ async def test_after_a_reload_the_old_url_is_gone_and_the_new_provider_serves(tm
 
     assert gone.status_code == 404
     assert (served.status_code, served.content) == (206, bytes(range(10)))
+
+
+@pytest.mark.asyncio
+async def test_a_map_in_flight_through_a_reload_keeps_reading_its_ranges(tmp_path):
+    import httpx
+
+    from app.provider.storage.loopback import close_range_server
+
+    FakeRenderer.gate = asyncio.Event()
+    provider = _bucket_provider(tmp_path, fake="gate")
+    drawing = asyncio.create_task(_map(provider))
+    try:
+        await _until(lambda: FakeRenderer.instances and FakeRenderer.instances[0].requests)
+        provider.close()  # what the plugin cache does on reload
+        async with httpx.AsyncClient() as client:
+            response = await client.get(_style_url(), headers={"Range": "bytes=0-9"})
+    finally:
+        FakeRenderer.gate.set()
+        await drawing
+        await provider.aclose()
+        await close_range_server()
+
+    assert (response.status_code, response.content) == (206, bytes(range(10)))
+
+
+def _held_heads():
+    import threading
+
+    from tests.range_cache_fixtures import CountingStore, memory_store
+
+    class _HeldHeads(CountingStore):
+        """Holds its HEADs until released, as a slow bucket does."""
+
+        def __init__(self) -> None:
+            super().__init__(memory_store())
+            self.asked = threading.Event()
+            self.release = threading.Event()
+
+        def head(self, path):
+            self.asked.set()
+            self.release.wait(5)
+            return super().head(path)
+
+        async def ahead(self, path):
+            self.asked.set()
+            await asyncio.to_thread(self.release.wait, 5)
+            return await super().ahead(path)
+
+    return _HeldHeads()
+
+
+@pytest.mark.asyncio
+async def test_a_new_provider_takes_the_source_over_once_it_knows_the_version(tmp_path):
+    import httpx
+
+    from app.provider.storage.loopback import close_range_server
+
+    FakeRenderer.gate = asyncio.Event()
+    old = _bucket_provider(tmp_path, fake="gate")
+    held = _held_heads()
+    new = _bucket_provider(tmp_path, origin=held)
+    in_flight = asyncio.create_task(_map(old))
+    taking_over = None
+    try:
+        await _until(lambda: FakeRenderer.instances and FakeRenderer.instances[0].requests)
+        old_url = _style_url()
+        old.close()
+        taking_over = asyncio.create_task(_map(new))
+        assert await asyncio.to_thread(held.asked.wait, 2)
+        async with httpx.AsyncClient() as client:
+            response = await client.get(old_url, headers={"Range": "bytes=0-9"})
+    finally:
+        held.release.set()
+        FakeRenderer.gate.set()
+        await in_flight
+        if taking_over is not None:
+            await taking_over
+        await old.aclose()
+        await new.aclose()
+        await close_range_server()
+
+    assert (response.status_code, response.content) == (206, bytes(range(10)))

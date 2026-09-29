@@ -150,6 +150,9 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         cached = self.cached_ranges
         if cached is not None:
             self._range_server = await ensure_range_server()
+            # Registered only once the version is known: until then, on a reload,
+            # the provider this one replaces keeps serving the maps it is drawing.
+            await cached.ameta()
             SOURCES.register(cached)
         # In a thread: at the first map the styles read their documents and the source.
         request = await self.run_sync(
@@ -177,17 +180,21 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         return asyncio.run_coroutine_threadsafe(self.aquery(**kwargs), loop).result()
 
     async def aclose(self) -> None:
-        """The async twin of :meth:`close`, which also waits for the renderer to close."""
-        self._forget_source()
+        """The async twin of :meth:`close`, which also waits for the renderer to close.
+
+        The loopback server stops serving the data once the renderer is gone.
+        """
         await self._queue.aclose()
+        self._forget_source()
 
     def close(self) -> None:
         """Close the renderer once no map is being drawn or waiting for it.
 
         Safe to call from any thread: the plugin cache calls it on reload,
         while the old sub-app may still be serving maps with this instance.
+        The loopback server keeps serving the data to those maps until the
+        provider of the new configuration registers it.
         """
-        self._forget_source()
         self._queue.close()
 
     def _forget_source(self) -> None:

@@ -97,10 +97,11 @@ The renderer reads a remote archive through this process: a server on
 127.0.0.1, on a port the system picks and with a random token in every
 path, hands it the byte ranges from the range cache described in the
 PMTiles guide. The renderer never sees a signed URL, and a renderer
-process started again finds the ranges an earlier one read. With the
-range cache off, a private bucket still works without `data_url`: the
-server signs a URL with the store's credentials and gives only that URL
-to the renderer.
+process started again finds the ranges an earlier one read. A map still
+being drawn when a configuration reload replaces the provider keeps
+reading its ranges to the end. With the range cache off, a private
+bucket still works without `data_url`: the server signs a URL with the
+store's credentials and gives only that URL to the renderer.
 
 The first map reads the archive header to tell vector tiles from raster
 ones. A raster archive of PNG, JPEG or WebP tiles is drawn as a raster
