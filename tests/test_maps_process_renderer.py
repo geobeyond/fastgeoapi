@@ -171,3 +171,33 @@ def test_redact_cuts_query_strings():
 
     text = "GET https://b.example/a.pmtiles?X-Amz-Signature=SECRET&x=1 failed"
     assert redact(text) == "GET https://b.example/a.pmtiles?<redacted> failed"
+
+
+def test_redact_cuts_the_path_of_a_loopback_url():
+    from app.maps.renderer import redact
+
+    text = "GET http://127.0.0.1:53211/TOKEN/source/version failed"
+    assert redact(text) == "GET http://127.0.0.1:53211/<redacted> failed"
+
+
+@pytest.mark.asyncio
+async def test_a_failure_keeps_the_token_of_a_loopback_url_out_of_the_log():
+    from loguru import logger
+
+    from app.maps.contract import RenderError
+
+    token = "Zm9vYmFy_-" * 4
+    messages: list[str] = []
+    sink = logger.add(lambda message: messages.append(str(message)), level="WARNING")
+    processes = []
+    renderer = _renderer(processes)
+    try:
+        await renderer.render(_request())
+        processes[0].fail = OSError(f"Error fetching pmtiles://http://127.0.0.1:53211/{token}/s/v")
+        with pytest.raises(RenderError):
+            await renderer.render(_request())
+    finally:
+        logger.remove(sink)
+
+    assert messages
+    assert all(token not in message for message in messages)
