@@ -22,7 +22,16 @@ from datetime import timedelta
 from functools import cached_property
 from typing import Any, ClassVar
 
-from app.provider.storage import ObjectRanges, ObjectStore, load_store, split_source
+from app.provider.storage import (
+    CachedRanges,
+    ObjectRanges,
+    ObjectStore,
+    RangeCache,
+    is_remote,
+    load_store,
+    split_source,
+)
+from app.provider.storage import cache as range_caches
 
 
 class AsyncProviderMixin:
@@ -107,6 +116,23 @@ class StorageBackedMixin:
     def byte_ranges(self) -> ObjectRanges:
         """Ranged reads over the ``data`` object itself."""
         return ObjectRanges(self.store, self.object_key)
+
+    def range_cache(self) -> RangeCache | None:
+        """Cache for ranged reads of ``data``; None for local data or ``range_cache: false``."""
+        provider_def = self._captured_provider_def()
+        options = provider_def.get("options") or {}
+        if not options.get("range_cache", True) or not is_remote(provider_def["data"]):
+            return None
+        return range_caches.default_range_cache()
+
+    @cached_property
+    def cached_ranges(self) -> CachedRanges | None:
+        """Cached, versioned ranged reads of ``data``, when the range cache applies."""
+        cache = self.range_cache()
+        if cache is None:
+            return None
+        data = self._captured_provider_def()["data"]
+        return CachedRanges(self.store, self.object_key, cache, source=data)
 
     @property
     def native_store(self) -> Any:
