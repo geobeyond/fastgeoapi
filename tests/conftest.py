@@ -46,6 +46,15 @@ INTERPOLATION = {
 for _name, _value in INTERPOLATION.items():
     os.environ.setdefault(_name, _value)
 
+# The range cache is off for the suite: a test that needs one builds it,
+# in memory or in its tmp_path, instead of writing under the repository.
+for _name in (
+    "FASTGEOAPI_RANGE_CACHE",
+    "DEV_FASTGEOAPI_RANGE_CACHE",
+    "PROD_FASTGEOAPI_RANGE_CACHE",
+):
+    os.environ[_name] = "off"
+
 from app.auth.models import TokenPayload  # ruff: ignore[module-import-not-at-top-of-file]
 from app.config.app import configuration as cfg  # ruff: ignore[module-import-not-at-top-of-file]
 

@@ -14,6 +14,9 @@ import os
 import threading
 import time
 from collections.abc import Callable, Sequence
+from functools import lru_cache
+from pathlib import Path
+from typing import Any
 
 from app.config.logging import create_logger
 from app.provider.storage.base import ObjectChangedError, ObjectMeta, ObjectStore
@@ -33,6 +36,9 @@ MAX_VERSIONS = 2
 
 UNVERSIONED = "unversioned"
 """The version of an object without an ETag: its reads always go to the object."""
+
+OFF = "off"
+"""The setting that turns the range cache off."""
 
 
 def digest(text: str) -> str:
@@ -374,3 +380,52 @@ class PinnedRanges:
 def _written_at(entry: ObjectMeta) -> tuple[float, str]:
     written = entry.last_modified.timestamp() if entry.last_modified else 0.0
     return written, entry.path
+
+
+def cache_base_dir(cfg: Any) -> Path:
+    """The cache root: ``FASTGEOAPI_CACHE_DIR``, or ``.cache`` in the working directory."""
+    root = getattr(cfg, "FASTGEOAPI_CACHE_DIR", None)
+    return Path(root) if root else Path.cwd() / ".cache"
+
+
+def _turned_off(location: str | None) -> bool:
+    return location is not None and location.strip().lower() == OFF
+
+
+def range_cache_from(cfg: Any) -> RangeCache | None:
+    """The range cache fastgeoapi's settings describe, or None when they turn it off."""
+    location = getattr(cfg, "FASTGEOAPI_RANGE_CACHE", None)
+    if _turned_off(location):
+        return None
+    return RangeCache.at(
+        location or str(cache_base_dir(cfg) / "ranges"),
+        max_bytes=int(cfg.FASTGEOAPI_RANGE_CACHE_MAX_MB) * 1024 * 1024,
+        revalidate_seconds=float(cfg.FASTGEOAPI_RANGE_CACHE_REVALIDATE_SECONDS),
+    )
+
+
+def _settings() -> Any | None:
+    # Imported here: building the settings needs a configured fastgeoapi,
+    # and providers are also built by tools that only have pygeoapi.
+    try:
+        from app.config.app import configuration
+    except (ImportError, ValueError):
+        return None
+    return configuration
+
+
+@lru_cache(maxsize=1)
+def default_range_cache() -> RangeCache | None:
+    """The range cache of this process, from fastgeoapi's settings; None without them."""
+    settings = _settings()
+    return None if settings is None else range_cache_from(settings)
+
+
+def range_cache_enabled() -> bool:
+    """Whether remote data is read through the range cache, as far as the settings tell.
+
+    Without settings the answer is the default, on: a definition checked
+    by a tool is judged as the server will run it.
+    """
+    settings = _settings()
+    return settings is None or not _turned_off(getattr(settings, "FASTGEOAPI_RANGE_CACHE", None))
