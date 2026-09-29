@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import io
 import os
 import signal
@@ -134,16 +135,18 @@ async def test_a_process_above_max_rss_is_replaced(archive):
 
 
 @pytest.mark.asyncio
-async def test_a_killed_process_is_replaced_at_the_next_map(archive):
-    from app.maps.contract import RenderError
+async def test_a_killed_process_is_replaced_before_the_next_map(archive):
     from app.maps.mlnative import create_renderer
 
     renderer = create_renderer({})
     try:
         await renderer.render(_request(archive, 64, 64))
         os.kill(renderer.pid, signal.SIGKILL)
-        with pytest.raises(RenderError):
-            await renderer.render(_request(archive, 64, 64))
+        # The loop notices the exit on its own; the map after it must not fail.
+        deadline = asyncio.get_running_loop().time() + 5
+        while renderer.pid is not None:
+            assert asyncio.get_running_loop().time() < deadline, "the exit was never noticed"
+            await asyncio.sleep(0.05)
         png = await renderer.render(_request(archive, 64, 64))
     finally:
         await renderer.aclose()

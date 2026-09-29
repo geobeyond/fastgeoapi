@@ -127,7 +127,7 @@ async def test_a_failure_replaces_the_process_and_keeps_the_url_out_of_the_error
 
 
 @pytest.mark.asyncio
-async def test_a_dead_process_is_replaced_at_the_next_map():
+async def test_a_process_that_fails_a_map_is_replaced_at_the_next():
     from app.maps.contract import RenderError
 
     processes = []
@@ -140,6 +140,20 @@ async def test_a_dead_process_is_replaced_at_the_next_map():
     png = await renderer.render(_request())
 
     assert len(processes) == 2 and png == tiny_png(64, 64)
+
+
+@pytest.mark.asyncio
+async def test_a_process_found_dead_is_replaced_before_the_map():
+    """A process the OOM killer took while idle costs no map: its pid is already gone."""
+    processes = []
+    renderer = _renderer(processes)
+    await renderer.render(_request())
+    processes[0]._pid = None
+
+    png = await renderer.render(_request())
+
+    assert png == tiny_png(64, 64)
+    assert len(processes) == 2 and processes[0].closed
 
 
 @pytest.mark.asyncio

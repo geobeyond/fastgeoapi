@@ -152,6 +152,10 @@ class ProcessRenderer:
         await self._drop()
 
     async def _ready(self, style: str, size: tuple[int, int]) -> RendererProcess:
+        if self._process is not None and self._process.pid is None:
+            # The process died while idle, as the OOM killer leaves it: a new one
+            # draws this map instead of failing it.
+            await self._drop()
         if self._process is None:
             process = self._new_process(size[0], size[1], style)
             self._process, self._style = process, style
