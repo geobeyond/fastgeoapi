@@ -237,7 +237,9 @@ bucket again. A local archive skips the cache and is read from disk.
 The cache root is `FASTGEOAPI_CACHE_DIR`, or `.cache` in the working
 directory. The directory is created readable by this user only, since
 it holds bytes of private buckets too. `options.range_cache: false`
-keeps one collection out of the cache.
+keeps one collection out of the cache. A sweep deletes only the cache's
+own entries; other files in the same location stay and do not count
+toward the cap.
 
 Entries are keyed by the archive's ETag. An archive replaced in place is
 picked up within `FASTGEOAPI_RANGE_CACHE_REVALIDATE_SECONDS`, or at once

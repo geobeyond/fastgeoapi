@@ -63,26 +63,47 @@ def test_digests_are_short_and_path_safe():
     assert value.isalnum()
 
 
+def _entry(index: int) -> str:
+    """The key of an entry as the cache writes it; three-digit offsets sort like numbers."""
+    from app.provider.storage import RangeCache
+    from app.provider.storage.cache import digest
+
+    return RangeCache.key(digest("s"), digest("v"), 100 + index, 10)
+
+
 @pytest.mark.asyncio
 async def test_a_sweep_deletes_the_entries_written_first_down_to_nine_tenths_of_the_cap():
     store = memory_store()
     for index in range(12):
-        store.put(f"s/v/{index:02d}", bytes(10))  # 120 bytes, written in order
+        store.put(_entry(index), bytes(10))  # 120 bytes, written in order
 
     await range_cache(store, max_bytes=100).asweep()
 
     kept = sorted(entry.path for entry in store.entries())
-    assert kept == [f"s/v/{index:02d}" for index in range(3, 12)]  # 90 bytes left
+    assert kept == [_entry(index) for index in range(3, 12)]  # 90 bytes left
 
 
 @pytest.mark.asyncio
 async def test_under_the_cap_a_sweep_deletes_nothing():
     store = memory_store()
-    store.put("s/v/00", bytes(50))
+    store.put(_entry(0), bytes(50))
 
     await range_cache(store, max_bytes=100).asweep()
 
-    assert [entry.path for entry in store.entries()] == ["s/v/00"]
+    assert [entry.path for entry in store.entries()] == [_entry(0)]
+
+
+@pytest.mark.asyncio
+async def test_a_sweep_leaves_the_objects_the_cache_did_not_write():
+    store = memory_store()
+    store.put("roads.pmtiles", bytes(200))  # an operator's file, written before the entries
+    for index in range(12):
+        store.put(_entry(index), bytes(10))
+
+    await range_cache(store, max_bytes=100).asweep()
+
+    kept = sorted(entry.path for entry in store.entries())
+    assert kept == sorted(["roads.pmtiles", *(_entry(index) for index in range(3, 12))])
 
 
 @pytest.mark.asyncio
