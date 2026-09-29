@@ -35,7 +35,7 @@ from pygeoapi.util import url_join
 
 from app.provider.base import AsyncProviderMixin, StorageBackedMixin
 from app.provider.sansio import Core, drive, drive_sync
-from app.provider.storage import SingleFlightRanges
+from app.provider.storage import ByteRanges, ObjectChangedError, SingleFlightRanges
 
 HEADER_LENGTH = 127
 """The fixed size of a PMTiles v3 header, at offset 0."""
@@ -82,6 +82,15 @@ class Archive:
     root: list[Entry]
     metadata: dict
     leaves: LeafCache
+
+
+@dataclass(frozen=True)
+class _Opened:
+    """An archive read at one version of its object, with the reads pinned to that version."""
+
+    archive: Archive
+    ranges: ByteRanges
+    etag: str | None
 
 
 def inflate(data: bytes, compression: Compression) -> bytes:
@@ -199,6 +208,7 @@ class PMTilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseMVTProvider):
         )
         self._leaves = LeafCache(maxsize=int(self.options.get("leaf_cache", 256)))
         self._archive: Archive | None = None
+        self._opened: _Opened | None = None
         self._lock = threading.Lock()
 
     def __repr__(self) -> str:
@@ -221,6 +231,40 @@ class PMTilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseMVTProvider):
                 if self._archive is None:
                     self._archive = archive
         return self._archive
+
+    def _open_sync(self) -> tuple[Archive, ByteRanges]:
+        """The archive and the reads that match it, opened again when the object changes."""
+        cached = self.cached_ranges
+        if cached is None:
+            return self._archive_sync(), self.ranges
+        meta = cached.meta()
+        opened = self._opened
+        if opened is None or opened.etag != meta.etag:
+            ranges = cached.at(meta)
+            archive = drive_sync(open_archive(self._fresh_leaves()), ranges)
+            opened = _Opened(archive, ranges, meta.etag)
+            with self._lock:
+                self._opened = opened
+        return opened.archive, opened.ranges
+
+    async def _open_async(self) -> tuple[Archive, ByteRanges]:
+        """Async twin of :meth:`_open_sync`."""
+        cached = self.cached_ranges
+        if cached is None:
+            return await self._archive_async(), self.ranges
+        meta = await cached.ameta()
+        opened = self._opened
+        if opened is None or opened.etag != meta.etag:
+            ranges = cached.at(meta)
+            archive = await drive(open_archive(self._fresh_leaves()), ranges)
+            opened = _Opened(archive, ranges, meta.etag)
+            with self._lock:
+                self._opened = opened
+        return opened.archive, opened.ranges
+
+    def _fresh_leaves(self) -> LeafCache:
+        # Leaf offsets belong to one version of the archive.
+        return LeafCache(maxsize=self._leaves.maxsize)
 
     def _tile_id_within_limits(self, archive: Archive, z: Any, x: Any, y: Any) -> int:
         """Pygeoapi's semantics: outside the limits is 404, inside but absent is 204.
@@ -245,13 +289,11 @@ class PMTilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseMVTProvider):
 
     def get_tiles(self, layer=None, tileset=None, z=None, y=None, x=None, format_=None):
         """The tile bytes, decompressed; pygeoapi's synchronous contract."""
-        archive = self._archive_sync()
-        tile_id = self._tile_id_within_limits(archive, z, x, y)
-        entry = drive_sync(locate(archive, tile_id), self.ranges)
-        if entry is None:
-            return None
-        raw = drive_sync(read_tile(archive, entry), self.ranges)
-        return inflate(raw, archive.header["tile_compression"])
+        try:
+            return self._tile_sync(z, x, y)
+        except ObjectChangedError:
+            # The archive changed under the version being read: read the tile from the new one.
+            return self._tile_sync(z, x, y)
 
     async def aget_tiles(self, layer=None, tileset=None, z=None, y=None, x=None, format_=None):
         """The same tile, awaited; big tiles are inflated in a worker to keep the loop free.
@@ -259,12 +301,27 @@ class PMTilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseMVTProvider):
         Same signature as ``get_tiles``, defaults included, so
         ``async_view`` can call either face with the same keywords.
         """
-        archive = await self._archive_async()
+        try:
+            return await self._tile_async(z, x, y)
+        except ObjectChangedError:
+            return await self._tile_async(z, x, y)
+
+    def _tile_sync(self, z: Any, x: Any, y: Any) -> bytes | None:
+        archive, ranges = self._open_sync()
         tile_id = self._tile_id_within_limits(archive, z, x, y)
-        entry = await drive(locate(archive, tile_id), self.ranges)
+        entry = drive_sync(locate(archive, tile_id), ranges)
         if entry is None:
             return None
-        raw = await drive(read_tile(archive, entry), self.ranges)
+        raw = drive_sync(read_tile(archive, entry), ranges)
+        return inflate(raw, archive.header["tile_compression"])
+
+    async def _tile_async(self, z: Any, x: Any, y: Any) -> bytes | None:
+        archive, ranges = await self._open_async()
+        tile_id = self._tile_id_within_limits(archive, z, x, y)
+        entry = await drive(locate(archive, tile_id), ranges)
+        if entry is None:
+            return None
+        raw = await drive(read_tile(archive, entry), ranges)
         compression = archive.header["tile_compression"]
         if len(raw) > self.inline_inflate_limit:
             return await self.run_sync(inflate, raw, compression)
@@ -290,7 +347,7 @@ class PMTilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseMVTProvider):
         return self.get_tms_links()
 
     def _tilejson(self, dataset: str, server_url: str, tileset: str) -> dict:
-        archive = self._archive_sync()
+        archive, _ = self._open_sync()
         header, metadata = archive.header, archive.metadata
         low, high = zoom_limits(archive)
         bounds = (
