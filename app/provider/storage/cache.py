@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import os
+import re
 import threading
 import time
 from collections.abc import Callable, Sequence
@@ -39,6 +40,9 @@ UNVERSIONED = "unversioned"
 
 OFF = "off"
 """The setting that turns the range cache off."""
+
+_ENTRY = re.compile(r"[0-9a-f]{32}/[0-9a-f]{32}/\d+-\d+")
+"""The shape of a key :meth:`RangeCache.key` builds from the digests of a source and a version."""
 
 
 def digest(text: str) -> str:
@@ -184,6 +188,8 @@ class RangeCache:
             await asyncio.gather(*self._sweeps, return_exceptions=True)
 
     def _surplus(self, entries: list[ObjectMeta]) -> list[str]:
+        # The location may hold other objects: only the cache's own entries count and are deleted.
+        entries = [entry for entry in entries if _ENTRY.fullmatch(entry.path)]
         total = sum(entry.size for entry in entries)
         if total <= self.max_bytes:
             return []
