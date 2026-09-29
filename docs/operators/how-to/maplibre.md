@@ -80,13 +80,17 @@ providers:
 | `render_limit`  | four times `timeout`                     | Seconds a render goes on after its map answered 504, so the tiles it reads stay cached; past it the renderer is replaced.                           |
 | `max_rss_mb`    | 600                                      | Memory of the renderer process after a map; above it the process is replaced.                                                                       |
 | `styles`        | none                                     | Style names mapped to MapLibre style files, local or in a bucket.                                                                                   |
-| `default_style` | none                                     | The style drawn when a request names none; without it, a plain style of the archive's vector layers or raster tiles.                                |
+| `default_style` | none                                     | The style drawn when a request names none, one of `styles`; without it, a plain style of the archive's vector layers or raster tiles.               |
 | `style_source`  | `archive`                                | The name the styles give the collection's source in their `sources`.                                                                                |
 | `data_url`      | none                                     | The https address of the data in a public bucket; required when the bucket is read with `skip_signature`.                                           |
 | `sign_ttl`      | 3600                                     | Seconds a presigned data URL lasts; it is renewed when a fifth is left.                                                                             |
 | `renderer`      | `app.maps.mlnative.create_renderer`      | The function that builds the renderer from these options; another engine plugs in here.                                                             |
 | `tile_size`     | the first tile's width                   | The width in pixels of the tiles of a raster archive.                                                                                               |
 | `style_factory` | `app.maps.styles.create_maplibre_styles` | The function that builds the styles from the source, the style documents and these options; it must give styles in the language the renderer reads. |
+
+Each style is read at its first map. A style file that cannot be read
+answers 500 "style ... could not be read" for that style only; the other
+styles keep drawing.
 
 A private bucket works without `data_url`: the server signs a URL with
 the store's credentials and gives only that URL to the renderer.

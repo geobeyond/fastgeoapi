@@ -21,13 +21,13 @@ from app.maps.sources import ObjectUrl, SourceContext
 from app.provider.base import AsyncProviderMixin, StorageBackedMixin
 from app.provider.maps import (
     MAPS_CONFORMANCE,
+    StyleDocuments,
     build_renderer,
     build_styles,
     check_definition,
     draw_map,
     map_request,
     object_url,
-    read_style,
     render_limit,
 )
 
@@ -106,11 +106,9 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
     def _styles(self) -> MapStyles:
         if self._map_styles is None:
-            store_options = self.provider_def.get("store_options")
-            documents = {
-                name: read_style(where, store_options)
-                for name, where in self.options["styles"].items()
-            }
+            documents = StyleDocuments(
+                self.options["styles"], self.provider_def.get("store_options")
+            )
             self._map_styles = build_styles(self._source(), documents, self.options)
         return self._map_styles
 
