@@ -25,7 +25,11 @@ class Clock:
 
 
 class CountingStore:
-    """An object store that records the ranged reads, HEADs and writes reaching it."""
+    """An object store that records the ranged reads, HEADs and writes reaching it.
+
+    Every method of the protocol is spelled out: typeguard checks a protocol
+    on the class, where a ``__getattr__`` delegation is invisible.
+    """
 
     def __init__(self, inner: Any) -> None:
         self.inner = inner
@@ -33,8 +37,32 @@ class CountingStore:
         self.heads = 0
         self.writes: list[str] = []
 
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self.inner, name)
+    def get(self, path: str) -> bytes:
+        return self.inner.get(path)
+
+    async def aget(self, path: str) -> bytes:
+        return await self.inner.aget(path)
+
+    def keys(self, prefix: str = "") -> list[str]:
+        return self.inner.keys(prefix)
+
+    def entries(self, prefix: str = "") -> Any:
+        return self.inner.entries(prefix)
+
+    async def aentries(self, prefix: str = "") -> Any:
+        return await self.inner.aentries(prefix)
+
+    def delete(self, path: str) -> None:
+        self.inner.delete(path)
+
+    async def adelete(self, path: str) -> None:
+        await self.inner.adelete(path)
+
+    def get_ranges(self, path: str, ranges: Any) -> list[bytes]:
+        return self.inner.get_ranges(path, ranges)
+
+    async def aget_ranges(self, path: str, ranges: Any) -> list[bytes]:
+        return await self.inner.aget_ranges(path, ranges)
 
     def head(self, path: str) -> Any:
         self.heads += 1
@@ -66,7 +94,11 @@ class CountingStore:
 
 
 class BrokenStore:
-    """A cache store whose every operation fails, as a full or read-only disk does."""
+    """A cache store whose every operation fails, as a full or read-only disk does.
+
+    It has the whole protocol, so typeguard accepts it and every failure
+    is the store's own.
+    """
 
     error = PermissionError("the cache directory is read-only")
 
@@ -76,8 +108,8 @@ class BrokenStore:
     async def _afail(self, *args: Any, **kwargs: Any) -> Any:
         raise self.error
 
-    get = put = delete = entries = _fail
-    aget = aput = adelete = aentries = _afail
+    get = head = put = keys = entries = delete = get_range = get_ranges = _fail
+    aget = ahead = aput = aentries = adelete = aget_range = aget_ranges = _afail
 
 
 def range_cache(

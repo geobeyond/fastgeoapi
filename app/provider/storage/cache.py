@@ -13,11 +13,12 @@ import hashlib
 import os
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from app.config.logging import create_logger
-from app.provider.storage.base import ObjectMeta, ObjectStore
+from app.provider.storage.base import ObjectChangedError, ObjectMeta, ObjectStore
 from app.provider.storage.factory import load_store
+from app.provider.storage.ranges import ByteRanges, ObjectRanges, SingleFlightRanges
 
 logger = create_logger("app.provider.storage.cache")
 
@@ -27,10 +28,21 @@ SWEEP_TARGET = 0.9
 WARNING_INTERVAL = 60.0
 """Seconds between two warnings about the same kind of cache failure."""
 
+MAX_VERSIONS = 2
+"""Versions of one object remembered at once: the current one and the one before."""
+
+UNVERSIONED = "unversioned"
+"""The version of an object without an ETag: its reads always go to the object."""
+
 
 def digest(text: str) -> str:
     """A short, path-safe fingerprint of ``text``, for the parts of a cache key."""
     return hashlib.sha256(text.encode()).hexdigest()[:32]
+
+
+def version_of(meta: ObjectMeta) -> str:
+    """The version of the object ``meta`` describes, as it appears in keys and URLs."""
+    return digest(meta.etag) if meta.etag else UNVERSIONED
 
 
 class RangeCache:
@@ -222,6 +234,141 @@ class RangeCache:
         logger.warning(
             f"range cache {kind} failed with {type(error).__name__}; the source is read instead"
         )
+
+
+class CachedRanges:
+    """Byte ranges of one object, by version, through a :class:`RangeCache`.
+
+    The version is the object's ETag. A HEAD reads it, and it is trusted
+    for the cache's ``revalidate_seconds``, or until a read finds the
+    object changed. Reads go through :meth:`at`, pinned to one version,
+    so a reader that parsed the object at one version never receives
+    bytes of another.
+    """
+
+    def __init__(self, store: ObjectStore, key: str, cache: RangeCache, *, source: str) -> None:
+        """``source`` names the object in cache keys, by its digest: a provider's ``data``, say."""
+        self.store = store
+        self.key = key
+        self.cache = cache
+        self.source = digest(source)
+        self._meta: ObjectMeta | None = None
+        self._checked = 0.0
+        self._versions: dict[str, ObjectMeta] = {}
+        self._pinned: dict[str, ByteRanges] = {}
+        self._lock = threading.Lock()
+
+    def meta(self) -> ObjectMeta:
+        """The object's metadata; a HEAD once ``revalidate_seconds`` have passed."""
+        meta = self._fresh()
+        return meta if meta is not None else self._remember(self.store.head(self.key))
+
+    async def ameta(self) -> ObjectMeta:
+        """Async twin of :meth:`meta`."""
+        meta = self._fresh()
+        return meta if meta is not None else self._remember(await self.store.ahead(self.key))
+
+    def invalidate(self) -> None:
+        """Forget the version: the next :meth:`meta` asks the store again."""
+        with self._lock:
+            self._meta = None
+
+    def known(self, version: str) -> ObjectMeta | None:
+        """The metadata of one of the last versions seen, by :func:`version_of`."""
+        with self._lock:
+            return self._versions.get(version)
+
+    def at(self, meta: ObjectMeta) -> ByteRanges:
+        """Ranged reads pinned to the version ``meta`` names.
+
+        Identical reads in flight share one fetch. An object without an
+        ETag has no version to pin, so its reads go to the store and are
+        never kept.
+        """
+        version = version_of(meta)
+        with self._lock:
+            pinned = self._pinned.get(version)
+            if pinned is None:
+                inner: ByteRanges = (
+                    ObjectRanges(self.store, self.key)
+                    if meta.etag is None
+                    else PinnedRanges(self, meta)
+                )
+                pinned = self._pinned[version] = SingleFlightRanges(inner)
+                while len(self._pinned) > MAX_VERSIONS:
+                    self._pinned.pop(next(iter(self._pinned)))
+            return pinned
+
+    def _fresh(self) -> ObjectMeta | None:
+        with self._lock:
+            if self._meta is None:
+                return None
+            if self.cache.clock() - self._checked >= self.cache.revalidate_seconds:
+                return None
+            return self._meta
+
+    def _remember(self, meta: ObjectMeta) -> ObjectMeta:
+        with self._lock:
+            self._meta, self._checked = meta, self.cache.clock()
+            version = version_of(meta)
+            self._versions.pop(version, None)
+            self._versions[version] = meta
+            while len(self._versions) > MAX_VERSIONS:
+                self._versions.pop(next(iter(self._versions)))
+        return meta
+
+
+class PinnedRanges:
+    """:class:`ByteRanges` of one object at one version, kept in the cache."""
+
+    def __init__(self, cached: CachedRanges, meta: ObjectMeta) -> None:
+        """``meta`` must carry the ETag the reads are pinned to."""
+        if meta.etag is None:
+            raise ValueError("a pinned read needs the object's ETag")
+        self._cached = cached
+        self._etag = meta.etag
+        self._version = digest(meta.etag)
+
+    def read(self, offset: int, length: int) -> bytes:
+        """``length`` bytes from ``offset``, from the cache or from the object at this version."""
+        key = RangeCache.key(self._cached.source, self._version, offset, length)
+        data = self._cached.cache.get(key, length)
+        if data is None:
+            try:
+                data = self._cached.store.get_range(
+                    self._cached.key, offset, length, if_match=self._etag
+                )
+            except ObjectChangedError:
+                self._cached.invalidate()
+                raise
+            # A range that runs past the end comes back short: it is not kept.
+            if len(data) == length:
+                self._cached.cache.put(key, data)
+        return data
+
+    async def aread(self, offset: int, length: int) -> bytes:
+        """Async twin of :meth:`read`."""
+        key = RangeCache.key(self._cached.source, self._version, offset, length)
+        data = await self._cached.cache.aget(key, length)
+        if data is None:
+            try:
+                data = await self._cached.store.aget_range(
+                    self._cached.key, offset, length, if_match=self._etag
+                )
+            except ObjectChangedError:
+                self._cached.invalidate()
+                raise
+            if len(data) == length:
+                await self._cached.cache.aput(key, data)
+        return data
+
+    def read_many(self, ranges: Sequence[tuple[int, int]]) -> list[bytes]:
+        """Several ranges, each through the cache, in request order."""
+        return [self.read(offset, length) for offset, length in ranges]
+
+    async def aread_many(self, ranges: Sequence[tuple[int, int]]) -> list[bytes]:
+        """Async twin of :meth:`read_many`."""
+        return list(await asyncio.gather(*(self.aread(offset, n) for offset, n in ranges)))
 
 
 def _written_at(entry: ObjectMeta) -> tuple[float, str]:
