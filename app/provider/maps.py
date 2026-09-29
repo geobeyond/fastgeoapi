@@ -35,6 +35,7 @@ from app.maps.contract import (
 )
 from app.maps.queue import DrawTimeoutError, QueueFullError, RenderQueue
 from app.maps.sources import ObjectUrl, SourceFormat, source_for
+from app.provider.storage import cache as range_caches
 from app.provider.storage import load_store, split_source
 
 logger = create_logger("app.provider.maps")
@@ -103,13 +104,18 @@ def is_bucket(data: str) -> bool:
     return "://" in data and not data.startswith(("file://", "http://", "https://"))
 
 
+def reads_through_range_cache(options: dict[str, Any]) -> bool:
+    """Whether the renderer reads remote data through the range cache of this process."""
+    return bool(options.get("range_cache", True)) and range_caches.range_cache_enabled()
+
+
 def check_definition(provider_def: dict, options: dict[str, Any]) -> SourceFormat:
     """The source format of a map provider's data, once its definition holds together.
 
     Raises :class:`ProviderGenericError` for a storage CRS other than
     EPSG:3857, for data that no registered source reads, for a
     ``default_style`` that is not configured, and for a public bucket
-    without ``data_url``.
+    without ``data_url`` when the range cache is off.
     """
     storage_crs = provider_def.get("storage_crs", WEB_MERCATOR)
     if storage_crs != WEB_MERCATOR:
@@ -120,17 +126,17 @@ def check_definition(provider_def: dict, options: dict[str, Any]) -> SourceForma
         source_format = source_for(provider_def["data"])
     except LookupError as error:
         raise ProviderGenericError(user_msg=f"map source not supported: {error}") from None
-    # The renderer fetches the data with plain HTTP. A public bucket read
-    # without signatures has no URL to sign, and obstore would first spend
-    # seconds looking for credentials.
     default = options.get("default_style")
     if default is not None and default not in (options.get("styles") or {}):
         raise ProviderGenericError(
             user_msg=f"default_style {default} is not among the configured styles"
         )
     store_options = provider_def.get("store_options") or {}
+    # Without the range cache the renderer fetches the data with plain HTTP:
+    # a public bucket read without signatures has no URL to sign, and obstore
+    # would first spend seconds looking for credentials.
     if store_options.get("skip_signature") and not options.get("data_url"):
-        if is_bucket(provider_def["data"]):
+        if is_bucket(provider_def["data"]) and not reads_through_range_cache(options):
             raise ProviderGenericError(
                 user_msg="a public bucket needs options.data_url, the https URL of the data"
             )
