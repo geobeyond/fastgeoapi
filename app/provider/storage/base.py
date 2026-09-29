@@ -22,6 +22,10 @@ class ObjectMeta:
     last_modified: datetime | None
 
 
+class ObjectChangedError(Exception):
+    """The object no longer has the ETag that a conditional read asked for."""
+
+
 @runtime_checkable
 class ObjectStore(Protocol):
     """A valid backend knows how to do these things, each in a sync and an async form.
@@ -65,12 +69,36 @@ class ObjectStore(Protocol):
         """
         ...
 
-    def get_range(self, path: str, offset: int, length: int) -> bytes:
-        """Read ``length`` bytes starting at ``offset``, synchronously."""
+    def entries(self, prefix: str = "") -> list[ObjectMeta]:
+        """The objects under a prefix, recursively, each with its size and date."""
         ...
 
-    async def aget_range(self, path: str, offset: int, length: int) -> bytes:
-        """Read ``length`` bytes starting at ``offset``, asynchronously."""
+    async def aentries(self, prefix: str = "") -> list[ObjectMeta]:
+        """Async twin of :meth:`entries`."""
+        ...
+
+    def delete(self, path: str) -> None:
+        """Remove the object; a missing object is not an error."""
+        ...
+
+    async def adelete(self, path: str) -> None:
+        """Async twin of :meth:`delete`."""
+        ...
+
+    def get_range(
+        self, path: str, offset: int, length: int, *, if_match: str | None = None
+    ) -> bytes:
+        """Read ``length`` bytes starting at ``offset``, synchronously.
+
+        With ``if_match`` the read happens only while the object's ETag is
+        that value; otherwise it raises :class:`ObjectChangedError`.
+        """
+        ...
+
+    async def aget_range(
+        self, path: str, offset: int, length: int, *, if_match: str | None = None
+    ) -> bytes:
+        """Async twin of :meth:`get_range`."""
         ...
 
     def get_ranges(self, path: str, ranges: Sequence[tuple[int, int]]) -> list[bytes]:
