@@ -102,7 +102,8 @@ class MapLibreStyles:
             )
         self._source = source
         self._translate = translate
-        self._styles = dict(styles or {})
+        # Kept as given: a lazy mapping reads each style only when it is drawn.
+        self._styles = styles if styles is not None else {}
         self._default = default
         self._source_id = source_id
         self._generated: dict[str, Any] | None = None

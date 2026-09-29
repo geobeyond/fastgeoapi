@@ -282,6 +282,36 @@ def test_the_default_styles_are_maplibre_styles():
 
 
 @pytest.mark.asyncio
+async def test_a_broken_style_leaves_the_other_styles_drawing(archive, tmp_path):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    good = tmp_path / "good.json"
+    good.write_text('{"version": 8, "sources": {}, "layers": [{"id": "g", "type": "background"}]}')
+    broken = tmp_path / "broken.json"
+    broken.write_text("{not json")
+    provider = _provider(
+        archive, styles={"good": str(good), "broken": str(broken)}, default_style="good"
+    )
+
+    assert (await _map(provider)).startswith(b"\x89PNG")
+    with pytest.raises(ProviderGenericError) as error:
+        await _map(provider, style="broken")
+    assert "style broken could not be read" in error.value.message
+    assert (await _map(provider, style="good")).startswith(b"\x89PNG")
+
+
+def test_a_default_style_that_is_not_configured_is_refused(archive, tmp_path):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    good = tmp_path / "good.json"
+    good.write_text('{"version": 8, "sources": {}, "layers": []}')
+
+    with pytest.raises(ProviderGenericError) as error:
+        _provider(archive, styles={"good": str(good)}, default_style="nope")
+    assert "default_style nope" in error.value.message
+
+
+@pytest.mark.asyncio
 async def test_another_crs_is_a_bad_parameter(archive):
     from app.provider.maps import MapParameterError
 

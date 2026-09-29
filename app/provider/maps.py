@@ -15,7 +15,7 @@ from __future__ import annotations
 import importlib
 import json
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Iterator, Mapping
 from datetime import timedelta
 from http import HTTPStatus
 from pathlib import Path
@@ -107,8 +107,9 @@ def check_definition(provider_def: dict, options: dict[str, Any]) -> SourceForma
     """The source format of a map provider's data, once its definition holds together.
 
     Raises :class:`ProviderGenericError` for a storage CRS other than
-    EPSG:3857, for data that no registered source reads, and for a public
-    bucket without ``data_url``.
+    EPSG:3857, for data that no registered source reads, for a
+    ``default_style`` that is not configured, and for a public bucket
+    without ``data_url``.
     """
     storage_crs = provider_def.get("storage_crs", WEB_MERCATOR)
     if storage_crs != WEB_MERCATOR:
@@ -122,6 +123,11 @@ def check_definition(provider_def: dict, options: dict[str, Any]) -> SourceForma
     # The renderer fetches the data with plain HTTP. A public bucket read
     # without signatures has no URL to sign, and obstore would first spend
     # seconds looking for credentials.
+    default = options.get("default_style")
+    if default is not None and default not in (options.get("styles") or {}):
+        raise ProviderGenericError(
+            user_msg=f"default_style {default} is not among the configured styles"
+        )
     store_options = provider_def.get("store_options") or {}
     if store_options.get("skip_signature") and not options.get("data_url"):
         if is_bucket(provider_def["data"]):
@@ -158,6 +164,40 @@ def read_style(location: str, store_options: dict | None) -> dict:
         return json.loads(Path(location).read_text())
     base, key = split_source(location)
     return json.loads(load_store(base, store_options).get(key))
+
+
+class StyleDocuments(Mapping[str, dict]):
+    """The configured style documents, each read at its first use.
+
+    A style that cannot be read fails alone, with an error pygeoapi answers
+    in JSON; the other styles keep drawing, and a failed read is tried
+    again at the next map.
+    """
+
+    def __init__(self, locations: Mapping[str, str], store_options: dict | None) -> None:
+        """``locations`` maps each style name to its path or bucket key."""
+        self._locations = dict(locations)
+        self._store_options = store_options
+        self._read: dict[str, dict] = {}
+
+    def __getitem__(self, name: str) -> dict:
+        """The document of style ``name``; :class:`KeyError` when it is not configured."""
+        if name not in self._read:
+            location = self._locations[name]
+            try:
+                self._read[name] = read_style(location, self._store_options)
+            except Exception as error:
+                logger.warning(f"could not read style {name}: {type(error).__name__}")
+                raise ProviderGenericError(user_msg=f"style {name} could not be read") from None
+        return self._read[name]
+
+    def __iter__(self) -> Iterator[str]:
+        """The configured style names."""
+        return iter(self._locations)
+
+    def __len__(self) -> int:
+        """How many styles are configured."""
+        return len(self._locations)
 
 
 def render_limit(options: dict[str, Any]) -> float:
@@ -200,7 +240,7 @@ def build_renderer(options: dict[str, Any]) -> MapRenderer:
 
 
 def build_styles(
-    source: MapSource, documents: dict[str, dict], options: dict[str, Any]
+    source: MapSource, documents: Mapping[str, dict], options: dict[str, Any]
 ) -> MapStyles:
     """The styles the ``style_factory`` option names, over ``source``.
 
