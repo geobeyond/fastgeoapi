@@ -117,8 +117,12 @@ async def test_big_tiles_are_inflated_off_the_loop(provider, monkeypatch):
     assert small == b"tile 2/1/3"
     assert big == BIG
     loop_thread = threading.current_thread().name
-    small_threads = {thread for size, thread in records if size <= provider.inline_inflate_limit}
-    big_threads = {thread for size, thread in records if size > provider.inline_inflate_limit}
+    small_threads = {
+        thread for size, thread in records if size <= provider.source.inline_inflate_limit
+    }
+    big_threads = {
+        thread for size, thread in records if size > provider.source.inline_inflate_limit
+    }
     assert small_threads == {loop_thread}  # inline
     assert big_threads and loop_thread not in big_threads  # a worker
 
