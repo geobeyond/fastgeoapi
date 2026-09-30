@@ -87,7 +87,9 @@ class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
                 build = tile_source_for(self.data).build
             except LookupError as error:
                 raise ProviderGenericError(user_msg=f"tile source not supported: {error}") from None
-        self.tile_type = data_type_for(self.mimetype, self.dem)
+        self.data_type = data_type_for(self.mimetype, self.dem)
+        # pygeoapi's own word, which its tilesets page reads to pick how to draw the tiles.
+        self.tile_type = "vector" if self.data_type == "vector" else "raster"
         self.source = build(
             TileSourceContext(
                 data=self.data,
@@ -167,7 +169,7 @@ class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
     def get_tiles_service(self, baseurl=None, servicepath=None, dirpath=None, tile_type=None):
         """The links pygeoapi lists under ``/tiles``, from the configuration alone."""
         tilesets = servicepath.split("/{tileMatrix}/{tileRow}/{tileCol}")[0]
-        kind = _KINDS[self.tile_type]
+        kind = _KINDS[self.data_type]
         return {
             "links": [
                 {
@@ -229,7 +231,7 @@ class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
             keywords=keywords,
             crs=scheme.crs,
             tileMatrixSetURI=scheme.tileMatrixSetURI,
-            dataType=DataTypeEnum(self.tile_type),
+            dataType=DataTypeEnum(self.data_type),
         )
         content.links = [
             LinkType(
@@ -247,7 +249,7 @@ class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
                     ),
                     "rel": "item",
                     "type": self.mimetype,
-                    "title": f"{tileset} {_KINDS[self.tile_type]} tiles for {layer}",
+                    "title": f"{tileset} {_KINDS[self.data_type]} tiles for {layer}",
                 }
             ),
         ]

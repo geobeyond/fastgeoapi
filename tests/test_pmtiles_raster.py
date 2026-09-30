@@ -211,3 +211,25 @@ def test_through_the_route_the_tileset_says_map(tmp_path):
 
     metadata = client.get("/collections/hills/tiles/WebMercatorQuad", params={"f": "json"}).json()
     assert metadata["dataType"] == "map"
+
+
+def test_through_the_route_the_tilejson_of_a_mismatched_archive_names_the_format_to_write(
+    tmp_path,
+):
+    archive = raster_archive(tmp_path / "flowers.pmtiles", kind="WEBP")
+
+    r = _client(_definition(archive, MVT)).get(
+        "/collections/hills/tiles/WebMercatorQuad/metadata", params={"f": "tilejson"}
+    )
+    assert r.status_code == 500
+    assert "set format to {name: webp, mimetype: image/webp}" in r.text
+
+
+def test_through_the_route_the_tilesets_page_draws_raster_tiles(tmp_path):
+    client = _client(_definition(raster_archive(tmp_path / "hills.pmtiles")))
+
+    r = client.get("/collections/hills/tiles", params={"f": "html"})
+    assert r.status_code == 200
+    # The raster branch of pygeoapi's template, the only one with this option:
+    # it is rendered for tile_type "raster" alone.
+    assert "crs: 'EPSG:3857'" in r.text
