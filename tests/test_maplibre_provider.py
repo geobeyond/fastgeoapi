@@ -8,7 +8,7 @@ from unittest import mock
 import pytest
 
 from tests.maps_fixtures import FakeRenderer, map_provider
-from tests.pmtiles_fixtures import TILE_BYTES, write_archive
+from tests.pmtiles_fixtures import TILE_BYTES, raster_archive, write_archive
 
 ROME = (1379000.0, 5140000.0, 1403000.0, 5160000.0)  # EPSG:3857 metres
 WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
@@ -823,3 +823,23 @@ async def test_a_new_provider_takes_the_source_over_once_it_knows_the_version(tm
         await close_range_server()
 
     assert (response.status_code, response.content) == (206, bytes(range(10)))
+
+
+def test_an_unknown_dem_encoding_is_refused_at_construction(tmp_path):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    from app.provider.maplibre import MapLibreMapProvider
+
+    with pytest.raises(ProviderGenericError) as error:
+        MapLibreMapProvider(map_provider(raster_archive(tmp_path / "t.pmtiles"), dem="srtm"))
+    assert error.value.message == "options.dem must be one of terrarium, mapbox, not srtm"
+
+
+@pytest.mark.asyncio
+async def test_an_elevation_archive_is_drawn_as_a_hillshade_by_default(tmp_path):
+    await _map(_provider(raster_archive(tmp_path / "terrain.pmtiles"), dem="terrarium"))
+
+    (request,) = FakeRenderer.instances[0].requests
+    assert request.style["sources"]["archive"]["type"] == "raster-dem"
+    assert request.style["sources"]["archive"]["encoding"] == "terrarium"
+    assert request.style["layers"][-1]["type"] == "hillshade"

@@ -154,3 +154,33 @@ def test_the_maplibre_factory_builds_styles_from_the_provider_options():
     assert isinstance(styles, MapStyles)
     assert styles.names() == ["night"]
     assert "roads" in styles.style(None, transparent=False)["sources"]
+
+
+DEM = SourceContent("raster-dem", tile_size=256, encoding="png", dem="terrarium")
+
+
+def test_an_elevation_source_is_shaded_by_default():
+    style = MapLibreStyles(_Source(content=DEM)).style(None, transparent=False)
+
+    assert style["sources"]["archive"] == {
+        "type": "raster-dem",
+        "url": "pmtiles://file:///data/roads.pmtiles",
+        "tileSize": 256,
+        "encoding": "terrarium",
+    }
+    assert [layer["type"] for layer in style["layers"]] == ["background", "hillshade"]
+
+
+def test_a_style_that_declares_an_elevation_source_keeps_its_encoding():
+    """Guard: a declared source is taken as written, and its data is not read."""
+    declared = {
+        "version": 8,
+        "sources": {"archive": {"type": "raster-dem", "encoding": "mapbox"}},
+        "layers": [],
+    }
+
+    style = MapLibreStyles(_Unread(content=DEM), {"relief": declared}).style(
+        "relief", transparent=False
+    )
+
+    assert style["sources"]["archive"]["encoding"] == "mapbox"

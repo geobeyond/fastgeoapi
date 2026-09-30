@@ -9,7 +9,7 @@ from unittest import mock
 
 import pytest
 
-from app.maps.contract import MapSource, SourceContent
+from app.maps.contract import MapSource, SourceContent, SourceNotDrawableError
 from app.maps.sources import ObjectUrl, PMTilesSource
 from tests.pmtiles_fixtures import TILE_BYTES, raster_archive, write_archive
 
@@ -146,3 +146,28 @@ def test_a_resolver_url_is_asked_at_every_use():
 
     assert location.current() == "http://127.0.0.1:1/t/s/v1"
     assert location.current() == "http://127.0.0.1:1/t/s/v2"
+
+
+def test_an_elevation_archive_is_a_raster_dem_with_its_encoding(tmp_path):
+    archive = raster_archive(tmp_path / "terrain.pmtiles")
+    data = archive.read_bytes()
+
+    source = PMTilesSource(
+        ObjectUrl(local_path=archive), lambda o, n: data[o : o + n], dem="terrarium"
+    )
+
+    assert source.content() == SourceContent(
+        "raster-dem", tile_size=256, encoding="png", dem="terrarium"
+    )
+
+
+def test_an_elevation_option_on_vector_tiles_is_not_drawable(tmp_path):
+    archive = write_archive(tmp_path / "roads.pmtiles", {(0, 0, 0): TILE_BYTES(0, 0, 0)})
+    data = archive.read_bytes()
+
+    source = PMTilesSource(
+        ObjectUrl(local_path=archive), lambda o, n: data[o : o + n], dem="terrarium"
+    )
+
+    with pytest.raises(SourceNotDrawableError, match="needs PNG or WebP tiles, not MVT"):
+        source.content()

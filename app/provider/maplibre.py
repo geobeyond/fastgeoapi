@@ -49,6 +49,8 @@ DEFAULTS: dict[str, Any] = {
     # For data in a public bucket: the https address the renderer reads it at.
     "data_url": None,
     "range_cache": True,
+    # The elevation encoding of a raster archive: terrarium or mapbox.
+    "dem": None,
     "renderer": "app.maps.mlnative.create_renderer",
     # The styles go with the renderer: MapLibre styles for MapLibre Native.
     "style_factory": "app.maps.styles.create_maplibre_styles",

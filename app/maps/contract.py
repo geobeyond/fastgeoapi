@@ -39,13 +39,15 @@ class SourceContent:
     """What a source holds, for a style that does not declare it."""
 
     kind: str
-    """``"vector"`` or ``"raster"``, as MapLibre names its source types."""
+    """``"vector"``, ``"raster"`` or ``"raster-dem"``, as MapLibre names its source types."""
     layers: tuple[str, ...] = ()
     """The data layers of a vector source, for a default style that draws all of them."""
     tile_size: int | None = None
     """The width in pixels of one tile of a raster source, when known."""
     encoding: str | None = None
     """How the tiles are encoded, when the data says so: ``"mvt"``, ``"png"``, ``"avif"``."""
+    dem: str | None = None
+    """How a raster-dem source encodes its elevations: ``"terrarium"`` or ``"mapbox"``."""
 
 
 @runtime_checkable

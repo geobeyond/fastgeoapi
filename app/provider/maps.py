@@ -35,6 +35,7 @@ from app.maps.contract import (
 )
 from app.maps.queue import DrawTimeoutError, QueueFullError, RenderQueue
 from app.maps.sources import ObjectUrl, SourceFormat, source_for
+from app.provider.dem import check_dem
 from app.provider.storage import cache as range_caches
 from app.provider.storage import load_store, split_source
 
@@ -114,8 +115,9 @@ def check_definition(provider_def: dict, options: dict[str, Any]) -> SourceForma
 
     Raises :class:`ProviderGenericError` for a storage CRS other than
     EPSG:3857, for data that no registered source reads, for a
-    ``default_style`` that is not configured, and for a public bucket
-    without ``data_url`` when the range cache is off.
+    ``default_style`` that is not configured, for an ``options.dem`` that
+    MapLibre does not read, and for a public bucket without ``data_url``
+    when the range cache is off.
     """
     storage_crs = provider_def.get("storage_crs", WEB_MERCATOR)
     if storage_crs != WEB_MERCATOR:
@@ -131,6 +133,10 @@ def check_definition(provider_def: dict, options: dict[str, Any]) -> SourceForma
         raise ProviderGenericError(
             user_msg=f"default_style {default} is not among the configured styles"
         )
+    try:
+        check_dem(options.get("dem"))
+    except ValueError as error:
+        raise ProviderGenericError(user_msg=str(error)) from None
     store_options = provider_def.get("store_options") or {}
     # Without the range cache the renderer fetches the data with plain HTTP:
     # a public bucket read without signatures has no URL to sign, and obstore
