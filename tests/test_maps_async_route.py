@@ -255,9 +255,9 @@ async def test_a_map_behind_opa_and_the_proxy_is_drawn(tmp_path):
 
 
 def test_the_native_provider_blocks_nothing_on_the_loop(client):
-    from blockbuster import blockbuster_ctx
+    from tests.loop_guard import loop_guard
 
-    with blockbuster_ctx():
+    with loop_guard():
         response = client.get("/collections/native/map", params={"width": 16, "height": 16})
 
     assert response.status_code == 200

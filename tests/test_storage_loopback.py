@@ -226,10 +226,9 @@ async def test_the_token_never_reaches_the_log():
 
 @pytest.mark.asyncio
 async def test_serving_a_range_never_blocks_the_loop(tmp_path):
-    from blockbuster import blockbuster_ctx
-
     from app.provider.storage import CachedRanges, RangeCache, load_store
     from app.provider.storage.loopback import RangeServer, RangeSources
+    from tests.loop_guard import loop_guard
 
     (tmp_path / "data").mkdir()
     (tmp_path / "data" / "roads.pmtiles").write_bytes(BLOB)
@@ -246,7 +245,7 @@ async def test_serving_a_range_never_blocks_the_loop(tmp_path):
     await server.start()
     url_path = server.url_for(cached, await cached.ameta()).split(str(server.port), 1)[1]
     try:
-        with blockbuster_ctx():
+        with loop_guard():
             response = await _raw_get(server.port, url_path, "bytes=0-9")
     finally:
         await server.aclose()

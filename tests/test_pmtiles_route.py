@@ -5,10 +5,10 @@ import re
 import threading
 
 import pytest
-from blockbuster import blockbuster_ctx
 from starlette.testclient import TestClient
 
 from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
+from tests.loop_guard import loop_guard
 from tests.pmtiles_fixtures import TILE_BYTES, write_archive
 from tests.test_tiles_async_route import _collection, _config, _get
 
@@ -65,9 +65,9 @@ def test_the_tile_is_awaited_on_the_loop_without_blocking(client, monkeypatch):
         return await original(self, *args, **kwargs)
 
     monkeypatch.setattr(live, "aget_tiles", spy)
-    # Warm-up: the capability probe and the archive open run once, off the loop.
+    # Warm-up: the capability probe runs in a thread, then the archive opens on the loop.
     _get(client, "/collections/places/tiles/WebMercatorQuad/0/0/0")
-    with blockbuster_ctx():
+    with loop_guard():
         r = _get(client, "/collections/places/tiles/WebMercatorQuad/2/3/1")
     assert r.status_code == 200
     assert threads
