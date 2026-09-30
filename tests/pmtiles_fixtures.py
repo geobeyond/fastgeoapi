@@ -94,3 +94,48 @@ def raster_archive(
         tile_compression=Compression.GZIP if gzipped else Compression.NONE,
         tile_type=TileType[kind],
     )
+
+
+def terrarium_tile(z: int, x: int, y: int, size: int = 256) -> bytes:
+    """A PNG tile of a steep cone in the middle of the world, in the Terrarium encoding.
+
+    The cone is 30 km high with a base an eighth of the world wide: steep
+    enough for MapLibre's hillshade to shade it at the zooms the archive
+    holds. Terrarium stores ``height + 32768`` metres as R * 256 + G + B / 256.
+    """
+    import io
+    import math
+
+    from PIL import Image
+
+    pixels = []
+    for row in range(size):
+        for col in range(size):
+            # Where the pixel sits in Web Mercator, the world from 0 to 1 on both axes.
+            u = (x + (col + 0.5) / size) / 2**z
+            v = (y + (row + 0.5) / size) / 2**z
+            height = max(0.0, 30_000.0 * (1 - math.hypot(u - 0.5, v - 0.5) / 0.06))
+            value = height + 32768
+            pixels.append((int(value // 256), int(value % 256), int(value % 1 * 256)))
+    image = Image.new("RGB", (size, size))
+    image.putdata(pixels)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def terrarium_archive(path: Path, *, max_zoom: int = 1) -> Path:
+    """A Terrarium elevation archive from zoom 0 to ``max_zoom``: one cone, flat land around it."""
+    tiles = {
+        (z, x, y): terrarium_tile(z, x, y)
+        for z in range(max_zoom + 1)
+        for x in range(2**z)
+        for y in range(2**z)
+    }
+    return write_archive(
+        path,
+        tiles,
+        metadata={"name": path.stem},
+        tile_compression=Compression.NONE,
+        tile_type=TileType.PNG,
+    )

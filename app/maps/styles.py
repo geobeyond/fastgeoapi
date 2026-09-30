@@ -24,6 +24,8 @@ def _pmtiles(url: str, content: SourceContent) -> dict[str, Any]:
     source: dict[str, Any] = {"type": content.kind, "url": f"pmtiles://{url}"}
     if content.tile_size:
         source["tileSize"] = content.tile_size
+    if content.dem:
+        source["encoding"] = content.dem
     return source
 
 
@@ -83,6 +85,28 @@ def default_raster_style(source: str) -> dict[str, Any]:
     }
 
 
+def default_hillshade_style(source: str) -> dict[str, Any]:
+    """A plain MapLibre style that shades the relief of the elevation ``source``."""
+    return {
+        "version": 8,
+        "sources": {},
+        "layers": [
+            {"id": "background", "type": "background", "paint": {"background-color": "#f2efe9"}},
+            {
+                "id": "hillshade",
+                "type": "hillshade",
+                "source": source,
+                "paint": {
+                    "hillshade-exaggeration": 0.6,
+                    "hillshade-shadow-color": "#473b24",
+                    "hillshade-highlight-color": "#ffffff",
+                    "hillshade-accent-color": "#6b5b45",
+                },
+            },
+        ],
+    }
+
+
 class MapLibreStyles:
     """The MapLibre styles of one map collection."""
 
@@ -126,6 +150,8 @@ class MapLibreStyles:
                 content = self._source.content()
                 if content.kind == "raster":
                     self._generated = default_raster_style(self._source_id)
+                elif content.kind == "raster-dem":
+                    self._generated = default_hillshade_style(self._source_id)
                 else:
                     self._generated = default_style(list(content.layers), self._source_id)
             base = self._generated

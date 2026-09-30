@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from app.maps.contract import MapSource, SourceContent
+from app.maps.contract import MapSource, SourceContent, SourceNotDrawableError
 
 
 class ObjectUrl:
@@ -84,16 +84,19 @@ class PMTilesSource:
         read: Callable[[int, int], bytes],
         *,
         tile_size: int | None = None,
+        dem: str | None = None,
     ) -> None:
         """``read(offset, length)`` returns a byte range of the archive.
 
         The header is read through it the first time :meth:`content` is
         called, then the metadata of a vector archive, or the first tile of
-        a raster one when ``tile_size`` is not given, to measure it.
+        a raster one when ``tile_size`` is not given, to measure it. With
+        ``dem``, the raster tiles are elevations in that encoding.
         """
         self._location = location
         self._read = read
         self._tile_size = tile_size
+        self._dem = dem
         self._content: SourceContent | None = None
 
     def url(self) -> str:
@@ -112,12 +115,20 @@ class PMTilesSource:
             from pmtiles.tile import TileType
         except ImportError as error:
             raise ImportError("reading a PMTiles archive needs the pmtiles extra") from error
+        # Here, not at the top: the tile types come from the optional pmtiles extra.
+        from app.provider.pmtiles_types import tiles_problem
+
         reader = Reader(self._read)
         tile_type = reader.header()["tile_type"]
+        if self._dem is not None:
+            problem = tiles_problem(tile_type, media_type=None, dem=self._dem)
+            if problem is not None:
+                raise SourceNotDrawableError(problem)
         encoding = None if tile_type == TileType.UNKNOWN else tile_type.name.lower()
         if tile_type in (TileType.PNG, TileType.JPEG, TileType.WEBP, TileType.AVIF):
             size = self._tile_size or self._first_tile_width()
-            return SourceContent("raster", tile_size=size, encoding=encoding)
+            kind = "raster-dem" if self._dem is not None else "raster"
+            return SourceContent(kind, tile_size=size, encoding=encoding, dem=self._dem)
         metadata = reader.metadata()
         layers = tuple(layer["id"] for layer in metadata.get("vector_layers", []))
         return SourceContent("vector", layers=layers, encoding=encoding)
@@ -205,6 +216,9 @@ register_source(
     "pmtiles",
     matches=_is_pmtiles,
     build=lambda context: PMTilesSource(
-        context.location(), context.ranges(), tile_size=context.options.get("tile_size")
+        context.location(),
+        context.ranges(),
+        tile_size=context.options.get("tile_size"),
+        dem=context.options.get("dem"),
     ),
 )
