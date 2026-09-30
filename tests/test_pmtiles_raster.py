@@ -4,13 +4,13 @@ Imports stay at module level, like the other PMTiles test modules.
 """
 
 import pytest
-from pmtiles.tile import TileType
+from pmtiles.tile import Compression, TileType, deserialize_directory, deserialize_header
 from pygeoapi.provider.base import ProviderGenericError
 from starlette.testclient import TestClient
 
 from app.provider.pmtiles import PMTilesProvider
 from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
-from tests.pmtiles_fixtures import TILE_BYTES, raster_archive, write_archive
+from tests.pmtiles_fixtures import TILE_BYTES, raster_archive, raster_tile, write_archive
 from tests.test_tiles_async_route import _collection, _config
 
 SERVER = "http://localhost:5000/geoapi"
@@ -91,3 +91,123 @@ def test_through_the_route_the_refusal_is_a_500_with_the_format_to_write(tmp_pat
     )
     assert r.status_code == 500
     assert "set format to {name: webp, mimetype: image/webp}" in r.text
+
+
+def _metadata(provider, name="hills"):
+    return provider.get_default_metadata(
+        name, SERVER, name, "WebMercatorQuad", name.title(), name.title(), [name]
+    )
+
+
+def _tilejson(provider, name="hills"):
+    return provider.get_vendor_metadata(
+        name, SERVER, name, "WebMercatorQuad", name.title(), name.title(), [name]
+    )
+
+
+def test_a_raster_tileset_is_a_map_with_image_links(tmp_path):
+    metadata = _metadata(PMTilesProvider(_definition(raster_archive(tmp_path / "hills.pmtiles"))))
+
+    item = next(link for link in metadata["links"] if link["rel"] == "item")
+    assert metadata["dataType"] == "map"
+    assert item["type"] == "image/png"
+    assert item["href"].endswith("?f=png")
+    assert item["title"] == "WebMercatorQuad map tiles for hills"
+
+
+def test_an_elevation_tileset_is_a_coverage(tmp_path):
+    provider = PMTilesProvider(
+        _definition(raster_archive(tmp_path / "terrain.pmtiles"), dem="terrarium")
+    )
+
+    metadata = _metadata(provider, "terrain")
+    item = next(link for link in metadata["links"] if link["rel"] == "item")
+    assert metadata["dataType"] == "coverage"
+    assert item["title"] == "WebMercatorQuad elevation tiles for terrain"
+
+
+def test_the_tilejson_of_a_raster_archive_is_what_maplibre_reads(tmp_path):
+    archive = raster_archive(tmp_path / "hills.pmtiles", size=512)
+
+    assert _tilejson(PMTilesProvider(_definition(archive))) == {
+        "tilejson": "3.0.0",
+        "name": "hills",
+        "tiles": [f"{SERVER}/collections/hills/tiles/WebMercatorQuad/{{z}}/{{y}}/{{x}}?f=png"],
+        "minzoom": 0,
+        "maxzoom": 0,
+        "bounds": [-180.0, -85.0511287, 180.0, 85.0511287],
+        "center": [0.0, 0.0, 0],
+        "tileSize": 512,
+    }
+
+
+def test_the_tilejson_of_an_elevation_archive_names_its_encoding(tmp_path):
+    provider = PMTilesProvider(
+        _definition(raster_archive(tmp_path / "terrain.pmtiles"), dem="mapbox")
+    )
+
+    tilejson = _tilejson(provider, "terrain")
+    assert (tilejson["encoding"], tilejson["tileSize"]) == ("mapbox", 256)
+
+
+def test_the_tile_size_option_wins_over_the_tiles(tmp_path):
+    archive = raster_archive(tmp_path / "hills.pmtiles", size=512)
+
+    assert _tilejson(PMTilesProvider(_definition(archive, tile_size=256)))["tileSize"] == 256
+
+
+def test_the_tile_size_is_read_through_a_leaf_directory(tmp_path):
+    tile = raster_tile(256)
+    # Distinct bytes per tile, so the writer keeps one entry each and spills into leaves.
+    tiles = {(8, i % 256, (i // 256) % 256): tile + i.to_bytes(4, "big") for i in range(20_000)}
+    archive = write_archive(
+        tmp_path / "big.pmtiles",
+        tiles,
+        metadata={"name": "big"},
+        tile_compression=Compression.NONE,
+        tile_type=TileType.PNG,
+    )
+    data = archive.read_bytes()
+    header = deserialize_header(data[:127])
+    start = header["root_offset"]
+    root = deserialize_directory(data[start : start + header["root_length"]])
+    assert root[0].run_length == 0  # the first root entry points to a leaf
+
+    assert _tilejson(PMTilesProvider(_definition(archive)), "big")["tileSize"] == 256
+
+
+def test_a_gzipped_raster_tile_goes_out_as_the_image(tmp_path):
+    """Guard: a gzip-compressed raster tile goes out inflated, as the image itself."""
+    archive = raster_archive(tmp_path / "hills.pmtiles", gzipped=True)
+
+    assert PMTilesProvider(_definition(archive)).get_tiles(z=0, x=0, y=0) == raster_tile(256)
+
+
+def test_through_the_route_a_raster_tile_goes_out_as_stored(tmp_path):
+    """Guard: the tile goes out byte for byte as stored, under the configured media type."""
+    client = _client(_definition(raster_archive(tmp_path / "hills.pmtiles", kind="WEBP"), WEBP))
+
+    r = client.get("/collections/hills/tiles/WebMercatorQuad/0/0/0", params={"f": "webp"})
+    assert (r.status_code, r.headers["content-type"], r.content) == (
+        200,
+        "image/webp",
+        raster_tile(kind="WEBP"),
+    )
+
+
+def test_through_the_route_the_tilejson_template_reaches_the_tile(tmp_path):
+    client = _client(_definition(raster_archive(tmp_path / "hills.pmtiles", kind="WEBP"), WEBP))
+
+    tilejson = client.get(
+        "/collections/hills/tiles/WebMercatorQuad/metadata", params={"f": "tilejson"}
+    ).json()
+    url = tilejson["tiles"][0].format(z=0, x=0, y=0).removeprefix("http://localhost:5000")
+    r = client.get(url)
+    assert (r.status_code, r.headers["content-type"]) == (200, "image/webp")
+
+
+def test_through_the_route_the_tileset_says_map(tmp_path):
+    client = _client(_definition(raster_archive(tmp_path / "hills.pmtiles")))
+
+    metadata = client.get("/collections/hills/tiles/WebMercatorQuad", params={"f": "json"}).json()
+    assert metadata["dataType"] == "map"

@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from pmtiles.tile import (
     Compression,
     Entry,
+    TileType,
     deserialize_directory,
     deserialize_header,
     find_tile,
@@ -26,7 +27,7 @@ from pmtiles.tile import (
 )
 from pygeoapi.provider.base import ProviderQueryError
 
-from app.provider.pmtiles_types import MEDIA_TYPES, tiles_problem
+from app.provider.pmtiles_types import MEDIA_TYPES, tile_width, tiles_problem
 from app.provider.sansio import Core, drive, drive_sync
 from app.provider.storage import ByteRanges, ObjectChangedError
 from app.provider.tiles import TilesProvider
@@ -85,6 +86,8 @@ class Archive:
     root: list[Entry]
     metadata: dict
     leaves: LeafCache
+    tile_size: int | None = None
+    """The width of its raster tiles once measured; 0 when they could not be measured."""
 
 
 @dataclass(frozen=True)
@@ -159,6 +162,23 @@ def locate(archive: Archive, tile_id: int) -> Core[Entry | None]:
 def read_tile(archive: Archive, entry: Entry) -> Core[bytes]:
     """The compressed tile bytes for ``entry``: one read."""
     return (yield (archive.header["tile_data_offset"] + entry.offset, entry.length))  # ruff: ignore[return-in-generator]
+
+
+def first_tile(archive: Archive) -> Core[bytes | None]:
+    """The stored bytes of the archive's first tile, descending leaves as :func:`locate` does."""
+    entries = archive.root
+    for _ in range(MAX_DIRECTORY_DEPTH):
+        if not entries:
+            return None
+        entry = entries[0]
+        if entry.run_length > 0:
+            return (yield (archive.header["tile_data_offset"] + entry.offset, entry.length))
+        leaf = archive.leaves.get(entry.offset)
+        if leaf is None:
+            raw = yield (archive.header["leaf_directory_offset"] + entry.offset, entry.length)
+            leaf = archive.leaves.put(entry.offset, deserialize_directory(raw))
+        entries = leaf
+    return None  # ruff: ignore[return-in-generator]
 
 
 INLINE_INFLATE_LIMIT = 256 * 1024
@@ -268,14 +288,43 @@ class PMTilesTiles:
     # -- the tile source --------------------------------------------------------
 
     def content(self) -> TileContent:
-        """What the archive holds, from its header and metadata."""
-        archive, _ = self._open_sync()
-        return self._describe(archive)
+        """What the archive holds: header, metadata and, for raster tiles, the first tile."""
+        archive, ranges = self._open_sync()
+        return self._describe(archive, self._tile_size_sync(archive, ranges))
 
     async def acontent(self) -> TileContent:
         """Async twin of :meth:`content`."""
-        archive, _ = await self._open_async()
-        return self._describe(archive)
+        archive, ranges = await self._open_async()
+        return self._describe(archive, await self._tile_size_async(archive, ranges))
+
+    def _tile_size_sync(self, archive: Archive, ranges: ByteRanges) -> int | None:
+        """``options.tile_size``, or the width of the first raster tile, measured once."""
+        if archive.header["tile_type"] == TileType.MVT:
+            return None
+        configured = self._context.options.get("tile_size")
+        if configured:
+            return int(configured)
+        if archive.tile_size is None:
+            archive.tile_size = self._width(archive, drive_sync(first_tile(archive), ranges))
+        return archive.tile_size or None
+
+    async def _tile_size_async(self, archive: Archive, ranges: ByteRanges) -> int | None:
+        """Async twin of :meth:`_tile_size_sync`."""
+        if archive.header["tile_type"] == TileType.MVT:
+            return None
+        configured = self._context.options.get("tile_size")
+        if configured:
+            return int(configured)
+        if archive.tile_size is None:
+            archive.tile_size = self._width(archive, await drive(first_tile(archive), ranges))
+        return archive.tile_size or None
+
+    @staticmethod
+    def _width(archive: Archive, data: bytes | None) -> int:
+        if data is None:
+            return 0
+        tile = inflate(data, archive.header["tile_compression"])
+        return tile_width(tile, archive.header["tile_type"]) or 0
 
     def tile(self, z: int, x: int, y: int) -> bytes | None:
         """The tile bytes, decompressed."""
@@ -311,7 +360,7 @@ class PMTilesTiles:
             return await self._context.offload(inflate, raw, compression)
         return inflate(raw, compression)
 
-    def _describe(self, archive: Archive) -> TileContent:
+    def _describe(self, archive: Archive, tile_size: int | None) -> TileContent:
         header, metadata = archive.header, archive.metadata
         media_type = MEDIA_TYPES[header["tile_type"]][0]
         low, high = zoom_limits(archive)
@@ -346,6 +395,7 @@ class PMTilesTiles:
                 for layer in metadata.get("vector_layers", [])
                 if "id" in layer
             ),
+            tile_size=tile_size,
             dem=self._context.dem,
         )
 
