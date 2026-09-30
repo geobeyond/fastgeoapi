@@ -302,8 +302,8 @@ read in place, which is the point.
 - **WebMercatorQuad only**, which is what PMTiles archives contain.
 - **Tile types**: MVT, PNG, JPEG, WebP and AVIF. An archive of MLT or of
   an unknown type is refused, and an elevation archive needs PNG or WebP.
-- **The HTML tileset page draws vector tiles only**: for a raster tileset
-  it shows an empty map; the TileJSON works in MapLibre, Leaflet or QGIS.
+- **The HTML tilesets page shows elevation tiles as they are encoded**: to
+  see the relief, use the map route or a MapLibre `raster-dem` source.
 - **Read-only**, one archive per collection.
 - Directories must be gzip-compressed (every writer's default).
 - The range cache keeps the archive's bytes and every tile is decompressed

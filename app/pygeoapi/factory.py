@@ -26,9 +26,10 @@ import pygeoapi.api.processes as processes_api
 import pygeoapi.api.stac as stac_api
 import pygeoapi.api.tiles as tiles_api
 from openapi_pydantic.v3.v3_0 import OpenAPI
-from pygeoapi.api import API, APIRequest, apply_gzip
+from pygeoapi.api import API, SYSTEM_LOCALE, APIRequest, apply_gzip
 from pygeoapi.formats import F_JSON
 from pygeoapi.openapi import get_oas
+from pygeoapi.provider.base import ProviderGenericError
 from pygeoapi.util import get_api_rules
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -277,10 +278,19 @@ def _collection_tiles_metadata(
     is exactly what the MCP tool of a single tileset sends. Setting the
     format here is what pygeoapi itself does in ``api/stac.py:247``. Remove
     once fixed upstream in pygeoapi.
+
+    pygeoapi does not catch a provider's refusal here either, so its message
+    would end in a bare 500: it is answered as the tile route answers it.
     """
     if not request._format:
         request._format = F_JSON
-    return tiles_api.get_collection_tiles_metadata(api, request, dataset, matrix_id)
+    try:
+        return tiles_api.get_collection_tiles_metadata(api, request, dataset, matrix_id)
+    except ProviderGenericError as err:
+        headers = request.get_response_headers(SYSTEM_LOCALE, **api.api_headers)
+        return api.get_exception(
+            err.http_status_code, headers, request.format, err.ogc_exception_code, err.message
+        )
 
 
 def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
