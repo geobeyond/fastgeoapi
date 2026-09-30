@@ -26,14 +26,14 @@ COPY pyproject.toml uv.lock ./
 
 # Install into a self-contained virtualenv, pinned to uv.lock.
 # `uv export --frozen` only transcribes the lockfile (it fails on a
-# stale lock), with git sources pinned to exact commits — no fresh
-# resolution, so rebuilds are reproducible instead of silently picking
-# up brand-new upstream releases.
+# stale lock), so rebuilds are reproducible and never pick up new
+# upstream releases. The export keeps the lock's hashes and the install
+# requires them: a file replaced under the same URL fails the build.
 ENV UV_LINK_MODE=copy
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv venv /opt/venv \
-    && uv export --frozen --no-dev --no-emit-project --no-hashes -o /tmp/requirements.lock \
-    && VIRTUAL_ENV=/opt/venv uv pip install -r /tmp/requirements.lock
+    && uv export --frozen --no-dev --no-emit-project -o /tmp/requirements.lock \
+    && VIRTUAL_ENV=/opt/venv uv pip install --require-hashes -r /tmp/requirements.lock
 
 # ---------- runtime ----------
 FROM python:3.12-slim AS runtime

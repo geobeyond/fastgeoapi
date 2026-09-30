@@ -27,15 +27,16 @@ COPY pyproject.toml uv.lock pygeoapi-config.yml ./
 
 # Install dependencies as root (with system-wide access), pinned to
 # uv.lock. `uv export --frozen` only transcribes the lockfile (it fails
-# if the lock is stale) with git sources pinned to exact commits — no
-# fresh resolution. Resolving from pyproject.toml here meant every image
-# rebuild silently picked up brand-new upstream releases: fastmcp 3.4.3
-# broke /mcp in production with its new Host validation the day after
-# its release.
+# if the lock is stale), so nothing is resolved afresh. Resolving from
+# pyproject.toml here meant every image rebuild silently picked up
+# brand-new upstream releases: fastmcp 3.4.3 broke /mcp in production
+# with its new Host validation the day after its release. The export
+# keeps the lock's hashes and the install requires them, so the build
+# fails if a release asset of the mlnative fork is replaced under its URL.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv export --frozen --no-dev --group maps --no-emit-project --no-hashes \
+    uv export --frozen --no-dev --group maps --no-emit-project \
     --extra geoparquet --extra pmtiles -o /tmp/requirements.lock && \
-    uv pip install --system --break-system-packages -r /tmp/requirements.lock
+    uv pip install --system --break-system-packages --require-hashes -r /tmp/requirements.lock
 
 # Create a normal non-root user to run the app
 RUN useradd --create-home appuser
