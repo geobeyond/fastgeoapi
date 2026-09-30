@@ -26,13 +26,14 @@ from pmtiles.tile import (
 )
 from pygeoapi.provider.base import ProviderQueryError
 
-from app.provider.pmtiles_types import MEDIA_TYPES
+from app.provider.pmtiles_types import MEDIA_TYPES, tiles_problem
 from app.provider.sansio import Core, drive, drive_sync
 from app.provider.storage import ByteRanges, ObjectChangedError
 from app.provider.tiles import TilesProvider
 from app.tiles.contract import (
     TileContent,
     TileOutsideError,
+    TileSourceError,
     VectorLayer,
     data_type_for,
     format_parameter,
@@ -223,7 +224,7 @@ class PMTilesTiles:
         """The archive and the reads that match it, opened again when the object changes."""
         cached = self._context.cached()
         if cached is None:
-            return self._archive_sync(), self._shared_ranges()
+            return self._checked(self._archive_sync()), self._shared_ranges()
         meta = cached.meta()
         opened = self._opened
         if opened is None or opened.etag != meta.etag:
@@ -232,13 +233,13 @@ class PMTilesTiles:
             opened = _Opened(archive, ranges, meta.etag)
             with self._lock:
                 self._opened = opened
-        return opened.archive, opened.ranges
+        return self._checked(opened.archive), opened.ranges
 
     async def _open_async(self) -> tuple[Archive, ByteRanges]:
         """Async twin of :meth:`_open_sync`."""
         cached = self._context.cached()
         if cached is None:
-            return await self._archive_async(), self._shared_ranges()
+            return self._checked(await self._archive_async()), self._shared_ranges()
         meta = await cached.ameta()
         opened = self._opened
         if opened is None or opened.etag != meta.etag:
@@ -247,11 +248,22 @@ class PMTilesTiles:
             opened = _Opened(archive, ranges, meta.etag)
             with self._lock:
                 self._opened = opened
-        return opened.archive, opened.ranges
+        return self._checked(opened.archive), opened.ranges
 
     def _fresh_leaves(self) -> LeafCache:
         # Leaf offsets belong to one version of the archive.
         return LeafCache(maxsize=self._leaves.maxsize)
+
+    def _checked(self, archive: Archive) -> Archive:
+        """``archive``, when its tiles can be served as the definition says."""
+        problem = tiles_problem(
+            archive.header["tile_type"],
+            media_type=self._context.media_type,
+            dem=self._context.dem,
+        )
+        if problem is not None:
+            raise TileSourceError(problem)
+        return archive
 
     # -- the tile source --------------------------------------------------------
 
