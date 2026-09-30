@@ -70,6 +70,7 @@ class ResourceConfig:
     provider_types: tuple[str, ...]
     has_editable_provider: bool = False
     provider_names: tuple[str, ...] = ()
+    tile_media_types: tuple[str | None, ...] = ()
 
     @classmethod
     def from_config_dict(cls, name: str, config: dict) -> ResourceConfig:
@@ -83,6 +84,11 @@ class ResourceConfig:
             provider_types=provider_types,
             has_editable_provider=any(p.get("editable", False) for p in providers),
             provider_names=tuple(p.get("name", "") for p in providers),
+            tile_media_types=tuple(
+                (p.get("format") or {}).get("mimetype")
+                for p in providers
+                if p.get("type") == "tile"
+            ),
         )
 
 
@@ -99,6 +105,15 @@ class ResourceConfig:
 #: answer ``400 InvalidParameterValue`` with "Collection is not
 #: editable". Declared here only when some provider says ``editable``.
 TRANSACTIONS_CLASS = "http://www.opengis.net/spec/ogcapi-features-4/1.0/conf/create-replace-delete"
+
+TILES_MVT_CLASS = "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/mvt"
+"""Declared by pygeoapi for any tile provider; true only when some tiles are vector tiles."""
+
+TILES_IMAGE_CLASSES = {
+    "image/png": "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/png",
+    "image/jpeg": "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/jpeg",
+}
+"""The OGC API - Tiles classes of the image formats a tile provider can declare."""
 
 
 def get_provider_conformance(
@@ -146,10 +161,12 @@ def build_conformance_list(
 
     conformance_set: set[str] = set(CONFORMANCE_CLASSES)
     anything_editable = False
+    tile_media_types: list[str | None] = []
 
     for name, config in resources.items():
         resource = ResourceConfig.from_config_dict(name, config)
         anything_editable = anything_editable or resource.has_editable_provider
+        tile_media_types.extend(resource.tile_media_types)
 
         if resource.resource_type == "process":
             conformance_set.update(apis_dict["process"].CONFORMANCE_CLASSES)
@@ -168,6 +185,12 @@ def build_conformance_list(
 
     if not anything_editable:
         conformance_set.discard(TRANSACTIONS_CLASS)
+
+    for media_type in tile_media_types:
+        if media_type in TILES_IMAGE_CLASSES:
+            conformance_set.add(TILES_IMAGE_CLASSES[media_type])
+    if tile_media_types and all((m or "").startswith("image/") for m in tile_media_types):
+        conformance_set.discard(TILES_MVT_CLASS)
 
     return ConformanceResponse(conforms_to=tuple(sorted(conformance_set)))
 
