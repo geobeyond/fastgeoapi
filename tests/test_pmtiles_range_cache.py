@@ -4,7 +4,8 @@ import gzip
 
 import pytest
 
-from tests.pmtiles_fixtures import TILE_BYTES, write_archive
+from tests.loop_guard import loop_guard
+from tests.pmtiles_fixtures import TILE_BYTES, leafy_archive, write_archive
 from tests.range_cache_fixtures import BrokenStore, Clock, CountingStore, memory_store, range_cache
 
 DATA = "s3://bucket/tiles/roads.pmtiles"
@@ -101,3 +102,30 @@ async def test_a_broken_cache_store_still_serves_the_tiles(origin):
     provider = _provider(origin, range_cache(BrokenStore()))
 
     assert await provider.aget_tiles(z=0, x=0, y=0) == b"tile 0/0/0"
+
+
+@pytest.mark.asyncio
+async def test_a_cold_tile_under_a_leaf_blocks_nothing_on_the_loop(tmp_path):
+    """Opening the archive, reading a leaf and the tile, and filling the cache are all awaited."""
+    from loguru import logger
+
+    from app.provider.storage import RangeCache, load_store
+
+    (tmp_path / "origin").mkdir()
+    leafy_archive(tmp_path / "origin" / KEY)
+    cache = RangeCache.at(str(tmp_path / "ranges"), max_bytes=16 << 20)
+    provider = _provider(load_store(str(tmp_path / "origin")), cache, zoom=(0, 8))
+    messages: list[str] = []
+    sink = logger.add(lambda message: messages.append(str(message)), level="WARNING")
+    try:
+        with loop_guard():
+            tile = await provider.aget_tiles(z=8, x=10, y=70)
+            content = await provider.source.acontent()
+            await cache.drain()
+    finally:
+        logger.remove(sink)
+
+    assert tile == b"tile 8/10/70"
+    assert (content.min_zoom, content.max_zoom) == (8, 8)
+    # The cache turns its own store's errors into warnings, a blocking call included.
+    assert [message for message in messages if "range cache" in message] == []

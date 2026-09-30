@@ -9,7 +9,6 @@ import re
 import threading
 
 import pytest
-from blockbuster import blockbuster_ctx
 from pygeoapi.provider.base import ProviderQueryError
 from pygeoapi.provider.base_mvt import BaseMVTProvider
 from pygeoapi.provider.tile import ProviderTileNotFoundError
@@ -17,6 +16,7 @@ from starlette.testclient import TestClient
 
 from app.provider.base import AsyncProviderMixin
 from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
+from tests.loop_guard import loop_guard
 
 TILE = b"\x1a\x03pbf"
 MVT = "application/vnd.mapbox-vector-tile"
@@ -192,7 +192,7 @@ def test_the_native_route_makes_no_blocking_call_on_the_loop(client):
     # Warm-up: the capability probe instantiates the provider off the loop
     # once per collection; from then on a native tile is pure `await`.
     _get(client, "/collections/native/tiles/WebMercatorQuad/1/0/0")
-    with blockbuster_ctx():
+    with loop_guard():
         r = _get(client, "/collections/native/tiles/WebMercatorQuad/2/1/1")
     assert r.status_code == 200
 
