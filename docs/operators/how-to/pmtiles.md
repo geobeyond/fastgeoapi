@@ -51,16 +51,25 @@ resources:
           mimetype: application/vnd.mapbox-vector-tile
 ```
 
-| Key                            | Required | Meaning                                                             |
-| ------------------------------ | -------- | ------------------------------------------------------------------- |
-| `data`                         | yes      | The archive: a local path or an object URL                          |
-| `options.zoom`                 | yes      | `min`/`max` the collection advertises; intersected with the archive |
-| `options.schemes`              | yes      | `[WebMercatorQuad]` — the only tiling scheme PMTiles archives use   |
-| `format`                       | yes      | `name: pbf` (or `mvt`) with the vector-tile media type              |
-| `store_options`                | no       | Store settings: `region`, `skip_signature`, `endpoint`              |
-| `options.inline_inflate_limit` | no       | Bytes above which a tile is decompressed in a worker (256 KiB)      |
-| `options.leaf_cache`           | no       | Leaf directories kept in memory per process (256)                   |
-| `options.range_cache`          | no       | `false` keeps a remote archive out of the range cache (true)        |
+| Key                            | Required | Meaning                                                                                                                           |
+| ------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `data`                         | yes      | The archive: a local path or an object URL                                                                                        |
+| `options.zoom`                 | yes      | `min`/`max` the collection advertises; intersected with the archive                                                               |
+| `options.schemes`              | yes      | `[WebMercatorQuad]` — the only tiling scheme PMTiles archives use                                                                 |
+| `format`                       | yes      | `name: pbf` (or `mvt`) with the vector-tile media type; for a raster archive its image type, such as `name: png` with `image/png` |
+| `store_options`                | no       | Store settings: `region`, `skip_signature`, `endpoint`                                                                            |
+| `options.inline_inflate_limit` | no       | Bytes above which a tile is decompressed in a worker (256 KiB)                                                                    |
+| `options.leaf_cache`           | no       | Leaf directories kept in memory per process (256)                                                                                 |
+| `options.range_cache`          | no       | `false` keeps a remote archive out of the range cache (true)                                                                      |
+| `options.dem`                  | no       | `terrarium` or `mapbox`: the tiles are elevations in that encoding                                                                |
+| `options.tile_size`            | no       | The width of raster tiles in pixels, published in the TileJSON (read from the first tile)                                         |
+
+A raster archive is served as it is stored, under the media type of its
+`format`; a `format` that does not match the archive's tiles answers 500
+with the format to write. With `options.dem` the tileset is a coverage, and
+its TileJSON carries `tileSize` and `encoding`, so MapLibre GL JS reads it
+as a `raster-dem` source. In the tilesets list, which pygeoapi writes, an
+elevation tileset appears as `map`.
 
 The archive itself carries zoom limits, in the `vector_layers` of its
 metadata. The collection serves the intersection: a request outside it
@@ -107,12 +116,12 @@ the deployment's region, Overture's archive on AWS, in one process.
 
 ## What is served
 
-| Path                                                          | Content                                                    |
-| ------------------------------------------------------------- | ---------------------------------------------------------- |
-| `/collections/{id}/tiles`                                     | The tilesets: one, `WebMercatorQuad`                       |
-| `/collections/{id}/tiles/WebMercatorQuad`                     | Tileset metadata with the tile URL template                |
-| `/collections/{id}/tiles/WebMercatorQuad/metadata?f=tilejson` | TileJSON built from the archive: name, attribution, layers |
-| `/collections/{id}/tiles/WebMercatorQuad/{z}/{y}/{x}?f=pbf`   | The tile, decompressed; `f=mvt` is accepted too            |
+| Path                                                          | Content                                                                                                                     |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `/collections/{id}/tiles`                                     | The tilesets: one, `WebMercatorQuad`                                                                                        |
+| `/collections/{id}/tiles/WebMercatorQuad`                     | Tileset metadata with the tile URL template                                                                                 |
+| `/collections/{id}/tiles/WebMercatorQuad/metadata?f=tilejson` | TileJSON built from the archive: name, attribution, layers; for raster tiles the size and, with `options.dem`, the encoding |
+| `/collections/{id}/tiles/WebMercatorQuad/{z}/{y}/{x}?f=pbf`   | The tile: vector tiles decompressed (`f=mvt` is accepted too), raster tiles as stored (`f=png`, `jpg`, `webp` or `avif`)    |
 
 Two things about the tile URL are worth reading twice. The path order
 is pygeoapi's, **`{tileMatrix}/{tileRow}/{tileCol}`, that is `z/y/x`**,
@@ -291,7 +300,10 @@ read in place, which is the point.
 ## Limitations
 
 - **WebMercatorQuad only**, which is what PMTiles archives contain.
-- **Vector tiles only**: a raster PMTiles archive is refused.
+- **Tile types**: MVT, PNG, JPEG, WebP and AVIF. An archive of MLT or of
+  an unknown type is refused, and an elevation archive needs PNG or WebP.
+- **The HTML tileset page draws vector tiles only**: for a raster tileset
+  it shows an empty map; the TileJSON works in MapLibre, Leaflet or QGIS.
 - **Read-only**, one archive per collection.
 - Directories must be gzip-compressed (every writer's default).
 - The range cache keeps the archive's bytes and every tile is decompressed

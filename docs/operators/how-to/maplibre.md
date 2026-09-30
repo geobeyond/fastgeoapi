@@ -87,6 +87,7 @@ providers:
 | `range_cache`   | true                                     | Read a remote archive through the range cache; `false` gives the renderer the public or signed URL instead.                                         |
 | `renderer`      | `app.maps.mlnative.create_renderer`      | The function that builds the renderer from these options; another engine plugs in here.                                                             |
 | `tile_size`     | the first tile's width                   | The width in pixels of the tiles of a raster archive.                                                                                               |
+| `dem`           | none                                     | `terrarium` or `mapbox` for a raster archive of elevations: without a configured style, the relief is drawn as a hillshade.                         |
 | `style_factory` | `app.maps.styles.create_maplibre_styles` | The function that builds the styles from the source, the style documents and these options; it must give styles in the language the renderer reads. |
 
 Each style is read at its first map. A style file that cannot be read
@@ -108,7 +109,9 @@ ones. A raster archive of PNG, JPEG or WebP tiles is drawn as a raster
 layer; an archive of AVIF tiles answers 500 with "map source not
 drawable", because MapLibre Native cannot decode AVIF. A style that declares the
 archive's source with its `type` keeps that source and its settings, and
-the header is not read for it.
+the header is not read for it, so a `raster-dem` source declared without
+`encoding` is read as `mapbox` by MapLibre. With `dem`, the default style
+shades the relief.
 
 ## What a request can ask
 
