@@ -147,6 +147,10 @@ def load_store(base: str, store_options: dict | None = None) -> ObjectStore:
     if base.startswith(_URL_SCHEMES):
         from obstore.store import from_url
 
+        if base.startswith(("http://", "https://")):
+            # The HTTP store adds its own slash before the key: a base ending in
+            # one asks for `prefix//key`, which some servers answer with 404.
+            base = base.rstrip("/")
         if store_options:
             config = _for_obstore(store_options, base)
             with _explicit_endpoint_wins(config):
