@@ -60,6 +60,17 @@ def test_split_source_urls(source, base, key):
     assert split_source(source) == (base, key)
 
 
+def test_an_http_object_below_a_path_is_asked_at_its_own_url():
+    """An HTTP server may answer 404 to the double slash of a base ending in one."""
+    from obstore.exceptions import GenericError
+
+    base, key = split_source("http://127.0.0.1:9/prefix/archive.pmtiles")
+    # Plain http is refused before any connection, with the URL it would have asked.
+    with pytest.raises(GenericError) as error:
+        load_store(base).head(key)
+    assert "http://127.0.0.1:9/prefix/archive.pmtiles" in str(error.value)
+
+
 def test_split_source_local_relative(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     base, key = split_source("pygeoapi-config.yml")
