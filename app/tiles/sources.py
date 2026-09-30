@@ -79,7 +79,7 @@ def _is_pmtiles(data: str) -> bool:
 
 def _pmtiles(context: TileSourceContext) -> TileSource:
     # Imported here: the PMTiles reader needs the optional pmtiles extra.
-    from app.provider.pmtiles import PMTilesTiles  # ty: ignore[unresolved-import]
+    from app.provider.pmtiles import PMTilesTiles
 
     return PMTilesTiles(context)
 

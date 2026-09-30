@@ -1,12 +1,12 @@
 """The async surface fastgeoapi adds beside pygeoapi's provider contract (ADR-0010).
 
 pygeoapi's contract is synchronous and lives in its root classes
-(``BaseProvider``, ``BaseMVTProvider``): the API layer reads attributes
+(``BaseProvider``, ``BaseTileProvider``): the API layer reads attributes
 off the instance and calls the sync methods from a threadpool. This
 module does not import pygeoapi. It adds the async part only, and the
 concrete provider pairs the two::
 
-    class PMTilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseMVTProvider):
+    class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
         native_async = True
 
 The mixin must come FIRST in the bases: pygeoapi's roots never call

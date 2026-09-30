@@ -1,4 +1,4 @@
-"""OGC API Tiles from a PMTiles archive, read by ranges wherever it lives (ADR-0011).
+"""Tiles from a PMTiles archive, read by ranges wherever it lives (ADR-0011).
 
 An archive is a header (127 bytes), a root directory, a metadata JSON,
 leaf directories and the tiles, all addressable by offset: it is served
@@ -15,8 +15,6 @@ import json
 import threading
 from collections import OrderedDict
 from dataclasses import dataclass
-from pathlib import PurePosixPath
-from typing import Any, ClassVar
 
 from pmtiles.tile import (
     Compression,
@@ -26,16 +24,20 @@ from pmtiles.tile import (
     find_tile,
     zxy_to_tileid,
 )
-from pygeoapi.models.provider.base import LinkType, TileMatrixSetEnum, TileSetMetadata
-from pygeoapi.models.provider.mvt import MVTTilesJson
 from pygeoapi.provider.base import ProviderQueryError
-from pygeoapi.provider.base_mvt import BaseMVTProvider
-from pygeoapi.provider.tile import ProviderTileNotFoundError
-from pygeoapi.util import url_join
 
-from app.provider.base import AsyncProviderMixin, StorageBackedMixin
+from app.provider.pmtiles_types import MEDIA_TYPES
 from app.provider.sansio import Core, drive, drive_sync
-from app.provider.storage import ByteRanges, ObjectChangedError, SingleFlightRanges
+from app.provider.storage import ByteRanges, ObjectChangedError
+from app.provider.tiles import TilesProvider
+from app.tiles.contract import (
+    TileContent,
+    TileOutsideError,
+    VectorLayer,
+    data_type_for,
+    format_parameter,
+)
+from app.tiles.sources import TileSourceContext
 
 HEADER_LENGTH = 127
 """The fixed size of a PMTiles v3 header, at offset 0."""
@@ -166,67 +168,52 @@ def _degrees(e7: int) -> float:
     return e7 / 1e7
 
 
-def _service_url(server_url: str, dataset: str, tileset: str) -> str:
-    return url_join(
-        server_url,
-        f"collections/{dataset}/tiles/{tileset}/{{tileMatrix}}/{{tileRow}}/{{tileCol}}?f=mvt",
-    )
+class PMTilesTiles:
+    """The tiles of one PMTiles archive, read by ranges wherever it lives.
 
-
-class PMTilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseMVTProvider):
-    """Vector tiles from a PMTiles archive on local disk or object storage.
-
-    Natively asynchronous: the tile route awaits it, and each tile costs
-    one ranged read once the directory it sits in is cached. The
-    synchronous face is the same core driven by blocking reads, for
-    pygeoapi's own chain. ``THREAD_SAFE`` keeps one instance alive,
-    which is what makes the header, root and leaf caches worth having.
-
-    Configuration::
-
-        - type: tile
-          name: app.provider.pmtiles.PMTilesProvider
-          data: s3://overturemaps-extras-us-west-2/tiles/2026-08-19.0/places.pmtiles
-          store_options: {region: us-west-2, skip_signature: true}
-          options: {zoom: {min: 14, max: 14}, schemes: [WebMercatorQuad]}
-          format: {name: pbf, mimetype: application/vnd.mapbox-vector-tile}
+    Each tile costs one ranged read once the directory it sits in is
+    cached. The header, root, metadata and leaf caches live as long as the
+    source; through the range cache they follow the archive's version, and
+    a changed archive is opened again.
     """
 
-    THREAD_SAFE: ClassVar[bool] = True
-    native_async: ClassVar[bool] = True
+    format = "pmtiles"
 
-    def __init__(self, provider_def: dict) -> None:
-        super().__init__(provider_def)
-        # Building the store contacts no network; the archive is read on
-        # the first request, never here (pygeoapi instantiates every tile
-        # provider while it generates the OpenAPI document). Concurrent
-        # identical reads (a cold burst wanting the same directories)
-        # share one fetch.
-        self.ranges = SingleFlightRanges(self.byte_ranges())
+    def __init__(self, context: TileSourceContext) -> None:
+        """No I/O: the archive is opened at the first read."""
+        self._context = context
         self.inline_inflate_limit = int(
-            self.options.get("inline_inflate_limit", INLINE_INFLATE_LIMIT)
+            context.options.get("inline_inflate_limit", INLINE_INFLATE_LIMIT)
         )
-        self._leaves = LeafCache(maxsize=int(self.options.get("leaf_cache", 256)))
+        self._leaves = LeafCache(maxsize=int(context.options.get("leaf_cache", 256)))
+        self._ranges: ByteRanges | None = None
         self._archive: Archive | None = None
         self._opened: _Opened | None = None
         self._lock = threading.Lock()
 
-    def __repr__(self) -> str:
-        """The archive this provider serves."""
-        return f"<PMTilesProvider> {self.data}"
+    # -- the archive, known once ---------------------------------------------
 
-    # -- the archive, known once -----------------------------------------------
+    def _shared_ranges(self) -> ByteRanges:
+        # Concurrent identical reads (a cold burst wanting the same
+        # directories) share one fetch through these.
+        if self._ranges is None:
+            with self._lock:
+                if self._ranges is None:
+                    self._ranges = self._context.ranges()
+        return self._ranges
 
     def _archive_sync(self) -> Archive:
         if self._archive is None:
+            # Taken before the lock: _shared_ranges takes the same lock.
+            ranges = self._shared_ranges()
             with self._lock:
                 if self._archive is None:
-                    self._archive = drive_sync(open_archive(self._leaves), self.ranges)
+                    self._archive = drive_sync(open_archive(self._leaves), ranges)
         return self._archive
 
     async def _archive_async(self) -> Archive:
         if self._archive is None:
-            archive = await drive(open_archive(self._leaves), self.ranges)
+            archive = await drive(open_archive(self._leaves), self._shared_ranges())
             with self._lock:
                 if self._archive is None:
                     self._archive = archive
@@ -234,9 +221,9 @@ class PMTilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseMVTProvider):
 
     def _open_sync(self) -> tuple[Archive, ByteRanges]:
         """The archive and the reads that match it, opened again when the object changes."""
-        cached = self.cached_ranges
+        cached = self._context.cached()
         if cached is None:
-            return self._archive_sync(), self.ranges
+            return self._archive_sync(), self._shared_ranges()
         meta = cached.meta()
         opened = self._opened
         if opened is None or opened.etag != meta.etag:
@@ -249,9 +236,9 @@ class PMTilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseMVTProvider):
 
     async def _open_async(self) -> tuple[Archive, ByteRanges]:
         """Async twin of :meth:`_open_sync`."""
-        cached = self.cached_ranges
+        cached = self._context.cached()
         if cached is None:
-            return await self._archive_async(), self.ranges
+            return await self._archive_async(), self._shared_ranges()
         meta = await cached.ameta()
         opened = self._opened
         if opened is None or opened.etag != meta.etag:
@@ -266,178 +253,110 @@ class PMTilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseMVTProvider):
         # Leaf offsets belong to one version of the archive.
         return LeafCache(maxsize=self._leaves.maxsize)
 
-    def _tile_id_within_limits(self, archive: Archive, z: Any, x: Any, y: Any) -> int:
-        """Pygeoapi's semantics: outside the limits is 404, inside but absent is 204.
+    # -- the tile source --------------------------------------------------------
 
-        Non-numeric coordinates (a URL template pasted literally) count as
-        outside the limits, as pygeoapi's own ``is_in_limits`` treats them,
-        rather than crashing the request.
-        """
-        try:
-            z, x, y = int(z), int(x), int(y)
-        except (TypeError, ValueError):
-            raise ProviderTileNotFoundError(  # ruff: ignore[raise-without-from-inside-except]
-                f"tile coordinates {z}/{x}/{y} are not numbers"
-            )
-        low, high = zoom_limits(archive)
-        scheme = TileMatrixSetEnum.WEBMERCATORQUAD.value
-        if not (low <= z <= high) or not self.is_in_limits(scheme, z, x, y):
-            raise ProviderTileNotFoundError(f"tile {z}/{x}/{y} is outside the archive limits")
-        return zxy_to_tileid(z, x, y)
+    def content(self) -> TileContent:
+        """What the archive holds, from its header and metadata."""
+        archive, _ = self._open_sync()
+        return self._describe(archive)
 
-    # -- the two faces -----------------------------------------------------------
+    async def acontent(self) -> TileContent:
+        """Async twin of :meth:`content`."""
+        archive, _ = await self._open_async()
+        return self._describe(archive)
 
-    def get_tiles(self, layer=None, tileset=None, z=None, y=None, x=None, format_=None):
-        """The tile bytes, decompressed; pygeoapi's synchronous contract."""
+    def tile(self, z: int, x: int, y: int) -> bytes | None:
+        """The tile bytes, decompressed."""
         try:
             return self._tile_sync(z, x, y)
         except ObjectChangedError:
             # The archive changed under the version being read: read the tile from the new one.
             return self._tile_sync(z, x, y)
 
-    async def aget_tiles(self, layer=None, tileset=None, z=None, y=None, x=None, format_=None):
-        """The same tile, awaited; big tiles are inflated in a worker to keep the loop free.
-
-        Same signature as ``get_tiles``, defaults included, so
-        ``async_view`` can call either face with the same keywords.
-        """
+    async def atile(self, z: int, x: int, y: int) -> bytes | None:
+        """The same tile, awaited; big tiles are inflated in a worker to keep the loop free."""
         try:
             return await self._tile_async(z, x, y)
         except ObjectChangedError:
             return await self._tile_async(z, x, y)
 
-    def _tile_sync(self, z: Any, x: Any, y: Any) -> bytes | None:
+    def _tile_sync(self, z: int, x: int, y: int) -> bytes | None:
         archive, ranges = self._open_sync()
-        tile_id = self._tile_id_within_limits(archive, z, x, y)
-        entry = drive_sync(locate(archive, tile_id), ranges)
+        entry = drive_sync(locate(archive, _tile_id(archive, z, x, y)), ranges)
         if entry is None:
             return None
         raw = drive_sync(read_tile(archive, entry), ranges)
         return inflate(raw, archive.header["tile_compression"])
 
-    async def _tile_async(self, z: Any, x: Any, y: Any) -> bytes | None:
+    async def _tile_async(self, z: int, x: int, y: int) -> bytes | None:
         archive, ranges = await self._open_async()
-        tile_id = self._tile_id_within_limits(archive, z, x, y)
-        entry = await drive(locate(archive, tile_id), ranges)
+        entry = await drive(locate(archive, _tile_id(archive, z, x, y)), ranges)
         if entry is None:
             return None
         raw = await drive(read_tile(archive, entry), ranges)
         compression = archive.header["tile_compression"]
         if len(raw) > self.inline_inflate_limit:
-            return await self.run_sync(inflate, raw, compression)
+            return await self._context.offload(inflate, raw, compression)
         return inflate(raw, compression)
 
-    # -- what pygeoapi asks besides tiles ---------------------------------------
-
-    def get_layer(self):
-        """The layer name: the archive's file stem, like the tippecanoe provider's directory."""
-        return PurePosixPath(self.object_key).stem
-
-    def get_fields(self):
-        """Tiles carry no queryable fields."""
-        return {}
-
-    def get_tiling_schemes(self):
-        """PMTiles is z/x/y in Web Mercator by construction."""
-        return [TileMatrixSetEnum.WEBMERCATORQUAD.value]
-
-    def get_tiles_service(self, baseurl=None, servicepath=None, dirpath=None, tile_type=None):
-        """The links pygeoapi lists under ``/tiles``; the base method returns None."""
-        self._service_url = servicepath
-        return self.get_tms_links()
-
-    def _tilejson(self, dataset: str, server_url: str, tileset: str) -> dict:
-        archive, _ = self._open_sync()
+    def _describe(self, archive: Archive) -> TileContent:
         header, metadata = archive.header, archive.metadata
+        media_type = MEDIA_TYPES[header["tile_type"]][0]
         low, high = zoom_limits(archive)
-        bounds = (
-            header["min_lon_e7"],
-            header["min_lat_e7"],
-            header["max_lon_e7"],
-            header["max_lat_e7"],
-        )
-        center = (header["center_lon_e7"], header["center_lat_e7"])
-        # pygeoapi's layer model wants every key present; archives written
-        # by planetiler or tippecanoe may omit `description` or `fields`.
-        layers = [
-            {
-                "id": layer["id"],
-                "description": layer.get("description"),
-                "minzoom": layer.get("minzoom"),
-                "maxzoom": layer.get("maxzoom"),
-                "fields": layer.get("fields", {}),
-            }
-            for layer in metadata.get("vector_layers", [])
-            if "id" in layer
-        ]
-        # pygeoapi's TileJSON model carries bounds, center and tiles as strings.
-        content = MVTTilesJson(
-            tilejson="3.0.0",
-            name=metadata.get("name", dataset),
+        return TileContent(
+            data_type=data_type_for(media_type, self._context.dem),
+            media_type=media_type,
+            format_parameter=format_parameter(media_type),
+            min_zoom=low,
+            max_zoom=high,
+            bounds=(
+                _degrees(header["min_lon_e7"]),
+                _degrees(header["min_lat_e7"]),
+                _degrees(header["max_lon_e7"]),
+                _degrees(header["max_lat_e7"]),
+            ),
+            center=(
+                _degrees(header["center_lon_e7"]),
+                _degrees(header["center_lat_e7"]),
+                header["center_zoom"],
+            ),
+            name=metadata.get("name"),
             description=metadata.get("description"),
             attribution=metadata.get("attribution"),
-            tiles=_service_url(server_url, dataset, tileset),
-            minzoom=low,
-            maxzoom=high,
-            bounds=",".join(str(_degrees(value)) for value in bounds),
-            center=",".join(
-                [*(str(_degrees(value)) for value in center), str(header["center_zoom"])]
+            layers=tuple(
+                VectorLayer(
+                    id=layer["id"],
+                    description=layer.get("description"),
+                    minzoom=layer.get("minzoom"),
+                    maxzoom=layer.get("maxzoom"),
+                    fields=layer.get("fields", {}),
+                )
+                for layer in metadata.get("vector_layers", [])
+                if "id" in layer
             ),
-            vector_layers=layers,
+            dem=self._context.dem,
         )
-        return content.model_dump(exclude_none=True)
 
-    def get_vendor_metadata(
-        self, dataset, server_url, layer, tileset, title, description, keywords, **kwargs
-    ):
-        """TileJSON, from the archive's own metadata and header."""
-        return self._tilejson(dataset, server_url, tileset)
 
-    def get_default_metadata(
-        self, dataset, server_url, layer, tileset, title, description, keywords, **kwargs
-    ):
-        """OGC tileset metadata, in the shape of the tippecanoe provider's."""
-        scheme = next((s for s in self.get_tiling_schemes() if s.tileMatrixSet == tileset), None)
-        if scheme is None:
-            raise ProviderTileNotFoundError(f"tile matrix set {tileset} is not served")
-        content = TileSetMetadata(
-            title=title,
-            description=description,
-            keywords=keywords,
-            crs=scheme.crs,
-            tileMatrixSetURI=scheme.tileMatrixSetURI,
-        )
-        content.links = [
-            LinkType(
-                **{
-                    "href": url_join(server_url, f"/TileMatrixSets/{scheme.tileMatrixSet}"),
-                    "rel": "http://www.opengis.net/def/rel/ogc/1.0/tiling-scheme",
-                    "type": "application/json",
-                    "title": f"{scheme.tileMatrixSet} tile matrix set definition",
-                }
-            ),
-            LinkType(
-                **{
-                    "href": _service_url(server_url, dataset, tileset),
-                    "rel": "item",
-                    "type": self.mimetype,
-                    "title": f"{tileset} vector tiles for {layer}",
-                }
-            ),
-        ]
-        return content.model_dump(exclude_none=True, by_alias=True)
+def _tile_id(archive: Archive, z: int, x: int, y: int) -> int:
+    """The tile id of z/x/y; outside the archive's zooms is :class:`TileOutsideError`."""
+    low, high = zoom_limits(archive)
+    if not low <= z <= high:
+        raise TileOutsideError(f"tile {z}/{x}/{y} is outside the archive's zooms {low}-{high}")
+    return zxy_to_tileid(z, x, y)
 
-    def get_html_metadata(
-        self, dataset, server_url, layer, tileset, title, description, keywords, **kwargs
-    ):
-        """What the HTML template renders: the TileJSON plus the URLs around it."""
-        metadata_url = url_join(server_url, f"collections/{dataset}/tiles/{tileset}/metadata")
-        return {
-            "id": dataset,
-            "title": title,
-            "tileset": tileset,
-            "collections_path": _service_url(server_url, dataset, tileset),
-            "json_url": f"{metadata_url}?f=json",
-            "tilejson_url": f"{metadata_url}?f=tilejson",
-            "metadata": self._tilejson(dataset, server_url, tileset),
-        }
+
+class PMTilesProvider(TilesProvider):
+    """Tiles from a PMTiles archive on local disk or object storage.
+
+    Configuration::
+
+        - type: tile
+          name: app.provider.pmtiles.PMTilesProvider
+          data: s3://overturemaps-extras-us-west-2/tiles/2026-08-19.0/places.pmtiles
+          store_options: {region: us-west-2, skip_signature: true}
+          options: {zoom: {min: 14, max: 14}, schemes: [WebMercatorQuad]}
+          format: {name: pbf, mimetype: application/vnd.mapbox-vector-tile}
+    """
+
+    source_builder = PMTilesTiles
