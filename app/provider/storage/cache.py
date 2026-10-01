@@ -420,6 +420,12 @@ def _settings() -> Any | None:
     return configuration
 
 
+def default_cache_base_dir() -> Path | None:
+    """The cache root fastgeoapi's settings name; None without settings."""
+    settings = _settings()
+    return None if settings is None else cache_base_dir(settings)
+
+
 @lru_cache(maxsize=1)
 def default_range_cache() -> RangeCache | None:
     """The range cache of this process, from fastgeoapi's settings; None without them."""

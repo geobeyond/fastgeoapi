@@ -24,8 +24,10 @@ from datetime import datetime
 from pygeoapi.provider.base import BaseProvider, ProviderQueryError
 
 from app.config.logging import create_logger
+from app.provider import geoparquet_schema
 from app.provider.base import AsyncProviderMixin
 from app.provider.duckdb_ import connect, scan_expression
+from app.provider.storage import is_remote
 
 logger = create_logger("app.provider.geoparquet")
 
@@ -102,6 +104,7 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
             raise ProviderQueryError("id_field is required by the GeoParquet provider")
         self.geometry_column = provider_def.get("geometry_column", "geom")
         self._configured_covering = provider_def.get("bbox_column")
+        self._store_options = provider_def.get("store_options")
         self._scan = scan_expression(
             self.data,
             store_options=provider_def.get("store_options"),
@@ -144,7 +147,19 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         return self._connection.cursor()
 
     def _describe(self) -> dict[str, str]:
-        """Column name → DuckDB type, straight from the dataset schema."""
+        """Column name → DuckDB type, read once per version of a remote dataset's objects."""
+        if is_remote(self.data):
+            types = geoparquet_schema.remote_schema(
+                self.data,
+                store_options=self._store_options,
+                cache_dir=geoparquet_schema.schema_cache_dir(),
+            )
+            if types is not None:
+                return types
+        return self._describe_natively()
+
+    def _describe_natively(self) -> dict[str, str]:
+        """Column name → DuckDB type, from DuckDB's own read of the dataset."""
         # `_scan` is derived from the provider definition's `data`, never
         # from request input, and nothing else is interpolated here.
         # ruff: ignore[hardcoded-sql-expression]

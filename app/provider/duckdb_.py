@@ -189,13 +189,15 @@ def connect(
     protocol = protocol_for(source)
     if protocol is not None:
         if reader_for(engine_options) == "obstore":
-            _register_obstore_filesystem(con, protocol, store_options)
+            _register_obstore_filesystem(con, protocol, store_options, source)
         else:
             _configure_native_reader(con, protocol, store_options)
     return con
 
 
-def _register_obstore_filesystem(con, protocol: str, store_options: dict | None) -> None:
+def _register_obstore_filesystem(
+    con, protocol: str, store_options: dict | None, source: str
+) -> None:
     """The previous read path, kept as an escape hatch.
 
     Slower on repeated reads (no block cache) but useful when a store
@@ -211,9 +213,13 @@ def _register_obstore_filesystem(con, protocol: str, store_options: dict | None)
     # ty: the constructor is overloaded per literal protocol, and the
     # scheme is only known at runtime; _CLOUD_SCHEMES keeps it within
     # the set obstore serves.
+    from app.provider.storage.factory import obstore_options
+
+    # ``store_options`` are written in DuckDB's vocabulary, and obstore refuses
+    # the keys it does not know: ``key_id`` alone makes a bucket unreachable.
     store = FsspecStore(  # ty: ignore[no-matching-overload]
         protocol=protocol,
-        config=store_options or None,
+        config=obstore_options(store_options, source) or None,
     )
     con.register_filesystem(store)
     logger.debug(f"registered the obstore filesystem for {protocol}://")
