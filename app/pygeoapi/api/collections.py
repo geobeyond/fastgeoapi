@@ -80,7 +80,7 @@ def items_links(api: API, request: APIRequest, dataset: str) -> list[dict]:
 
 
 def match_items_to_providers(api: API, request: APIRequest, dataset: str, collection: dict) -> dict:
-    """``collection`` with ``itemType`` and ``items`` links exactly when a provider serves the items."""
+    """``itemType`` and ``items`` links on ``collection`` exactly when a provider serves items."""
     item_type = item_provider_type(api.config["resources"][dataset]["providers"])
     others = [link for link in collection["links"] if link.get("rel") != "items"]
     if item_type is None:
@@ -121,7 +121,7 @@ def describe_collections(
             continue
         try:
             collection = gen_collection(api, request, name, request.locale)
-        except Exception as error:  # ruff: ignore[blind-except]
+        except Exception as error:
             # pygeoapi's behaviour: the list skips a collection it cannot describe.
             logger.warning(f"Error generating collection {name}: {error}")
             if dataset is not None:
