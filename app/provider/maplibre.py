@@ -96,7 +96,9 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         cached, server = self.cached_ranges, self._range_server
         if cached is not None and server is not None:
             # The renderer reads the object through this process, by version.
-            return ObjectUrl(resolver=lambda: server.url_for(cached, cached.meta()))
+            return ObjectUrl(
+                resolver=lambda: server.url_for(cached, cached.known_meta() or cached.meta())
+            )
         return object_url(
             self.provider_def["data"],
             public_url=self.options["data_url"],
@@ -154,7 +156,8 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             self._range_server = await ensure_range_server()
             # Registered only once the version is known: until then, on a reload,
             # the provider this one replaces keeps serving the maps it is drawing.
-            await cached.ameta()
+            # Past the TTL the map draws the version it knows and the HEAD runs behind.
+            await cached.ameta_without_waiting()
             SOURCES.register(cached)
         # In a thread: at the first map the styles read their documents and the source.
         request = await self.run_sync(

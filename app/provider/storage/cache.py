@@ -235,7 +235,7 @@ class RangeCache:
         except Exception as error:
             self._warn("delete", error)
 
-    def _warn(self, kind: str, error: Exception) -> None:
+    def _warn(self, kind: str, error: Exception, then: str = "the source is read instead") -> None:
         now = self.clock()
         with self._lock:
             last = self._warned.get(kind)
@@ -243,9 +243,7 @@ class RangeCache:
                 return
             self._warned[kind] = now
         # The type only: the message of a store error may name the object.
-        logger.warning(
-            f"range cache {kind} failed with {type(error).__name__}; the source is read instead"
-        )
+        logger.warning(f"range cache {kind} failed with {type(error).__name__}; {then}")
 
 
 class CachedRanges:
@@ -269,6 +267,7 @@ class CachedRanges:
         self._versions: dict[str, ObjectMeta] = {}
         self._pinned: dict[str, ByteRanges] = {}
         self._lock = threading.Lock()
+        self._revalidating: asyncio.Task | None = None
 
     def meta(self) -> ObjectMeta:
         """The object's metadata; a HEAD once ``revalidate_seconds`` have passed."""
@@ -279,6 +278,38 @@ class CachedRanges:
         """Async twin of :meth:`meta`."""
         meta = self._fresh()
         return meta if meta is not None else self._remember(await self.store.ahead(self.key))
+
+    async def ameta_without_waiting(self) -> ObjectMeta:
+        """The version to read now: the known one, while a HEAD past the TTL runs behind.
+
+        Only a reader with no version known yet waits for the store. On a
+        slow route a HEAD costs seconds, and a reader that cannot wait for
+        it gets the version it read last; a change shows up once the HEAD
+        behind it returns, or as soon as a pinned read finds the object
+        changed.
+        """
+        meta = self._fresh()
+        if meta is not None:
+            return meta
+        known = self.known_meta()
+        if known is None:
+            return await self.ameta()
+        with self._lock:
+            if self._revalidating is None or self._revalidating.done():
+                self._revalidating = asyncio.get_running_loop().create_task(self._arevalidate())
+        return known
+
+    def known_meta(self) -> ObjectMeta | None:
+        """The version read last, however old; None before the first HEAD."""
+        with self._lock:
+            return self._meta
+
+    async def _arevalidate(self) -> None:
+        try:
+            self._remember(await self.store.ahead(self.key))
+        except Exception as error:
+            # The next reader past the TTL tries again.
+            self.cache._warn("revalidation", error, then="the known version stays")
 
     def invalidate(self) -> None:
         """Forget the version: the next :meth:`meta` asks the store again."""
