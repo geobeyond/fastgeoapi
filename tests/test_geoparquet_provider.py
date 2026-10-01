@@ -489,3 +489,48 @@ async def test_async_view_serves_the_same_count_off_the_loop(provider):
     hits = provider.query(resulttype="hits")
     assert (await async_view(provider).query(resulttype="hits")) == hits
     assert hits["numberMatched"] == 3
+
+
+class _TimedOut:
+    """A cursor whose every query meets the timeout DuckDB reports when the store does not answer."""
+
+    def execute(self, *args, **kwargs):
+        import duckdb
+
+        raise duckdb.IOException(
+            "IO Error: Timeout was reached error for HTTP GET to 'https://example.org/lakes.parquet'"
+        )
+
+
+@pytest.mark.parametrize(
+    "call",
+    [lambda p: p.query(limit=1), lambda p: p.query(resulttype="hits"), lambda p: p.get(1)],
+    ids=["features", "hits", "item"],
+)
+def test_a_store_that_does_not_answer_in_time_is_a_504(provider, call):
+    from http import HTTPStatus
+    from unittest.mock import patch
+
+    from pygeoapi.provider.base import ProviderConnectionError
+
+    with (
+        patch.object(provider, "_cursor", _TimedOut),
+        pytest.raises(ProviderConnectionError) as raised,
+    ):
+        call(provider)
+
+    assert raised.value.http_status_code == HTTPStatus.GATEWAY_TIMEOUT
+    assert "example.org" not in raised.value.message
+
+
+def test_another_io_error_is_left_as_it_is(provider):
+    from unittest.mock import patch
+
+    import duckdb
+
+    class Broken:
+        def execute(self, *args, **kwargs):
+            raise duckdb.IOException("IO Error: No files found that match the pattern")
+
+    with patch.object(provider, "_cursor", Broken), pytest.raises(duckdb.IOException):
+        provider.query(limit=1)
