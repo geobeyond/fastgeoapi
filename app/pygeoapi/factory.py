@@ -38,6 +38,7 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from app.pygeoapi.api import patch_validate_datetime_overflow
+from app.pygeoapi.api.collections import describe_collections, item_provider_type
 from app.pygeoapi.api_async import maps as async_maps
 from app.pygeoapi.api_async import tiles as async_tiles
 from app.pygeoapi.openapi import (
@@ -132,7 +133,25 @@ def normalize_config(config: dict) -> dict:
     limits = server.setdefault("limits", {})
     for key, value in _LIMIT_DEFAULTS.items():
         limits.setdefault(key, value)
+    for resource in config.get("resources", {}).values():
+        _default_to_the_items(resource.get("providers") or [])
     return config
+
+
+def _default_to_the_items(providers: list[dict]) -> None:
+    """Make the provider serving ``/items`` the default, unless the collection names one.
+
+    pygeoapi describes a collection from its default provider, the first one
+    unless told: tiles listed before features would leave out the CSV
+    formatter, the schema and the queryables of the items.
+    """
+    if any(provider.get("default") for provider in providers):
+        return
+    item_type = item_provider_type(providers)
+    if item_type is None:
+        return
+    provider = next(provider for provider in providers if provider.get("type") == item_type)
+    provider.setdefault("default", True)
 
 
 def build_openapi(config: dict) -> dict:
@@ -565,9 +584,10 @@ def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
         )
 
     async def collections(request: Request) -> Response:
+        # fastgeoapi patch: the items described from the provider that serves them.
         return await execute(
             api,
-            core_api.describe_collections,
+            describe_collections,
             request,
             _path_param(request, "collection_id"),
         )
