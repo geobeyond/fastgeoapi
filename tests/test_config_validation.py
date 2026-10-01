@@ -125,6 +125,54 @@ def test_our_own_provider_options_are_not_rejected(valid_config):
     normalize_config(extended)
 
 
+TILES = {
+    "type": "tile",
+    "name": "MVT-tippecanoe",
+    "data": "tests/data/tiles",
+    "options": {"zoom": {"min": 0, "max": 5}, "schemes": ["WebMercatorQuad"]},
+    "format": {"name": "pbf", "mimetype": "application/vnd.mapbox-vector-tile"},
+}
+
+RECORDS = {
+    "type": "record",
+    "name": "TinyDBCatalogue",
+    "data": "tests/data/catalogue.tinydb",
+    "id_field": "externalId",
+    "time_field": "recordCreated",
+    "title_field": "title",
+}
+
+
+def test_the_feature_provider_becomes_the_default_when_none_is_declared(valid_config):
+    """pygeoapi describes a collection from its default provider, the first one unless told."""
+    config = copy.deepcopy(valid_config)
+    providers = config["resources"]["lakes"]["providers"]
+    providers.insert(0, dict(TILES))
+
+    normalize_config(config)
+
+    assert [provider.get("default") for provider in providers] == [None, True]
+
+
+def test_a_declared_default_provider_stays(valid_config):
+    config = copy.deepcopy(valid_config)
+    providers = config["resources"]["lakes"]["providers"]
+    providers.insert(0, {**TILES, "default": True})
+
+    normalize_config(config)
+
+    assert [provider.get("default") for provider in providers] == [True, None]
+
+
+def test_without_features_the_record_provider_becomes_the_default(valid_config):
+    config = copy.deepcopy(valid_config)
+    config["resources"]["lakes"]["providers"] = providers = [dict(TILES), dict(RECORDS)]
+
+    normalize_config(config)
+
+    assert [provider.get("default") for provider in providers] == [None, True]
+
+
 def test_startup_refuses_and_names_the_document(tmp_path, valid_config):
     """Fail-closed at boot, with enough to act on.
 
