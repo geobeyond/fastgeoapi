@@ -23,7 +23,6 @@ import re
 from datetime import datetime
 from http import HTTPStatus
 
-import duckdb
 from pygeoapi.provider.base import BaseProvider, ProviderConnectionError, ProviderQueryError
 
 from app.config.logging import create_logger
@@ -162,6 +161,10 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
 
     def _rows(self, sql: str, parameters: list | None = None) -> list:
         """The rows of ``sql``; a store that does not answer in time raises a 504."""
+        # Here, not at the top: DuckDB comes with the geoparquet extra, and the
+        # module is imported without it, as the maps lane does.
+        import duckdb
+
         try:
             return self._cursor().execute(sql, parameters or []).fetchall()
         except (duckdb.IOException, duckdb.HTTPException) as error:

@@ -534,3 +534,16 @@ def test_another_io_error_is_left_as_it_is(provider):
 
     with patch.object(provider, "_cursor", Broken), pytest.raises(duckdb.IOException):
         provider.query(limit=1)
+
+
+def test_the_provider_module_imports_without_duckdb():
+    """The maps lane installs no geoparquet extra and still collects this module."""
+    import subprocess  # ruff: ignore[suspicious-subprocess-import]
+    import sys
+
+    code = "import sys; sys.modules['duckdb'] = None; import app.provider.geoparquet"
+    result = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true]
+        [sys.executable, "-c", code], capture_output=True, text=True, check=False
+    )  # nosec B603
+
+    assert result.returncode == 0, result.stderr[-300:]
