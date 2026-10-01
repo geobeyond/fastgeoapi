@@ -675,6 +675,39 @@ async def test_a_bucket_is_read_by_the_renderer_through_the_loopback_server(tmp_
 
 
 @pytest.mark.asyncio
+async def test_a_map_past_the_ttl_is_drawn_without_waiting_for_the_head(tmp_path):
+    """A HEAD on a slow route costs seconds: the map takes the version it knows."""
+    from app.provider.storage import CachedRanges
+    from app.provider.storage.loopback import close_range_server
+    from tests.range_cache_fixtures import Clock, memory_store, range_cache
+    from tests.test_cached_ranges_revalidation import GatedStore
+
+    clock = Clock()
+    origin = GatedStore(memory_store())
+    origin.gate.set()
+    provider = _bucket_provider(tmp_path, origin=origin)
+    provider.cached_ranges = CachedRanges(
+        origin,
+        "roads.pmtiles",
+        range_cache(memory_store(), clock=clock),
+        source="s3://bucket/tiles/roads.pmtiles",
+    )
+    try:
+        await _map(provider)
+        origin.gate.clear()
+        clock.now += 301
+
+        png = await asyncio.wait_for(_map(provider), timeout=2)
+        origin.gate.set()
+        await _until(lambda: origin.heads == 2)
+    finally:
+        await provider.aclose()
+        await close_range_server()
+
+    assert png.startswith(b"\x89PNG")
+
+
+@pytest.mark.asyncio
 async def test_range_cache_false_keeps_the_signed_url(tmp_path):
     from unittest.mock import patch
 
