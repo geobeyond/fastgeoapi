@@ -106,6 +106,11 @@ def _for_obstore(store_options: dict, base: str = "") -> dict:
     return {**options, **translated}
 
 
+def obstore_options(store_options: dict | None, base: str = "") -> dict:
+    """``store_options`` spelled for obstore, as :func:`load_store` builds a store with them."""
+    return _for_obstore(dict(store_options or {}), base)
+
+
 @contextmanager
 def _explicit_endpoint_wins(config: dict) -> Iterator[None]:
     """Hide the environment's endpoint while a store with its own is built.
