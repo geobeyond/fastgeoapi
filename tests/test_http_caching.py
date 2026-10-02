@@ -8,10 +8,12 @@ import importlib
 from types import SimpleNamespace
 
 import pytest
+from loguru import logger
 
 from app.config.app import DevConfig, ProdConfig
 from app.pygeoapi.api_async.caching import (
     HttpCache,
+    cache_headers,
     default_http_cache,
     not_modified,
     sources_digest,
@@ -153,3 +155,25 @@ def test_the_code_digest_follows_the_sources_and_nothing_else(tmp_path):
 
     assert unchanged == first
     assert sources_digest(tmp_path) != first
+
+
+class _Unreachable:
+    """A provider whose store fails while the version is asked."""
+
+    async def aversion(self, **kwargs):
+        raise OSError("s3://bucket/roads.pmtiles?X-Amz-Signature=SECRET")
+
+
+@pytest.mark.asyncio
+async def test_a_failing_version_is_logged_by_its_type_once_a_minute():
+    messages: list[str] = []
+    sink = logger.add(lambda message: messages.append(str(message)), level="WARNING")
+    try:
+        for _ in range(3):
+            assert await cache_headers(POLICY, _Unreachable(), "logged-once", "tile", {}, {}) == {}
+    finally:
+        logger.remove(sink)
+
+    (message,) = [message for message in messages if "logged-once" in message]
+    assert "OSError" in message
+    assert "SECRET" not in message

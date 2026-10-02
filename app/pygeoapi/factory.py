@@ -10,6 +10,7 @@ The execute shim and the route table are adapted from
 from __future__ import annotations
 
 import asyncio
+import gzip
 import os
 from collections.abc import Awaitable, Callable
 from contextlib import suppress
@@ -26,11 +27,11 @@ import pygeoapi.api.processes as processes_api
 import pygeoapi.api.stac as stac_api
 import pygeoapi.api.tiles as tiles_api
 from openapi_pydantic.v3.v3_0 import OpenAPI
-from pygeoapi.api import API, SYSTEM_LOCALE, APIRequest, apply_gzip
-from pygeoapi.formats import F_JSON
+from pygeoapi.api import API, CHARSET, SYSTEM_LOCALE, APIRequest, apply_gzip
+from pygeoapi.formats import F_GZIP, F_JSON
 from pygeoapi.openapi import get_oas
 from pygeoapi.provider.base import ProviderGenericError
-from pygeoapi.util import get_api_rules
+from pygeoapi.util import get_api_rules, get_from_headers
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response
@@ -317,6 +318,23 @@ _BODILESS = (HTTPStatus.NO_CONTENT, HTTPStatus.NOT_MODIFIED)
 """Answers without a body: nothing to compress."""
 
 
+def _gzip_without_timestamp(headers: dict, content):
+    """pygeoapi's ``apply_gzip``, with the timestamp of the gzip header at zero.
+
+    ``gzip.compress`` writes the current time there by default, so the same
+    answer would change from one second to the next under one strong ETag.
+    """
+    if F_GZIP not in get_from_headers(headers, "content-encoding"):
+        return content
+    if isinstance(content, bytes):
+        return gzip.compress(content, mtime=0)
+    if isinstance(content, str):
+        headers["Content-Type"] = f"{headers['Content-Type']}; charset={CHARSET[0]}"
+        return gzip.compress(content.encode(CHARSET[0]), mtime=0)
+    headers.pop("Content-Encoding")
+    return content
+
+
 def build_routes(
     api: API, specs: frozenset[str] | None = None, http_cache: HttpCache | None = None
 ) -> list[Route]:
@@ -419,7 +437,7 @@ def build_routes(
                 api, api_request, *args, *probe, http_cache=http_cache
             )
             if status not in _BODILESS:
-                content = apply_gzip(headers, content)
+                content = _gzip_without_timestamp(headers, content)
             return _to_response(headers, status, content)
         return await execute(
             api,
@@ -527,7 +545,7 @@ def build_routes(
                 return Response(status_code=CLIENT_CLOSED_REQUEST)
             headers, status, content = drawn
         if status not in _BODILESS:
-            content = apply_gzip(headers, content)
+            content = _gzip_without_timestamp(headers, content)
         return _to_response(headers, status, content)
 
     async def get_processes(request: Request) -> Response:

@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
+import time
 from dataclasses import dataclass
 from functools import lru_cache
 from http import HTTPStatus
@@ -29,6 +31,12 @@ VARY = "Accept, Accept-Encoding"
 """Without ``f``, ``Accept`` picks the format; ``Accept-Encoding`` decides the gzip."""
 
 logger = create_logger("app.pygeoapi.api_async.caching")
+
+WARNING_INTERVAL = 60.0
+"""Seconds between two warnings about one collection: a store that is down fails every request."""
+
+_warned: dict[tuple[str, str], float] = {}
+_warned_lock = threading.Lock()
 
 
 def sources_digest(root: Path) -> str:
@@ -145,12 +153,23 @@ async def cache_headers(
     except ProviderGenericError:
         return {}
     except Exception as error:
-        logger.warning(f"the {kind} of {dataset} goes without cache headers: {error}")
+        _warn(kind, dataset, error)
         return {}
     if version is None:
         return {}
     coded = {**arguments, "encoding": response_headers.get("Content-Encoding")}
     return http_cache.headers(http_cache.etag(dataset, kind, version, coded))
+
+
+def _warn(kind: str, dataset: str, error: Exception) -> None:
+    now = time.monotonic()
+    with _warned_lock:
+        last = _warned.get((kind, dataset))
+        if last is not None and now - last < WARNING_INTERVAL:
+            return
+        _warned[kind, dataset] = now
+    # The type only: the message of a store error may name the object.
+    logger.warning(f"the {kind} of {dataset} goes without cache headers: {type(error).__name__}")
 
 
 def not_modified_answer(headers: dict, cached: dict[str, str]) -> tuple[dict, int, bytes]:

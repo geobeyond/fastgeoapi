@@ -13,7 +13,7 @@ from starlette.testclient import TestClient
 
 from app.pygeoapi.api_async.caching import HttpCache
 from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
-from tests.maps_fixtures import FakeRenderer, map_provider
+from tests.maps_fixtures import map_provider
 from tests.pmtiles_fixtures import TILE_BYTES, write_archive
 from tests.test_tiles_async_route import _collection, _config
 
@@ -226,14 +226,7 @@ ROME = "12.4,41.8,12.6,42.0"
 MAP = "/collections/roads/map"
 
 
-def _renders() -> int:
-    """Maps drawn so far by every fake renderer; the tests compare two counts."""
-    return sum(renderer.calls for renderer in FakeRenderer.instances)
-
-
-@pytest.fixture(scope="module")
-def maps(tmp_path_factory) -> TestClient:
-    folder = tmp_path_factory.mktemp("cached-maps")
+def _maps_app(folder, *, gzip=False):
     archive = write_archive(
         folder / "roads.pmtiles",
         {(0, 0, 0): TILE_BYTES(0, 0, 0)},
@@ -246,8 +239,23 @@ def maps(tmp_path_factory) -> TestClient:
     )
     definition = map_provider(archive, styles={"night": str(night)})
     config = _config({"roads": _collection("Roads", [definition])})
-    app = build_pygeoapi_subapp(config, build_openapi(config), http_cache=PUBLIC)
+    config["server"]["gzip"] = gzip
+    return build_pygeoapi_subapp(config, build_openapi(config), http_cache=PUBLIC)
+
+
+@pytest.fixture(scope="module")
+def maps(tmp_path_factory) -> TestClient:
+    app = _maps_app(tmp_path_factory.mktemp("cached-maps"))
     return TestClient(app, raise_server_exceptions=False)
+
+
+@pytest.fixture
+def gzip_maps(tmp_path):
+    """A map client of a server with ``gzip: true``; see ``gzip_client``."""
+    formats = FORMAT_TYPES.copy()
+    yield TestClient(_maps_app(tmp_path, gzip=True), raise_server_exceptions=False)
+    FORMAT_TYPES.clear()
+    FORMAT_TYPES.update(formats)
 
 
 def _map(client, path=MAP, headers=None, **params):
@@ -264,14 +272,20 @@ def test_a_map_carries_an_etag_and_how_long_to_keep_it(maps):
     assert r.headers["vary"] == "Accept, Accept-Encoding"
 
 
-def test_a_map_asked_with_its_etag_is_304_without_being_drawn(maps):
+def test_a_map_asked_with_its_etag_is_304_without_being_drawn(maps, monkeypatch):
     etag = _map(maps).headers["etag"]
-    drawn = _renders()
+    live = importlib.import_module("app.provider.maplibre").MapLibreMapProvider
+    original = live.aquery
+    drawn = []
 
+    async def spy(self, *args, **kwargs):
+        drawn.append(kwargs)
+        return await original(self, *args, **kwargs)
+
+    monkeypatch.setattr(live, "aquery", spy)
     r = _map(maps, headers={"If-None-Match": etag})
 
-    assert (r.status_code, r.content) == (304, b"")
-    assert _renders() == drawn
+    assert (r.status_code, r.content, drawn) == (304, b"", [])
     assert r.headers["etag"] == etag
     assert "content-encoding" not in r.headers
 
@@ -305,3 +319,32 @@ def test_a_version_that_cannot_be_known_lets_the_map_through(maps, monkeypatch):
     assert r.status_code == 200
     assert r.content.startswith(b"\x89PNG")
     assert "etag" not in r.headers
+
+
+def test_a_map_asked_in_a_format_it_is_not_drawn_in_never_gets_a_304(maps):
+    etag = _map(maps).headers["etag"]
+
+    r = _map(maps, headers={"Accept": "application/json", "If-None-Match": etag})
+
+    assert r.status_code == 400
+
+
+def _raw(client, path, params):
+    with client.stream("GET", path, params=params) as r:
+        return r.headers, b"".join(r.iter_raw())
+
+
+def test_a_gzip_tile_carries_no_timestamp_so_one_etag_names_one_body(gzip_client):
+    headers, raw = _raw(gzip_client, TILE, {"f": "mvt"})
+
+    assert headers["content-encoding"] == "gzip"
+    assert raw[:2] == b"\x1f\x8b"
+    assert raw[4:8] == b"\x00\x00\x00\x00"
+
+
+def test_a_gzip_map_carries_no_timestamp_so_one_etag_names_one_body(gzip_maps):
+    headers, raw = _raw(gzip_maps, MAP, {"bbox": ROME, "width": 64, "height": 64})
+
+    assert headers["content-encoding"] == "gzip"
+    assert raw[:2] == b"\x1f\x8b"
+    assert raw[4:8] == b"\x00\x00\x00\x00"
