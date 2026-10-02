@@ -41,6 +41,7 @@ from app.pygeoapi.api import patch_validate_datetime_overflow
 from app.pygeoapi.api.collections import describe_collections, item_provider_type
 from app.pygeoapi.api_async import maps as async_maps
 from app.pygeoapi.api_async import tiles as async_tiles
+from app.pygeoapi.api_async.caching import HttpCache, default_http_cache
 from app.pygeoapi.openapi import (
     describe_tilesets,
     drop_unfiltered_cql2_operations,
@@ -312,7 +313,13 @@ def _collection_tiles_metadata(
         )
 
 
-def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
+_BODILESS = (HTTPStatus.NO_CONTENT, HTTPStatus.NOT_MODIFIED)
+"""Answers without a body: nothing to compress."""
+
+
+def build_routes(
+    api: API, specs: frozenset[str] | None = None, http_cache: HttpCache | None = None
+) -> list[Route]:
     """The route table, closed over the ``api`` instance.
 
     Adapted 1:1 from ``pygeoapi/starlette_app.py`` (admin excluded: in
@@ -320,6 +327,8 @@ def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
     with its spec group (ADR-0005): ``specs=None`` returns the COMPLETE
     table — the coverage contract the parity test checks against
     upstream — while the sub-app mounts only the active groups.
+    ``http_cache`` gives the map and tile routes their cache headers;
+    None sends none.
     """
 
     async def landing_page(request: Request) -> Response:
@@ -407,9 +416,9 @@ def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
             # A native provider: awaited on the loop, no thread involved.
             api_request = await APIRequest.from_starlette(request, api.locales)
             headers, status, content = await async_tiles.get_collection_tiles_data(
-                api, api_request, *args, *probe
+                api, api_request, *args, *probe, http_cache=http_cache
             )
-            if status != HTTPStatus.NO_CONTENT:
+            if status not in _BODILESS:
                 content = apply_gzip(headers, content)
             return _to_response(headers, status, content)
         return await execute(
@@ -804,12 +813,15 @@ def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
     return [route for spec, route in table if spec in specs]
 
 
-def build_pygeoapi_subapp(config: dict, openapi: dict) -> Starlette:
+def build_pygeoapi_subapp(
+    config: dict, openapi: dict, *, http_cache: HttpCache | None = None
+) -> Starlette:
     """Complete Starlette sub-app, same shape as the former APP import.
 
     Mounts only the spec groups the config activates (ADR-0005): the
     reload webhook rebuilds the sub-app, so the mounted set follows
-    every config update.
+    every config update. ``http_cache`` defaults to the policy of
+    fastgeoapi's settings.
     """
     from app.pygeoapi.registry import active_specs
 
@@ -825,7 +837,11 @@ def build_pygeoapi_subapp(config: dict, openapi: dict) -> Starlette:
             Mount("/static", StaticFiles(directory=static_dir)),
             Mount(
                 url_prefix or "/",
-                routes=build_routes(api, specs=active_specs(config)),
+                routes=build_routes(
+                    api,
+                    specs=active_specs(config),
+                    http_cache=http_cache if http_cache is not None else default_http_cache(),
+                ),
             ),
         ],
     )
