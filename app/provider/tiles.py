@@ -132,6 +132,20 @@ class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
         except TileSourceError as error:
             raise ProviderGenericError(user_msg=str(error)) from None
 
+    async def aversion(self, layer=None, tileset=None, z=None, y=None, x=None, format_=None):
+        """The version of the tile ``aget_tiles`` would answer: the archive's and the definition's.
+
+        Same signature as ``aget_tiles``. None when the archive's version is
+        unknown, and for a tile outside the limits, which answers 404
+        whatever the version.
+        """
+        try:
+            self._within_limits(z, x, y)
+        except ProviderTileNotFoundError:
+            return None
+        data = await self.adata_version()
+        return None if data is None else f"{data}|{self.definition_digest()}"
+
     def _within_limits(self, z: Any, x: Any, y: Any) -> tuple[int, int, int]:
         """Pygeoapi's semantics: a tile outside the configured limits is 404.
 
