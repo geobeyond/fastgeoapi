@@ -70,3 +70,20 @@ class AsyncMapProvider(Protocol):
     async def aquery(self, **kwargs: Any) -> bytes:
         """The async twin of ``query``: same keyword arguments, the image bytes."""
         ...
+
+
+@runtime_checkable
+class VersionedProvider(Protocol):
+    """A provider that tells which version of its answer a request would get.
+
+    The HTTP cache builds its ETag from that version before any work is
+    done for the request.
+    """
+
+    async def aversion(self, **kwargs: Any) -> str | None:
+        """A string that changes whenever the answer to ``kwargs`` changes; None when unknown.
+
+        Takes the arguments of the provider's data method, and neither draws
+        nor reads data to answer.
+        """
+        ...

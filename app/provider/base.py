@@ -17,6 +17,8 @@ and ``provider_def`` would never be captured.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from collections.abc import Callable, Coroutine
 from datetime import timedelta
 from functools import cached_property
@@ -160,6 +162,34 @@ class StorageBackedMixin:
         if sign is None:
             raise TypeError(f"{type(self.store).__name__} cannot sign URLs")
         return sign(self.object_key, expires_in)
+
+    def definition_digest(self) -> str:
+        """A digest of the provider's definition: any option that shapes the output changes it.
+
+        The definition may carry credentials in ``store_options``; only the
+        digest leaves this method.
+        """
+        definition = json.dumps(self._captured_provider_def(), sort_keys=True, default=str)
+        return hashlib.sha256(definition.encode()).hexdigest()[:16]
+
+    async def adata_version(self) -> str | None:
+        """The version of the ``data`` object, the same in every process; None when unknown.
+
+        A remote object read through the range cache has the ETag the cache
+        knows, checked again behind the request once its TTL has passed. A
+        remote object read without the cache has none: a HEAD for every
+        request would cost more than the cache saves. A local file has its
+        size and modification time, since its ETag names the inode, which
+        differs from machine to machine.
+        """
+        cached = self.cached_ranges
+        if cached is not None:
+            return (await cached.ameta_without_waiting()).etag
+        if is_remote(self._captured_provider_def()["data"]):
+            return None
+        meta = await self.store.ahead(self.object_key)
+        modified = meta.last_modified.isoformat() if meta.last_modified is not None else ""
+        return f"{meta.size}:{modified}"
 
     def _captured_provider_def(self) -> dict:
         provider_def = getattr(self, "provider_def", None)
