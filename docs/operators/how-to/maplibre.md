@@ -133,6 +133,18 @@ itself, so leave `bbox-crs` out for CRS84, and a bare EPSG code such as
 A bbox with another aspect than the image is stretched to it, as a WMS
 GetMap does. `datetime`, `subset` and `properties` are ignored.
 
+## HTTP caching
+
+A drawn map carries an `ETag` and a `Cache-Control` header, as tiles do:
+the [PMTiles guide](pmtiles.md#http-caching) has the setting and the rule
+for protected instances. The ETag covers the view, the size, the style
+the renderer would get, the archive's version and the renderer's
+version. A map asked again with its ETag answers 304 without waiting for
+the renderer. Errors, a full queue included, carry no cache headers.
+Editing a style file in place changes nothing until a configuration
+reload: the maps are still drawn with the style read before, and keep
+their ETag.
+
 ## Limits to know
 
 One renderer process serves each map provider and draws one map at a
