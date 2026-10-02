@@ -126,7 +126,7 @@ def test_another_format_is_a_bad_parameter(client):
     assert response.status_code == 400
 
 
-def _gated_app(tmp_path, **options):
+def _gated_app(tmp_path, http_cache=None, **options):
     """A sub-app over one map collection whose fake renderer waits for its gate."""
     from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
 
@@ -137,7 +137,7 @@ def _gated_app(tmp_path, **options):
     )
     definition = map_provider(archive, fake="gate", **options)
     config = _config({"gated": _collection("Gated", [definition])})
-    return build_pygeoapi_subapp(config, build_openapi(config)), definition
+    return build_pygeoapi_subapp(config, build_openapi(config), http_cache=http_cache), definition
 
 
 async def _get(app, left: asyncio.Event | None = None) -> dict:
@@ -210,10 +210,13 @@ async def test_a_map_whose_client_left_gives_its_place_in_the_queue_back(tmp_pat
 
 
 @pytest.mark.asyncio
-async def test_a_full_queue_answers_503_with_retry_after(tmp_path):
+async def test_a_full_queue_answers_503_with_retry_after_and_no_cache_headers(tmp_path):
     import pygeoapi.plugin
 
-    app, definition = _gated_app(tmp_path, queue=1, timeout=5)
+    from app.pygeoapi.api_async.caching import HttpCache
+
+    policy = HttpCache(max_age=300, protected=False, code="test")
+    app, definition = _gated_app(tmp_path, http_cache=policy, queue=1, timeout=5)
     provider = pygeoapi.plugin.load_plugin("provider", definition)
     FakeRenderer.gate = asyncio.Event()
     try:
@@ -223,10 +226,12 @@ async def test_a_full_queue_answers_503_with_retry_after(tmp_path):
         busy = await _get(app)
     finally:
         FakeRenderer.gate.set()
-    await asyncio.gather(drawing, waiting)
+    drawn, _ = await asyncio.gather(drawing, waiting)
 
     assert busy["status"] == 503
     assert dict(busy["headers"]).get(b"retry-after") == b"5"
+    assert b"etag" in dict(drawn["headers"])
+    assert b"etag" not in dict(busy["headers"])
 
 
 def _behind_opa_and_the_proxy(app):

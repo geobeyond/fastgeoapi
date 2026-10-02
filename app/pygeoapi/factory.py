@@ -519,12 +519,14 @@ def build_routes(
         else:
             drawn = await _unless_disconnected(
                 request,
-                async_maps.get_collection_map(api, api_request, dataset, style, *probe),
+                async_maps.get_collection_map(
+                    api, api_request, dataset, style, *probe, http_cache=http_cache
+                ),
             )
             if drawn is None:
                 return Response(status_code=CLIENT_CLOSED_REQUEST)
             headers, status, content = drawn
-        if status != HTTPStatus.NO_CONTENT:
+        if status not in _BODILESS:
             content = apply_gzip(headers, content)
         return _to_response(headers, status, content)
 
