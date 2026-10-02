@@ -148,7 +148,9 @@ async def get_collection_map(
 
     cached = await cache_headers(http_cache, provider, dataset, "map", query_args, headers)
     asked = get_from_headers(request.headers, "if-none-match")
-    if cached and not_modified(asked, cached["ETag"]):
+    # A 304 stands for the PNG; the format check below runs only after the map is drawn.
+    drawable = format_ == collection_def["format"]["name"] or format_ in (None, "html")
+    if cached and drawable and not_modified(asked, cached["ETag"]):
         headers["Content-Type"] = collection_def["format"]["mimetype"]
         return not_modified_answer(headers, cached)
 
