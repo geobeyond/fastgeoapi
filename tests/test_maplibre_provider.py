@@ -876,3 +876,111 @@ async def test_an_elevation_archive_is_drawn_as_a_hillshade_by_default(tmp_path)
     assert request.style["sources"]["archive"]["type"] == "raster-dem"
     assert request.style["sources"]["archive"]["encoding"] == "terrarium"
     assert request.style["layers"][-1]["type"] == "hillshade"
+
+
+async def _version(provider, **kwargs):
+    args = {"bbox": list(ROME), "width": 64, "height": 64, "crs": WEB_MERCATOR}
+    return await provider.aversion(**{**args, **kwargs})
+
+
+def _line_style(path, color):
+    path.write_text(
+        '{"version": 8, "sources": {}, "layers": [{"id": "roads", "type": "line", '
+        '"source": "archive", "source-layer": "roads", "paint": {"line-color": "' + color + '"}}]}'
+    )
+    return str(path)
+
+
+@pytest.mark.asyncio
+async def test_the_version_of_a_map_is_known_without_drawing_it(archive):
+    first = await _version(_provider(archive))
+    second = await _version(_provider(archive))
+
+    assert first is not None
+    assert first == second
+    assert FakeRenderer.instances == []
+
+
+@pytest.mark.asyncio
+async def test_another_style_gives_another_version(archive, tmp_path):
+    styles = {
+        "night": _line_style(tmp_path / "night.json", "#000000"),
+        "day": _line_style(tmp_path / "day.json", "#ffffff"),
+    }
+    provider = _provider(archive, styles=styles)
+
+    versions = {await _version(provider, style=name) for name in ("night", "day", None)}
+
+    assert len(versions) == 3
+
+
+@pytest.mark.asyncio
+async def test_a_new_renderer_gives_another_version(archive, monkeypatch):
+    import importlib
+
+    maplibre = importlib.import_module("app.provider.maplibre")
+    provider = _provider(archive)
+    before = await _version(provider)
+
+    monkeypatch.setattr(maplibre, "renderer_version", lambda: "9.9.9")
+
+    assert await _version(provider) != before
+
+
+@pytest.mark.asyncio
+async def test_asking_the_version_of_a_map_the_provider_refuses_raises_its_error(archive):
+    from app.provider.maps import MapTooLargeError
+
+    with pytest.raises(MapTooLargeError):
+        await _version(_provider(archive), width=5000)
+
+
+@pytest.mark.asyncio
+async def test_a_bucket_map_has_its_version_from_the_range_cache(tmp_path):
+    from app.provider.storage.loopback import close_range_server
+
+    provider = _bucket_provider(tmp_path)
+    try:
+        version = await _version(provider)
+        again = await _version(provider)
+    finally:
+        await provider.aclose()
+        await close_range_server()
+
+    assert version is not None
+    assert version == again
+    assert FakeRenderer.instances == []
+
+
+def _digest_style(url, color="#000000", basemap="https://tiles.example/{z}/{x}/{y}.png"):
+    return {
+        "version": 8,
+        "sources": {
+            "archive": {"type": "vector", "url": url},
+            "basemap": {"type": "raster", "tiles": [basemap]},
+        },
+        "layers": [
+            {"id": "roads", "type": "line", "source": "archive", "paint": {"line-color": color}}
+        ],
+    }
+
+
+def test_the_address_of_the_data_does_not_count_in_the_style_digest():
+    from app.provider.maplibre import style_digest
+
+    one_process = _digest_style("pmtiles://http://127.0.0.1:50123/token-a/source/version")
+    another = _digest_style("pmtiles://http://127.0.0.1:50999/token-b/source/version")
+
+    assert style_digest(one_process, "archive") == style_digest(another, "archive")
+    assert one_process["sources"]["archive"]["url"].endswith("/token-a/source/version")
+
+
+def test_the_layers_and_the_other_sources_count_in_the_style_digest():
+    from app.provider.maplibre import style_digest
+
+    base = style_digest(_digest_style("pmtiles://x"), "archive")
+    recoloured = _digest_style("pmtiles://x", color="#ffffff")
+    other_basemap = _digest_style("pmtiles://x", basemap="https://other/{z}/{x}/{y}.png")
+
+    assert style_digest(recoloured, "archive") != base
+    assert style_digest(other_basemap, "archive") != base

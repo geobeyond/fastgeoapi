@@ -10,7 +10,12 @@ data itself, through the URL the style carries.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import importlib.metadata
+import json
+from copy import deepcopy
 from datetime import timedelta
+from functools import lru_cache
 from typing import Any, ClassVar
 
 from pygeoapi.provider.base import BaseProvider, ProviderGenericError
@@ -31,6 +36,33 @@ from app.provider.maps import (
     render_limit,
 )
 from app.provider.storage.loopback import SOURCES, RangeServer, ensure_range_server
+
+
+@lru_cache(maxsize=1)
+def renderer_version() -> str:
+    """The version of the installed mlnative, or ``none`` without it."""
+    try:
+        return importlib.metadata.version("mlnative")
+    except importlib.metadata.PackageNotFoundError:
+        return "none"
+
+
+def style_digest(style: dict[str, Any], source_id: str) -> str:
+    """A digest of a style as the renderer gets it, without the address of the collection's data.
+
+    That address names this process's loopback server, with its port and
+    token, or a presigned URL. It differs between processes that draw the
+    same version of the data, and the map's version already holds the
+    data's.
+    """
+    style = deepcopy(style)
+    source = style.get("sources", {}).get(source_id)
+    if isinstance(source, dict):
+        source.pop("url", None)
+        source.pop("tiles", None)
+    document = json.dumps(style, sort_keys=True, default=str)
+    return hashlib.sha256(document.encode()).hexdigest()[:16]
+
 
 DEFAULTS: dict[str, Any] = {
     # The collection page of pygeoapi asks for an image as wide as its map.
@@ -134,6 +166,49 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             max_size=int(self.options["max_size"]),
             **parameters,
         )
+
+    def _drawn_version(self, **parameters: Any) -> str:
+        request = self._request(**parameters)
+        drawn = style_digest(request.style, self.options["style_source"])
+        return f"{drawn}|{renderer_version()}"
+
+    async def aversion(
+        self,
+        style: str | None = None,
+        bbox: list[float] | None = None,
+        width: int = 500,
+        height: int = 300,
+        crs: str | None = None,
+        transparent: Any = True,
+        format_: str | None = "png",
+        **kwargs: Any,
+    ) -> str | None:
+        """The version of the map :meth:`aquery` would draw for these arguments, without drawing it.
+
+        It joins the archive's version, the definition's digest, the digest
+        of the style the renderer would get and the renderer's version. The
+        request is built as :meth:`aquery` builds it, with the same checks:
+        a map that :meth:`aquery` refuses raises the same error here. None
+        when the archive's version is unknown.
+        """
+        data = await self.adata_version()
+        if data is None:
+            return None
+        if self.cached_ranges is not None:
+            # The style names the loopback server, which has an address only once started.
+            self._range_server = await ensure_range_server()
+        # In a thread, as in aquery: the first call reads the style documents and the source.
+        drawn = await self.run_sync(
+            self._drawn_version,
+            style=style,
+            bbox=bbox,
+            width=width,
+            height=height,
+            crs=crs,
+            transparent=transparent,
+            format_=format_,
+        )
+        return f"{data}|{self.definition_digest()}|{drawn}"
 
     async def aquery(
         self,
