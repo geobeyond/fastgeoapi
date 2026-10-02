@@ -17,9 +17,15 @@ from pygeoapi.api import API, SYSTEM_LOCALE, APIRequest
 from pygeoapi.provider import get_provider_by_type
 from pygeoapi.provider.base import ProviderGenericError, ProviderTypeError
 from pygeoapi.provider.tile import ProviderTileNotFoundError
-from pygeoapi.util import filter_dict_by_key_value
+from pygeoapi.util import filter_dict_by_key_value, get_from_headers
 
 from app.interfaces.providers import AsyncTileProvider
+from app.pygeoapi.api_async.caching import (
+    HttpCache,
+    cache_headers,
+    not_modified,
+    not_modified_answer,
+)
 
 
 def native_tile_provider(api: API, dataset: str) -> tuple[dict, AsyncTileProvider] | None:
@@ -55,17 +61,33 @@ async def get_collection_tiles_data(
     x: str,
     provider_def: dict,
     provider: AsyncTileProvider,
+    http_cache: HttpCache | None = None,
 ) -> tuple[dict, int, Any]:
-    """``(headers, status, content)`` for one tile, awaiting the provider."""
+    """``(headers, status, content)`` for one tile, awaiting the provider.
+
+    With ``http_cache``, a provider that knows its version gives the tile
+    an ETag, and a request that names it gets a 304 without the tile
+    being read.
+    """
     if not request.format:
         return api.get_format_exception(request)
     headers = request.get_response_headers(SYSTEM_LOCALE, **api.api_headers)
     format_ = provider.format_type
     try:
         headers["Content-Type"] = provider_def["format"]["mimetype"]
-        content = await provider.aget_tiles(
-            layer=provider.get_layer(), tileset=matrix_id, z=z, y=y, x=x, format_=format_
-        )
+        arguments = {
+            "layer": provider.get_layer(),
+            "tileset": matrix_id,
+            "z": z,
+            "y": y,
+            "x": x,
+            "format_": format_,
+        }
+        cached = await cache_headers(http_cache, provider, dataset, "tile", arguments, headers)
+        asked = get_from_headers(request.headers, "if-none-match")
+        if cached and not_modified(asked, cached["ETag"]):
+            return not_modified_answer(headers, cached)
+        content = await provider.aget_tiles(**arguments)
     except KeyError:
         return api.get_exception(
             HTTPStatus.BAD_REQUEST,
@@ -85,7 +107,9 @@ async def get_collection_tiles_data(
             err.message,
         )
     if content is None:
-        return api.get_exception(
+        headers, status, body = api.get_exception(
             HTTPStatus.NO_CONTENT, headers, format_, "NoContent", "identifier not found"
         )
+        return {**headers, **cached}, status, body
+    headers.update(cached)
     return headers, HTTPStatus.OK, content

@@ -13,14 +13,22 @@ import hashlib
 import json
 from dataclasses import dataclass
 from functools import lru_cache
+from http import HTTPStatus
 from pathlib import Path
 from typing import Any
+
+from pygeoapi.provider.base import ProviderGenericError
+
+from app.config.logging import create_logger
+from app.interfaces.providers import VersionedProvider
 
 PACKAGE = Path(__file__).resolve().parents[2]
 """The ``app`` package: its sources take part in every ETag."""
 
 VARY = "Accept, Accept-Encoding"
 """Without ``f``, ``Accept`` picks the format; ``Accept-Encoding`` decides the gzip."""
+
+logger = create_logger("app.pygeoapi.api_async.caching")
 
 
 def sources_digest(root: Path) -> str:
@@ -109,3 +117,47 @@ def not_modified(if_none_match: str | None, etag: str) -> bool:
         return True
     wanted = etag.removeprefix("W/")
     return any(tag.strip().removeprefix("W/") == wanted for tag in if_none_match.split(","))
+
+
+async def cache_headers(
+    http_cache: HttpCache | None,
+    provider: Any,
+    dataset: str,
+    kind: str,
+    arguments: dict[str, Any],
+    response_headers: dict,
+) -> dict[str, str]:
+    """The cache headers of the answer to ``arguments``; empty when it gets none.
+
+    A provider without ``aversion``, or one that does not know its version,
+    gives none. A provider error means the request fails, and the data
+    call that follows reports it. Any other failure is logged, and the
+    request goes on without cache headers. The content coding already in
+    ``response_headers`` takes part in the ETag, since gzip gives other
+    bytes.
+    """
+    if http_cache is None or not http_cache.enabled:
+        return {}
+    if not isinstance(provider, VersionedProvider):
+        return {}
+    try:
+        version = await provider.aversion(**arguments)
+    except ProviderGenericError:
+        return {}
+    except Exception as error:
+        logger.warning(f"the {kind} of {dataset} goes without cache headers: {error}")
+        return {}
+    if version is None:
+        return {}
+    coded = {**arguments, "encoding": response_headers.get("Content-Encoding")}
+    return http_cache.headers(http_cache.etag(dataset, kind, version, coded))
+
+
+def not_modified_answer(headers: dict, cached: dict[str, str]) -> tuple[dict, int, bytes]:
+    """The 304 for a request whose ``If-None-Match`` names the current ETag.
+
+    It has no body, so no content coding either.
+    """
+    headers.pop("Content-Encoding", None)
+    headers.update(cached)
+    return headers, HTTPStatus.NOT_MODIFIED, b""
