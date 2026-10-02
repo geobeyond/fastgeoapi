@@ -13,6 +13,7 @@ from starlette.testclient import TestClient
 
 from app.pygeoapi.api_async.caching import HttpCache
 from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
+from tests.maps_fixtures import FakeRenderer, map_provider
 from tests.pmtiles_fixtures import TILE_BYTES, write_archive
 from tests.test_tiles_async_route import _collection, _config
 
@@ -218,4 +219,89 @@ def test_a_version_that_cannot_be_known_lets_the_tile_through(client, monkeypatc
     r = _tile(client)
 
     assert (r.status_code, r.content) == (200, b"tile 2/1/3")
+    assert "etag" not in r.headers
+
+
+ROME = "12.4,41.8,12.6,42.0"
+MAP = "/collections/roads/map"
+
+
+def _renders() -> int:
+    """Maps drawn so far by every fake renderer; the tests compare two counts."""
+    return sum(renderer.calls for renderer in FakeRenderer.instances)
+
+
+@pytest.fixture(scope="module")
+def maps(tmp_path_factory) -> TestClient:
+    folder = tmp_path_factory.mktemp("cached-maps")
+    archive = write_archive(
+        folder / "roads.pmtiles",
+        {(0, 0, 0): TILE_BYTES(0, 0, 0)},
+        metadata={"name": "roads", "vector_layers": [{"id": "roads"}]},
+    )
+    night = folder / "night.json"
+    night.write_text(
+        '{"version": 8, "sources": {}, "layers": [{"id": "night", "type": "line", '
+        '"source": "archive", "source-layer": "roads"}]}'
+    )
+    definition = map_provider(archive, styles={"night": str(night)})
+    config = _config({"roads": _collection("Roads", [definition])})
+    app = build_pygeoapi_subapp(config, build_openapi(config), http_cache=PUBLIC)
+    return TestClient(app, raise_server_exceptions=False)
+
+
+def _map(client, path=MAP, headers=None, **params):
+    query = {"bbox": ROME, "width": 64, "height": 64, **params}
+    return client.get(path, params=query, headers=headers)
+
+
+def test_a_map_carries_an_etag_and_how_long_to_keep_it(maps):
+    r = _map(maps)
+
+    assert r.status_code == 200
+    assert r.headers["etag"].startswith('"')
+    assert r.headers["cache-control"] == "public, max-age=300"
+    assert r.headers["vary"] == "Accept, Accept-Encoding"
+
+
+def test_a_map_asked_with_its_etag_is_304_without_being_drawn(maps):
+    etag = _map(maps).headers["etag"]
+    drawn = _renders()
+
+    r = _map(maps, headers={"If-None-Match": etag})
+
+    assert (r.status_code, r.content) == (304, b"")
+    assert _renders() == drawn
+    assert r.headers["etag"] == etag
+    assert "content-encoding" not in r.headers
+
+
+def test_another_view_or_style_has_another_etag(maps):
+    rome = _map(maps).headers["etag"]
+    wider = _map(maps, bbox="12.0,41.5,13.0,42.5").headers["etag"]
+    night = _map(maps, "/collections/roads/styles/night/map").headers["etag"]
+
+    assert len({rome, wider, night}) == 3
+
+
+def test_only_a_drawn_map_gets_cache_headers(maps):
+    drawn, too_large = _map(maps), _map(maps, width=5000)
+
+    assert "etag" in drawn.headers
+    assert too_large.status_code == 413
+    assert "etag" not in too_large.headers
+    assert "cache-control" not in too_large.headers
+
+
+def test_a_version_that_cannot_be_known_lets_the_map_through(maps, monkeypatch):
+    live = importlib.import_module("app.provider.maplibre").MapLibreMapProvider
+
+    async def unreachable(self, **kwargs):
+        raise OSError("the store is unreachable")
+
+    monkeypatch.setattr(live, "aversion", unreachable)
+    r = _map(maps)
+
+    assert r.status_code == 200
+    assert r.content.startswith(b"\x89PNG")
     assert "etag" not in r.headers

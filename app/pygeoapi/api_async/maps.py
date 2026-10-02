@@ -23,9 +23,15 @@ from pygeoapi.provider.base import (
     ProviderInvalidDataError,
     ProviderTypeError,
 )
-from pygeoapi.util import filter_dict_by_key_value, to_json
+from pygeoapi.util import filter_dict_by_key_value, get_from_headers, to_json
 
 from app.interfaces.providers import AsyncMapProvider
+from app.pygeoapi.api_async.caching import (
+    HttpCache,
+    cache_headers,
+    not_modified,
+    not_modified_answer,
+)
 
 
 def native_map_provider(api: API, dataset: str) -> tuple[dict, AsyncMapProvider] | None:
@@ -56,8 +62,14 @@ async def get_collection_map(
     style: str | None,
     collection_def: dict,
     provider: AsyncMapProvider,
+    http_cache: HttpCache | None = None,
 ) -> tuple[dict, int, Any]:
-    """``(headers, status, content)`` for one map, awaiting the provider."""
+    """``(headers, status, content)`` for one map, awaiting the provider.
+
+    With ``http_cache``, a provider that knows its version gives the map an
+    ETag, and a request that names it gets a 304 without the map being
+    drawn.
+    """
     query_args: dict[str, Any] = {}
     format_ = request.format or "png"
     headers = request.get_response_headers(**api.api_headers)
@@ -134,6 +146,12 @@ async def get_collection_map(
                     f"Subset not found; valid values are {subsets}",
                 )
 
+    cached = await cache_headers(http_cache, provider, dataset, "map", query_args, headers)
+    asked = get_from_headers(request.headers, "if-none-match")
+    if cached and not_modified(asked, cached["ETag"]):
+        headers["Content-Type"] = collection_def["format"]["mimetype"]
+        return not_modified_answer(headers, cached)
+
     try:
         data = await provider.aquery(**query_args)
     except (ProviderGenericError, ProviderInvalidDataError) as err:
@@ -151,6 +169,7 @@ async def get_collection_map(
     mt = collection_def["format"]["name"]
     if format_ == mt or format_ in (None, "html"):
         headers["Content-Type"] = collection_def["format"]["mimetype"]
+        headers.update(cached)
         return headers, HTTPStatus.OK, data
     headers["Content-type"] = "application/json"
     exception = {"code": "InvalidParameterValue", "description": "invalid format parameter"}
