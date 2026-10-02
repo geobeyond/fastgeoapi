@@ -258,6 +258,34 @@ without an ETag is always read from its bucket. A failure of the cache
 store, such as a full disk, only logs a warning: tiles keep coming from
 the bucket.
 
+## HTTP caching
+
+A tile carries an `ETag` and a `Cache-Control` header, and so does the
+204 of a tile the archive does not hold. A browser or a cache in front of
+the server keeps the tile for `max-age` seconds, then asks again with
+`If-None-Match`. While the archive and the configuration stay the same,
+the answer is a 304 without a body, and the archive is not read.
+
+| Setting                           | Default | Meaning                                                                         |
+| --------------------------------- | ------- | ------------------------------------------------------------------------------- |
+| `FASTGEOAPI_HTTP_MAX_AGE_SECONDS` | 300     | Seconds a browser or a cache keeps a tile or a map; `0` sends no cache headers. |
+
+The ETag changes with the archive, with the collection's definition and
+with fastgeoapi's code, so after a deploy that changes the code every
+client reads its tiles again once. For an archive in a bucket, the
+version is the ETag the range cache knows: a replaced archive shows up
+within `FASTGEOAPI_RANGE_CACHE_REVALIDATE_SECONDS`, and a client may keep
+the old tiles for `max-age` more, about ten minutes with the defaults. An
+archive read with `range_cache: false` has no known version, and its
+tiles get no cache headers. Errors never get them.
+
+When fastgeoapi authenticates the requests, with OPA, JWKS or an API key,
+the answers are `private`: the user's browser keeps them, a shared cache
+does not, and a permission revoked meanwhile takes effect in that browser
+within `max-age`. When a gateway in front of fastgeoapi authenticates the
+requests, set `FASTGEOAPI_HTTP_MAX_AGE_SECONDS` to 0: fastgeoapi does not
+know about the gateway and would mark the answers `public`.
+
 ## Preparing an archive
 
 Any PMTiles writer works: [tippecanoe](https://github.com/felt/tippecanoe)
