@@ -82,6 +82,11 @@ class DevConfig(GlobalConfig):
     FASTGEOAPI_RANGE_CACHE: str | None = None
     FASTGEOAPI_RANGE_CACHE_MAX_MB: int = 512
     FASTGEOAPI_RANGE_CACHE_REVALIDATE_SECONDS: int = 300
+    # Seconds a browser or a cache may keep a map or a tile; 0 sends no
+    # cache headers. With authentication in a gateway in front of
+    # fastgeoapi, set 0: fastgeoapi does not see it and would mark the
+    # answers public.
+    FASTGEOAPI_HTTP_MAX_AGE_SECONDS: int = 300
     FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS: int | None = None
     # Seconds between polls of the configuration source; 0 disables it.
     # Set it when more than one process reads the same source, for example
@@ -160,6 +165,11 @@ class ProdConfig(GlobalConfig):
     FASTGEOAPI_RANGE_CACHE: str | None = None
     FASTGEOAPI_RANGE_CACHE_MAX_MB: int = 512
     FASTGEOAPI_RANGE_CACHE_REVALIDATE_SECONDS: int = 300
+    # Seconds a browser or a cache may keep a map or a tile; 0 sends no
+    # cache headers. With authentication in a gateway in front of
+    # fastgeoapi, set 0: fastgeoapi does not see it and would mark the
+    # answers public.
+    FASTGEOAPI_HTTP_MAX_AGE_SECONDS: int = 300
     FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS: int | None = None
     # Seconds between polls of the configuration source; 0 disables it.
     # Set it when more than one process reads the same source, for example
