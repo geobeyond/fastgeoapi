@@ -21,7 +21,6 @@ from pygeoapi.models.provider.base import (
     TileSetMetadata,
     TilesMetadataFormat,
 )
-from pygeoapi.models.provider.mvt import MVTTilesJson
 from pygeoapi.provider.base import ProviderGenericError
 from pygeoapi.provider.tile import BaseTileProvider, ProviderTileNotFoundError
 from pygeoapi.util import url_join
@@ -34,6 +33,7 @@ from app.tiles.contract import (
     TileOutsideError,
     TileSource,
     TileSourceError,
+    VectorLayer,
     data_type_for,
     format_parameter,
 )
@@ -58,6 +58,23 @@ def _xyz_url(server_url: str, dataset: str, tileset: str, parameter: str) -> str
     )
 
 
+_STYLE_OPTIONS = {
+    "style": "the path or URL of a MapLibre style",
+    "style_source": "the name the style gives the collection's tiles",
+}
+
+
+def check_style_options(options: dict) -> None:
+    """Check ``style`` and ``style_source``: when given, non-empty strings.
+
+    Raises :class:`ValueError` for any other value.
+    """
+    for key, meaning in _STYLE_OPTIONS.items():
+        value = options.get(key)
+        if value is not None and (not isinstance(value, str) or not value.strip()):
+            raise ValueError(f"option {key} must be {meaning}")
+
+
 class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
     """Tiles read by the source the registry finds for ``data``, or the one a subclass names.
 
@@ -79,6 +96,7 @@ class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
         super().__init__(provider_def)
         try:
             self.dem = check_dem(self.options.get("dem"))
+            check_style_options(self.options)
         except ValueError as error:
             raise ProviderGenericError(user_msg=str(error)) from None
         build = type(self).source_builder
@@ -301,35 +319,8 @@ class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
         }
 
 
-def _vector_tilejson(content: TileContent, dataset: str, server_url: str, tileset: str) -> dict:
-    """Pygeoapi's TileJSON model, which its HTML page reads: bounds, center and tiles as strings."""
-    tilejson = MVTTilesJson(
-        tilejson="3.0.0",
-        name=content.name or dataset,
-        description=content.description,
-        attribution=content.attribution,
-        tiles=_service_url(server_url, dataset, tileset, content.format_parameter),
-        minzoom=content.min_zoom,
-        maxzoom=content.max_zoom,
-        bounds=",".join(str(value) for value in content.bounds),
-        center=",".join(str(value) for value in content.center),
-        # pygeoapi's layer model wants every key present.
-        vector_layers=[
-            {
-                "id": layer.id,
-                "description": layer.description,
-                "minzoom": layer.minzoom,
-                "maxzoom": layer.maxzoom,
-                "fields": layer.fields,
-            }
-            for layer in content.layers
-        ],
-    )
-    return tilejson.model_dump(exclude_none=True)
-
-
-def _raster_tilejson(content: TileContent, dataset: str, server_url: str, tileset: str) -> dict:
-    """TileJSON 3.0.0 in the shape MapLibre reads for a raster or raster-dem source."""
+def _tilejson(content: TileContent, dataset: str, server_url: str, tileset: str) -> dict[str, Any]:
+    """The TileJSON 3.0.0 keys of every tileset, in the shape MapLibre reads as a source."""
     tilejson: dict[str, Any] = {
         "tilejson": "3.0.0",
         "name": content.name or dataset,
@@ -343,6 +334,31 @@ def _raster_tilejson(content: TileContent, dataset: str, server_url: str, tilese
         tilejson["description"] = content.description
     if content.attribution:
         tilejson["attribution"] = content.attribution
+    return tilejson
+
+
+def _vector_tilejson(content: TileContent, dataset: str, server_url: str, tileset: str) -> dict:
+    """TileJSON 3.0.0 for a vector source, with its layers."""
+    tilejson = _tilejson(content, dataset, server_url, tileset)
+    tilejson["vector_layers"] = [_vector_layer(layer) for layer in content.layers]
+    return tilejson
+
+
+def _vector_layer(layer: VectorLayer) -> dict[str, Any]:
+    """One entry of ``vector_layers``: ``id`` and ``fields`` always, the rest when known."""
+    entry: dict[str, Any] = {"id": layer.id, "fields": dict(layer.fields or {})}
+    if layer.description:
+        entry["description"] = layer.description
+    if layer.minzoom is not None:
+        entry["minzoom"] = layer.minzoom
+    if layer.maxzoom is not None:
+        entry["maxzoom"] = layer.maxzoom
+    return entry
+
+
+def _raster_tilejson(content: TileContent, dataset: str, server_url: str, tileset: str) -> dict:
+    """TileJSON 3.0.0 for a raster or raster-dem source, with the tile size and the encoding."""
+    tilejson = _tilejson(content, dataset, server_url, tileset)
     if content.tile_size:
         tilejson["tileSize"] = content.tile_size
     if content.dem is not None:

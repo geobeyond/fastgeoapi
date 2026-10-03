@@ -43,6 +43,7 @@ from app.pygeoapi.api.collections import describe_collections, item_provider_typ
 from app.pygeoapi.api_async import maps as async_maps
 from app.pygeoapi.api_async import tiles as async_tiles
 from app.pygeoapi.api_async.caching import HttpCache, default_http_cache
+from app.pygeoapi.config_extensions import extension_problem
 from app.pygeoapi.openapi import (
     describe_tilesets,
     drop_unfiltered_cql2_operations,
@@ -75,7 +76,7 @@ _LIMIT_DEFAULTS = {"default_items": 10, "max_items": 10}
 
 
 class ConfigValidationError(Exception):
-    """A configuration that does not match pygeoapi's own schema."""
+    """A configuration that does not match pygeoapi's schema or fastgeoapi's own keys."""
 
 
 def _validate(config: dict) -> None:
@@ -132,6 +133,10 @@ def normalize_config(config: dict) -> dict:
     bind.setdefault("port", int(os.environ.get("PORT", "5000")))
 
     _validate(config)
+    problem = extension_problem(config)
+    if problem is not None:
+        where, message = problem
+        raise ConfigValidationError(f"invalid fastgeoapi configuration at {where}: {message}")
     limits = server.setdefault("limits", {})
     for key, value in _LIMIT_DEFAULTS.items():
         limits.setdefault(key, value)
