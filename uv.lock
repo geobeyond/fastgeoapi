@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12, <3.14"
 resolution-markers = [
     "python_full_version >= '3.13' and platform_machine == 'x86_64' and sys_platform == 'linux'",
@@ -8,6 +8,12 @@ resolution-markers = [
     "python_full_version < '3.13' and platform_machine == 'x86_64' and sys_platform == 'linux'",
     "python_full_version < '3.13' and platform_machine == 'aarch64' and sys_platform == 'linux'",
     "(python_full_version < '3.13' and platform_machine != 'aarch64' and platform_machine != 'x86_64') or (python_full_version < '3.13' and sys_platform != 'linux')",
+]
+
+[manifest]
+members = [
+    "fastgeoapi",
+    "fastgeoapi-html",
 ]
 
 [[package]]
@@ -914,6 +920,9 @@ geoparquet = [
     { name = "duckdb" },
     { name = "fsspec" },
 ]
+html = [
+    { name = "fastgeoapi-html" },
+]
 pmtiles = [
     { name = "pmtiles" },
 ]
@@ -963,6 +972,7 @@ requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.141,<1.0" },
     { name = "fastapi-key-auth", specifier = ">=0.15.4,<0.16.0" },
     { name = "fastapi-opa", specifier = ">=2.0.3,<3" },
+    { name = "fastgeoapi-html", marker = "extra == 'html'", editable = "packages/fastgeoapi-html" },
     { name = "fastmcp", specifier = ">=4.0.10,<5" },
     { name = "fsspec", marker = "extra == 'geoparquet'", specifier = ">=2024.6" },
     { name = "geoalchemy2", specifier = ">=0.18.1,<0.19" },
@@ -987,7 +997,7 @@ requires-dist = [
     { name = "starlette", specifier = ">=1.3.1,<2.0" },
     { name = "typer", specifier = ">=0.15.3,<0.28" },
 ]
-provides-extras = ["geoparquet", "pmtiles"]
+provides-extras = ["geoparquet", "pmtiles", "html"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1025,6 +1035,11 @@ maps = [
     { name = "mlnative", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", url = "https://github.com/francbartoli/mlnative/releases/download/v0.4.0.dev1/mlnative-0.4.0.dev1-py3-none-manylinux_2_39_x86_64.whl" },
     { name = "pillow", specifier = ">=11" },
 ]
+
+[[package]]
+name = "fastgeoapi-html"
+version = "0.3.0"
+source = { editable = "packages/fastgeoapi-html" }
 
 [[package]]
 name = "fastmcp"

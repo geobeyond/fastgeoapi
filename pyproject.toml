@@ -66,6 +66,10 @@ geoparquet = [
 pmtiles = [
     "pmtiles>=3.7,<4",
 ]
+# fastgeoapi's own HTML pages (FASTGEOAPI_HTML_PAGES=native).
+html = [
+    "fastgeoapi-html==0.3.0",
+]
 
 [dependency-groups]
 dev = [
@@ -115,7 +119,11 @@ maps = [
 
 [tool.uv]
 
+[tool.uv.workspace]
+members = ["packages/*"]
+
 [tool.uv.sources]
+fastgeoapi-html = { workspace = true }
 mlnative = [
     { url = "https://github.com/francbartoli/mlnative/releases/download/v0.4.0.dev1/mlnative-0.4.0.dev1-py3-none-manylinux_2_39_x86_64.whl", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
     { url = "https://github.com/francbartoli/mlnative/releases/download/v0.4.0.dev1/mlnative-0.4.0.dev1-py3-none-manylinux_2_39_aarch64.whl", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
@@ -237,6 +245,7 @@ convention = "numpy"
 # Mirrors upstream pygeoapi/api/__init__.py, where validate_datetime lives:
 # the patch must sit in the same-named module, which upstream made a package init.
 "app/pygeoapi/api/__init__.py" = ["non-empty-init-module"]
+"packages/fastgeoapi-html/fastgeoapi_html/__init__.py" = ["non-empty-init-module"]  # the package is its paths
 "noxfile.py" = ["suspicious-subprocess-import", "subprocess-without-shell-equals-true", "start-process-with-partial-path"]  # subprocess calls to git are safe
 
 [tool.ruff.format]
@@ -264,6 +273,12 @@ name = "cz_conventional_commits"
 tag_format = "v$version"
 version_scheme = "semver"
 version_provider = "pep621"
+# The package of the HTML pages carries the same version, and the html
+# extra pins it: a bump moves both with the project.
+version_files = [
+    "packages/fastgeoapi-html/pyproject.toml:^version",
+    "pyproject.toml:fastgeoapi-html==",
+]
 update_changelog_on_bump = true
 major_version_zero = true
 

@@ -157,3 +157,5 @@ spectral-owasp.json
 # The build artefact is shipped as package data from CI, never committed.
 frontend/node_modules/
 app/editor/static/
+# The compiled assets of the HTML pages: Vite writes them, the wheel carries them.
+packages/fastgeoapi-html/fastgeoapi_html/static/

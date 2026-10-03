@@ -65,17 +65,23 @@ def _install_project(session: Session) -> None:
 
     On develop branch: uses uv sync to respect uv.lock with git sources
     On main/other branches: uses pip install for release (PyPI versions)
+
+    Both install the package of the HTML pages from the workspace: the
+    tests read its templates and catalogs, and no lane should wait for a
+    release of it on PyPI.
     """
     if _is_develop_branch():
         # Use uv sync to respect uv.lock with git sources (e.g., pygeoapi from master)
         session.run_install(
             "uv",
             "sync",
+            "--extra",
+            "html",
             env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
         )
     else:
         # Use pip install for release (PyPI versions)
-        session.install(".")
+        session.install(".", "./packages/fastgeoapi-html")
 
 
 nox.options.sessions = [
