@@ -134,7 +134,7 @@ def build_routes(source: str, augmented: bool = False) -> list[Route]:
         )
 
     async def schema(request: Request) -> JSONResponse:
-        """Pygeoapi's configuration schema, for the form to be built from.
+        """Pygeoapi's configuration schema with fastgeoapi's keys, for the form to be built from.
 
         Served rather than bundled: the form has to describe the pygeoapi
         the server is actually running, and a copy compiled into the page
@@ -142,7 +142,9 @@ def build_routes(source: str, augmented: bool = False) -> list[Route]:
         """
         from pygeoapi.config import load_schema
 
-        return JSONResponse(load_schema())
+        from app.pygeoapi.config_extensions import extend_schema
+
+        return JSONResponse(extend_schema(load_schema()))
 
     return [
         Route("/editor/config", get_config, methods=["GET"]),

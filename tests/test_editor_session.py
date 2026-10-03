@@ -86,3 +86,21 @@ def test_a_wrong_cookie_is_refused(app):
         client.cookies.set(EDITOR_TOKEN_COOKIE, "not-it")
 
         assert client.get("/editor/health").status_code == 401
+
+
+def test_the_schema_offers_the_view_of_a_collection(app):
+    """The form can only propose the keys the schema it is built from has."""
+    with TestClient(app) as client:
+        schema = client.get(
+            "/editor/schema", headers={EDITOR_TOKEN_HEADER: app.state.editor_token}
+        ).json()
+
+    pattern = schema["properties"]["resources"]["patternProperties"]
+    collections = [
+        alternative
+        for value in pattern.values()
+        for alternative in value.get("anyOf", [value])
+        if "extents" in alternative.get("properties", {})
+    ]
+    assert collections
+    assert all("view" in alternative["properties"] for alternative in collections)
