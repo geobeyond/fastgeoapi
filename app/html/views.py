@@ -393,3 +393,107 @@ def process(context: PageContext) -> dict[str, Any]:
         },
         "crumbs": [{"label": _("Processes"), "href": f"{base}/processes?f=html"}, {"label": title}],
     }
+
+
+RESULTS_INTERVAL_MS = 2000
+"""How often the page of a running job reads its status."""
+
+FINAL = ("successful", "failed", "dismissed")
+STATUSES = ("accepted", "running", *FINAL)
+
+
+def _status(status: str, _: Gettext) -> str:
+    labels = {
+        "accepted": _("accepted"),
+        "running": _("running"),
+        "successful": _("successful"),
+        "failed": _("failed"),
+        "dismissed": _("dismissed"),
+    }
+    return labels.get(status, status)
+
+
+def _job_crumbs(context: PageContext, *tail: dict[str, str]) -> list[dict[str, str]]:
+    _ = context.gettext
+    base = base_url(context)
+    return [
+        {"label": _("Processes"), "href": f"{base}/processes?f=html"},
+        {"label": _("Jobs"), "href": f"{base}/jobs?f=html"},
+        *tail,
+    ]
+
+
+def jobs(context: PageContext) -> dict[str, Any]:
+    """The jobs, one row each."""
+    _ = context.gettext
+    base = base_url(context)
+    return {
+        "title": _("Jobs"),
+        "description": _("The jobs this service has run or is running."),
+        "rows": [
+            {
+                "id": item["jobID"],
+                "process": item.get("processID", ""),
+                "status": _status(item.get("status", ""), _),
+                "created": item.get("created"),
+                "finished": item.get("finished"),
+                "progress": item.get("progress"),
+                "href": f"{base}/jobs/{item['jobID']}?f=html",
+            }
+            for item in context.document.get("jobs", [])
+        ],
+        "crumbs": [
+            {"label": _("Processes"), "href": f"{base}/processes?f=html"},
+            {"label": _("Jobs")},
+        ],
+    }
+
+
+def job(context: PageContext) -> dict[str, Any]:
+    """A job: where it stands, its results when they are ready, and its follower while it runs."""
+    _ = context.gettext
+    document = context.document
+    base = base_url(context)
+    job_id = document.get("jobID") or context.path_params.get("job_id", "")
+    status = document.get("status", "")
+    progress = document.get("progress")
+    facts = [
+        {"label": _("Process"), "value": document.get("processID")},
+        {"label": _("Status"), "value": _status(status, _)},
+        {"label": _("Progress"), "value": f"{progress}%" if progress is not None else None},
+        {"label": _("Message"), "value": document.get("message")},
+        {"label": _("Created"), "value": document.get("created"), "when": True},
+        {"label": _("Started"), "value": document.get("started"), "when": True},
+        {"label": _("Finished"), "value": document.get("finished"), "when": True},
+        {"label": _("Updated"), "value": document.get("updated"), "when": True},
+    ]
+    follow = None
+    if status not in FINAL:
+        follow = {
+            "jobUrl": f"{base}/jobs/{job_id}?f=json",
+            "interval": RESULTS_INTERVAL_MS,
+            "labels": {each: _status(each, _) for each in STATUSES},
+            "messages": {"unreadable": _("The status could not be read:")},
+        }
+    return {
+        "title": _("Job %(job)s") % {"job": job_id},
+        "facts": [fact for fact in facts if fact["value"]],
+        "results": f"{base}/jobs/{job_id}/results?f=html" if status == "successful" else None,
+        "follow": follow,
+        "crumbs": _job_crumbs(context, {"label": job_id}),
+    }
+
+
+def results(context: PageContext) -> dict[str, Any]:
+    """The results of a job, as the JSON they are."""
+    _ = context.gettext
+    job_id = context.path_params.get("job_id", "")
+    return {
+        "title": _("Results of job %(job)s") % {"job": job_id},
+        "results": json.dumps(context.document, indent=2, ensure_ascii=False),
+        "crumbs": _job_crumbs(
+            context,
+            {"label": job_id, "href": f"{base_url(context)}/jobs/{job_id}?f=html"},
+            {"label": _("Results")},
+        ),
+    }

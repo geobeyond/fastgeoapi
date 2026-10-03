@@ -1,0 +1,17 @@
+{% extends "_layout.html" %}
+{% block content %}
+<div class="container">
+  <h1>{{ title }}</h1>
+  <dl class="facts">
+    {% for fact in facts %}<dt>{{ fact.label }}</dt><dd>{% if fact.when %}{{ fact.value | instant }}{% else %}{{ fact.value }}{% endif %}</dd>
+    {% endfor %}
+  </dl>
+  {% if results %}<p><a href="{{ results }}">{{ _("Show the results") }}</a></p>{% endif %}
+  {% if follow %}
+  <fga-job-status>
+    <script type="application/json">{{ follow | tojson }}</script>
+    <noscript><p>{{ _("Reload the page to see how the job goes on.") }}</p></noscript>
+  </fga-job-status>
+  {% endif %}
+</div>
+{% endblock %}

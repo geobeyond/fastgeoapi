@@ -228,3 +228,71 @@ msgid ""
 msgstr ""
 "Per eseguire il processo serve JavaScript: invia una POST con gli input a "
 "%(url)s."
+
+msgid "The jobs this service has run or is running."
+msgstr "I job che questo servizio ha eseguito o sta eseguendo."
+
+msgid "Job"
+msgstr "Job"
+
+msgid "Process"
+msgstr "Processo"
+
+msgid "Status"
+msgstr "Stato"
+
+msgid "Created"
+msgstr "Creato"
+
+msgid "Started"
+msgstr "Avviato"
+
+msgid "Finished"
+msgstr "Terminato"
+
+msgid "Updated"
+msgstr "Aggiornato"
+
+msgid "Progress"
+msgstr "Avanzamento"
+
+msgid "Message"
+msgstr "Messaggio"
+
+msgid "accepted"
+msgstr "accettato"
+
+msgid "running"
+msgstr "in esecuzione"
+
+msgid "successful"
+msgstr "completato"
+
+msgid "failed"
+msgstr "fallito"
+
+msgid "dismissed"
+msgstr "annullato"
+
+msgid "No job yet."
+msgstr "Ancora nessun job."
+
+#, python-format
+msgid "Job %(job)s"
+msgstr "Job %(job)s"
+
+msgid "Results"
+msgstr "Risultati"
+
+#, python-format
+msgid "Results of job %(job)s"
+msgstr "Risultati del job %(job)s"
+
+msgid "Show the results"
+msgstr "Mostra i risultati"
+
+msgid "Reload the page to see how the job goes on."
+msgstr "Ricarica la pagina per vedere come procede il job."
+
+msgid "The status could not be read:"
+msgstr "Non è stato possibile leggere lo stato:"

@@ -9,6 +9,7 @@ import re
 from pathlib import Path
 
 from pygeoapi.process.base import BaseProcessor
+from pygeoapi.process.manager.tinydb_ import TinyDBManager
 from pygeoapi.util import yaml_load
 from starlette.testclient import TestClient
 
@@ -155,3 +156,40 @@ def with_echo(api_config: dict) -> dict:
         "processor": {"name": "tests.html_fixtures.EchoProcessor"},
     }
     return api_config
+
+
+RUNNING_JOB = "job-running"
+
+
+def _manager(directory: Path) -> dict:
+    return {
+        "name": "TinyDB",
+        "connection": str(directory / "jobs.db"),
+        "output_dir": str(directory),
+    }
+
+
+def with_jobs(api_config: dict, directory: Path) -> dict:
+    """``api_config`` with a job manager that keeps its jobs in ``directory``."""
+    api_config["server"]["manager"] = _manager(directory)
+    return api_config
+
+
+def add_running_job(directory: Path) -> None:
+    """A job of hello-world halfway through, in the manager of ``directory``."""
+    TinyDBManager(_manager(directory)).add_job(
+        {
+            "type": "process",
+            "identifier": RUNNING_JOB,
+            "process_id": "hello-world",
+            "created": "2026-10-03T10:00:00Z",
+            "started": "2026-10-03T10:00:01Z",
+            "updated": "2026-10-03T10:00:30Z",
+            "finished": None,
+            "status": "running",
+            "location": None,
+            "mimetype": "application/json",
+            "message": "Halfway there",
+            "progress": 50,
+        }
+    )

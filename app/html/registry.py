@@ -18,4 +18,7 @@ PAGES: dict[str, Page] = {
     "/processes/{process_id}": Page(
         "process.html", views.process, islands=("pages/process-run.ts",)
     ),
+    "/jobs": Page("jobs.html", views.jobs),
+    "/jobs/{job_id}": Page("job.html", views.job, islands=("pages/job-status.ts",)),
+    "/jobs/{job_id}/results": Page("results.html", views.results),
 }

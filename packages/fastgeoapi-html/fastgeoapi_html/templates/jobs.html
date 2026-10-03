@@ -1,0 +1,19 @@
+{% extends "_layout.html" %}
+{% block content %}
+<div class="container">
+  <h1>{{ title }}</h1>
+  <p class="lead">{{ description }}</p>
+  {% if rows %}
+  <table class="data">
+    <thead><tr><th>{{ _("Job") }}</th><th>{{ _("Process") }}</th><th>{{ _("Status") }}</th><th>{{ _("Created") }}</th><th>{{ _("Finished") }}</th><th>{{ _("Progress") }}</th></tr></thead>
+    <tbody>
+    {% for row in rows %}
+      <tr><td><a href="{{ row.href }}"><code>{{ row.id }}</code></a></td><td>{{ row.process }}</td><td>{{ row.status }}</td><td>{{ row.created | instant }}</td><td>{{ row.finished | instant }}</td><td>{% if row.progress is not none %}{{ row.progress }}%{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>{{ _("No job yet.") }}</p>
+  {% endif %}
+</div>
+{% endblock %}
