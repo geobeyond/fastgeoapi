@@ -137,13 +137,46 @@ def test_metadata_comes_from_the_archive(provider):
         description="d",
         keywords=[],
     )
-    assert tilejson["name"] == "Places"
-    assert tilejson["attribution"] == "© Test"
-    assert (tilejson["minzoom"], tilejson["maxzoom"]) == (0, 2)
-    assert tilejson["vector_layers"][0]["id"] == "place"
-    # pygeoapi's TileJSON model carries bounds, center and tiles as strings.
-    assert tilejson["bounds"] == "-180.0,-85.0511287,180.0,85.0511287"
-    assert "{tileMatrix}/{tileRow}/{tileCol}" in tilejson["tiles"]
+
+    assert tilejson == {
+        "tilejson": "3.0.0",
+        "name": "Places",
+        "attribution": "© Test",
+        "tiles": [f"{SERVER}/collections/places/tiles/WebMercatorQuad/{{z}}/{{y}}/{{x}}?f=mvt"],
+        "minzoom": 0,
+        "maxzoom": 2,
+        "bounds": [-180.0, -85.0511287, 180.0, 85.0511287],
+        "center": [0.0, 0.0, 0],
+        # The archive names no fields; TileJSON wants the key all the same.
+        "vector_layers": [{"id": "place", "fields": {}, "minzoom": 0, "maxzoom": 2}],
+    }
+
+
+def test_a_layer_keeps_its_description_and_fields(tmp_path):
+    archive = write_archive(
+        tmp_path / "roads.pmtiles",
+        {(0, 0, 0): TILE_BYTES(0, 0, 0)},
+        metadata={
+            "name": "Roads",
+            "vector_layers": [
+                {"id": "roads", "description": "Streets", "fields": {"kind": "String"}}
+            ],
+        },
+    )
+
+    tilejson = PMTilesProvider(_definition(archive)).get_vendor_metadata(
+        dataset="roads",
+        server_url=SERVER,
+        layer="roads",
+        tileset="WebMercatorQuad",
+        title="Roads",
+        description="d",
+        keywords=[],
+    )
+
+    assert tilejson["vector_layers"] == [
+        {"id": "roads", "fields": {"kind": "String"}, "description": "Streets"}
+    ]
 
 
 def test_tiling_scheme_and_service_links(provider):

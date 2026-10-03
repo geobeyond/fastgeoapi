@@ -83,6 +83,9 @@ def test_tilesets_and_tilejson_are_served(client):
     tilejson = client.get("/collections/places/tiles/WebMercatorQuad/metadata?f=tilejson")
     assert tilejson.status_code == 200, tilejson.text[:300]
     assert tilejson.json()["vector_layers"][0]["id"] == "place"
+    assert tilejson.json()["tiles"] == [
+        "http://localhost:5000/collections/places/tiles/WebMercatorQuad/{z}/{y}/{x}?f=mvt"
+    ]
 
 
 def test_conformance_declares_tiles(client):
