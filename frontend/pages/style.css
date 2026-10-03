@@ -1,0 +1,340 @@
+/*
+ * The HTML pages of fastgeoapi. Colours and fonts are variables, so that
+ * a theme changes them without touching the rules.
+ */
+
+:root {
+  --fga-accent: #2c6db5;
+  --fga-accent-soft: #ebf4ff;
+  --fga-heading: #1a365d;
+  --fga-text: #1f2933;
+  --fga-muted: #616e7c;
+  --fga-background: #f1f4f8;
+  --fga-surface: #ffffff;
+  --fga-border: #e2e8f0;
+  --fga-field: #cbd5e0;
+  --fga-bar: #ffffff;
+  --fga-footer: #2d3748;
+  --fga-footer-text: #cbd5e0;
+  --fga-code: #1a202c;
+  --fga-code-text: #e2e8f0;
+  --fga-error: #c53030;
+  --fga-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --fga-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  margin: 0;
+  font: 15px/1.5 var(--fga-font);
+  color: var(--fga-text);
+  background: var(--fga-background);
+}
+
+main {
+  flex: 1;
+}
+
+a {
+  color: var(--fga-accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+header.bar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-height: 60px;
+  padding: 0 20px;
+  background: var(--fga-bar);
+  border-top: 4px solid var(--fga-accent);
+  border-bottom: 1px solid var(--fga-border);
+}
+
+header.bar .brand img {
+  display: block;
+  height: 32px;
+}
+
+header.bar nav.sections a {
+  margin-right: 16px;
+  font-size: 14px;
+  color: var(--fga-text);
+}
+
+header.bar .tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  font-size: 13px;
+}
+
+header.bar nav.languages {
+  display: flex;
+  gap: 8px;
+}
+
+.pill {
+  padding: 2px 10px;
+  font-size: 12px;
+  border: 1px solid var(--fga-border);
+  border-radius: 999px;
+}
+
+nav.crumbs {
+  padding: 10px 20px;
+  font-size: 13px;
+  color: var(--fga-muted);
+  background: var(--fga-surface);
+  border-bottom: 1px solid var(--fga-border);
+}
+
+.container {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 18px 20px;
+}
+
+.hero {
+  background: var(--fga-surface);
+  border-bottom: 1px solid var(--fga-border);
+}
+
+.hero .container {
+  padding: 26px 20px;
+}
+
+h1 {
+  margin: 0 0 6px;
+  font-size: 26px;
+  line-height: 1.25;
+  color: var(--fga-heading);
+}
+
+h2 {
+  margin: 22px 0 8px;
+  font-size: 13px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--fga-muted);
+}
+
+.lead {
+  max-width: 70ch;
+  margin: 0 0 16px;
+  color: var(--fga-muted);
+}
+
+.links-row a {
+  margin-right: 18px;
+  font-size: 14px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.card {
+  padding: 14px;
+  background: var(--fga-surface);
+  border: 1px solid var(--fga-border);
+  border-left: 3px solid var(--fga-accent);
+  border-radius: 10px;
+}
+
+.card h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.card p {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  color: var(--fga-muted);
+}
+
+.badge {
+  display: inline-block;
+  margin: 0 6px 6px 0;
+  padding: 1px 9px;
+  font-size: 12px;
+  color: var(--fga-accent);
+  background: var(--fga-accent-soft);
+  border-radius: 999px;
+}
+
+.keyword {
+  display: inline-block;
+  margin: 0 6px 4px 0;
+  padding: 1px 10px;
+  font-size: 13px;
+  color: #ffffff;
+  background: var(--fga-accent);
+  border-radius: 999px;
+}
+
+ul.classes {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+  word-break: break-all;
+}
+
+table.data {
+  width: 100%;
+  font-size: 14px;
+  border-collapse: collapse;
+  background: var(--fga-surface);
+  border: 1px solid var(--fga-border);
+}
+
+table.data th {
+  padding: 7px 12px;
+  font-weight: 500;
+  text-align: left;
+  vertical-align: top;
+  color: var(--fga-muted);
+  border-bottom: 1px solid var(--fga-border);
+}
+
+table.data td {
+  padding: 7px 12px;
+  vertical-align: top;
+  word-break: break-word;
+  border-bottom: 1px solid var(--fga-border);
+}
+
+dl.facts {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 6px 14px;
+  margin: 0 0 16px;
+  font-size: 14px;
+}
+
+dl.facts dt {
+  color: var(--fga-muted);
+}
+
+dl.facts dd {
+  margin: 0;
+  word-break: break-word;
+}
+
+pre {
+  overflow: auto;
+  padding: 10px 12px;
+  font: 12.5px/1.5 var(--fga-mono);
+  color: var(--fga-code-text);
+  background: var(--fga-code);
+  border-radius: 8px;
+}
+
+form.run {
+  display: grid;
+  gap: 12px;
+  max-width: 640px;
+  padding: 14px;
+  background: var(--fga-surface);
+  border: 1px solid var(--fga-border);
+  border-radius: 10px;
+}
+
+form.run label {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 13px;
+  color: var(--fga-muted);
+}
+
+form.run input,
+form.run select,
+form.run textarea {
+  width: 100%;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 14px;
+  background: var(--fga-surface);
+  border: 1px solid var(--fga-field);
+  border-radius: 6px;
+}
+
+form.run input[type="checkbox"] {
+  width: auto;
+}
+
+form.run small {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--fga-muted);
+}
+
+form.run .actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+button {
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--fga-accent);
+  background: var(--fga-surface);
+  border: 1px solid var(--fga-accent);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+button.primary {
+  color: #ffffff;
+  background: var(--fga-accent);
+}
+
+.outcome {
+  margin-top: 12px;
+}
+
+.error {
+  color: var(--fga-error);
+}
+
+.status {
+  font-weight: 600;
+}
+
+footer {
+  padding: 18px 20px;
+  font-size: 12px;
+  color: var(--fga-footer-text);
+  background: var(--fga-footer);
+}
+
+footer a {
+  color: #ffffff;
+}
+
+@media (max-width: 900px) {
+  header.bar {
+    flex-wrap: wrap;
+    padding: 8px 20px;
+  }
+
+  dl.facts {
+    grid-template-columns: 1fr;
+  }
+}
