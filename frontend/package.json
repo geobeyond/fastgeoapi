@@ -1,6 +1,9 @@
 {
   "name": "fastgeoapi-editor",
   "private": true,
+  "scarfSettings": {
+    "enabled": false
+  },
   "type": "module",
   "version": "0.0.0",
   "scripts": {
@@ -28,6 +31,8 @@
     "node-diff3": "^3.2.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "redoc": "^2.5.4",
+    "swagger-ui-dist": "^5.33.1",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.3",
     "yaml": "^2.7.0"

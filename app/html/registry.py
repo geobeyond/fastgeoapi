@@ -11,4 +11,7 @@ PAGES: dict[str, Page] = {
     "/collections": Page("collections.html", views.collections),
     "/collections/{collection_id:path}/queryables": Page("queryables.html", views.queryables),
     "/collections/{collection_id:path}/schema": Page("schema.html", views.schema),
+    "/openapi": Page(
+        "openapi.html", views.openapi, islands=("pages/api-docs.ts",), needs_document=False
+    ),
 }

@@ -145,3 +145,15 @@ msgstr "Descrizione"
 
 msgid "Values"
 msgstr "Valori"
+
+msgid "The OpenAPI document of this service:"
+msgstr "Il documento OpenAPI di questo servizio:"
+
+msgid "Open it in ReDoc"
+msgstr "Aprilo in ReDoc"
+
+msgid "Open it in Swagger UI"
+msgstr "Aprilo in Swagger UI"
+
+msgid "The viewer needs JavaScript; the document is linked above."
+msgstr "Il visualizzatore richiede JavaScript; il documento è collegato qui sopra."

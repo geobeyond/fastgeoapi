@@ -280,3 +280,23 @@ def schema(context: PageContext) -> dict[str, Any]:
         "properties": _properties(context.document),
         "crumbs": _collection_crumbs(context, title, _("Schema")),
     }
+
+
+def openapi(context: PageContext) -> dict[str, Any]:
+    """The OpenAPI document, in Swagger UI or, with ``ui=redoc``, in ReDoc."""
+    _ = context.gettext
+    redoc = context.request.params.get("ui") == "redoc"
+    other = (
+        {"label": _("Open it in Swagger UI"), "href": with_query(context.url, ui="swagger")}
+        if redoc
+        else {"label": _("Open it in ReDoc"), "href": with_query(context.url, ui="redoc")}
+    )
+    return {
+        "title": _("API documentation"),
+        "docs": {
+            "ui": "redoc" if redoc else "swagger",
+            "url": f"{base_url(context)}/openapi?f=json",
+        },
+        "other": other,
+        "crumbs": [{"label": _("API documentation")}],
+    }

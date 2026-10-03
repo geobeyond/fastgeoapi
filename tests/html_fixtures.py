@@ -106,3 +106,12 @@ def with_tiles(api_config: dict, directory: Path) -> dict:
         ],
     }
     return api_config
+
+
+def island_config(html: str, element: str) -> dict:
+    """The configuration the server wrote inside an island element."""
+    found = re.search(
+        rf'<{element}>\s*<script type="application/json">(.*?)</script>', html, re.DOTALL
+    )
+    assert found is not None
+    return json.loads(found.group(1))
