@@ -1,0 +1,10 @@
+{% extends "_layout.html" %}
+{% block content %}
+<div class="container">
+  <h1>{{ title }}</h1>
+  <p class="lead">{{ description }}</p>
+  <div class="grid">
+    {% for card in collections %}{% include "_card.html" %}{% endfor %}
+  </div>
+</div>
+{% endblock %}

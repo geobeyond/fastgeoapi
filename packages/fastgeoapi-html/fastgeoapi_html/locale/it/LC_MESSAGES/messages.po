@@ -107,3 +107,41 @@ msgstr "Matrice"
 
 msgid "Tile size"
 msgstr "Dimensione delle tile"
+
+msgid "The collections of this service."
+msgstr "Le collezioni di questo servizio."
+
+#, python-format
+msgid "Queryables of %(collection)s"
+msgstr "Proprietà interrogabili di %(collection)s"
+
+msgid "The properties a filter on the items can use."
+msgstr "Le proprietà che un filtro sugli item può usare."
+
+#, python-format
+msgid "Schema of %(collection)s"
+msgstr "Schema di %(collection)s"
+
+msgid "The properties of the items, as their schema describes them."
+msgstr "Le proprietà degli item, come le descrive il loro schema."
+
+msgid "Queryables"
+msgstr "Proprietà interrogabili"
+
+msgid "Schema"
+msgstr "Schema"
+
+msgid "Property"
+msgstr "Proprietà"
+
+msgid "Type"
+msgstr "Tipo"
+
+msgid "Role"
+msgstr "Ruolo"
+
+msgid "Description"
+msgstr "Descrizione"
+
+msgid "Values"
+msgstr "Valori"

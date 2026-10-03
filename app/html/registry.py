@@ -8,4 +8,7 @@ PAGES: dict[str, Page] = {
     "/conformance": Page("conformance.html", views.conformance),
     "/TileMatrixSets": Page("tilematrixsets.html", views.tilematrixsets),
     "/TileMatrixSets/{tileMatrixSetId}": Page("tilematrixset.html", views.tilematrixset),
+    "/collections": Page("collections.html", views.collections),
+    "/collections/{collection_id:path}/queryables": Page("queryables.html", views.queryables),
+    "/collections/{collection_id:path}/schema": Page("schema.html", views.schema),
 }

@@ -8,7 +8,7 @@ from typing import Any
 
 from pygeoapi import l10n
 from pygeoapi.formats import F_HTML, F_JSONLD
-from pygeoapi.linked_data import jsonldify
+from pygeoapi.linked_data import jsonldify, jsonldify_collection
 
 from app.html.pages import PageContext, with_query
 from app.pygeoapi.registry import active_specs
@@ -202,4 +202,81 @@ def tilematrixset(context: PageContext) -> dict[str, Any]:
             {"label": _("Tile matrix sets"), "href": f"{base_url(context)}/TileMatrixSets?f=html"},
             {"label": document.get("id", "")},
         ],
+    }
+
+
+def collections(context: PageContext) -> dict[str, Any]:
+    """The collections as cards, and as datasets of the catalog's JSON-LD."""
+    _ = context.gettext
+    api = context.api
+    locale = context.request.locale
+    resources = api.config.get("resources", {})
+    listed = context.document.get("collections", [])
+    catalog = catalog_jsonld(api, locale)
+    catalog["dataset"] = [jsonldify_collection(api, item, locale) for item in listed]
+    return {
+        "title": _("Collections"),
+        "description": _("The collections of this service."),
+        "collections": [
+            card(
+                item.get("title") or item["id"],
+                item.get("description") or "",
+                html_link(item.get("links", []))
+                or f"{base_url(context)}/collections/{item['id']}?f=html",
+                provider_kinds(resources.get(item["id"], {}), _),
+                list(item.get("keywords") or []),
+            )
+            for item in listed
+        ],
+        "jsonld": catalog,
+        "crumbs": [{"label": _("Collections")}],
+    }
+
+
+def _properties(document: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "name": name,
+            "title": spec.get("title", ""),
+            "type": spec.get("type") or spec.get("format") or spec.get("$ref") or "",
+            "role": spec.get("x-ogc-role", ""),
+            "description": spec.get("description", ""),
+            "allowed": [str(value) for value in spec.get("enum", [])],
+        }
+        for name, spec in (document.get("properties") or {}).items()
+    ]
+
+
+def _collection_crumbs(context: PageContext, title: str, last: str) -> list[dict[str, str]]:
+    _ = context.gettext
+    base = base_url(context)
+    collection = context.path_params.get("collection_id", "")
+    return [
+        {"label": _("Collections"), "href": f"{base}/collections?f=html"},
+        {"label": title, "href": f"{base}/collections/{collection}?f=html"},
+        {"label": last},
+    ]
+
+
+def queryables(context: PageContext) -> dict[str, Any]:
+    """The properties a filter on the items of a collection can use."""
+    _ = context.gettext
+    title = context.document.get("title") or context.path_params.get("collection_id", "")
+    return {
+        "title": _("Queryables of %(collection)s") % {"collection": title},
+        "description": _("The properties a filter on the items can use."),
+        "properties": _properties(context.document),
+        "crumbs": _collection_crumbs(context, title, _("Queryables")),
+    }
+
+
+def schema(context: PageContext) -> dict[str, Any]:
+    """The properties of the items of a collection, as their schema describes them."""
+    _ = context.gettext
+    title = context.document.get("title") or context.path_params.get("collection_id", "")
+    return {
+        "title": _("Schema of %(collection)s") % {"collection": title},
+        "description": _("The properties of the items, as their schema describes them."),
+        "properties": _properties(context.document),
+        "crumbs": _collection_crumbs(context, title, _("Schema")),
     }
