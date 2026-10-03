@@ -2,6 +2,7 @@
 
 import tempfile
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -102,6 +103,12 @@ class DevConfig(GlobalConfig):
     # Reverse-DNS name of this deployment's MCP server card (SEP-2127),
     # e.g. `it.geobeyond/fastgeoapi`. Derived from APP_URI when unset.
     FASTGEOAPI_MCP_SERVER_NAME: str | None = None
+    # Which HTML pages to serve: pygeoapi's templates, or fastgeoapi's own
+    # pages (native), which need the html extra.
+    FASTGEOAPI_HTML_PAGES: Literal["pygeoapi", "native"] = "pygeoapi"
+    # A directory of templates that replace the native pages of the same
+    # name; the others still come from the package.
+    FASTGEOAPI_HTML_TEMPLATES: str | None = None
 
     model_config = SettingsConfigDict(
         env_prefix="DEV_",
@@ -185,6 +192,12 @@ class ProdConfig(GlobalConfig):
     # Reverse-DNS name of this deployment's MCP server card (SEP-2127),
     # e.g. `it.geobeyond/fastgeoapi`. Derived from APP_URI when unset.
     FASTGEOAPI_MCP_SERVER_NAME: str | None = None
+    # Which HTML pages to serve: pygeoapi's templates, or fastgeoapi's own
+    # pages (native), which need the html extra.
+    FASTGEOAPI_HTML_PAGES: Literal["pygeoapi", "native"] = "pygeoapi"
+    # A directory of templates that replace the native pages of the same
+    # name; the others still come from the package.
+    FASTGEOAPI_HTML_TEMPLATES: str | None = None
 
     model_config = SettingsConfigDict(
         env_prefix="PROD_",

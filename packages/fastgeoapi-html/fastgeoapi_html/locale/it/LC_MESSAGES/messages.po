@@ -7,3 +7,61 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Collections"
+msgstr "Collezioni"
+
+msgid "Processes"
+msgstr "Processi"
+
+msgid "API"
+msgstr "API"
+
+msgid "Tile matrix sets"
+msgstr "Tile matrix set"
+
+msgid "API documentation"
+msgstr "Documentazione dell'API"
+
+msgid "Conformance"
+msgstr "Conformità"
+
+msgid "Features"
+msgstr "Feature"
+
+msgid "Records"
+msgstr "Record"
+
+msgid "Map"
+msgstr "Mappa"
+
+msgid "Coverage"
+msgstr "Coverage"
+
+msgid "Environmental data"
+msgstr "Dati ambientali"
+
+msgid "Elevation tiles"
+msgstr "Tile di elevazione"
+
+msgid "Raster tiles"
+msgstr "Tile raster"
+
+msgid "Vector tiles"
+msgstr "Tile vettoriali"
+
+msgid "Language"
+msgstr "Lingua"
+
+msgid "Breadcrumb"
+msgstr "Percorso"
+
+msgid "Home"
+msgstr "Inizio"
+
+msgid ""
+"powered by <a href=\"%(fastgeoapi)s\">fastgeoapi</a> on <a "
+"href=\"%(pygeoapi)s\">pygeoapi</a>"
+msgstr ""
+"realizzato con <a href=\"%(fastgeoapi)s\">fastgeoapi</a> su <a "
+"href=\"%(pygeoapi)s\">pygeoapi</a>"

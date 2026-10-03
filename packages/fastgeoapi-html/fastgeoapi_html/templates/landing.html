@@ -1,0 +1,18 @@
+{% extends "_layout.html" %}
+{% block content %}
+<section class="hero">
+  <div class="container">
+    <h1>{{ title }}</h1>
+    {% if description %}<p class="lead">{{ description }}</p>{% endif %}
+    <nav class="links-row">{% for section in sections %}<a href="{{ section.href }}">{{ section.label }}</a>{% endfor %}</nav>
+  </div>
+</section>
+{% if collections %}
+<div class="container">
+  <h2>{{ _("Collections") }}</h2>
+  <div class="grid">
+    {% for card in collections %}{% include "_card.html" %}{% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,12 +1,18 @@
 """What the tests of the HTML pages share.
 
-No ``app.*`` import in this module.
+``app.*`` is imported at the top of this module; a test module that uses it
+imports ``app.*`` at its top as well.
 """
 
 import json
+import re
 from pathlib import Path
 
 from pygeoapi.util import yaml_load
+from starlette.testclient import TestClient
+
+from app.html.activation import native_pages
+from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
 
 MANIFEST = {
     "pages/style.css": {"file": "assets/style-4f2a.css", "src": "pages/style.css", "isEntry": True},
@@ -53,3 +59,17 @@ def fake_build(directory: Path) -> Path:
     (directory / "assets").mkdir()
     (directory / "assets" / "style-4f2a.css").write_text("body { margin: 0; }\n")
     return directory
+
+
+def native_client(api_config: dict, static: Path) -> TestClient:
+    """A client of the sub-app of ``api_config``, with fastgeoapi's pages and ``static`` assets."""
+    pages = native_pages(static=static)
+    subapp = build_pygeoapi_subapp(api_config, build_openapi(api_config), pages=pages)
+    return TestClient(subapp, raise_server_exceptions=False)
+
+
+def jsonld(html: str) -> dict:
+    """The JSON-LD the page carries in its head."""
+    found = re.search(r'<script type="application/ld\+json">(.*?)</script>', html, re.DOTALL)
+    assert found is not None
+    return json.loads(found.group(1))

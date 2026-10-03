@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" dir="{{ dir }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% if title and title != site.title %}{{ title }} · {% endif %}{{ site.title }}</title>
+{% if description %}<meta name="description" content="{{ description | striptags | truncate(300) }}">
+{% endif %}<link rel="canonical" href="{{ canonical }}">
+{% if prev %}<link rel="prev" href="{{ prev }}">
+{% endif %}{% if next %}<link rel="next" href="{{ next }}">
+{% endif %}{% for format in formats %}<link rel="alternate" type="{{ format.type }}" href="{{ format.href }}">
+{% endfor %}<link rel="icon" href="{{ site.icon }}">
+{% for href in styles %}<link rel="stylesheet" href="{{ href }}">
+{% endfor %}<script type="application/ld+json">{{ jsonld | tojson }}</script>
+{% for src in scripts %}<script type="module" src="{{ src }}"></script>
+{% endfor %}</head>
+<body>
+<header class="bar">
+  <a class="brand" href="{{ site.home }}"><img src="{{ site.logo }}" alt="{{ site.title }}"></a>
+  <nav class="sections">{% for item in nav %}<a href="{{ item.href }}">{{ item.label }}</a>{% endfor %}</nav>
+  <div class="tools">
+    <nav class="languages" aria-label="{{ _('Language') }}">{% for language in languages %}{% if language.current %}<strong>{{ language.label }}</strong>{% else %}<a href="{{ language.href }}" hreflang="{{ language.code }}">{{ language.label }}</a>{% endif %}{% endfor %}</nav>
+    {% for format in formats %}<a class="pill" href="{{ format.href }}">{{ format.label }}</a>{% endfor %}
+  </div>
+</header>
+<nav class="crumbs" aria-label="{{ _('Breadcrumb') }}"><a href="{{ site.home }}">{{ _("Home") }}</a>{% for crumb in crumbs %} / {% if crumb.href %}<a href="{{ crumb.href }}">{{ crumb.label }}</a>{% else %}<span>{{ crumb.label }}</span>{% endif %}{% endfor %}</nav>
+<main>
+{% block content %}{% endblock %}
+</main>
+<footer>{% trans fastgeoapi="https://github.com/geobeyond/fastgeoapi", pygeoapi="https://pygeoapi.io" %}powered by <a href="{{ fastgeoapi }}">fastgeoapi</a> on <a href="{{ pygeoapi }}">pygeoapi</a>{% endtrans %}</footer>
+</body>
+</html>

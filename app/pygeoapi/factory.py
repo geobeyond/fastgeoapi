@@ -38,6 +38,8 @@ from starlette.responses import HTMLResponse, JSONResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
+from app.html.assets import ImmutableFiles
+from app.html.pages import NativePages
 from app.pygeoapi.api import patch_validate_datetime_overflow
 from app.pygeoapi.api.collections import describe_collections, item_provider_type
 from app.pygeoapi.api_async import maps as async_maps
@@ -839,15 +841,22 @@ def build_routes(
 
 
 def build_pygeoapi_subapp(
-    config: dict, openapi: dict, *, http_cache: HttpCache | None = None
+    config: dict,
+    openapi: dict,
+    *,
+    http_cache: HttpCache | None = None,
+    pages: NativePages | None = None,
 ) -> Starlette:
     """Complete Starlette sub-app, same shape as the former APP import.
 
     Mounts only the spec groups the config activates (ADR-0005): the
     reload webhook rebuilds the sub-app, so the mounted set follows
     every config update. ``http_cache`` defaults to the policy of
-    fastgeoapi's settings.
+    fastgeoapi's settings. ``pages`` serves fastgeoapi's own HTML pages
+    and their compiled assets under ``/_html``; None takes the choice of
+    the settings, which keep pygeoapi's pages by default.
     """
+    from app.html.activation import default_pages
     from app.pygeoapi.registry import active_specs
 
     api = build_api(config, openapi)
@@ -857,16 +866,16 @@ def build_pygeoapi_subapp(
     except KeyError:
         pass
     url_prefix = get_api_rules(config).get_url_prefix("starlette")
-    return Starlette(
-        routes=[
-            Mount("/static", StaticFiles(directory=static_dir)),
-            Mount(
-                url_prefix or "/",
-                routes=build_routes(
-                    api,
-                    specs=active_specs(config),
-                    http_cache=http_cache if http_cache is not None else default_http_cache(),
-                ),
-            ),
-        ],
+    routes = build_routes(
+        api,
+        specs=active_specs(config),
+        http_cache=http_cache if http_cache is not None else default_http_cache(),
     )
+    mounts = [Mount("/static", StaticFiles(directory=static_dir))]
+    if pages is None:
+        pages = default_pages()
+    if pages is not None:
+        routes = pages.wrap(api, routes)
+        if pages.static.is_dir():
+            mounts.append(Mount("/_html", app=ImmutableFiles(directory=pages.static)))
+    return Starlette(routes=[*mounts, Mount(url_prefix or "/", routes=routes)])
