@@ -65,3 +65,45 @@ msgid ""
 msgstr ""
 "realizzato con <a href=\"%(fastgeoapi)s\">fastgeoapi</a> su <a "
 "href=\"%(pygeoapi)s\">pygeoapi</a>"
+
+msgid "The conformance classes this service implements."
+msgstr "Le classi di conformità che questo servizio implementa."
+
+msgid "The tiling schemes the tiles of this service can be requested in."
+msgstr "Gli schemi di tassellatura in cui si possono chiedere le tile di questo servizio."
+
+msgid "Identifier"
+msgstr "Identificativo"
+
+msgid "Title"
+msgstr "Titolo"
+
+msgid "URI"
+msgstr "URI"
+
+msgid "Coordinate reference system"
+msgstr "Sistema di riferimento"
+
+msgid "Axes"
+msgstr "Assi"
+
+msgid "Well-known scale set"
+msgstr "Insieme di scale noto"
+
+msgid "Tile matrices"
+msgstr "Matrici di tile"
+
+msgid "Level"
+msgstr "Livello"
+
+msgid "Scale denominator"
+msgstr "Denominatore di scala"
+
+msgid "Cell size"
+msgstr "Dimensione della cella"
+
+msgid "Matrix"
+msgstr "Matrice"
+
+msgid "Tile size"
+msgstr "Dimensione delle tile"

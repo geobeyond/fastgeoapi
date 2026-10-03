@@ -1,0 +1,14 @@
+{% extends "_layout.html" %}
+{% block content %}
+<div class="container">
+  <h1>{{ title }}</h1>
+  <p class="lead">{{ description }}</p>
+  {% for group in groups %}
+  <h2>{{ group.standard }}</h2>
+  <ul class="classes">
+    {% for uri in group.classes %}<li><a href="{{ uri }}">{{ uri }}</a></li>
+    {% endfor %}
+  </ul>
+  {% endfor %}
+</div>
+{% endblock %}

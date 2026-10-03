@@ -13,6 +13,7 @@ from starlette.testclient import TestClient
 
 from app.html.activation import native_pages
 from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
+from tests.pmtiles_fixtures import TILE_BYTES, write_archive
 
 MANIFEST = {
     "pages/style.css": {"file": "assets/style-4f2a.css", "src": "pages/style.css", "isEntry": True},
@@ -73,3 +74,35 @@ def jsonld(html: str) -> dict:
     found = re.search(r'<script type="application/ld\+json">(.*?)</script>', html, re.DOTALL)
     assert found is not None
     return json.loads(found.group(1))
+
+
+def with_tiles(api_config: dict, directory: Path) -> dict:
+    """``api_config`` with ``places``, a collection of vector tiles from a PMTiles archive."""
+    archive = write_archive(
+        directory / "places.pmtiles",
+        {(0, 0, 0): TILE_BYTES(0, 0, 0)},
+        metadata={"name": "Places", "vector_layers": [{"id": "place", "minzoom": 0, "maxzoom": 2}]},
+    )
+    api_config["resources"]["places"] = {
+        "type": "collection",
+        "title": "Places",
+        "description": "Places as vector tiles",
+        "keywords": ["places"],
+        "extents": {
+            "spatial": {
+                "bbox": [-180, -90, 180, 90],
+                "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+            }
+        },
+        "links": [],
+        "providers": [
+            {
+                "type": "tile",
+                "name": "app.provider.pmtiles.PMTilesProvider",
+                "data": str(archive),
+                "options": {"zoom": {"min": 0, "max": 2}, "schemes": ["WebMercatorQuad"]},
+                "format": {"name": "pbf", "mimetype": "application/vnd.mapbox-vector-tile"},
+            }
+        ],
+    }
+    return api_config

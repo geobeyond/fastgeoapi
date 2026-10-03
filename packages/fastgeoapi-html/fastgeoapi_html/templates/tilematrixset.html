@@ -1,0 +1,19 @@
+{% extends "_layout.html" %}
+{% block content %}
+<div class="container">
+  <h1>{{ title }}</h1>
+  <dl class="facts">
+    {% for fact in facts %}<dt>{{ fact.label }}</dt><dd>{% if fact.href %}<a href="{{ fact.href }}">{{ fact.value }}</a>{% else %}{{ fact.value }}{% endif %}</dd>
+    {% endfor %}
+  </dl>
+  <h2>{{ _("Tile matrices") }}</h2>
+  <table class="data">
+    <thead><tr><th>{{ _("Level") }}</th><th>{{ _("Scale denominator") }}</th><th>{{ _("Cell size") }}</th><th>{{ _("Matrix") }}</th><th>{{ _("Tile size") }}</th></tr></thead>
+    <tbody>
+    {% for matrix in matrices %}
+      <tr><td>{{ matrix.id }}</td><td>{{ matrix.scaleDenominator | number }}</td><td>{{ matrix.cellSize | number }}</td><td>{{ matrix.matrixWidth }} × {{ matrix.matrixHeight }}</td><td>{{ matrix.tileWidth }} × {{ matrix.tileHeight }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

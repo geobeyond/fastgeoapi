@@ -1,0 +1,15 @@
+{% extends "_layout.html" %}
+{% block content %}
+<div class="container">
+  <h1>{{ title }}</h1>
+  <p class="lead">{{ description }}</p>
+  <table class="data">
+    <thead><tr><th>{{ _("Identifier") }}</th><th>{{ _("Title") }}</th><th>{{ _("URI") }}</th></tr></thead>
+    <tbody>
+    {% for row in rows %}
+      <tr><td><a href="{{ row.href }}">{{ row.id }}</a></td><td>{{ row.title }}</td><td>{% if row.uri %}<a href="{{ row.uri }}">{{ row.uri }}</a>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

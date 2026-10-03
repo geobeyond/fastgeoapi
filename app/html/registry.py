@@ -5,4 +5,7 @@ from app.html.pages import Page
 
 PAGES: dict[str, Page] = {
     "/": Page("landing.html", views.landing),
+    "/conformance": Page("conformance.html", views.conformance),
+    "/TileMatrixSets": Page("tilematrixsets.html", views.tilematrixsets),
+    "/TileMatrixSets/{tileMatrixSetId}": Page("tilematrixset.html", views.tilematrixset),
 }

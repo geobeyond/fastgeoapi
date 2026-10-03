@@ -128,3 +128,78 @@ def landing(context: PageContext) -> dict[str, Any]:
         ],
         "jsonld": catalog_jsonld(api, locale),
     }
+
+
+def _standard(uri: str) -> str:
+    """The standard a conformance class belongs to: ``ogcapi-features-1 1.0``."""
+    _, found, path = uri.partition("/spec/")
+    if not found:
+        return uri
+    name, _, rest = path.partition("/")
+    return f"{name} {rest.partition('/')[0]}".strip()
+
+
+def conformance(context: PageContext) -> dict[str, Any]:
+    """The conformance classes, grouped by standard."""
+    _ = context.gettext
+    groups: dict[str, list[str]] = {}
+    for uri in context.document.get("conformsTo", []):
+        groups.setdefault(_standard(uri), []).append(uri)
+    return {
+        "title": _("Conformance"),
+        "description": _("The conformance classes this service implements."),
+        "groups": [
+            {"standard": standard, "classes": sorted(classes)}
+            for standard, classes in sorted(groups.items())
+        ],
+        "crumbs": [{"label": _("Conformance")}],
+    }
+
+
+def tilematrixsets(context: PageContext) -> dict[str, Any]:
+    """The tile matrix sets, each linked to its page."""
+    _ = context.gettext
+    base = base_url(context)
+    return {
+        "title": _("Tile matrix sets"),
+        "description": _("The tiling schemes the tiles of this service can be requested in."),
+        "rows": [
+            {
+                "id": tms["id"],
+                "title": tms.get("title") or tms["id"],
+                "uri": tms.get("uri"),
+                "href": html_link(tms.get("links", []))
+                or f"{base}/TileMatrixSets/{tms['id']}?f=html",
+            }
+            for tms in context.document.get("tileMatrixSets", [])
+        ],
+        "crumbs": [{"label": _("Tile matrix sets")}],
+    }
+
+
+def tilematrixset(context: PageContext) -> dict[str, Any]:
+    """One tile matrix set: its reference system and its levels."""
+    _ = context.gettext
+    document = context.document
+    crs = document.get("crs")
+    crs = crs.get("uri") if isinstance(crs, dict) else crs
+    facts = [
+        {"label": _("Identifier"), "value": document.get("id")},
+        {"label": _("URI"), "value": document.get("uri"), "href": document.get("uri")},
+        {"label": _("Coordinate reference system"), "value": crs, "href": crs},
+        {"label": _("Axes"), "value": ", ".join(document.get("orderedAxes", []))},
+        {
+            "label": _("Well-known scale set"),
+            "value": document.get("wellKnownScaleSet"),
+            "href": document.get("wellKnownScaleSet"),
+        },
+    ]
+    return {
+        "title": document.get("title") or document.get("id", ""),
+        "facts": [fact for fact in facts if fact["value"]],
+        "matrices": document.get("tileMatrices", []),
+        "crumbs": [
+            {"label": _("Tile matrix sets"), "href": f"{base_url(context)}/TileMatrixSets?f=html"},
+            {"label": document.get("id", "")},
+        ],
+    }
