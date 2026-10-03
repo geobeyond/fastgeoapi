@@ -6,6 +6,8 @@ No ``app.*`` import in this module.
 import json
 from pathlib import Path
 
+from pygeoapi.util import yaml_load
+
 MANIFEST = {
     "pages/style.css": {"file": "assets/style-4f2a.css", "src": "pages/style.css", "isEntry": True},
     "_config-9c1d.js": {"file": "assets/config-9c1d.js"},
@@ -30,6 +32,18 @@ MANIFEST = {
     },
 }
 """A manifest shaped as Vite writes it, for pages tested without a build."""
+
+SERVER_URL = "http://example.org/geoapi"
+"""The server URL of the tests' configuration, not the host the test client calls."""
+
+
+def config() -> dict:
+    """The tests' configuration, served at ``SERVER_URL`` in English, Italian and French."""
+    with Path("tests/data/pygeoapi-config.yml").open() as handle:
+        loaded = yaml_load(handle)
+    loaded["server"]["url"] = SERVER_URL
+    loaded["server"]["languages"] = ["en-US", "it-IT", "fr-CA"]
+    return loaded
 
 
 def fake_build(directory: Path) -> Path:
