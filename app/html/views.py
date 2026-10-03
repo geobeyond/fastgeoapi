@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from types import SimpleNamespace
 from typing import Any
@@ -299,4 +300,96 @@ def openapi(context: PageContext) -> dict[str, Any]:
         },
         "other": other,
         "crumbs": [{"label": _("API documentation")}],
+    }
+
+
+EXECUTE = "http://www.opengis.net/def/rel/ogc/1.0/execute"
+
+
+def processes(context: PageContext) -> dict[str, Any]:
+    """The processes as cards, with the way to their jobs."""
+    _ = context.gettext
+    base = base_url(context)
+    return {
+        "title": _("Processes"),
+        "description": _("The processes this service runs."),
+        "processes": [
+            card(
+                item.get("title") or item["id"],
+                item.get("description") or "",
+                html_link(item.get("links", [])) or f"{base}/processes/{item['id']}?f=html",
+                [item["version"]] if item.get("version") else [],
+                list(item.get("keywords") or []),
+            )
+            for item in context.document.get("processes", [])
+        ],
+        "jobs": f"{base}/jobs?f=html",
+        "crumbs": [{"label": _("Processes")}],
+    }
+
+
+def _parameters(specs: dict[str, Any], inputs: bool) -> list[dict[str, Any]]:
+    return [
+        {
+            "name": name,
+            "title": spec.get("title", ""),
+            "description": spec.get("description", ""),
+            "type": (spec.get("schema") or {}).get("type", ""),
+            "required": inputs and spec.get("minOccurs", 1) > 0,
+        }
+        for name, spec in specs.items()
+    ]
+
+
+def process(context: PageContext) -> dict[str, Any]:
+    """A process: what it takes, what it gives, and the form that runs it."""
+    _ = context.gettext
+    document = context.document
+    base = base_url(context)
+    title = document.get("title") or document["id"]
+    modes = {
+        "sync-execute": _("synchronous"),
+        "async-execute": _("asynchronous, as a job"),
+        "dismiss": _("can be dismissed"),
+    }
+    execute = next(
+        (link["href"] for link in document.get("links", []) if link.get("rel") == EXECUTE),
+        f"{base}/processes/{document['id']}/execution",
+    )
+    facts = [
+        {"label": _("Identifier"), "value": document.get("id")},
+        {"label": _("Version"), "value": document.get("version")},
+        {
+            "label": _("Execution"),
+            "value": ", ".join(
+                modes.get(mode, mode) for mode in document.get("jobControlOptions", [])
+            ),
+        },
+    ]
+    example = document.get("example")
+    return {
+        "title": title,
+        "description": document.get("description", ""),
+        "keywords": list(document.get("keywords") or []),
+        "facts": [fact for fact in facts if fact["value"]],
+        "inputs": _parameters(document.get("inputs") or {}, inputs=True),
+        "outputs": _parameters(document.get("outputs") or {}, inputs=False),
+        "example": json.dumps(example, indent=2, ensure_ascii=False) if example else "",
+        "run": {
+            "executeUrl": execute,
+            "inputs": document.get("inputs") or {},
+            "modes": list(document.get("jobControlOptions") or []),
+            "messages": {
+                "run": _("Run"),
+                "asJob": _("Run as a job"),
+                "running": _("Running…"),
+                "result": _("Result"),
+                "jobStarted": _("The job has started:"),
+                "followJob": _("follow it"),
+                "failed": _("The process could not run:"),
+                "invalidJson": _("Not valid JSON:"),
+                "required": _("required"),
+            },
+        },
+        "crumbs": [{"label": _("Processes"), "href": f"{base}/processes?f=html"}, {"label": title}],
     }

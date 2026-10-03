@@ -14,7 +14,7 @@ export default defineConfig({
     emptyOutDir: true,
     manifest: true,
     rollupOptions: {
-      input: ["pages/style.css", "pages/api-docs.ts"],
+      input: ["pages/style.css", "pages/api-docs.ts", "pages/process-run.ts"],
     },
   },
 });

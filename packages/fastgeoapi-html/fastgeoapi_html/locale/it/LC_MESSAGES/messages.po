@@ -157,3 +157,74 @@ msgstr "Aprilo in Swagger UI"
 
 msgid "The viewer needs JavaScript; the document is linked above."
 msgstr "Il visualizzatore richiede JavaScript; il documento è collegato qui sopra."
+
+msgid "The processes this service runs."
+msgstr "I processi che questo servizio esegue."
+
+msgid "Jobs"
+msgstr "Job"
+
+msgid "Version"
+msgstr "Versione"
+
+msgid "Execution"
+msgstr "Esecuzione"
+
+msgid "synchronous"
+msgstr "sincrona"
+
+msgid "asynchronous, as a job"
+msgstr "asincrona, come job"
+
+msgid "can be dismissed"
+msgstr "annullabile"
+
+msgid "Inputs"
+msgstr "Input"
+
+msgid "Outputs"
+msgstr "Output"
+
+msgid "Name"
+msgstr "Nome"
+
+msgid "required"
+msgstr "obbligatorio"
+
+msgid "Example"
+msgstr "Esempio"
+
+msgid "Run the process"
+msgstr "Esegui il processo"
+
+msgid "Run"
+msgstr "Esegui"
+
+msgid "Run as a job"
+msgstr "Esegui come job"
+
+msgid "Running…"
+msgstr "In esecuzione…"
+
+msgid "Result"
+msgstr "Risultato"
+
+msgid "The job has started:"
+msgstr "Il job è partito:"
+
+msgid "follow it"
+msgstr "seguilo"
+
+msgid "The process could not run:"
+msgstr "Il processo non è stato eseguito:"
+
+msgid "Not valid JSON:"
+msgstr "JSON non valido:"
+
+#, python-format
+msgid ""
+"Running the process needs JavaScript: send a POST with the inputs to "
+"%(url)s."
+msgstr ""
+"Per eseguire il processo serve JavaScript: invia una POST con gli input a "
+"%(url)s."

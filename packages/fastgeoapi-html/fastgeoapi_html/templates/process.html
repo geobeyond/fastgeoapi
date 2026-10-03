@@ -1,0 +1,23 @@
+{% extends "_layout.html" %}
+{% block content %}
+<div class="container">
+  <h1>{{ title }}</h1>
+  {% if description %}<p class="lead">{{ description }}</p>{% endif %}
+  {% if keywords %}<p class="keywords">{% for keyword in keywords %}<span class="keyword">{{ keyword }}</span>{% endfor %}</p>{% endif %}
+  <dl class="facts">
+    {% for fact in facts %}<dt>{{ fact.label }}</dt><dd>{{ fact.value }}</dd>
+    {% endfor %}
+  </dl>
+  <h2>{{ _("Inputs") }}</h2>
+  {% with rows = inputs %}{% include "_parameters.html" %}{% endwith %}
+  <h2>{{ _("Outputs") }}</h2>
+  {% with rows = outputs %}{% include "_parameters.html" %}{% endwith %}
+  {% if example %}<h2>{{ _("Example") }}</h2>
+  <pre>{{ example }}</pre>{% endif %}
+  <h2>{{ _("Run the process") }}</h2>
+  <fga-process-run>
+    <script type="application/json">{{ run | tojson }}</script>
+    <noscript><p>{% trans url=run.executeUrl %}Running the process needs JavaScript: send a POST with the inputs to {{ url }}.{% endtrans %}</p></noscript>
+  </fga-process-run>
+</div>
+{% endblock %}

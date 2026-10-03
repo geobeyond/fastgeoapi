@@ -105,7 +105,7 @@ class NativePages:
                 if answer.status_code >= 400 or body is None:
                     return answer
                 try:
-                    document = json.loads(body)
+                    document = json.loads(_as_written(body))
                 except ValueError:
                     return answer
             return self._render(api, assets, page, request, api_request, document)
@@ -197,6 +197,16 @@ def format_instant(value: str | None, language: str) -> str:
 def format_number(value: float | None, language: str) -> str:
     """A number, as the page's language writes it."""
     return "" if value is None else format_decimal(value, locale=language)
+
+
+def _as_written(body: bytes) -> bytes:
+    """The JSON with ``<`` and ``>`` back as the data has them.
+
+    pygeoapi writes both as HTML entities in every JSON answer; the
+    templates escape the text themselves, and would otherwise show the
+    entities. A ``&lt;`` already in the data reads as ``<`` too.
+    """
+    return body.replace(b"&lt;", b"<").replace(b"&gt;", b">")
 
 
 def _asking_json(request: Request) -> Request:

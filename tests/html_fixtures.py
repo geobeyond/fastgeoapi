@@ -8,6 +8,7 @@ import json
 import re
 from pathlib import Path
 
+from pygeoapi.process.base import BaseProcessor
 from pygeoapi.util import yaml_load
 from starlette.testclient import TestClient
 
@@ -115,3 +116,42 @@ def island_config(html: str, element: str) -> dict:
     )
     assert found is not None
     return json.loads(found.group(1))
+
+
+ECHO_METADATA = {
+    "version": "1.0.0",
+    "id": "echo",
+    "title": "Echo",
+    "description": "Echoes its inputs back </script><script>alert(1)</script>",
+    "jobControlOptions": ["sync-execute"],
+    "keywords": ["echo"],
+    "links": [],
+    "inputs": {
+        "anything": {
+            "title": "Anything",
+            "description": "Any JSON value </script><b>bold</b>",
+            "minOccurs": 0,
+            "maxOccurs": 1,
+        }
+    },
+    "outputs": {"echo": {"title": "Echo", "schema": {"type": "object"}}},
+}
+
+
+class EchoProcessor(BaseProcessor):
+    """A process with markup in its texts and an input without a schema."""
+
+    def __init__(self, processor_def: dict) -> None:
+        super().__init__(processor_def, ECHO_METADATA)
+
+    def execute(self, data: dict, outputs: dict | None = None) -> tuple[str, dict]:
+        return "application/json", {"echo": data}
+
+
+def with_echo(api_config: dict) -> dict:
+    """``api_config`` with the echo process."""
+    api_config["resources"]["echo"] = {
+        "type": "process",
+        "processor": {"name": "tests.html_fixtures.EchoProcessor"},
+    }
+    return api_config

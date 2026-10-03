@@ -14,4 +14,8 @@ PAGES: dict[str, Page] = {
     "/openapi": Page(
         "openapi.html", views.openapi, islands=("pages/api-docs.ts",), needs_document=False
     ),
+    "/processes": Page("processes.html", views.processes),
+    "/processes/{process_id}": Page(
+        "process.html", views.process, islands=("pages/process-run.ts",)
+    ),
 }
