@@ -58,6 +58,23 @@ def _xyz_url(server_url: str, dataset: str, tileset: str, parameter: str) -> str
     )
 
 
+_STYLE_OPTIONS = {
+    "style": "the path or URL of a MapLibre style",
+    "style_source": "the name the style gives the collection's tiles",
+}
+
+
+def check_style_options(options: dict) -> None:
+    """Check ``style`` and ``style_source``: when given, non-empty strings.
+
+    Raises :class:`ValueError` for any other value.
+    """
+    for key, meaning in _STYLE_OPTIONS.items():
+        value = options.get(key)
+        if value is not None and (not isinstance(value, str) or not value.strip()):
+            raise ValueError(f"option {key} must be {meaning}")
+
+
 class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
     """Tiles read by the source the registry finds for ``data``, or the one a subclass names.
 
@@ -79,6 +96,7 @@ class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
         super().__init__(provider_def)
         try:
             self.dem = check_dem(self.options.get("dem"))
+            check_style_options(self.options)
         except ValueError as error:
             raise ProviderGenericError(user_msg=str(error)) from None
         build = type(self).source_builder
