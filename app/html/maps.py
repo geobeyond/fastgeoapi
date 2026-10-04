@@ -45,7 +45,9 @@ def camera(
             "zoom": max(float(view["zoom"]), floor),
             "minZoom": floor,
         }
-    if tilejson_center is not None and any(tilejson_center[:2]):
+    # At zoom 0 the whole world is in view, so such a center says nothing of
+    # where the data is: the extent does.
+    if tilejson_center is not None and any(tilejson_center[:2]) and tilejson_center[2] > 0:
         lon, lat, zoom = tilejson_center
         return {"center": [lon, lat], "zoom": max(float(zoom), floor), "minZoom": floor}
     found: dict[str, Any] = {"minZoom": floor}

@@ -68,6 +68,15 @@ def test_a_tilejson_center_at_zero_falls_back_to_the_extent():
     }
 
 
+def test_a_tilejson_center_at_zoom_zero_falls_back_to_the_extent():
+    # At zoom 0 the whole world is in view: such a center says nothing of
+    # where the data is, and a small archive would open as an invisible dot.
+    assert camera(ROME, tilejson_center=(12.45, 41.9, 0)) == {
+        "bounds": [12.2, 41.7, 12.7, 42.1],
+        "minZoom": 0,
+    }
+
+
 def test_map_images_never_open_below_zoom_two():
     assert camera(ROME, map_image=True)["minZoom"] == MAP_IMAGE_MIN_ZOOM
 
