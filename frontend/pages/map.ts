@@ -1,5 +1,9 @@
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Map as MapLibreMap, setWorkerUrl } from "maplibre-gl";
+import {
+  Map as MapLibreMap,
+  NavigationControl,
+  setWorkerUrl,
+} from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 
 import { readConfig } from "./config";
@@ -77,6 +81,7 @@ export interface MapLike {
   on(event: string, handler: () => void): void;
   addSource(id: string, source: object): void;
   getSource(id: string): SourceLike | undefined;
+  addControl(control: object, position?: string): void;
   addLayer(layer: object): void;
   setStyle(style: object): void;
   fitBounds(bounds: Bbox, options?: object): void;
@@ -387,6 +392,7 @@ export function startMap(
     minZoom: camera.minZoom ?? 0,
     attributionControl: { compact: true },
   });
+  map.addControl(new NavigationControl(), "top-right");
   map.on("load", () => {
     if (config.kind === "features") {
       addData(map, config.data);

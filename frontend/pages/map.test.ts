@@ -8,10 +8,19 @@ import {
   type MapConfig,
 } from "./map";
 
-const maplibre = vi.hoisted(() => ({ setWorkerUrl: vi.fn() }));
+const maplibre = vi.hoisted(() => ({
+  setWorkerUrl: vi.fn(),
+  NavigationControl: class {
+    options: unknown;
+    constructor(options?: unknown) {
+      this.options = options;
+    }
+  },
+}));
 
 vi.mock("maplibre-gl", () => ({
   Map: class {},
+  NavigationControl: maplibre.NavigationControl,
   setWorkerUrl: maplibre.setWorkerUrl,
 }));
 
@@ -27,6 +36,7 @@ class FakeMap {
   fitted: unknown[] = [];
   fitOptions: unknown[] = [];
   updates: unknown[] = [];
+  controls: unknown[] = [];
   images: unknown[] = [];
   bounds: [number, number, number, number] = [12, 41, 13, 42];
 
@@ -50,6 +60,9 @@ class FakeMap {
           setData: (data: unknown) => this.updates.push([id, data]),
         }
       : undefined;
+  }
+  addControl(control: unknown, position?: string) {
+    this.controls.push([control, position]);
   }
   addLayer(layer: { id: string }) {
     this.layers.push(layer.id);
@@ -257,6 +270,20 @@ describe("startMap", () => {
       "fga-active",
       { type: "FeatureCollection", features: [] },
     ]);
+  });
+
+  it("gives every map its zoom buttons", () => {
+    const map = start({
+      kind: "extent",
+      camera,
+      basemap: null,
+      bbox: [12, 41, 13, 42],
+    });
+    const [control, position] = map.controls[0] as [unknown, string];
+
+    expect(map.controls).toHaveLength(1);
+    expect(control).toBeInstanceOf(maplibre.NavigationControl);
+    expect(position).toBe("top-right");
   });
 
   it("fits one point without zooming past the streets", () => {
