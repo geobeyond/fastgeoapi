@@ -374,3 +374,60 @@ msgstr "Schema di tassellatura"
 
 msgid "Tiles"
 msgstr "Tile"
+
+msgid "Bounding box"
+msgstr "Riquadro"
+
+msgid "West, south, east, north"
+msgstr "Ovest, sud, est, nord"
+
+msgid "Date and time"
+msgstr "Data e ora"
+
+msgid "An instant, or an interval such as 2020-01-01/2020-12-31 or ../2020-12-31"
+msgstr "Un istante, o un intervallo come 2020-01-01/2020-12-31 o ../2020-12-31"
+
+msgid "Items per page"
+msgstr "Elementi per pagina"
+
+msgid "Reference system of the bounding box"
+msgstr "Sistema di riferimento del riquadro"
+
+msgid "Sort by"
+msgstr "Ordina per"
+
+msgid "Properties to return"
+msgstr "Proprietà da restituire"
+
+msgid "Names separated by commas"
+msgstr "Nomi separati da virgole"
+
+msgid "Leave out the geometry"
+msgstr "Senza geometria"
+
+msgid "No"
+msgstr "No"
+
+msgid "Yes"
+msgstr "Sì"
+
+msgid "Search text"
+msgstr "Testo da cercare"
+
+msgid "CQL2 filter"
+msgstr "Filtro CQL2"
+
+msgid "Filter language"
+msgstr "Linguaggio del filtro"
+
+msgid "Reference system of the filter"
+msgstr "Sistema di riferimento del filtro"
+
+msgid "Start from item"
+msgstr "Parti dall'elemento"
+
+msgid "The items"
+msgstr "Gli elementi"
+
+msgid "Only how many they are"
+msgstr "Solo quanti sono"
