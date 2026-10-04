@@ -470,3 +470,27 @@ msgstr "Esempi:"
 
 msgid "Value"
 msgstr "Valore"
+
+msgid "Coverage of %(collection)s"
+msgstr "Coverage di %(collection)s"
+
+msgid "Grid"
+msgstr "Griglia"
+
+msgid "Resolution"
+msgstr "Risoluzione"
+
+msgid "Subset"
+msgstr "Sottoinsieme"
+
+msgid "Ranges of the axes, such as x(12.2:12.5),y(41.7:41.9)"
+msgstr "Intervalli degli assi, come x(12.2:12.5),y(41.7:41.9)"
+
+msgid "Bands"
+msgstr "Bande"
+
+msgid "Download"
+msgstr "Scarica"
+
+msgid "Narrow the download"
+msgstr "Restringi il download"

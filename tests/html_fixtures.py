@@ -11,9 +11,12 @@ import json
 import re
 from pathlib import Path
 
+import numpy as np
+import rasterio
 from pygeoapi.process.base import BaseProcessor
 from pygeoapi.process.manager.tinydb_ import TinyDBManager
 from pygeoapi.util import yaml_load
+from rasterio.transform import from_bounds
 from starlette.testclient import TestClient
 
 from tests.maps_fixtures import map_provider
@@ -277,6 +280,44 @@ def with_parquet_lakes(api_config: dict) -> dict:
                 "data": "tests/data/lakes.parquet",
                 "id_field": "id",
                 "geometry_column": "geometry",
+            }
+        ],
+    }
+    return api_config
+
+
+ROME = (12.2, 41.7, 12.7, 42.1)
+
+
+def with_coverage(api_config: dict, directory: Path) -> dict:
+    """``api_config`` with ``dem``, a coverage of one band in 4 by 4 cells over Rome."""
+    path = directory / "dem.tif"
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        width=4,
+        height=4,
+        count=1,
+        dtype="float32",
+        crs="EPSG:4326",
+        transform=from_bounds(*ROME, 4, 4),
+    ) as raster:
+        raster.write(np.arange(16, dtype="float32").reshape(1, 4, 4))
+    api_config["resources"]["dem"] = {
+        "type": "collection",
+        "title": "DEM",
+        "description": "Heights over Rome",
+        "keywords": [],
+        "extents": {"spatial": {"bbox": list(ROME), "crs": CRS84}},
+        "links": [],
+        "providers": [
+            {
+                "type": "coverage",
+                "name": "rasterio",
+                "data": str(path),
+                "options": {"DATA": {"BAND": 1}},
+                "format": {"name": "GTiff", "mimetype": "application/tiff"},
             }
         ],
     }
