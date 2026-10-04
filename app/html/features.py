@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import json
+from copy import deepcopy
 from typing import Any
 from urllib.parse import quote
+
+from pygeoapi.linked_data import geojson2jsonld
 
 from app.html.collection import collection_crumbs, provider_of
 from app.html.maps import basemap, camera, features_island
@@ -131,4 +135,63 @@ def items(context: PageContext) -> dict[str, Any]:
             ],
         },
         "crumbs": collection_crumbs(context, title, {"label": _("Items")}),
+    }
+
+
+def _shown(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, dict | list):
+        return json.dumps(value, ensure_ascii=False)
+    return str(value)
+
+
+def item(context: PageContext) -> dict[str, Any]:
+    """An item: its properties, its map, and pygeoapi's JSON-LD of it."""
+    _ = context.gettext
+    api = context.api
+    document = context.document
+    collection_id = context.path_params["collection_id"]
+    resource = api.config["resources"].get(collection_id, {})
+    title = (context.related.get("collection") or {}).get("title") or collection_id
+    provider_def = data_provider(resource)
+    name = feature_name(document, provider_def.get("title_field"))
+    base = base_url(context)
+    url = item_url(base, collection_id, document.get("id", context.path_params["item_id"]))
+    rows = [
+        {
+            "name": key,
+            "value": _shown(value),
+            "href": value
+            if isinstance(value, str) and value.startswith(("http://", "https://"))
+            else None,
+        }
+        for key, value in (document.get("properties") or {}).items()
+    ]
+    shown = None
+    if document.get("geometry"):
+        shown = features_island(
+            camera(resource, fit_data=True),
+            basemap(api.config),
+            {"type": "FeatureCollection", "features": [document]},
+        )
+    # pygeoapi's function takes the properties out of the feature it is given.
+    linked = geojson2jsonld(
+        api,
+        {"links": [], **deepcopy(document)},
+        collection_id,
+        identifier=url,
+        id_field=provider_def.get("id_field", "id"),
+    )
+    return {
+        "title": name,
+        "rows": rows,
+        "map": shown,
+        "jsonld": json.loads(linked),
+        "crumbs": collection_crumbs(
+            context,
+            title,
+            {"label": _("Items"), "href": f"{base}/collections/{collection_id}/items?f=html"},
+            {"label": name},
+        ),
     }

@@ -29,6 +29,12 @@ PAGES: dict[str, Page] = {
         islands=collection.MAP_ISLAND,
         related=(collection.THE_COLLECTION,),
     ),
+    "/collections/{collection_id:path}/items/{item_id:path}": Page(
+        "item.html",
+        features.item,
+        islands=collection.MAP_ISLAND,
+        related=(collection.THE_COLLECTION,),
+    ),
     "/collections/{collection_id:path}/items": Page(
         "items.html",
         features.items,

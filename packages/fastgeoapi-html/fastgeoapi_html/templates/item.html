@@ -1,0 +1,17 @@
+{% extends "_layout.html" %}
+{% block content %}
+<div class="split{% if not map %} solo{% endif %}">
+  <section class="panel">
+    <h1>{{ title }}</h1>
+    <table class="data">
+      <thead><tr><th>{{ _("Property") }}</th><th>{{ _("Value") }}</th></tr></thead>
+      <tbody>
+      {% for row in rows %}<tr><td><code>{{ row.name }}</code></td><td>{% if row.href %}<a href="{{ row.href }}">{{ row.value }}</a>{% else %}{{ row.value }}{% endif %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% if prev or next %}<nav class="pager">{% if prev %}<a rel="prev" href="{{ prev }}">{{ _("Previous") }}</a>{% endif %}{% if next %}<a rel="next" href="{{ next }}">{{ _("Next") }}</a>{% endif %}</nav>{% endif %}
+  </section>
+  {% include "_map.html" %}
+</div>
+{% endblock %}

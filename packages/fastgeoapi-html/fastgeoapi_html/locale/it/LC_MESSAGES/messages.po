@@ -467,3 +467,6 @@ msgstr "Usa la vista della mappa"
 
 msgid "Examples:"
 msgstr "Esempi:"
+
+msgid "Value"
+msgstr "Valore"
