@@ -256,3 +256,28 @@ def with_lost_tiles(api_config: dict, directory: Path) -> dict:
         ],
     }
     return api_config
+
+
+def with_parquet_lakes(api_config: dict) -> dict:
+    """``api_config`` with ``lakes-parquet``: four lakes in GeoParquet, whose provider applies CQL2."""
+    api_config["resources"]["lakes-parquet"] = {
+        "type": "collection",
+        "title": "Lakes in GeoParquet",
+        "description": "Four lakes",
+        "keywords": [],
+        "extents": {
+            "spatial": {"bbox": [-180, -90, 180, 90], "crs": CRS84},
+            "temporal": {"begin": "2000-01-01T00:00:00Z", "end": None},
+        },
+        "links": [],
+        "providers": [
+            {
+                "type": "feature",
+                "name": "app.provider.geoparquet.GeoParquetProvider",
+                "data": "tests/data/lakes.parquet",
+                "id_field": "id",
+                "geometry_column": "geometry",
+            }
+        ],
+    }
+    return api_config

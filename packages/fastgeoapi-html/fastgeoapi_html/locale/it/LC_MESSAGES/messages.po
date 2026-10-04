@@ -431,3 +431,39 @@ msgstr "Gli elementi"
 
 msgid "Only how many they are"
 msgstr "Solo quanti sono"
+
+msgid "Items of %(collection)s"
+msgstr "Elementi di %(collection)s"
+
+msgid "%(returned)s of %(matched)s items"
+msgstr "%(returned)s elementi su %(matched)s"
+
+msgid "%(returned)s items"
+msgstr "%(returned)s elementi"
+
+msgid "Advanced"
+msgstr "Avanzate"
+
+msgid "Clear"
+msgstr "Azzera"
+
+msgid "Apply"
+msgstr "Applica"
+
+msgid "the data of this collection does not apply it"
+msgstr "i dati di questa collezione non lo applicano"
+
+msgid "Remove %(parameter)s"
+msgstr "Togli %(parameter)s"
+
+msgid "Previous"
+msgstr "Precedente"
+
+msgid "Next"
+msgstr "Successiva"
+
+msgid "Use the map view"
+msgstr "Usa la vista della mappa"
+
+msgid "Examples:"
+msgstr "Esempi:"

@@ -1,0 +1,36 @@
+{% extends "_layout.html" %}
+{% from "_field.html" import field %}
+{% block content %}
+<div class="split">
+  <section class="panel">
+    <h1>{{ title }}</h1>
+    {% if description %}<p class="lead">{{ description }}</p>{% endif %}
+    {% if error and not error_field %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+    <form class="filters" method="get" action="{{ action }}">
+      <input type="hidden" name="f" value="html">
+      {% if language %}<input type="hidden" name="lang" value="{{ language }}">{% endif %}
+      {% for each in fields %}{{ field(each, error if each.name == error_field else none) }}
+      {% endfor %}
+      {% if advanced %}<details class="advanced"{% if advanced_open %} open{% endif %}>
+        <summary>{{ _("Advanced") }}</summary>
+        <div class="advanced-fields">
+        {% for each in advanced %}{{ field(each, error if each.name == error_field else none) }}
+        {% endfor %}
+        </div>
+      </details>{% endif %}
+      <div class="actions wide"><a href="{{ action }}?f=html">{{ _("Clear") }}</a> <button class="primary" type="submit">{{ _("Apply") }}</button></div>
+    </form>
+    {% if chips %}<ul class="chips">
+    {% for chip in chips %}<li class="chip{% if chip.ignored %} ignored{% endif %}"><code>{{ chip.name }}={{ chip.value }}</code>{% if chip.ignored %} <small>{{ _("the data of this collection does not apply it") }}</small>{% endif %} <a href="{{ chip.remove }}" aria-label="{{ _('Remove %(parameter)s', parameter=chip.name) }}">×</a></li>
+    {% endfor %}
+    </ul>{% endif %}
+    {% if count %}<p class="results">{{ count }}</p>{% endif %}
+    <ol class="feature-list">
+    {% for each in features %}<li class="item" data-fga-feature="{{ each.index }}"><a class="name" href="{{ each.href }}">{{ each.name }}</a>{% if each.props %}<span class="props">{{ each.props }}</span>{% endif %}</li>
+    {% endfor %}
+    </ol>
+    {% if prev or next %}<nav class="pager">{% if prev %}<a rel="prev" href="{{ prev }}">{{ _("Previous") }}</a>{% endif %}{% if next %}<a rel="next" href="{{ next }}">{{ _("Next") }}</a>{% endif %}</nav>{% endif %}
+  </section>
+  {% include "_map.html" %}
+</div>
+{% endblock %}

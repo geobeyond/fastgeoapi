@@ -1,6 +1,6 @@
 """The pages fastgeoapi renders, by the path of their route."""
 
-from app.html import collection, views
+from app.html import collection, features, views
 from app.html.pages import Page
 
 PAGES: dict[str, Page] = {
@@ -28,6 +28,13 @@ PAGES: dict[str, Page] = {
         collection.tileset,
         islands=collection.MAP_ISLAND,
         related=(collection.THE_COLLECTION,),
+    ),
+    "/collections/{collection_id:path}/items": Page(
+        "items.html",
+        features.items,
+        islands=collection.MAP_ISLAND,
+        related=(collection.THE_COLLECTION, features.THE_QUERYABLES),
+        on_bad_request=True,
     ),
     "/collections/{collection_id:path}": Page(
         "collection.html", collection.collection, islands=collection.MAP_ISLAND
