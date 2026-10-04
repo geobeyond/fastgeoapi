@@ -87,6 +87,7 @@ def _tiles_preview(
     )
     return tiles_island(
         camera(resource, tilejson_center=content.center),
+        basemap(context.api.config),
         tile_styles(resource, tilejson, content),
         _("Default"),
         _("Style"),

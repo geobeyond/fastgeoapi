@@ -65,6 +65,7 @@ def test_a_collection_of_tiles_previews_them_with_their_style(client):
     style = preview["styles"][0]
 
     assert (preview["kind"], style["name"]) == ("tiles", "Default")
+    assert preview["basemap"]["url"] == "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
     assert style["style"]["sources"]["archive"]["url"] == (
         f"{SERVER_URL}/collections/places/tiles/WebMercatorQuad/metadata?f=tilejson"
     )

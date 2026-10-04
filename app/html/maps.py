@@ -70,12 +70,17 @@ def basemap(config: dict[str, Any]) -> dict[str, str] | None:
 
 
 def tiles_island(
-    view: dict[str, Any], styles: list[TileStyle], default_name: str, style_label: str
+    view: dict[str, Any],
+    base: dict[str, str] | None,
+    styles: list[TileStyle],
+    default_name: str,
+    style_label: str,
 ) -> dict[str, Any]:
-    """A map of the collection's tiles, with every style it can be drawn with."""
+    """A map of the collection's tiles over the basemap, with every style it can be drawn with."""
     return {
         "kind": "tiles",
         "camera": view,
+        "basemap": base,
         "styles": [
             {"name": style.name or default_name, "style": style.document} for style in styles
         ],

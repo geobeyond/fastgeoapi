@@ -52,6 +52,7 @@ export type MapConfig =
   | {
       kind: "tiles";
       camera: Camera;
+      basemap: Basemap | null;
       styles: { name: string; style: object }[];
       labels: Labels;
     }
@@ -212,6 +213,32 @@ export function baseStyle(basemap: Basemap | null): Style {
       },
     },
     layers: [{ id: "basemap", type: "raster", source: "basemap" }],
+  };
+}
+
+/**
+ * A style of tiles with the basemap under them, above the style's own
+ * background: an opaque background would hide it.
+ */
+export function withBasemap(
+  style: object,
+  basemap: Basemap | null | undefined,
+): object {
+  if (!basemap) {
+    return style;
+  }
+  const base = baseStyle(basemap);
+  const drawn = style as Style;
+  const first = drawn.layers.findIndex((layer) => layer.type !== "background");
+  const at = first === -1 ? drawn.layers.length : first;
+  return {
+    ...drawn,
+    sources: { ...base.sources, ...drawn.sources },
+    layers: [
+      ...drawn.layers.slice(0, at),
+      ...base.layers,
+      ...drawn.layers.slice(at),
+    ],
   };
 }
 
@@ -400,7 +427,8 @@ export function startMap(
       picker(
         config.styles.map((style) => style.name),
         config.labels.style,
-        (index) => map.setStyle(config.styles[index].style),
+        (index) =>
+          map.setStyle(withBasemap(config.styles[index].style, config.basemap)),
       ),
     );
   }
@@ -422,7 +450,7 @@ export function startMap(
     container,
     style:
       config.kind === "tiles"
-        ? config.styles[0].style
+        ? withBasemap(config.styles[0].style, config.basemap)
         : baseStyle(config.basemap),
     center: camera.center ?? [0, 0],
     zoom: camera.zoom ?? 0,

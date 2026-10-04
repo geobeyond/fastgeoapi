@@ -109,9 +109,11 @@ def test_the_islands_say_what_they_draw():
     view = {"bounds": [0, 0, 1, 1], "minZoom": 0}
     styles = [TileStyle(None, {"version": 8}), TileStyle("night", {"version": 8, "name": "n"})]
 
-    assert tiles_island(view, styles, "Default", "Style") == {
+    osm = {"url": "https://t/{z}/{x}/{y}.png", "attribution": "OSM"}
+    assert tiles_island(view, osm, styles, "Default", "Style") == {
         "kind": "tiles",
         "camera": view,
+        "basemap": osm,
         "styles": [
             {"name": "Default", "style": {"version": 8}},
             {"name": "night", "style": {"version": 8, "name": "n"}},

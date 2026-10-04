@@ -267,6 +267,49 @@ describe("startMap", () => {
     expect(started.defaultPrevented && turned.defaultPrevented).toBe(true);
   });
 
+  it("draws the basemap under the tiles, above the style's own background", () => {
+    const hillshade = {
+      version: 8,
+      sources: { archive: { type: "raster-dem" } },
+      layers: [
+        { id: "background", type: "background" },
+        { id: "hillshade", type: "hillshade", source: "archive" },
+      ],
+    };
+    const night = {
+      version: 8,
+      sources: { lines: { type: "vector" } },
+      layers: [{ id: "night", type: "line", source: "lines" }],
+    };
+    const map = start({
+      kind: "tiles",
+      camera,
+      basemap: { url: "https://t/{z}/{x}/{y}.png", attribution: "OSM" },
+      styles: [
+        { name: "Default", style: hillshade },
+        { name: "night", style: night },
+      ],
+      labels: { style: "Style" },
+    } as MapConfig);
+    const picker = document.querySelector("select") as HTMLSelectElement;
+    picker.value = "1";
+    picker.dispatchEvent(new Event("change"));
+    const ids = (style: unknown) =>
+      (style as { layers: { id: string }[] }).layers.map((layer) => layer.id);
+
+    expect(ids(map.options.style)).toEqual([
+      "background",
+      "basemap",
+      "hillshade",
+    ]);
+    expect(ids(map.styles[0])).toEqual(["basemap", "night"]);
+    expect(
+      (map.options.style as { sources: Record<string, unknown> }).sources
+        .basemap,
+    ).toMatchObject({ type: "raster", maxzoom: 19, attribution: "OSM" });
+    expect(hillshade.layers).toHaveLength(2);
+  });
+
   it("asks one map image per view, again when the map stops moving", () => {
     const map = start({
       kind: "image",
