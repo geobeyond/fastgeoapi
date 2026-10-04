@@ -1,0 +1,30 @@
+{% extends "_layout.html" %}
+{% block content %}
+<div class="split{% if not map %} solo{% endif %}">
+  <section class="panel">
+    <h1>{{ title }}</h1>
+    {% if description %}<p class="lead">{{ description }}</p>{% endif %}
+    {% if children %}<h2>{{ _("Catalogs") }}</h2>
+    <ul class="sections">{% for child in children %}<li><a href="{{ child.href }}">{{ child.title }}</a></li>{% endfor %}</ul>{% endif %}
+    {% if entries %}<h2>{{ _("Items") }}</h2>
+    <ul class="sections">{% for entry in entries %}<li><a href="{{ entry.href }}">{{ entry.title }}</a></li>{% endfor %}</ul>{% endif %}
+    {% if properties %}<h2>{{ _("Properties") }}</h2>
+    <table class="data">
+      <thead><tr><th>{{ _("Property") }}</th><th>{{ _("Value") }}</th></tr></thead>
+      <tbody>
+      {% for row in properties %}<tr><td><code>{{ row.name }}</code></td><td>{{ row.value }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>{% endif %}
+    {% if assets %}<h2>{{ _("Assets") }}</h2>
+    <table class="data">
+      <thead><tr><th>{{ _("Name") }}</th><th>{{ _("Type") }}</th><th>{{ _("Size") }}</th></tr></thead>
+      <tbody>
+      {% for asset in assets %}<tr><td><a href="{{ asset.href }}">{{ asset.name }}</a></td><td>{{ asset.type }}</td><td>{{ asset.size | number }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>{% endif %}
+  </section>
+  {% include "_map.html" %}
+</div>
+{% endblock %}

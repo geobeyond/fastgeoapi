@@ -15,6 +15,7 @@ import numpy as np
 import rasterio
 from pygeoapi.process.base import BaseProcessor
 from pygeoapi.process.manager.tinydb_ import TinyDBManager
+from pygeoapi.provider.base import BaseProvider
 from pygeoapi.provider.base_edr import BaseEDRProvider
 from pygeoapi.util import yaml_load
 from rasterio.transform import from_bounds
@@ -384,6 +385,54 @@ def with_edr(api_config: dict) -> dict:
         "links": [],
         "providers": [
             {"type": "edr", "name": "tests.html_fixtures.FakeEDRProvider", "data": "unused"}
+        ],
+    }
+    return api_config
+
+
+class FakeStacProvider(BaseProvider):
+    """A STAC catalog of two images: ``rome`` has a bbox, ``nowhere`` has none."""
+
+    def get_data_path(self, baseurl: str, urlpath: str, dirpath: str) -> dict:
+        name = dirpath.strip("/")
+        if not name:
+            return {
+                "links": [
+                    {"rel": "item", "href": f"{baseurl}/{urlpath}/rome", "title": "rome.tif"},
+                    {
+                        "rel": "item",
+                        "href": f"{baseurl}/{urlpath}/nowhere",
+                        "title": "nowhere.tif",
+                    },
+                ]
+            }
+        return {
+            "id": name,
+            "type": "Feature",
+            "properties": {"datetime": "2026-10-03T00:00:00Z"},
+            "assets": {
+                "default": {
+                    "href": f"{baseurl}/{urlpath}.tif",
+                    "type": "image/tiff",
+                    "file:size": 430,
+                }
+            },
+            "bbox": list(ROME) if name == "rome" else None,
+            "geometry": None,
+        }
+
+
+def with_stac(api_config: dict) -> dict:
+    """``api_config`` with ``catalog``, the STAC catalog of the fake source."""
+    api_config["resources"]["catalog"] = {
+        "type": "stac-collection",
+        "title": "Catalog",
+        "description": "Two images",
+        "keywords": [],
+        "links": [],
+        "extents": {"spatial": {"bbox": [-180, -90, 180, 90], "crs": CRS84}},
+        "providers": [
+            {"type": "stac", "name": "tests.html_fixtures.FakeStacProvider", "data": "unused"}
         ],
     }
     return api_config

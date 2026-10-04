@@ -2,7 +2,7 @@
 
 from dataclasses import replace
 
-from app.html import collection, coverages, features, views
+from app.html import collection, coverages, features, stac, views
 from app.html.pages import Page
 
 PAGES: dict[str, Page] = {
@@ -31,6 +31,8 @@ PAGES: dict[str, Page] = {
         islands=collection.MAP_ISLAND,
         related=(collection.THE_COLLECTION,),
     ),
+    "/stac": Page("stac.html", stac.stac, islands=collection.MAP_ISLAND),
+    "/stac/{path:path}": Page("stac.html", stac.stac, islands=collection.MAP_ISLAND),
     "/collections/{collection_id:path}/coverage": Page(
         "coverage.html",
         coverages.coverage,

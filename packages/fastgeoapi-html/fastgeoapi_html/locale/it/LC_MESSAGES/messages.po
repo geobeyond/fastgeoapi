@@ -542,3 +542,18 @@ msgstr "Numero"
 
 msgid "Unit"
 msgstr "Unità"
+
+msgid "SpatioTemporal Asset Catalog"
+msgstr "Catalogo di asset spazio-temporali"
+
+msgid "Catalogs"
+msgstr "Cataloghi"
+
+msgid "Properties"
+msgstr "Proprietà"
+
+msgid "Assets"
+msgstr "Asset"
+
+msgid "Size"
+msgstr "Dimensione"
