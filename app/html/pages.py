@@ -8,9 +8,11 @@ request for another format never reaches the page.
 
 from __future__ import annotations
 
+import asyncio
 import json
+import re
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -39,6 +41,20 @@ FORMAT_LABELS = {
 
 
 @dataclass(frozen=True)
+class Related:
+    """Another route's JSON a page reads, asked with the page's own path parameters."""
+
+    name: str
+    route: str
+    """The route's path, as the route table writes it."""
+    query: tuple[tuple[str, str], ...] = ()
+    required: bool = False
+    """An error from this route is the page's answer."""
+    adjust: Callable[[dict[str, str]], dict[str, str]] | None = None
+    """Turns the page's path parameters into the route's."""
+
+
+@dataclass(frozen=True)
 class PageContext:
     """What a page's view reads to fill its template."""
 
@@ -52,6 +68,12 @@ class PageContext:
     """The page's own URL, on the configured server URL."""
     gettext: Callable[[str], str]
     """Translates an interface string into the page's language."""
+    related: dict[str, Any] = field(default_factory=dict)
+    """The JSON of the page's related routes; None for one that failed."""
+    error: str | None = None
+    """The message of the 400 the page renders again, instead of its document."""
+    params: dict[str, str] = field(default_factory=dict)
+    """The request's query parameters that carry a value, ``f`` left out."""
 
 
 @dataclass(frozen=True)
@@ -65,6 +87,9 @@ class Page:
     """The manifest entries of the scripts the page loads."""
     needs_document: bool = True
     """False for a page that renders without asking its route for JSON."""
+    related: tuple[Related, ...] = ()
+    on_bad_request: bool = False
+    """Render the page again, with the route's message, when the route answers 400."""
 
 
 class NativePages:
@@ -83,12 +108,15 @@ class NativePages:
     def wrap(self, api: API, routes: list[Route]) -> list[Route]:
         """``routes``, with the ones that have a page answering HTML from their own JSON."""
         assets = Assets(self.static, api.config["server"]["url"])
+        endpoints = {route.path: route.endpoint for route in routes}
         return [
-            self._wrapped(api, assets, route) if route.path in self._pages else route
+            self._wrapped(api, assets, endpoints, route) if route.path in self._pages else route
             for route in routes
         ]
 
-    def _wrapped(self, api: API, assets: Assets, route: Route) -> Route:
+    def _wrapped(
+        self, api: API, assets: Assets, endpoints: dict[str, Callable[..., Any]], route: Route
+    ) -> Route:
         page = self._pages[route.path]
         inner = route.endpoint
 
@@ -98,17 +126,31 @@ class NativePages:
             api_request = APIRequest(request, api.locales)
             if request.method not in ("GET", "HEAD") or api_request.format != F_HTML:
                 return await inner(request)
-            document = None
+            document, error = None, None
             if page.needs_document:
                 answer = await inner(_asking_json(request))
-                body = getattr(answer, "body", None)
-                if answer.status_code >= 400 or body is None:
+                if answer.status_code == 400 and page.on_bad_request:
+                    # A route that needs parameters refuses a request without
+                    # any: that is the blank form, not a mistake to point at.
+                    error = _description(answer) if _asked(request) else None
+                elif answer.status_code >= 400:
                     return answer
-                try:
-                    document = json.loads(_as_written(body))
-                except ValueError:
+                else:
+                    document = _document(answer)
+                    if document is _UNREADABLE:
+                        return answer
+            related: dict[str, Any] = {}
+            for each in page.related:
+                answer = await endpoints[each.route](_asking_related(request, each))
+                if answer.status_code >= 400 and each.required:
                     return answer
-            return self._render(api, assets, page, request, api_request, document)
+                found = _document(answer) if answer.status_code < 400 else None
+                related[each.name] = None if found is _UNREADABLE else found
+            # Views may read a tile archive or a style; templates take a while on
+            # long pages: neither belongs on the event loop.
+            return await asyncio.to_thread(
+                self._render, api, assets, page, request, api_request, document, related, error
+            )
 
         methods = sorted(route.methods - {"HEAD"}) if route.methods else None
         return Route(route.path, endpoint, methods=methods)
@@ -121,12 +163,22 @@ class NativePages:
         request: Request,
         api_request: APIRequest,
         document: Any,
+        related: dict[str, Any],
+        error: str | None,
     ) -> Response:
         locale = api_request.locale
         catalog = translations(self._locale, locale.language)
         url = page_url(api, request)
         context = PageContext(
-            document, api, api_request, dict(request.path_params), url, catalog.gettext
+            document,
+            api,
+            api_request,
+            dict(request.path_params),
+            url,
+            catalog.gettext,
+            related=related,
+            error=error,
+            params=dict(_filled(request)),
         )
         links = _links(document)
         variables = {
@@ -137,7 +189,11 @@ class NativePages:
         }
         variables["jsonld"].setdefault("name", variables.get("title", ""))
         template = self._environment(locale.language).get_template(page.template)
-        return HTMLResponse(template.render(variables), headers=_headers(url, links, locale))
+        return HTMLResponse(
+            template.render(variables),
+            status_code=400 if error is not None else 200,
+            headers=_headers(url, links, locale),
+        )
 
     def _environment(self, language: str) -> Environment:
         environment = self._environments.get(language)
@@ -173,14 +229,25 @@ def page_url(api: API, request: Request) -> str:
 
     The request may come through a proxy, under another host name: the
     links of a page follow the configuration, as pygeoapi's own links do.
+    Empty parameters are left out.
     """
     path = request.scope["path"]
     root = request.scope.get("root_path", "")
     if root and path.startswith(root):
         path = path[len(root) :]
-    query = [(key, value) for key, value in request.query_params.multi_items() if key != "f"]
-    query.append(("f", F_HTML))
+    query = [*_filled(request), ("f", F_HTML)]
     return f"{api.base_url.rstrip('/')}{path.rstrip('/')}?{urlencode(query)}"
+
+
+def without_query(url: str, *names: str) -> str:
+    """``url`` without the parameters ``names``, the others kept in order."""
+    parts = urlsplit(url)
+    query = [
+        (key, value)
+        for key, value in parse_qsl(parts.query, keep_blank_values=True)
+        if key not in names
+    ]
+    return urlunsplit(parts._replace(query=urlencode(query)))
 
 
 def format_instant(value: str | None, language: str) -> str:
@@ -209,18 +276,87 @@ def _as_written(body: bytes) -> bytes:
     return body.replace(b"&lt;", b"<").replace(b"&gt;", b">")
 
 
-def _asking_json(request: Request) -> Request:
-    """The same request asking for JSON, uncompressed so that its body can be read."""
-    scope = dict(request.scope)
-    query = [(key, value) for key, value in request.query_params.multi_items() if key != "f"]
-    query.append(("f", F_JSON))
-    scope["query_string"] = urlencode(query).encode()
-    scope["headers"] = [
+def _filled(request: Request) -> list[tuple[str, str]]:
+    """The query parameters that carry a value, ``f`` left out.
+
+    A form sends its empty fields as well, and pygeoapi refuses most
+    parameters when they are empty (``bbox=``, ``limit=``): an empty
+    field means no parameter.
+    """
+    return [
+        (key, value)
+        for key, value in request.query_params.multi_items()
+        if key != "f" and value != ""
+    ]
+
+
+def _asked(request: Request) -> bool:
+    """Whether the request sets a parameter of its own, beyond the format and the language."""
+    return any(key != "lang" for key, _ in _filled(request))
+
+
+def _json_headers(request: Request) -> list[tuple[bytes, bytes]]:
+    kept = [
         (name, value)
         for name, value in request.scope["headers"]
         if name not in (b"accept", b"accept-encoding")
-    ] + [(b"accept", b"application/json")]
+    ]
+    return [*kept, (b"accept", b"application/json")]
+
+
+def _asking_json(request: Request) -> Request:
+    """The same request asking for JSON, uncompressed so that its body can be read."""
+    scope = dict(request.scope)
+    scope["query_string"] = urlencode([*_filled(request), ("f", F_JSON)]).encode()
+    scope["headers"] = _json_headers(request)
     return Request(scope, request.receive)
+
+
+_PATH_PARAMETER = re.compile(r"{(\w+)(?::\w+)?}")
+
+
+async def _no_body() -> dict[str, Any]:
+    # The request's own body went to its route: a related route is asked
+    # with a GET and an empty one.
+    return {"type": "http.request", "body": b"", "more_body": False}
+
+
+def _asking_related(request: Request, related: Related) -> Request:
+    """A request for a related route's JSON, with the page's path parameters and language."""
+    params = dict(request.path_params)
+    if related.adjust is not None:
+        params = related.adjust(params)
+    path = _PATH_PARAMETER.sub(lambda match: str(params[match.group(1)]), related.route)
+    query = list(related.query)
+    if request.query_params.get("lang"):
+        query.append(("lang", request.query_params["lang"]))
+    query.append(("f", F_JSON))
+    scope = dict(request.scope)
+    scope["path"] = request.scope.get("root_path", "") + path
+    scope["path_params"] = params
+    scope["query_string"] = urlencode(query).encode()
+    scope["headers"] = _json_headers(request)
+    return Request(scope, _no_body)
+
+
+_UNREADABLE = object()
+"""What ``_document`` returns for an answer that carries no JSON."""
+
+
+def _document(answer: Response) -> Any:
+    body = getattr(answer, "body", None)
+    if body is None:
+        return _UNREADABLE
+    try:
+        return json.loads(_as_written(body))
+    except ValueError:
+        return _UNREADABLE
+
+
+def _description(answer: Response) -> str:
+    """The message of an error answer, as pygeoapi writes it."""
+    document = _document(answer)
+    return document.get("description", "") if isinstance(document, dict) else ""
 
 
 def _links(document: Any) -> list[dict[str, Any]]:
