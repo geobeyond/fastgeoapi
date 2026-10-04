@@ -1,5 +1,6 @@
 import {
   baseStyle,
+  composeStyles,
   dataBounds,
   extentFeature,
   mapImageUrl,
@@ -202,6 +203,61 @@ describe("helpers", () => {
   });
 });
 
+const RASTER = { url: "https://t/{z}/{x}/{y}.png", attribution: "OSM" };
+
+const LIBERTY = {
+  version: 8,
+  sources: {
+    openmaptiles: { type: "vector" },
+    archive: { type: "raster" },
+  },
+  layers: [
+    { id: "background", type: "background" },
+    { id: "water", type: "fill", source: "openmaptiles" },
+  ],
+  glyphs: "https://g/{fontstack}/{range}.pbf",
+  sprite: "https://s/sprite",
+};
+
+const HILLSHADE = {
+  version: 8,
+  name: "terrain",
+  sources: { archive: { type: "raster-dem" } },
+  layers: [
+    { id: "background", type: "background" },
+    { id: "water", type: "hillshade", source: "archive" },
+  ],
+};
+
+type Composed = {
+  sources: Record<string, unknown>;
+  layers: { id: string; source?: string }[];
+  glyphs?: string;
+  sprite?: string;
+};
+
+describe("composeStyles", () => {
+  it("puts the tiles over the basemap's style, renaming what collides", () => {
+    const composed = composeStyles(LIBERTY, HILLSHADE) as Composed;
+
+    expect(composed.layers.map((layer) => layer.id)).toEqual([
+      "background",
+      "water",
+      "fga-water",
+    ]);
+    expect(composed.layers[2].source).toBe("fga-archive");
+    expect(Object.keys(composed.sources)).toEqual([
+      "openmaptiles",
+      "archive",
+      "fga-archive",
+    ]);
+    expect([composed.glyphs, composed.sprite]).toEqual([
+      LIBERTY.glyphs,
+      LIBERTY.sprite,
+    ]);
+  });
+});
+
 describe("startMap", () => {
   it("draws tiles with their first style and switches style from the picker", () => {
     const styles = [
@@ -308,6 +364,71 @@ describe("startMap", () => {
         .basemap,
     ).toMatchObject({ type: "raster", maxzoom: 19, attribution: "OSM" });
     expect(hillshade.layers).toHaveLength(2);
+  });
+
+  it("draws on the basemap's style, and on its tiles when the style does not load", () => {
+    const map = start({
+      kind: "extent",
+      camera,
+      basemap: { ...RASTER, style: "https://s/liberty" },
+      bbox: [12, 41, 13, 42],
+    });
+
+    expect(map.options.style).toBe("https://s/liberty");
+    map.fire("error");
+    map.fire("load");
+    map.fire("error");
+
+    expect(map.styles).toEqual([baseStyle(RASTER)]);
+  });
+
+  it("puts the tiles over the basemap's style once it arrives, asked once", async () => {
+    const asked = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => LIBERTY });
+    vi.stubGlobal("fetch", asked);
+    const map = start({
+      kind: "tiles",
+      camera,
+      basemap: { ...RASTER, style: "https://s/arrives" },
+      styles: [
+        { name: "Default", style: HILLSHADE },
+        { name: "plain", style: { version: 8, sources: {}, layers: [] } },
+      ],
+      labels: { style: "Style" },
+    });
+
+    expect(map.options.style).toBe(HILLSHADE);
+    await vi.waitFor(() => expect(map.styles).toHaveLength(1));
+    const picker = document.querySelector("select") as HTMLSelectElement;
+    picker.value = "1";
+    picker.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => expect(map.styles).toHaveLength(2));
+    vi.unstubAllGlobals();
+
+    expect(map.styles[0]).toEqual(composeStyles(LIBERTY, HILLSHADE));
+    expect((map.styles[1] as Composed).layers.map((layer) => layer.id)).toEqual(
+      ["background", "water"],
+    );
+    expect(asked).toHaveBeenCalledTimes(1);
+  });
+
+  it("puts the tiles over the basemap's tiles when its style does not arrive", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    const map = start({
+      kind: "tiles",
+      camera,
+      basemap: { ...RASTER, style: "https://s/offline" },
+      styles: [{ name: "Default", style: HILLSHADE }],
+      labels: { style: "Style" },
+    });
+
+    await vi.waitFor(() => expect(map.styles).toHaveLength(1));
+    vi.unstubAllGlobals();
+
+    expect((map.styles[0] as Composed).layers.map((layer) => layer.id)).toEqual(
+      ["background", "basemap", "water"],
+    );
   });
 
   it("asks one map image per view, again when the map stops moving", () => {

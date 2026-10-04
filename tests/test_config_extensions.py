@@ -1,4 +1,4 @@
-"""fastgeoapi's own keys in a pygeoapi configuration: a collection's ``view``.
+"""fastgeoapi's own keys in a pygeoapi configuration: a collection's ``view``, the map's style.
 
 ``app.*`` is imported at the top of this module, nowhere else.
 """
@@ -9,10 +9,16 @@ import pytest
 from pygeoapi.config import load_schema
 from pygeoapi.util import yaml_load
 
-from app.pygeoapi.config_extensions import VIEW_SCHEMA, extend_schema, extension_problem
+from app.pygeoapi.config_extensions import (
+    MAP_STYLE_SCHEMA,
+    VIEW_SCHEMA,
+    extend_schema,
+    extension_problem,
+)
 from app.pygeoapi.factory import ConfigValidationError, normalize_config
 
 CONFIG_PATH = "tests/data/pygeoapi-config.yml"
+LIBERTY = "https://tiles.openfreemap.org/styles/liberty"
 
 
 @pytest.fixture
@@ -86,3 +92,30 @@ def test_the_schema_offers_the_view_to_collections_only():
         if "processor" in alternative.get("properties", {})
     ]
     assert processes and all("view" not in alt["properties"] for alt in processes)
+
+
+def test_a_map_style_is_accepted(config):
+    config["server"]["map"]["style"] = LIBERTY
+
+    assert normalize_config(config)["server"]["map"]["style"] == LIBERTY
+
+
+@pytest.mark.parametrize("style", [42, "liberty", "ftp://tiles.example/style.json"])
+def test_a_wrong_map_style_is_refused_with_its_path(config, style):
+    config["server"]["map"]["style"] = style
+
+    with pytest.raises(
+        ConfigValidationError, match=re.escape("configuration at server.map.style:")
+    ):
+        normalize_config(config)
+
+
+def test_the_schema_offers_the_map_style():
+    schema = load_schema()
+
+    extended = extend_schema(schema)
+
+    assert extended["properties"]["server"]["properties"]["map"]["properties"]["style"] == (
+        MAP_STYLE_SCHEMA
+    )
+    assert "style" not in schema["properties"]["server"]["properties"]["map"]["properties"]

@@ -103,6 +103,12 @@ def test_the_basemap_is_pygeoapis_own():
         "attribution": "OSM",
     }
     assert basemap({"server": {}}) is None
+    styled = {"server": {"map": {**config["server"]["map"], "style": "https://s/liberty"}}}
+    assert basemap(styled) == {
+        "url": "https://tiles.example/{z}/{x}/{y}.png",
+        "attribution": "OSM",
+        "style": "https://s/liberty",
+    }
 
 
 def test_the_islands_say_what_they_draw():

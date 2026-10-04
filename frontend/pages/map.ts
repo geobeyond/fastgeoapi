@@ -42,6 +42,8 @@ export interface Camera {
 export interface Basemap {
   url: string;
   attribution: string;
+  /** A MapLibre style to draw on; the tiles of ``url`` stand in when it does not load. */
+  style?: string;
 }
 
 interface Labels {
@@ -80,7 +82,7 @@ export interface SourceLike {
 
 /** The part of a MapLibre map the island uses: a fake stands in for it in tests. */
 export interface MapLike {
-  on(event: string, handler: () => void): void;
+  on(event: string, handler: (event?: { sourceId?: string }) => void): void;
   addSource(id: string, source: object): void;
   getSource(id: string): SourceLike | undefined;
   addControl(control: object, position?: string): void;
@@ -184,6 +186,63 @@ interface Style {
   version: 8;
   sources: object;
   layers: { id: string; type: string; source?: string; paint?: object }[];
+  glyphs?: string;
+  sprite?: unknown;
+}
+
+const basemapStyles = new Map<string, Promise<Style | null>>();
+
+/** The basemap's style, asked once for the page; null when it does not arrive. */
+function loadStyle(url: string): Promise<Style | null> {
+  let found = basemapStyles.get(url);
+  if (found === undefined) {
+    found = fetch(url)
+      .then((response) =>
+        response.ok ? (response.json() as Promise<Style>) : null,
+      )
+      .catch(() => null);
+    basemapStyles.set(url, found);
+  }
+  return found;
+}
+
+/**
+ * The tiles' style drawn over the basemap's: its layers, then the tiles' own
+ * without their background. A source or a layer of the tiles named like one
+ * of the basemap's takes a prefix. The basemap's fonts and sprite come first:
+ * its labels need them, and the styles of tiles usually have none.
+ */
+export function composeStyles(base: object, tiles: object): object {
+  const basemap = base as Style;
+  const drawn = tiles as Style;
+  const sources: Record<string, unknown> = {
+    ...(basemap.sources as Record<string, unknown>),
+  };
+  const renamed: Record<string, string> = {};
+  for (const [name, source] of Object.entries(
+    drawn.sources as Record<string, unknown>,
+  )) {
+    const id = name in sources ? `fga-${name}` : name;
+    renamed[name] = id;
+    sources[id] = source;
+  }
+  const taken = new Set(basemap.layers.map((layer) => layer.id));
+  const layers = drawn.layers
+    .filter((layer) => layer.type !== "background")
+    .map((layer) => ({
+      ...layer,
+      id: taken.has(layer.id) ? `fga-${layer.id}` : layer.id,
+      ...(layer.source
+        ? { source: renamed[layer.source] ?? layer.source }
+        : {}),
+    }));
+  return {
+    ...drawn,
+    sources,
+    layers: [...basemap.layers, ...layers],
+    glyphs: basemap.glyphs ?? drawn.glyphs,
+    sprite: basemap.sprite ?? drawn.sprite,
+  };
 }
 
 /** The style a map of features or images starts from: the basemap, or a plain background. */
@@ -422,13 +481,29 @@ export function startMap(
       source.updateImage({ url, coordinates: corners(bounds) });
     }
   };
+  // The tiles are drawn alone until the basemap's style arrives, then over it.
+  const drawTiles = (index: number): void => {
+    if (config.kind !== "tiles") {
+      return;
+    }
+    const tiles = config.styles[index].style;
+    const style = config.basemap?.style;
+    if (!style) {
+      map.setStyle(withBasemap(tiles, config.basemap));
+      return;
+    }
+    void loadStyle(style).then((base) =>
+      map.setStyle(
+        base ? composeStyles(base, tiles) : withBasemap(tiles, config.basemap),
+      ),
+    );
+  };
   if (config.kind === "tiles" && config.styles.length > 1) {
     element.append(
       picker(
         config.styles.map((style) => style.name),
         config.labels.style,
-        (index) =>
-          map.setStyle(withBasemap(config.styles[index].style, config.basemap)),
+        drawTiles,
       ),
     );
   }
@@ -449,9 +524,11 @@ export function startMap(
   map = new MapType({
     container,
     style:
-      config.kind === "tiles"
-        ? withBasemap(config.styles[0].style, config.basemap)
-        : baseStyle(config.basemap),
+      config.kind !== "tiles"
+        ? (config.basemap?.style ?? baseStyle(config.basemap))
+        : config.basemap?.style
+          ? config.styles[0].style
+          : withBasemap(config.styles[0].style, config.basemap),
     center: camera.center ?? [0, 0],
     zoom: camera.zoom ?? 0,
     minZoom: camera.minZoom ?? 0,
@@ -461,11 +538,26 @@ export function startMap(
     ...(config.kind === "image" ? { maxPitch: 0 } : {}),
   });
   turnWithTrackpad(container, map);
+  let loaded = false;
+  if (config.kind === "tiles" && config.basemap?.style) {
+    drawTiles(0);
+  } else if (config.basemap?.style) {
+    // A style that does not load leaves the map without its first render:
+    // the basemap's tiles take its place. Errors of a source come later.
+    let replaced = false;
+    map.on("error", (event) => {
+      if (!loaded && !replaced && !event?.sourceId) {
+        replaced = true;
+        map.setStyle(baseStyle(config.basemap));
+      }
+    });
+  }
   // The compass shows the tilt too, and a click on it brings the map back
   // north and flat: a right drag or two fingers rotate and tilt it.
   map.addControl(new NavigationControl({ visualizePitch: true }), "top-right");
   map.addControl(new ScaleControl(), "bottom-left");
   map.on("load", () => {
+    loaded = true;
     if (config.kind === "features") {
       addData(map, config.data);
     } else if (config.kind === "extent") {

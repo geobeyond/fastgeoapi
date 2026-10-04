@@ -66,7 +66,11 @@ def basemap(config: dict[str, Any]) -> dict[str, str] | None:
     found = (config.get("server") or {}).get("map") or {}
     if not found.get("url"):
         return None
-    return {"url": found["url"], "attribution": found.get("attribution", "")}
+    base = {"url": found["url"], "attribution": found.get("attribution", "")}
+    if found.get("style"):
+        # A MapLibre style the pages draw on; the tiles of ``url`` stay as a fallback.
+        base["style"] = found["style"]
+    return base
 
 
 def tiles_island(
