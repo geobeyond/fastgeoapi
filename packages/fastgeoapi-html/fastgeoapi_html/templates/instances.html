@@ -3,6 +3,8 @@
 <div class="split{% if not map %} solo{% endif %}">
   <section class="panel">
     <h1>{{ title }}</h1>
+    {% if description %}<p class="lead">{{ description }}</p>{% endif %}
+    {% if keywords %}<p>{% for keyword in keywords %}<span class="keyword">{{ keyword }}</span> {% endfor %}</p>{% endif %}
     <ul class="sections">{% for row in rows %}<li><a href="{{ row.href }}">{{ row.id }}</a></li>{% endfor %}</ul>
   </section>
   {% include "_map.html" %}

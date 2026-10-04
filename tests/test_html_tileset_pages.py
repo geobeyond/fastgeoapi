@@ -11,6 +11,7 @@ from tests.html_fixtures import (
     fake_build,
     island_config,
     native_client,
+    section,
     with_tiles,
 )
 
@@ -26,6 +27,14 @@ def client(tmp_path_factory):
 
 def _page(client, path, **params):
     return client.get(path, params={"f": "html", **params})
+
+
+@pytest.mark.parametrize("path", [TILESET, f"{TILESET}/metadata"])
+def test_the_tileset_lists_its_metadata(client, path):
+    metadata = section(_page(client, path).text, "Metadata")
+
+    assert "<td><code>accessConstraints</code></td><td>unclassified</td>" in metadata
+    assert "<td><code>description</code></td><td>Places as vector tiles</td>" in metadata
 
 
 def test_the_tilesets_are_listed_with_their_pages(client):

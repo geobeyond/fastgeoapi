@@ -95,8 +95,10 @@ def html_link(links: list[dict[str, Any]]) -> str | None:
     )
 
 
-def json_links(document: dict[str, Any], locale: Any) -> list[dict[str, str]]:
-    """Every link of a JSON document, as pygeoapi's pages list them: title and type."""
+def json_links(
+    document: dict[str, Any], locale: Any, rel: str | None = None
+) -> list[dict[str, str]]:
+    """Every link of a JSON document, or those of ``rel``, as pygeoapi's pages list them."""
     return [
         {
             "title": l10n.translate(link.get("title"), locale)
@@ -105,8 +107,30 @@ def json_links(document: dict[str, Any], locale: Any) -> list[dict[str, str]]:
             "type": link.get("type") or "",
         }
         for link in document.get("links") or []
-        if link.get("href")
+        if link.get("href") and rel in (None, link.get("rel"))
     ]
+
+
+def as_text(value: Any) -> str:
+    """A value of a document as the page writes it: lists and objects as JSON."""
+    if value is None:
+        return ""
+    if isinstance(value, dict | list):
+        return json.dumps(value, ensure_ascii=False)
+    return str(value)
+
+
+def parameter_row(name: str, spec: dict[str, Any], locale: Any) -> dict[str, str]:
+    """A CoverageJSON parameter as a row: its name, label, description and unit."""
+    observed = spec.get("observedProperty") or {}
+    unit = (spec.get("unit") or {}).get("symbol")
+    unit = unit.get("value") if isinstance(unit, dict) else unit
+    return {
+        "name": name,
+        "label": l10n.translate(observed.get("label"), locale) or "",
+        "description": l10n.translate(observed.get("description"), locale) or "",
+        "unit": unit or "",
+    }
 
 
 def landing(context: PageContext) -> dict[str, Any]:

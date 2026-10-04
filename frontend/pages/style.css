@@ -217,6 +217,11 @@ table.data td {
   border-bottom: 1px solid var(--fga-border);
 }
 
+/* Names stay whole; the long URLs of the values are what wraps. */
+table.data td > code {
+  white-space: nowrap;
+}
+
 dl.facts {
   display: grid;
   grid-template-columns: 200px 1fr;

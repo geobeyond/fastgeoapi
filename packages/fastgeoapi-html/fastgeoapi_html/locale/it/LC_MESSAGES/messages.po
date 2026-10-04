@@ -557,3 +557,15 @@ msgstr "Asset"
 
 msgid "Size"
 msgstr "Dimensione"
+
+msgid "License"
+msgstr "Licenza"
+
+msgid "Reference systems"
+msgstr "Sistemi di riferimento"
+
+msgid "Coordinate epoch"
+msgstr "Epoca delle coordinate"
+
+msgid "Metadata"
+msgstr "Metadati"

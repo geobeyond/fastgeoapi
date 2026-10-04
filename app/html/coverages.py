@@ -5,14 +5,12 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlsplit
 
-from pygeoapi import l10n
-
 from app.html.collection import REL, collection_crumbs, edr_label, preview
 from app.html.features import feature_name
 from app.html.maps import basemap, camera, domain_footprint, extent_of, features_island
 from app.html.pages import PageContext, Related
 from app.html.parameters import Field, parameter_of
-from app.html.views import Gettext, base_url, html_link, json_links
+from app.html.views import Gettext, base_url, html_link, json_links, parameter_row
 
 THE_SCHEMA = Related("schema", "/collections/{collection_id:path}/schema")
 """The schema of the collection a page belongs to."""
@@ -253,18 +251,8 @@ def coverage_tables(
             )
     parameters = []
     for name, spec in (document.get("parameters") or first.get("parameters") or {}).items():
-        unit = (spec.get("unit") or {}).get("symbol")
-        unit = unit.get("value") if isinstance(unit, dict) else unit
         values = ((first.get("ranges") or {}).get(name) or {}).get("values") or []
-        label = (spec.get("observedProperty") or {}).get("label")
-        parameters.append(
-            {
-                "name": name,
-                "label": l10n.translate(label, locale) or "",
-                "unit": unit or "",
-                "shown": _first(values),
-            }
-        )
+        parameters.append({**parameter_row(name, spec, locale), "shown": _first(values)})
     return axes, parameters
 
 
@@ -273,10 +261,13 @@ def instances(context: PageContext) -> dict[str, Any]:
     _ = context.gettext
     collection_id = edr_where(context)[0]
     resource = context.api.config["resources"].get(collection_id, {})
-    title = (context.related.get("collection") or {}).get("title") or collection_id
+    described = context.related.get("collection") or {}
+    title = described.get("title") or collection_id
     base = base_url(context)
     return {
         "title": _("Instances of %(collection)s") % {"collection": title},
+        "description": described.get("description", ""),
+        "keywords": list(described.get("keywords") or []),
         "rows": [
             {
                 "id": each["id"],
@@ -296,12 +287,15 @@ def instance(context: PageContext) -> dict[str, Any]:
     collection_id, found = edr_where(context)
     instance_id = context.document.get("id") or found or ""
     resource = context.api.config["resources"].get(collection_id, {})
-    title = (context.related.get("collection") or {}).get("title") or collection_id
+    described = context.related.get("collection") or {}
+    title = described.get("title") or collection_id
     base = base_url(context)
     url = f"{base}/collections/{collection_id}/instances/{instance_id}"
     return {
         "title": _("Instance %(instance)s of %(collection)s")
         % {"instance": instance_id, "collection": title},
+        "description": described.get("description", ""),
+        "keywords": list(described.get("keywords") or []),
         "sections": [
             {"label": edr_label(name, _), "href": f"{url}/{name}?f=html"}
             for name in context.document.get("data_queries") or {}

@@ -21,10 +21,12 @@ from app.html.maps import (
 from app.html.pages import PageContext, Related, format_instant, with_query
 from app.html.views import (
     Gettext,
+    as_text,
     base_url,
     catalog_jsonld,
     html_link,
     json_links,
+    parameter_row,
     provider_kinds,
 )
 from app.provider.tile_styles import tile_styles
@@ -201,6 +203,7 @@ def _facts(context: PageContext, document: dict[str, Any]) -> list[dict[str, Any
         },
         {"label": _("Temporal extent"), "value": when},
         {"label": _("Storage CRS"), "value": document.get("storageCrs")},
+        {"label": _("Coordinate epoch"), "value": document.get("storageCrsCoordinateEpoch")},
     ]
     return [fact for fact in facts if fact["value"]]
 
@@ -224,6 +227,12 @@ def collection(context: PageContext) -> dict[str, Any]:
         "keywords": list(document.get("keywords") or []),
         "sections": _sections(context, collection_id, document),
         "facts": _facts(context, document),
+        "licenses": json_links(document, locale, rel="license"),
+        "reference_systems": list(document.get("crs") or []),
+        "parameters": [
+            parameter_row(name, spec, locale)
+            for name, spec in (document.get("parameter_names") or {}).items()
+        ],
         "links": json_links(document, locale),
         "map": preview(context, collection_id, resource),
         "jsonld": {"@context": "https://schema.org", **dataset},
@@ -307,6 +316,11 @@ def tileset(context: PageContext) -> dict[str, Any]:
     return {
         "title": _("Tileset %(tileset)s of %(collection)s") % {"tileset": tms, "collection": title},
         "facts": [fact for fact in facts if fact["value"]],
+        "metadata": [
+            {"name": name, "value": as_text(value)}
+            for name, value in document.items()
+            if name != "links"
+        ],
         "template": template,
         "map": preview(context, collection_id, resource),
         "crumbs": collection_crumbs(

@@ -12,6 +12,7 @@ from tests.html_fixtures import (
     fake_build,
     island_config,
     native_client,
+    section,
     with_edr,
 )
 
@@ -21,11 +22,29 @@ ROME = "POINT(12.5 41.9)"
 @pytest.fixture(scope="module")
 def client(tmp_path_factory):
     directory = tmp_path_factory.mktemp("edr")
-    return native_client(with_edr(config()), fake_build(directory / "static"))
+    api_config = with_edr(config())
+    api_config["resources"]["weather"]["keywords"] = ["forecast"]
+    return native_client(api_config, fake_build(directory / "static"))
 
 
 def _page(client, path, **params):
     return client.get(path, params={"f": "html", **params})
+
+
+def test_the_collection_lists_its_parameters_with_their_units(client):
+    parameters = section(_page(client, "/collections/weather").text, "Parameters")
+
+    assert "<td><code>temperature</code></td><td>Temperature</td><td>K</td>" in parameters
+
+
+@pytest.mark.parametrize(
+    "path", ["/collections/weather/instances", "/collections/weather/instances/2026"]
+)
+def test_the_instances_describe_their_collection(client, path):
+    html = _page(client, path).text
+
+    assert '<p class="lead">Temperatures</p>' in html
+    assert '<span class="keyword">forecast</span>' in html
 
 
 def test_the_collection_leads_to_its_queries(client):

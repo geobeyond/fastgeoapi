@@ -6,16 +6,20 @@
 import pytest
 
 from tests.html_fixtures import (
+    CRS84,
     SERVER_URL,
     config,
     fake_build,
     island_config,
     jsonld,
     native_client,
+    section,
     with_lost_tiles,
     with_map,
     with_tiles,
 )
+
+LICENSE = "https://creativecommons.org/licenses/by/4.0/"
 
 
 @pytest.fixture(scope="module")
@@ -23,6 +27,11 @@ def client(tmp_path_factory):
     directory = tmp_path_factory.mktemp("collection")
     api_config = with_lost_tiles(with_map(with_tiles(config(), directory), directory), directory)
     api_config["resources"]["obs"]["view"] = {"center": [-77.0, 44.0], "zoom": 5}
+    lakes = api_config["resources"]["lakes"]
+    lakes["links"].append(
+        {"type": "text/html", "rel": "license", "title": "CC-BY 4.0", "href": LICENSE}
+    )
+    lakes["providers"][0]["storage_crs_coordinate_epoch"] = 2017.23
     return native_client(api_config, fake_build(directory / "static"))
 
 
@@ -97,6 +106,19 @@ def test_the_page_states_the_facts_of_the_collection(client):
     assert "<dt>Spatial extent</dt><dd>-180, -90, 180, 90</dd>" in html
     assert '<a href="http://www.naturalearthdata.com/">information</a>' in html
     assert '<span class="badge">Features</span>' in html
+
+
+def test_the_license_has_a_heading_of_its_own(client):
+    html = _page(client, "/collections/lakes").text
+
+    assert f'<a href="{LICENSE}">CC-BY 4.0</a>' in section(html, "License")
+
+
+def test_features_list_their_reference_systems_and_the_epoch_of_their_storage(client):
+    html = _page(client, "/collections/lakes").text
+
+    assert f'<a href="{CRS84}">{CRS84}</a>' in section(html, "Reference systems")
+    assert "<dt>Coordinate epoch</dt><dd>2017.23</dd>" in html
 
 
 def test_the_collection_is_a_dataset_in_json_ld(client):

@@ -13,7 +13,7 @@ from app.html.collection import collection_crumbs, provider_of
 from app.html.maps import basemap, camera, features_island
 from app.html.pages import PageContext, Related
 from app.html.parameters import chips, honoured, items_fields, parameter_of
-from app.html.views import base_url, json_links
+from app.html.views import as_text, base_url, json_links
 
 SUMMARY_PROPERTIES = 3
 """How many properties the list shows under the name of an item."""
@@ -138,14 +138,6 @@ def items(context: PageContext) -> dict[str, Any]:
     }
 
 
-def _shown(value: Any) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, dict | list):
-        return json.dumps(value, ensure_ascii=False)
-    return str(value)
-
-
 def item(context: PageContext) -> dict[str, Any]:
     """An item: its properties, its map, and pygeoapi's JSON-LD of it."""
     _ = context.gettext
@@ -161,7 +153,7 @@ def item(context: PageContext) -> dict[str, Any]:
     rows = [
         {
             "name": key,
-            "value": _shown(value),
+            "value": as_text(value),
             "href": value
             if isinstance(value, str) and value.startswith(("http://", "https://"))
             else None,

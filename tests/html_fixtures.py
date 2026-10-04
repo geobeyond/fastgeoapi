@@ -96,6 +96,13 @@ def jsonld(html: str) -> dict:
     return json.loads(found.group(1))
 
 
+def section(html: str, heading: str) -> str:
+    """What the page shows under its ``<h2>`` named ``heading``, up to the next one."""
+    _, found, rest = html.partition(f"<h2>{heading}</h2>")
+    assert found, f"no section {heading!r}"
+    return rest.split("<h2>", 1)[0]
+
+
 def with_tiles(api_config: dict, directory: Path) -> dict:
     """``api_config`` with ``places``, a collection of vector tiles from a PMTiles archive."""
     archive = write_archive(
@@ -360,6 +367,12 @@ EDR_COVERAGE = {
 
 class FakeEDRProvider(BaseEDRProvider):
     """An EDR source with one instance and one point, without xarray."""
+
+    def __init__(self, provider_def: dict):
+        super().__init__(provider_def)
+        # pygeoapi's EDR sources read their fields when they open, and the
+        # parameters of the collection come from them.
+        self._fields = self.get_fields()
 
     def get_fields(self) -> dict:
         return {"temperature": {"title": "Temperature", "type": "number", "x-ogc-unit": "K"}}
