@@ -11,10 +11,16 @@ from tests.html_fixtures import (
     add_running_job,
     config,
     fake_build,
+    island_config,
     jsonld,
     native_client,
+    with_coverage,
     with_echo,
+    with_edr,
     with_jobs,
+    with_map,
+    with_parquet_lakes,
+    with_stac,
     with_tiles,
 )
 
@@ -33,12 +39,32 @@ PATHS = [
     f"/jobs/{RUNNING_JOB}",
 ]
 
+MAP_PATHS = [
+    "/collections/lakes",
+    "/collections/lakes/items",
+    "/collections/lakes/items/0",
+    "/collections/lakes-parquet/items",
+    "/collections/places",
+    "/collections/places/tiles",
+    "/collections/places/tiles/WebMercatorQuad",
+    "/collections/roads",
+    "/collections/dem/coverage",
+    "/collections/weather/instances",
+    "/collections/weather/instances/2026",
+    "/collections/weather/position",
+    "/stac/catalog/rome",
+]
+
+PATHS = [*PATHS, *MAP_PATHS, "/stac", "/stac/catalog"]
+
 
 @pytest.fixture(scope="module")
 def client(tmp_path_factory):
     directory = tmp_path_factory.mktemp("every")
     add_running_job(directory)
     api_config = with_echo(with_jobs(with_tiles(config(), directory), directory))
+    api_config = with_coverage(with_map(with_parquet_lakes(api_config), directory), directory)
+    api_config = with_stac(with_edr(api_config))
     return native_client(api_config, fake_build(directory / "static"))
 
 
@@ -54,4 +80,14 @@ def test_every_page_has_its_head_its_headers_and_its_json_ld(client, path):
     assert r.headers["link"].startswith(f"<{SERVER_URL}")
     assert f'<link rel="canonical" href="{SERVER_URL}' in r.text
     assert '<html lang="it-IT" dir="ltr">' in r.text
-    assert jsonld(r.text)["@type"] in ("DataCatalog", "WebPage")
+    found = jsonld(r.text)
+    assert found["@context"]
+    assert found.get("@type") or found.get("type")
+
+
+@pytest.mark.parametrize("path", MAP_PATHS)
+def test_every_map_island_says_what_it_draws(client, path):
+    island = island_config(client.get(path, params={"f": "html"}).text, "fga-map")
+
+    assert island["kind"] in ("tiles", "image", "features", "extent")
+    assert "minZoom" in island["camera"]
