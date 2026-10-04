@@ -19,7 +19,12 @@ export default defineConfig({
         "pages/api-docs.ts",
         "pages/process-run.ts",
         "pages/job-status.ts",
+        "pages/map.ts",
       ],
+      output: {
+        // MapLibre is the heaviest part of the pages: its own file, cached apart.
+        manualChunks: { maplibre: ["maplibre-gl"] },
+      },
     },
   },
 });
