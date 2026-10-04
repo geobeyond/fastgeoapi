@@ -1,7 +1,12 @@
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Map as MapLibreMap } from "maplibre-gl";
+import { Map as MapLibreMap, setWorkerUrl } from "maplibre-gl";
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 
 import { readConfig } from "./config";
+
+// MapLibre finds its worker next to its own module, under a name the build
+// never emits: the worker is built on its own and its URL handed over.
+setWorkerUrl(workerUrl);
 
 export type Bbox = [number, number, number, number];
 
@@ -84,6 +89,10 @@ export type MapClass = new (options: Record<string, unknown>) => MapLike;
 const ACCENT = "#2c6db5";
 const ACTIVE = "#d97706";
 const DATA = "fga-data";
+/** The closest a map zooms to fit its data: one point would otherwise ask for zoom 22. */
+const FIT_MAX_ZOOM = 16;
+/** The deepest basemap tiles there are: past them MapLibre enlarges the last ones. */
+const BASEMAP_MAX_ZOOM = 19;
 const IMAGE = "fga-image";
 
 /** The URL of a map image of ``bounds``, at the canvas size or less. */
@@ -194,6 +203,7 @@ export function baseStyle(basemap: Basemap | null): Style {
         type: "raster",
         tiles: [basemap.url.replace("{s}", "a")],
         tileSize: 256,
+        maxzoom: BASEMAP_MAX_ZOOM,
         attribution: basemap.attribution,
       },
     },
@@ -401,7 +411,11 @@ export function startMap(
           ? dataBounds(config.data)
           : camera.bounds;
     if (fit) {
-      map.fitBounds(fit, { padding: 24, animate: false });
+      map.fitBounds(fit, {
+        padding: 24,
+        animate: false,
+        maxZoom: FIT_MAX_ZOOM,
+      });
     }
     refreshImage();
     linkPage(map);

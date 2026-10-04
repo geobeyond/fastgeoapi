@@ -9,7 +9,12 @@ import {
   type MapConfig,
 } from "./map";
 
-vi.mock("maplibre-gl", () => ({ Map: class {} }));
+const maplibre = vi.hoisted(() => ({ setWorkerUrl: vi.fn() }));
+
+vi.mock("maplibre-gl", () => ({
+  Map: class {},
+  setWorkerUrl: maplibre.setWorkerUrl,
+}));
 
 type Handler = () => void;
 
@@ -21,6 +26,7 @@ class FakeMap {
   layers: string[] = [];
   styles: unknown[] = [];
   fitted: unknown[] = [];
+  fitOptions: unknown[] = [];
   states: unknown[] = [];
   images: unknown[] = [];
   bounds: [number, number, number, number] = [12, 41, 13, 42];
@@ -49,8 +55,9 @@ class FakeMap {
   setStyle(style: unknown) {
     this.styles.push(style);
   }
-  fitBounds(bounds: unknown) {
+  fitBounds(bounds: unknown, options?: unknown) {
     this.fitted.push(bounds);
+    this.fitOptions.push(options);
   }
   setFeatureState(feature: unknown, state: unknown) {
     this.states.push([feature, state]);
@@ -166,6 +173,15 @@ describe("helpers", () => {
     ).toEqual([{ id: "basemap", type: "raster", source: "basemap" }]);
     expect(baseStyle(null).layers[0].type).toBe("background");
   });
+
+  it("asks the basemap no deeper than its tiles go", () => {
+    const sources = baseStyle({
+      url: "https://t/{z}/{x}/{y}.png",
+      attribution: "OSM",
+    }).sources as Record<string, { maxzoom?: number }>;
+
+    expect(sources.basemap.maxzoom).toBe(19);
+  });
 });
 
 describe("startMap", () => {
@@ -243,6 +259,24 @@ describe("startMap", () => {
     ]);
   });
 
+  it("fits one point without zooming past the streets", () => {
+    const point = {
+      type: "FeatureCollection" as const,
+      features: [collection.features[0]],
+    };
+    const map = start({
+      kind: "features",
+      camera: { ...camera, fitData: true },
+      basemap: null,
+      data: point,
+    });
+
+    map.fire("load");
+
+    expect(map.fitted).toEqual([[12.5, 41.9, 12.5, 41.9]]);
+    expect(map.fitOptions[0]).toMatchObject({ maxZoom: 16 });
+  });
+
   it("fills a bbox field with the bounds of the map", () => {
     const map = start({
       kind: "extent",
@@ -261,5 +295,14 @@ describe("startMap", () => {
 
     expect(input.value).toBe("12.000000,41.000000,13.000000,42.000000");
     expect(map.fitted).toEqual([[12, 41, 13, 42]]);
+  });
+});
+
+describe("the worker", () => {
+  it("points MapLibre at the worker the build emits", () => {
+    expect(maplibre.setWorkerUrl).toHaveBeenCalledTimes(1);
+    expect(String(maplibre.setWorkerUrl.mock.calls[0][0])).toContain(
+      "maplibre-gl-worker",
+    );
   });
 });
