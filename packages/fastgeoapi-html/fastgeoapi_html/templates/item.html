@@ -1,4 +1,5 @@
 {% extends "_layout.html" %}
+{% from "_value.html" import show %}
 {% block content %}
 <div class="split{% if not map %} solo{% endif %}">
   <section class="panel">
@@ -6,7 +7,7 @@
     <table class="data">
       <thead><tr><th>{{ _("Property") }}</th><th>{{ _("Value") }}</th></tr></thead>
       <tbody>
-      {% for row in rows %}<tr><td><code>{{ row.name }}</code></td><td>{% if row.href %}<a href="{{ row.href }}">{{ row.value }}</a>{% else %}{{ row.value }}{% endif %}</td></tr>
+      {% for row in rows %}<tr><td><code>{{ row.name }}</code></td><td>{{ show(row.value) }}</td></tr>
       {% endfor %}
       </tbody>
     </table>

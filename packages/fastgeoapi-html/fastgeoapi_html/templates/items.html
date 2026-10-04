@@ -25,10 +25,15 @@
     {% endfor %}
     </ul>{% endif %}
     {% if count %}<p class="results">{{ count }}</p>{% endif %}
-    <ol class="feature-list">
-    {% for each in features %}<li class="item" data-fga-feature="{{ each.index }}"><a class="name" href="{{ each.href }}">{{ each.name }}</a>{% if each.props %}<span class="props">{{ each.props }}</span>{% endif %}</li>
-    {% endfor %}
-    </ol>
+    {% if features %}<div class="table-scroll">
+    <table class="data items">
+      <thead><tr><th>{{ name_column }}</th>{% if uri_column %}<th>{{ uri_column }}</th>{% endif %}{% for column in columns %}<th>{{ column }}</th>{% endfor %}</tr></thead>
+      <tbody>
+      {% for each in features %}<tr data-fga-feature="{{ each.index }}"><td><a class="name" href="{{ each.href }}">{{ each.name }}</a></td>{% if uri_column %}<td>{% if each.uri %}<a href="{{ each.uri }}">{{ each.uri }}</a>{% endif %}</td>{% endif %}{% for cell in each.cells %}<td>{{ cell | truncate(35) }}</td>{% endfor %}</tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>{% endif %}
     {% if prev or next %}<nav class="pager">{% if prev %}<a rel="prev" href="{{ prev }}">{{ _("Previous") }}</a>{% endif %}{% if next %}<a rel="next" href="{{ next }}">{{ _("Next") }}</a>{% endif %}</nav>{% endif %}
   </section>
   {% include "_map.html" %}

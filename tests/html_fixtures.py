@@ -387,6 +387,45 @@ class FakeEDRProvider(BaseEDRProvider):
         return EDR_COVERAGE
 
 
+PHOTO = {
+    "type": "Feature",
+    "id": "colosseum",
+    "geometry": {"type": "Point", "coordinates": [12.4922, 41.8902]},
+    "properties": {
+        "name": "Colosseum",
+        "image": "https://example.org/colosseum.jpg",
+        "note": "Opening hours on https://example.org/hours",
+        "tags": ["arena", "rome"],
+        "source": {"agency": "MiC", "year": 2026},
+    },
+}
+"""An item whose values are an image, a text with a URL, a list and an object."""
+
+
+def with_photos(api_config: dict, directory: Path) -> dict:
+    """``api_config`` with ``photos``, a GeoJSON collection of one item with rich values."""
+    data = directory / "photos.geojson"
+    data.write_text(json.dumps({"type": "FeatureCollection", "features": [PHOTO]}))
+    api_config["resources"]["photos"] = {
+        "type": "collection",
+        "title": "Photos",
+        "description": "Photos of Rome",
+        "keywords": [],
+        "extents": {"spatial": {"bbox": [12.4, 41.8, 12.6, 42.0], "crs": CRS84}},
+        "links": [],
+        "providers": [
+            {
+                "type": "feature",
+                "name": "GeoJSON",
+                "data": str(data),
+                "id_field": "id",
+                "title_field": "name",
+            }
+        ],
+    }
+    return api_config
+
+
 def with_edr(api_config: dict) -> dict:
     """``api_config`` with ``weather``, environmental data from the fake EDR source."""
     api_config["resources"]["weather"] = {

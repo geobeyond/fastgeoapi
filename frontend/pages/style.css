@@ -523,11 +523,21 @@ ol.feature-list {
   font-weight: 600;
 }
 
-.item .props {
-  display: block;
-  margin-top: 2px;
-  font-size: 13px;
-  color: var(--fga-muted);
+.table-scroll {
+  overflow-x: auto;
+}
+
+table.items td {
+  white-space: nowrap;
+}
+
+table.items tr[data-fga-feature]:hover {
+  background: var(--fga-accent-soft);
+}
+
+ul.nested {
+  margin: 0;
+  padding-left: 18px;
 }
 
 nav.pager {

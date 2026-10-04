@@ -569,3 +569,6 @@ msgstr "Epoca delle coordinate"
 
 msgid "Metadata"
 msgstr "Metadati"
+
+msgid "No items"
+msgstr "Nessun elemento"

@@ -18,13 +18,17 @@ from tests.html_fixtures import (
     with_parquet_lakes,
 )
 
+BAIKAL_WIKI = "https://en.wikipedia.org/wiki/Lake_Baikal"
+
 WRONG_CRS = "http://www.opengis.net/def/crs/EPSG/0/9999"
 
 
 @pytest.fixture(scope="module")
 def client(tmp_path_factory):
     directory = tmp_path_factory.mktemp("items")
-    return native_client(with_parquet_lakes(config()), fake_build(directory / "static"))
+    api_config = with_parquet_lakes(config())
+    api_config["resources"]["lakes"]["providers"][0]["uri_field"] = "name_alt"
+    return native_client(api_config, fake_build(directory / "static"))
 
 
 def _page(client, path="/collections/lakes/items", **params):
@@ -90,6 +94,26 @@ def test_a_message_naming_no_field_shows_above_the_form(client):
 
     assert f'<p class="error" role="alert">CRS &#39;{WRONG_CRS}&#39; not supported' in html
     assert html.index('<p class="error"') < html.index('<form class="filters"')
+
+
+def test_every_property_of_the_page_is_a_column(client):
+    html = _page(client, limit=2).text
+    table = html[html.index('<table class="data items">') :]
+
+    assert "<th>scalerank</th>" in table
+    assert "<th>featureclass</th>" in table
+    assert '<tr data-fga-feature="0">' in table
+    assert "<td>Lake</td>" in table
+
+
+def test_the_uri_field_links_out(client):
+    html = _page(client, limit=1).text
+
+    assert f'<td><a href="{BAIKAL_WIKI}">{BAIKAL_WIKI}</a></td>' in html
+
+
+def test_an_empty_page_says_so(client):
+    assert '<p class="results">No items</p>' in _page(client, name="Nowhere").text
 
 
 def test_the_map_draws_the_features_of_the_page(client):

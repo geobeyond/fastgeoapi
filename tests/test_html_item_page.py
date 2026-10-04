@@ -12,15 +12,17 @@ from tests.html_fixtures import (
     island_config,
     jsonld,
     native_client,
+    with_photos,
 )
 
 BAIKAL = "/collections/lakes/items/0"
+COLOSSEUM = "/collections/photos/items/colosseum"
 
 
 @pytest.fixture(scope="module")
 def client(tmp_path_factory):
     directory = tmp_path_factory.mktemp("item")
-    return native_client(config(), fake_build(directory / "static"))
+    return native_client(with_photos(config(), directory), fake_build(directory / "static"))
 
 
 def _page(client, path, **params):
@@ -44,6 +46,38 @@ def test_its_properties_are_a_table_and_links_are_links(client):
     assert (
         '<td><a href="https://en.wikipedia.org/wiki/Lake_Baikal">'
         "https://en.wikipedia.org/wiki/Lake_Baikal</a></td>"
+    ) in html
+
+
+def test_the_identifier_comes_first(client):
+    html = _page(client, COLOSSEUM).text
+
+    assert html.index("<td><code>id</code></td><td>colosseum</td>") < html.index(
+        "<td><code>name</code></td>"
+    )
+
+
+def test_an_image_shows_as_the_image(client):
+    image = "https://example.org/colosseum.jpg"
+
+    assert (
+        f'<a href="{image}"><img src="{image}" alt="colosseum.jpg" width="80"></a>'
+        in _page(client, COLOSSEUM).text
+    )
+
+
+def test_a_url_inside_a_text_is_a_link(client):
+    html = _page(client, COLOSSEUM).text
+
+    assert 'Opening hours on <a href="https://example.org/hours"' in html
+
+
+def test_nested_values_are_nested_lists(client):
+    html = _page(client, COLOSSEUM).text
+
+    assert '<ul class="nested"><li>arena</li><li>rome</li></ul>' in html
+    assert (
+        '<ul class="nested"><li><code>agency</code>: MiC</li><li><code>year</code>: 2026</li></ul>'
     ) in html
 
 
