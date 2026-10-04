@@ -394,6 +394,16 @@ ul.sections {
   padding-left: 18px;
 }
 
+ul.links {
+  margin: 0;
+  padding-left: 18px;
+  overflow-wrap: anywhere;
+}
+
+ul.links small {
+  color: var(--fga-muted);
+}
+
 form.filters {
   display: grid;
   grid-template-columns: 1fr 1fr;

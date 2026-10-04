@@ -1,0 +1,2 @@
+{% if links %}<h2>{{ _("Links") }}</h2>
+<ul class="links">{% for link in links %}<li><a href="{{ link.href }}">{{ link.title }}</a>{% if link.type %} <small>{{ link.type }}</small>{% endif %}</li>{% endfor %}</ul>{% endif %}

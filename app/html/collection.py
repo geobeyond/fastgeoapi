@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from pygeoapi import l10n
 from pygeoapi import plugin as pygeoapi_plugin
 from pygeoapi.linked_data import jsonldify_collection
 
@@ -20,7 +19,14 @@ from app.html.maps import (
     tiles_island,
 )
 from app.html.pages import PageContext, Related, format_instant, with_query
-from app.html.views import Gettext, base_url, catalog_jsonld, html_link, provider_kinds
+from app.html.views import (
+    Gettext,
+    base_url,
+    catalog_jsonld,
+    html_link,
+    json_links,
+    provider_kinds,
+)
 from app.provider.tile_styles import tile_styles
 from app.tiles.contract import TileContent
 
@@ -218,14 +224,7 @@ def collection(context: PageContext) -> dict[str, Any]:
         "keywords": list(document.get("keywords") or []),
         "sections": _sections(context, collection_id, document),
         "facts": _facts(context, document),
-        "links": [
-            {
-                "title": l10n.translate(link.get("title"), locale) or link["href"],
-                "href": link["href"],
-            }
-            for link in resource.get("links") or []
-            if link.get("href")
-        ],
+        "links": json_links(document, locale),
         "map": preview(context, collection_id, resource),
         "jsonld": {"@context": "https://schema.org", **dataset},
         "crumbs": collection_crumbs(context, title),

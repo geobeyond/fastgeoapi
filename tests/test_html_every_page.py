@@ -4,6 +4,7 @@
 """
 
 import pytest
+from markupsafe import escape
 
 from tests.html_fixtures import (
     RUNNING_JOB,
@@ -57,6 +58,19 @@ MAP_PATHS = [
 
 PATHS = [*PATHS, *MAP_PATHS, "/stac", "/stac/catalog"]
 
+# The pages whose pygeoapi template lists every link of the JSON.
+LINKED_PATHS = [
+    "/collections/lakes",
+    "/collections/roads",
+    "/collections/places",
+    "/collections/dem",
+    "/collections/weather",
+    "/collections/lakes/items/0",
+    "/collections/weather/instances/2026",
+    "/processes/hello-world",
+    f"/jobs/{RUNNING_JOB}",
+]
+
 
 @pytest.fixture(scope="module")
 def client(tmp_path_factory):
@@ -91,3 +105,18 @@ def test_every_map_island_says_what_it_draws(client, path):
 
     assert island["kind"] in ("tiles", "image", "features", "extent")
     assert "minZoom" in island["camera"]
+
+
+@pytest.mark.parametrize("path", LINKED_PATHS)
+def test_every_link_of_the_json_is_on_the_page(client, path):
+    links = client.get(path, params={"f": "json"}).json()["links"]
+    page = client.get(path, params={"f": "html"}).text
+
+    missing = [
+        link["href"]
+        for link in links
+        if link.get("href") and f'href="{escape(link["href"])}"' not in page
+    ]
+
+    assert links
+    assert missing == []

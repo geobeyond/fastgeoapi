@@ -95,6 +95,20 @@ def html_link(links: list[dict[str, Any]]) -> str | None:
     )
 
 
+def json_links(document: dict[str, Any], locale: Any) -> list[dict[str, str]]:
+    """Every link of a JSON document, as pygeoapi's pages list them: title and type."""
+    return [
+        {
+            "title": l10n.translate(link.get("title"), locale)
+            or link["href"].rstrip("/").rsplit("/", 1)[-1],
+            "href": link["href"],
+            "type": link.get("type") or "",
+        }
+        for link in document.get("links") or []
+        if link.get("href")
+    ]
+
+
 def landing(context: PageContext) -> dict[str, Any]:
     """The service, its sections and its collections."""
     _ = context.gettext
@@ -375,6 +389,7 @@ def process(context: PageContext) -> dict[str, Any]:
         "inputs": _parameters(document.get("inputs") or {}, inputs=True),
         "outputs": _parameters(document.get("outputs") or {}, inputs=False),
         "example": json.dumps(example, indent=2, ensure_ascii=False) if example else "",
+        "links": json_links(document, context.request.locale),
         "run": {
             "executeUrl": execute,
             "inputs": document.get("inputs") or {},
@@ -480,6 +495,7 @@ def job(context: PageContext) -> dict[str, Any]:
         "facts": [fact for fact in facts if fact["value"]],
         "results": f"{base}/jobs/{job_id}/results?f=html" if status == "successful" else None,
         "follow": follow,
+        "links": json_links(document, context.request.locale),
         "crumbs": _job_crumbs(context, {"label": job_id}),
     }
 

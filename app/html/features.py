@@ -13,7 +13,7 @@ from app.html.collection import collection_crumbs, provider_of
 from app.html.maps import basemap, camera, features_island
 from app.html.pages import PageContext, Related
 from app.html.parameters import chips, honoured, items_fields, parameter_of
-from app.html.views import base_url
+from app.html.views import base_url, json_links
 
 SUMMARY_PROPERTIES = 3
 """How many properties the list shows under the name of an item."""
@@ -188,6 +188,7 @@ def item(context: PageContext) -> dict[str, Any]:
         "rows": rows,
         "map": shown,
         "jsonld": json.loads(linked),
+        "links": json_links(document, context.request.locale),
         "crumbs": collection_crumbs(
             context,
             title,

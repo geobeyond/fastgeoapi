@@ -12,7 +12,7 @@ from app.html.features import feature_name
 from app.html.maps import basemap, camera, domain_footprint, extent_of, features_island
 from app.html.pages import PageContext, Related
 from app.html.parameters import Field, parameter_of
-from app.html.views import Gettext, base_url, html_link
+from app.html.views import Gettext, base_url, html_link, json_links
 
 THE_SCHEMA = Related("schema", "/collections/{collection_id:path}/schema")
 """The schema of the collection a page belongs to."""
@@ -307,6 +307,7 @@ def instance(context: PageContext) -> dict[str, Any]:
             for name in context.document.get("data_queries") or {}
             if name not in ("items", "instances")
         ],
+        "links": json_links(context.document, context.request.locale),
         "map": preview(context, collection_id, resource),
         "crumbs": collection_crumbs(
             context,

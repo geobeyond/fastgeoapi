@@ -12,8 +12,7 @@
       {% for fact in facts %}<dt>{{ fact.label }}</dt><dd>{{ fact.value }}</dd>
       {% endfor %}
     </dl>
-    {% if links %}<h2>{{ _("Links") }}</h2>
-    <ul class="sections">{% for link in links %}<li><a href="{{ link.href }}">{{ link.title }}</a></li>{% endfor %}</ul>{% endif %}
+    {% include "_links.html" %}
   </section>
   {% include "_map.html" %}
 </div>

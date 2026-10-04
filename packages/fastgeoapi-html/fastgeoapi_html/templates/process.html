@@ -19,5 +19,6 @@
     <script type="application/json">{{ run | tojson }}</script>
     <noscript><p>{% trans url=run.executeUrl %}Running the process needs JavaScript: send a POST with the inputs to {{ url }}.{% endtrans %}</p></noscript>
   </fga-process-run>
+  {% include "_links.html" %}
 </div>
 {% endblock %}
