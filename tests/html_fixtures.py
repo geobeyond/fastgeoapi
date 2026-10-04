@@ -442,33 +442,72 @@ def with_edr(api_config: dict) -> dict:
     return api_config
 
 
+STAC_CREATED = "2026-10-03T10:00:00Z"
+
+CUBE = {
+    "id": "cube",
+    "type": "Collection",
+    "stac_version": "1.0.0",
+    "description": "Temperatures in a cube",
+    "extent": {
+        "spatial": {"bbox": [[6.6, 36.6, 18.5, 47.1]]},
+        "temporal": {"interval": [["2026-10-01T00:00:00Z", "2026-10-03T00:00:00Z"]]},
+    },
+    "cube:dimensions": {"time": {"type": "temporal", "extent": ["2026-10-01", "2026-10-03"]}},
+    "cube:variables": {"t2m": {"type": "data", "dimensions": ["time"]}},
+    "links": [],
+}
+"""What pygeoapi says of a data cube in a STAC catalog: a collection with its extent."""
+
+
 class FakeStacProvider(BaseProvider):
-    """A STAC catalog of two images: ``rome`` has a bbox, ``nowhere`` has none."""
+    """A STAC catalog as pygeoapi's file system source lists it.
+
+    ``rome`` has a bbox, ``nowhere`` has none, ``cube`` is a collection and
+    ``archive`` a catalog inside.
+    """
 
     def get_data_path(self, baseurl: str, urlpath: str, dirpath: str) -> dict:
         name = dirpath.strip("/")
+        found = {"created": STAC_CREATED, "file:size": 430, "entry:type": "Item"}
         if not name:
             return {
                 "links": [
-                    {"rel": "item", "href": f"{baseurl}/{urlpath}/rome", "title": "rome.tif"},
+                    {
+                        "rel": "child",
+                        "href": f"{baseurl}/{urlpath}/archive",
+                        "type": "text/html",
+                        "created": STAC_CREATED,
+                        "entry:type": "Catalog",
+                    },
+                    {
+                        "rel": "item",
+                        "href": f"{baseurl}/{urlpath}/rome",
+                        "title": "rome.tif",
+                        **found,
+                    },
                     {
                         "rel": "item",
                         "href": f"{baseurl}/{urlpath}/nowhere",
                         "title": "nowhere.tif",
+                        **found,
+                    },
+                    {
+                        "rel": "item",
+                        "href": f"{baseurl}/{urlpath}/cube",
+                        "title": "cube.nc",
+                        **found,
                     },
                 ]
             }
+        asset = {"href": f"{baseurl}/{urlpath}.tif", "created": STAC_CREATED, "file:size": 430}
+        if name == "cube":
+            return {**CUBE, "assets": {"default": asset}}
         return {
             "id": name,
             "type": "Feature",
             "properties": {"datetime": "2026-10-03T00:00:00Z"},
-            "assets": {
-                "default": {
-                    "href": f"{baseurl}/{urlpath}.tif",
-                    "type": "image/tiff",
-                    "file:size": 430,
-                }
-            },
+            "assets": {"default": {**asset, "type": "image/tiff"}},
             "bbox": list(ROME) if name == "rome" else None,
             "geometry": None,
         }

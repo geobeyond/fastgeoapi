@@ -572,3 +572,9 @@ msgstr "Metadati"
 
 msgid "No items"
 msgstr "Nessun elemento"
+
+msgid "STAC version"
+msgstr "Versione STAC"
+
+msgid "Last modified"
+msgstr "Ultima modifica"

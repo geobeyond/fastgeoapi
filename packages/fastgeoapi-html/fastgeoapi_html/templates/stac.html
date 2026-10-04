@@ -1,26 +1,32 @@
 {% extends "_layout.html" %}
+{% from "_value.html" import show %}
 {% block content %}
 <div class="split{% if not map %} solo{% endif %}">
   <section class="panel">
     <h1>{{ title }}</h1>
     {% if description %}<p class="lead">{{ description }}</p>{% endif %}
-    {% if children %}<h2>{{ _("Catalogs") }}</h2>
-    <ul class="sections">{% for child in children %}<li><a href="{{ child.href }}">{{ child.title }}</a></li>{% endfor %}</ul>{% endif %}
-    {% if entries %}<h2>{{ _("Items") }}</h2>
-    <ul class="sections">{% for entry in entries %}<li><a href="{{ entry.href }}">{{ entry.title }}</a></li>{% endfor %}</ul>{% endif %}
+    {% if stac_version %}<dl class="facts"><dt>{{ _("STAC version") }}</dt><dd>{{ stac_version }}</dd></dl>{% endif %}
+    {% for heading, found in ((_("Catalogs"), children), (_("Items"), entries)) %}{% if found.rows %}<h2>{{ heading }}</h2>
+    <table class="data">
+      <thead><tr><th>{{ _("Name") }}</th>{% for column in found.columns %}<th>{{ column.label }}</th>{% endfor %}</tr></thead>
+      <tbody>
+      {% for row in found.rows %}<tr><td><a href="{{ row.href }}">{{ row.title }}</a></td>{% for column in found.columns %}<td>{% if column.key == "created" %}{{ row.created | instant }}{% elif column.key == "size" %}{{ row.size | number }}{% else %}{{ row[column.key] }}{% endif %}</td>{% endfor %}</tr>
+      {% endfor %}
+      </tbody>
+    </table>{% endif %}{% endfor %}
     {% if properties %}<h2>{{ _("Properties") }}</h2>
     <table class="data">
       <thead><tr><th>{{ _("Property") }}</th><th>{{ _("Value") }}</th></tr></thead>
       <tbody>
-      {% for row in properties %}<tr><td><code>{{ row.name }}</code></td><td>{{ row.value }}</td></tr>
+      {% for row in properties %}<tr><td><code>{{ row.name }}</code></td><td>{{ show(row.value) }}</td></tr>
       {% endfor %}
       </tbody>
     </table>{% endif %}
     {% if assets %}<h2>{{ _("Assets") }}</h2>
     <table class="data">
-      <thead><tr><th>{{ _("Name") }}</th><th>{{ _("Type") }}</th><th>{{ _("Size") }}</th></tr></thead>
+      <thead><tr><th>{{ _("Name") }}</th><th>{{ _("Type") }}</th><th>{{ _("Last modified") }}</th><th>{{ _("Size") }}</th></tr></thead>
       <tbody>
-      {% for asset in assets %}<tr><td><a href="{{ asset.href }}">{{ asset.name }}</a></td><td>{{ asset.type }}</td><td>{{ asset.size | number }}</td></tr>
+      {% for asset in assets %}<tr><td><a href="{{ asset.href }}">{{ asset.name }}</a></td><td>{{ asset.type }}</td><td>{{ asset.created | instant }}</td><td>{{ asset.size | number }}</td></tr>
       {% endfor %}
       </tbody>
     </table>{% endif %}

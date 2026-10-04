@@ -11,6 +11,7 @@ from tests.html_fixtures import (
     fake_build,
     island_config,
     native_client,
+    section,
     with_stac,
 )
 
@@ -39,14 +40,42 @@ def test_a_catalog_lists_its_items(client):
     assert f'<a href="{SERVER_URL}/stac/catalog/rome?f=html">rome.tif</a>' in html
 
 
+def test_the_root_states_its_stac_version_and_describes_the_catalogs(client):
+    html = _page(client, "/stac").text
+
+    assert "<dt>STAC version</dt><dd>1.0.0-rc.2</dd>" in html
+    assert "<td>Two images</td>" in section(html, "Catalogs")
+
+
+def test_a_catalog_lists_the_type_date_and_size_of_its_entries(client):
+    html = _page(client, "/stac/catalog").text
+    items = section(html, "Items")
+
+    assert "<th>Type</th><th>Last modified</th><th>Size</th>" in items
+    assert "<td>Item</td><td>Oct 3, 2026" in items
+    assert "</td><td>430</td></tr>" in items
+    assert "<td>Catalog</td><td>Oct 3, 2026" in section(html, "Catalogs")
+
+
+def test_a_collection_shows_its_extent_and_its_cube(client):
+    properties = section(_page(client, "/stac/catalog/cube").text, "Properties")
+
+    assert "<td><code>id</code></td><td>cube</td>" in properties
+    assert "<td><code>description</code></td><td>Temperatures in a cube</td>" in properties
+    assert "<code>extent</code>" in properties
+    assert "<code>cube:dimensions</code>" in properties
+    assert "<li><code>t2m</code>: " in properties
+
+
 def test_an_item_shows_its_assets_and_its_footprint(client):
     html = _page(client, "/stac/catalog/rome").text
     preview = island_config(html, "fga-map")
 
     assert (
         f'<tr><td><a href="{SERVER_URL}/stac/catalog/rome.tif">default</a></td>'
-        "<td>image/tiff</td><td>430</td></tr>"
+        "<td>image/tiff</td><td>Oct 3, 2026"
     ) in html
+    assert "</td><td>430</td></tr>" in section(html, "Assets")
     assert preview["data"]["features"][0]["geometry"]["type"] == "Polygon"
     assert preview["camera"]["fitData"] is True
 
