@@ -353,3 +353,24 @@ msgstr "Informazioni"
 
 msgid "Links"
 msgstr "Link"
+
+msgid "Tilesets of %(collection)s"
+msgstr "Tileset di %(collection)s"
+
+msgid "The tiles of this collection, one set for each tiling scheme."
+msgstr "Le tile di questa collezione, un insieme per ogni schema di tassellatura."
+
+msgid "Tileset %(tileset)s of %(collection)s"
+msgstr "Tileset %(tileset)s di %(collection)s"
+
+msgid "Data type"
+msgstr "Tipo di dati"
+
+msgid "Tile matrix set"
+msgstr "Tile matrix set"
+
+msgid "Tiling scheme"
+msgstr "Schema di tassellatura"
+
+msgid "Tiles"
+msgstr "Tile"

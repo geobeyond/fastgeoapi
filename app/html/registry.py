@@ -11,6 +11,24 @@ PAGES: dict[str, Page] = {
     "/collections": Page("collections.html", views.collections),
     "/collections/{collection_id:path}/queryables": Page("queryables.html", views.queryables),
     "/collections/{collection_id:path}/schema": Page("schema.html", views.schema),
+    "/collections/{collection_id:path}/tiles": Page(
+        "tilesets.html",
+        collection.tilesets,
+        islands=collection.MAP_ISLAND,
+        related=(collection.THE_COLLECTION,),
+    ),
+    "/collections/{collection_id:path}/tiles/{tileMatrixSetId}": Page(
+        "tileset.html",
+        collection.tileset,
+        islands=collection.MAP_ISLAND,
+        related=(collection.THE_COLLECTION,),
+    ),
+    "/collections/{collection_id:path}/tiles/{tileMatrixSetId}/metadata": Page(
+        "tileset.html",
+        collection.tileset,
+        islands=collection.MAP_ISLAND,
+        related=(collection.THE_COLLECTION,),
+    ),
     "/collections/{collection_id:path}": Page(
         "collection.html", collection.collection, islands=collection.MAP_ISLAND
     ),

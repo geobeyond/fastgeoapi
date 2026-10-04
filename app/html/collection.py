@@ -19,8 +19,8 @@ from app.html.maps import (
     image_island,
     tiles_island,
 )
-from app.html.pages import PageContext, format_instant
-from app.html.views import Gettext, base_url, catalog_jsonld, provider_kinds
+from app.html.pages import PageContext, Related, format_instant, with_query
+from app.html.views import Gettext, base_url, catalog_jsonld, html_link, provider_kinds
 from app.provider.tile_styles import tile_styles
 from app.tiles.contract import TileContent
 
@@ -229,4 +229,91 @@ def collection(context: PageContext) -> dict[str, Any]:
         "map": preview(context, collection_id, resource),
         "jsonld": {"@context": "https://schema.org", **dataset},
         "crumbs": collection_crumbs(context, title),
+    }
+
+
+TILING_SCHEME = f"{REL}tiling-scheme"
+
+
+def collection_only(params: dict[str, str]) -> dict[str, str]:
+    """The path parameters of the collection, without the EDR instance its path may carry.
+
+    ``{collection_id:path}`` is greedy: under an EDR instance it reads
+    ``name/instances/2026``.
+    """
+    return {"collection_id": params["collection_id"].partition("/instances/")[0]}
+
+
+THE_COLLECTION = Related("collection", "/collections/{collection_id:path}", adjust=collection_only)
+"""The JSON of the collection a page belongs to."""
+
+
+def _collection_title(context: PageContext, collection_id: str) -> str:
+    return (context.related.get("collection") or {}).get("title") or collection_id
+
+
+def tilesets(context: PageContext) -> dict[str, Any]:
+    """The tilesets of a collection, one row each, and the map of its tiles."""
+    _ = context.gettext
+    collection_id = context.path_params["collection_id"]
+    resource = context.api.config["resources"].get(collection_id, {})
+    title = _collection_title(context, collection_id)
+    base = base_url(context)
+    rows = []
+    for each in context.document.get("tilesets", []):
+        tms = each.get("tileMatrixSetURI", "").rstrip("/").rsplit("/", 1)[-1]
+        rows.append(
+            {
+                "title": each.get("title") or tms,
+                "tms": tms,
+                "data_type": each.get("dataType", ""),
+                "href": html_link(each.get("links", []))
+                or f"{base}/collections/{collection_id}/tiles/{tms}?f=html",
+            }
+        )
+    return {
+        "title": _("Tilesets of %(collection)s") % {"collection": title},
+        "description": _("The tiles of this collection, one set for each tiling scheme."),
+        "rows": rows,
+        "map": preview(context, collection_id, resource),
+        "crumbs": collection_crumbs(context, title, {"label": _("Tilesets")}),
+    }
+
+
+def tileset(context: PageContext) -> dict[str, Any]:
+    """A tileset: its tiling scheme, the template of its tiles, its TileJSON, and its map."""
+    _ = context.gettext
+    document = context.document
+    collection_id = context.path_params["collection_id"]
+    tms = context.path_params["tileMatrixSetId"]
+    resource = context.api.config["resources"].get(collection_id, {})
+    title = _collection_title(context, collection_id)
+    base = base_url(context)
+    links = document.get("links", [])
+    template = next((link["href"] for link in links if link.get("rel") == "item"), None)
+    scheme = next((link["href"] for link in links if link.get("rel") == TILING_SCHEME), None)
+    crs = document.get("crs")
+    crs = crs.get("uri") if isinstance(crs, dict) else crs
+    tilejson = f"{base}/collections/{collection_id}/tiles/{tms}/metadata?f=tilejson"
+    facts = [
+        {"label": _("Data type"), "value": document.get("dataType")},
+        {"label": _("Coordinate reference system"), "value": crs, "href": crs},
+        {
+            "label": _("Tile matrix set"),
+            "value": tms,
+            "href": with_query(scheme, f="html") if scheme else None,
+        },
+        {"label": "TileJSON", "value": tilejson, "href": tilejson},
+    ]
+    return {
+        "title": _("Tileset %(tileset)s of %(collection)s") % {"tileset": tms, "collection": title},
+        "facts": [fact for fact in facts if fact["value"]],
+        "template": template,
+        "map": preview(context, collection_id, resource),
+        "crumbs": collection_crumbs(
+            context,
+            title,
+            {"label": _("Tilesets"), "href": f"{base}/collections/{collection_id}/tiles?f=html"},
+            {"label": tms},
+        ),
     }
