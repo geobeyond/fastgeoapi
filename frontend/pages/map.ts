@@ -2,6 +2,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import {
   Map as MapLibreMap,
   NavigationControl,
+  ScaleControl,
   setWorkerUrl,
 } from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
@@ -403,7 +404,10 @@ export function startMap(
     minZoom: camera.minZoom ?? 0,
     attributionControl: { compact: true },
   });
-  map.addControl(new NavigationControl(), "top-right");
+  // The compass shows the tilt too, and a click on it brings the map back
+  // north and flat: a right drag or two fingers rotate and tilt it.
+  map.addControl(new NavigationControl({ visualizePitch: true }), "top-right");
+  map.addControl(new ScaleControl(), "bottom-left");
   map.on("load", () => {
     if (config.kind === "features") {
       addData(map, config.data);

@@ -16,11 +16,18 @@ const maplibre = vi.hoisted(() => ({
       this.options = options;
     }
   },
+  ScaleControl: class {
+    options: unknown;
+    constructor(options?: unknown) {
+      this.options = options;
+    }
+  },
 }));
 
 vi.mock("maplibre-gl", () => ({
   Map: class {},
   NavigationControl: maplibre.NavigationControl,
+  ScaleControl: maplibre.ScaleControl,
   setWorkerUrl: maplibre.setWorkerUrl,
 }));
 
@@ -272,18 +279,25 @@ describe("startMap", () => {
     ]);
   });
 
-  it("gives every map its zoom buttons", () => {
+  it("gives every map its zoom buttons, a compass that shows the tilt, and a scale", () => {
     const map = start({
       kind: "extent",
       camera,
       basemap: null,
       bbox: [12, 41, 13, 42],
     });
-    const [control, position] = map.controls[0] as [unknown, string];
+    const controls = map.controls as [{ options: unknown }, string][];
+    const navigation = controls.filter(
+      ([control]) => control instanceof maplibre.NavigationControl,
+    );
+    const scale = controls.filter(
+      ([control]) => control instanceof maplibre.ScaleControl,
+    );
 
-    expect(map.controls).toHaveLength(1);
-    expect(control).toBeInstanceOf(maplibre.NavigationControl);
-    expect(position).toBe("top-right");
+    expect(navigation).toHaveLength(1);
+    expect(navigation[0][0].options).toEqual({ visualizePitch: true });
+    expect(navigation[0][1]).toBe("top-right");
+    expect(scale.map(([, position]) => position)).toEqual(["bottom-left"]);
   });
 
   it("opens with the attribution folded, and leaves it open once the reader opens it", () => {
