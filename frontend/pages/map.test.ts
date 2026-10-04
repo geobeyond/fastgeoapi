@@ -46,6 +46,7 @@ class FakeMap {
   controls: unknown[] = [];
   images: unknown[] = [];
   bounds: [number, number, number, number] = [12, 41, 13, 42];
+  bearing = 0;
 
   constructor(options: Record<string, unknown>) {
     this.options = options;
@@ -53,6 +54,12 @@ class FakeMap {
   }
   on(event: string, handler: Handler) {
     (this.handlers[event] ??= []).push(handler);
+  }
+  getBearing() {
+    return this.bearing;
+  }
+  setBearing(bearing: number) {
+    this.bearing = bearing;
   }
   fire(event: string) {
     (this.handlers[event] ?? []).forEach((handler) => handler());
@@ -217,6 +224,47 @@ describe("startMap", () => {
 
     expect(map.options.style).toBe(styles[0].style);
     expect(map.styles).toEqual([styles[1].style]);
+  });
+
+  it("keeps a map of images flat, and lets the other maps tilt", () => {
+    const image = start({
+      kind: "image",
+      camera,
+      basemap: null,
+      maps: [{ name: "Default", url: "https://e.org/map" }],
+      maxSize: 2048,
+      labels: { style: "Style" },
+    });
+    const extent = start({
+      kind: "extent",
+      camera,
+      basemap: null,
+      bbox: [12, 41, 13, 42],
+    });
+
+    expect(image.options.maxPitch).toBe(0);
+    expect("maxPitch" in extent.options).toBe(false);
+  });
+
+  it("turns with two fingers on a trackpad, where the browser tells the angle", () => {
+    const map = start({
+      kind: "extent",
+      camera,
+      basemap: null,
+      bbox: [12, 41, 13, 42],
+    });
+    const canvas = map.options.container as HTMLElement;
+    map.bearing = 10;
+    const gesture = (type: string, rotation: number) =>
+      Object.assign(new Event(type, { cancelable: true }), { rotation });
+
+    const started = gesture("gesturestart", 0);
+    canvas.dispatchEvent(started);
+    const turned = gesture("gesturechange", 30);
+    canvas.dispatchEvent(turned);
+
+    expect(map.bearing).toBe(-20);
+    expect(started.defaultPrevented && turned.defaultPrevented).toBe(true);
   });
 
   it("asks one map image per view, again when the map stops moving", () => {

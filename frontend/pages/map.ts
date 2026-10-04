@@ -93,6 +93,8 @@ export interface MapLike {
     getNorth(): number;
   };
   getCanvas(): { clientWidth: number; clientHeight: number };
+  getBearing(): number;
+  setBearing(bearing: number): void;
 }
 
 export type MapClass = new (options: Record<string, unknown>) => MapLike;
@@ -324,6 +326,29 @@ function linkPage(map: MapLike, data: FeatureCollection | null): void {
     });
 }
 
+/** Safari's gesture event: the angle the fingers have turned since it began. */
+interface TrackpadGesture extends Event {
+  rotation: number;
+}
+
+/**
+ * Turns the map with two fingers on a trackpad. MapLibre turns it with two
+ * fingers on a touch screen only; Safari tells a page how far the fingers
+ * turn on a trackpad, and keeps its own zoom of the page out of the way once
+ * the page takes the gesture. Other browsers tell nothing, and nothing changes.
+ */
+function turnWithTrackpad(container: HTMLElement, map: MapLike): void {
+  let start = 0;
+  container.addEventListener("gesturestart", (event) => {
+    event.preventDefault();
+    start = map.getBearing();
+  });
+  container.addEventListener("gesturechange", (event) => {
+    event.preventDefault();
+    map.setBearing(start - (event as TrackpadGesture).rotation);
+  });
+}
+
 /**
  * Folds a compact attribution. MapLibre opens it the first time it has
  * something to say and folds it on the first drag: a long one, such as the
@@ -403,7 +428,11 @@ export function startMap(
     zoom: camera.zoom ?? 0,
     minZoom: camera.minZoom ?? 0,
     attributionControl: { compact: true },
+    // A tilted view reaches the horizon, and one image of all that comes out
+    // coarse and stretched near the reader: map images stay flat, and turn.
+    ...(config.kind === "image" ? { maxPitch: 0 } : {}),
   });
+  turnWithTrackpad(container, map);
   // The compass shows the tilt too, and a click on it brings the map back
   // north and flat: a right drag or two fingers rotate and tilt it.
   map.addControl(new NavigationControl({ visualizePitch: true }), "top-right");
