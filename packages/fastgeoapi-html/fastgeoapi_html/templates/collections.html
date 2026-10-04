@@ -3,8 +3,13 @@
 <div class="container">
   <h1>{{ title }}</h1>
   <p class="lead">{{ description }}</p>
+  {% if records %}<h2>{{ _("Data collections") }}</h2>{% endif %}
   <div class="grid">
     {% for card in collections %}{% include "_card.html" %}{% endfor %}
   </div>
+  {% if records %}<h2>{{ _("Record collections") }}</h2>
+  <div class="grid">
+    {% for card in records %}{% include "_card.html" %}{% endfor %}
+  </div>{% endif %}
 </div>
 {% endblock %}

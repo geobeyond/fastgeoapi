@@ -5,12 +5,28 @@
 
 import pytest
 
-from tests.html_fixtures import SERVER_URL, config, fake_build, jsonld, native_client
+from tests.html_fixtures import (
+    SERVER_URL,
+    config,
+    fake_build,
+    jsonld,
+    native_client,
+    section,
+    with_parquet_lakes,
+    with_records,
+)
 
 
 @pytest.fixture(scope="module")
 def client(tmp_path_factory):
     return native_client(config(), fake_build(tmp_path_factory.mktemp("static")))
+
+
+@pytest.fixture(scope="module")
+def wider(tmp_path_factory):
+    directory = tmp_path_factory.mktemp("wider")
+    api_config = with_records(with_parquet_lakes(config()), directory)
+    return native_client(api_config, fake_build(directory / "static"))
 
 
 def _page(client, path, **params):
@@ -54,6 +70,26 @@ def test_the_schema_shows_the_properties_of_the_items(client):
 
     assert "<h1>Schema of Large Lakes</h1>" in html
     assert "<td><code>name</code></td><td>string</td>" in html
+
+
+def test_data_and_records_are_listed_apart(wider):
+    html = _page(wider, "/collections").text
+
+    assert f'href="{SERVER_URL}/collections/lakes?f=html"' in section(html, "Data collections")
+    records = section(html, "Record collections")
+    assert f'href="{SERVER_URL}/collections/records?f=html"' in records
+    assert "/collections/lakes?" not in records
+
+
+def test_a_format_shows_beside_its_type(wider):
+    html = _page(wider, "/collections/lakes-parquet/schema").text
+
+    assert "<td><code>observed_at</code></td><td>string (date-time)</td>" in html
+
+
+def test_the_queryables_and_the_schema_show_the_keywords(client):
+    for path in ("/collections/lakes/queryables", "/collections/lakes/schema"):
+        assert '<span class="keyword">lakes</span>' in _page(client, path).text
 
 
 def test_the_queryables_in_italian(client):

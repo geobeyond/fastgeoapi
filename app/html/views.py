@@ -17,6 +17,7 @@ from app.pygeoapi.registry import active_specs
 Gettext = Callable[[str], str]
 
 PROCESSES = "http://www.opengis.net/def/rel/ogc/1.0/processes"
+JOB_LIST = "http://www.opengis.net/def/rel/ogc/1.0/job-list"
 TILING_SCHEMES = "http://www.opengis.net/def/rel/ogc/1.0/tiling-schemes"
 
 DESCRIPTION_LENGTH = 180
@@ -133,22 +134,83 @@ def parameter_row(name: str, spec: dict[str, Any], locale: Any) -> dict[str, str
     }
 
 
+def _fact(label: str, value: Any, href: str | None = None) -> dict[str, Any]:
+    """A fact of the service, linked to ``href``, or to itself when it is a URL."""
+    if href is None and isinstance(value, str) and value.startswith(("http://", "https://")):
+        href = value
+    return {"label": label, "value": value, "href": href}
+
+
+def _about(metadata: dict[str, Any], locale: Any, _: Gettext) -> list[dict[str, Any]]:
+    """What pygeoapi's landing says of the service: terms, license, provider, contact."""
+    identification = metadata.get("identification") or {}
+    license_ = metadata.get("license") or {}
+    provider = metadata.get("provider") or {}
+    contact = metadata.get("contact") or {}
+    email, phone, fax = contact.get("email"), contact.get("phone"), contact.get("fax")
+    address = ", ".join(
+        str(contact[key])
+        for key in ("address", "city", "stateorprovince", "postalcode", "country")
+        if contact.get(key)
+    )
+    who = ", ".join(str(contact[key]) for key in ("name", "position") if contact.get(key))
+    terms = l10n.translate(identification.get("terms_of_service"), locale)
+    facts = [
+        _fact(_("Terms of service"), terms),
+        _fact(_("License"), license_.get("name") or license_.get("url"), license_.get("url")),
+        _fact(_("URL"), identification.get("url")),
+        _fact(_("Provider"), provider.get("name") or provider.get("url"), provider.get("url")),
+        _fact(_("Contact"), who),
+        _fact(_("Address"), address),
+        _fact(_("Email"), email, f"mailto:{email}" if email else None),
+        _fact(_("Telephone"), phone, f"tel:{phone}" if phone else None),
+        _fact(_("Fax"), fax, f"tel:{fax}" if fax else None),
+        _fact(_("Contact URL"), contact.get("url")),
+        _fact(_("Hours"), contact.get("hours")),
+        _fact(_("Contact instructions"), contact.get("instructions")),
+    ]
+    return [fact for fact in facts if fact["value"]]
+
+
 def landing(context: PageContext) -> dict[str, Any]:
-    """The service, its sections and its collections."""
+    """The service, its sections, its collections, and what pygeoapi's landing says of it."""
     _ = context.gettext
     api = context.api
     locale = context.request.locale
-    sections = [("data", _("Collections")), (PROCESSES, _("Processes"))]
-    if "tiles" in active_specs(api.config):
-        sections.append((TILING_SCHEMES, _("Tile matrix sets")))
-    sections += [("service-doc", _("API documentation")), ("conformance", _("Conformance"))]
+    base = base_url(context)
     hrefs: dict[str, str] = {}
     for link in context.document.get("links", []):
         hrefs.setdefault(link.get("rel", ""), link.get("href", ""))
-    base = base_url(context)
+    if any(
+        resource.get("type") == "stac-collection"
+        for resource in api.config.get("resources", {}).values()
+    ):
+        hrefs["stac"] = f"{base}/stac"
+    sections = [
+        ("data", _("Collections")),
+        ("stac", _("SpatioTemporal Asset Catalog")),
+        (PROCESSES, _("Processes")),
+        (JOB_LIST, _("Jobs")),
+    ]
+    if "tiles" in active_specs(api.config):
+        sections.append((TILING_SCHEMES, _("Tile matrix sets")))
+    sections += [("service-doc", _("API documentation")), ("conformance", _("Conformance"))]
+    definition = []
+    if hrefs.get("service-doc"):
+        definition += [
+            {"label": "Swagger UI", "href": with_query(hrefs["service-doc"], f=F_HTML)},
+            {"label": "ReDoc", "href": with_query(hrefs["service-doc"], f=F_HTML, ui="redoc")},
+        ]
+    if hrefs.get("service-desc"):
+        definition.append({"label": _("OpenAPI document"), "href": hrefs["service-desc"]})
+    metadata = api.config.get("metadata") or {}
+    keywords = l10n.translate((metadata.get("identification") or {}).get("keywords"), locale)
     return {
         "title": context.document.get("title", ""),
         "description": context.document.get("description", ""),
+        "keywords": list(keywords or []),
+        "about": _about(metadata, locale, _),
+        "definition": definition,
         "sections": [
             {"label": label, "href": with_query(hrefs[rel], f=F_HTML)}
             for rel, label in sections
@@ -253,10 +315,9 @@ def collections(context: PageContext) -> dict[str, Any]:
     listed = context.document.get("collections", [])
     catalog = catalog_jsonld(api, locale)
     catalog["dataset"] = [jsonldify_collection(api, item, locale) for item in listed]
-    return {
-        "title": _("Collections"),
-        "description": _("The collections of this service."),
-        "collections": [
+    cards = [
+        (
+            item.get("itemType") == "record",
             card(
                 item.get("title") or item["id"],
                 item.get("description") or "",
@@ -264,12 +325,24 @@ def collections(context: PageContext) -> dict[str, Any]:
                 or f"{base_url(context)}/collections/{item['id']}?f=html",
                 provider_kinds(resources.get(item["id"], {}), _),
                 list(item.get("keywords") or []),
-            )
-            for item in listed
-        ],
+            ),
+        )
+        for item in listed
+    ]
+    return {
+        "title": _("Collections"),
+        "description": _("The collections of this service."),
+        "collections": [each for record, each in cards if not record],
+        "records": [each for record, each in cards if record],
         "jsonld": catalog,
         "crumbs": [{"label": _("Collections")}],
     }
+
+
+def _kind(spec: dict[str, Any]) -> str:
+    """The type of a property, with its format beside it, as pygeoapi's pages write it."""
+    kind, form = spec.get("type") or "", spec.get("format") or ""
+    return f"{kind} ({form})" if kind and form else kind or form
 
 
 def _properties(document: dict[str, Any]) -> list[dict[str, Any]]:
@@ -277,13 +350,22 @@ def _properties(document: dict[str, Any]) -> list[dict[str, Any]]:
         {
             "name": name,
             "title": spec.get("title", ""),
-            "type": spec.get("type") or spec.get("format") or spec.get("$ref") or "",
+            "type": _kind(spec),
+            "ref": spec.get("$ref", ""),
+            "unit": spec.get("x-ogc-unit", ""),
             "role": spec.get("x-ogc-role", ""),
             "description": spec.get("description", ""),
             "allowed": [str(value) for value in spec.get("enum", [])],
         }
         for name, spec in (document.get("properties") or {}).items()
     ]
+
+
+def _keywords(context: PageContext) -> list[str]:
+    """The keywords of the collection a page belongs to, in the page's language."""
+    resources = context.api.config["resources"]
+    resource = resources.get(context.path_params.get("collection_id", ""), {})
+    return list(l10n.translate(resource.get("keywords"), context.request.locale) or [])
 
 
 def _collection_crumbs(context: PageContext, title: str, last: str) -> list[dict[str, str]]:
@@ -304,6 +386,7 @@ def queryables(context: PageContext) -> dict[str, Any]:
     return {
         "title": _("Queryables of %(collection)s") % {"collection": title},
         "description": _("The properties a filter on the items can use."),
+        "keywords": _keywords(context),
         "properties": _properties(context.document),
         "crumbs": _collection_crumbs(context, title, _("Queryables")),
     }
@@ -316,6 +399,7 @@ def schema(context: PageContext) -> dict[str, Any]:
     return {
         "title": _("Schema of %(collection)s") % {"collection": title},
         "description": _("The properties of the items, as their schema describes them."),
+        "keywords": _keywords(context),
         "properties": _properties(context.document),
         "crumbs": _collection_crumbs(context, title, _("Schema")),
     }

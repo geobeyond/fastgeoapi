@@ -578,3 +578,51 @@ msgstr "Versione STAC"
 
 msgid "Last modified"
 msgstr "Ultima modifica"
+
+msgid "About this service"
+msgstr "Il servizio"
+
+msgid "Terms of service"
+msgstr "Termini di servizio"
+
+msgid "URL"
+msgstr "URL"
+
+msgid "Provider"
+msgstr "Fornitore"
+
+msgid "Contact"
+msgstr "Contatto"
+
+msgid "Address"
+msgstr "Indirizzo"
+
+msgid "Email"
+msgstr "Email"
+
+msgid "Telephone"
+msgstr "Telefono"
+
+msgid "Fax"
+msgstr "Fax"
+
+msgid "Contact URL"
+msgstr "Pagina dei contatti"
+
+msgid "Hours"
+msgstr "Orari"
+
+msgid "Contact instructions"
+msgstr "Istruzioni per il contatto"
+
+msgid "API definition"
+msgstr "Definizione dell'API"
+
+msgid "OpenAPI document"
+msgstr "Documento OpenAPI"
+
+msgid "Data collections"
+msgstr "Collezioni di dati"
+
+msgid "Record collections"
+msgstr "Collezioni di record"

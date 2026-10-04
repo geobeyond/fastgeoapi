@@ -4,6 +4,7 @@
   <div class="container">
     <h1>{{ title }}</h1>
     {% if description %}<p class="lead">{{ description }}</p>{% endif %}
+    {% if keywords %}<p>{% for keyword in keywords %}<span class="keyword">{{ keyword }}</span> {% endfor %}</p>{% endif %}
     <nav class="links-row">{% for section in sections %}<a href="{{ section.href }}">{{ section.label }}</a>{% endfor %}</nav>
   </div>
 </section>
@@ -13,6 +14,17 @@
   <div class="grid">
     {% for card in collections %}{% include "_card.html" %}{% endfor %}
   </div>
+</div>
+{% endif %}
+{% if about or definition %}
+<div class="container">
+  {% if about %}<h2>{{ _("About this service") }}</h2>
+  <dl class="facts">
+    {% for fact in about %}<dt>{{ fact.label }}</dt><dd>{% if fact.href %}<a href="{{ fact.href }}">{{ fact.value }}</a>{% else %}{{ fact.value }}{% endif %}</dd>
+    {% endfor %}
+  </dl>{% endif %}
+  {% if definition %}<h2>{{ _("API definition") }}</h2>
+  <ul class="links">{% for each in definition %}<li><a href="{{ each.href }}">{{ each.label }}</a></li>{% endfor %}</ul>{% endif %}
 </div>
 {% endif %}
 {% endblock %}

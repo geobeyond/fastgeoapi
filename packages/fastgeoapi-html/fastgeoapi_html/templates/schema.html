@@ -3,6 +3,7 @@
 <div class="container">
   <h1>{{ title }}</h1>
   <p class="lead">{{ description }}</p>
+  {% if keywords %}<p>{% for keyword in keywords %}<span class="keyword">{{ keyword }}</span> {% endfor %}</p>{% endif %}
   {% include "_properties.html" %}
 </div>
 {% endblock %}

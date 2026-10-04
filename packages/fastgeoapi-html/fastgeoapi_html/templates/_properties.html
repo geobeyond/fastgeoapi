@@ -1,8 +1,9 @@
+{% set units = properties | selectattr("unit") | list %}
 <table class="data">
-  <thead><tr><th>{{ _("Property") }}</th><th>{{ _("Type") }}</th><th>{{ _("Role") }}</th><th>{{ _("Description") }}</th></tr></thead>
+  <thead><tr><th>{{ _("Property") }}</th><th>{{ _("Type") }}</th>{% if units %}<th>{{ _("Unit") }}</th>{% endif %}<th>{{ _("Role") }}</th><th>{{ _("Description") }}</th></tr></thead>
   <tbody>
   {% for property in properties %}
-    <tr><td><code>{{ property.name }}</code>{% if property.title and property.title != property.name %}<br>{{ property.title }}{% endif %}</td><td>{{ property.type }}</td><td>{{ property.role }}</td><td>{{ property.description }}{% if property.allowed %}<br>{{ _("Values") }}: {{ property.allowed | join(", ") }}{% endif %}</td></tr>
+    <tr><td><code>{{ property.name }}</code>{% if property.title and property.title != property.name %}<br>{{ property.title }}{% endif %}</td><td>{% if property.ref %}<a href="{{ property.ref }}">{{ property.ref }}</a>{% else %}{{ property.type }}{% endif %}</td>{% if units %}<td>{{ property.unit }}</td>{% endif %}<td>{{ property.role }}</td><td>{{ property.description }}{% if property.allowed %}<br>{{ _("Values") }}: {{ property.allowed | join(", ") }}{% endif %}</td></tr>
   {% endfor %}
   </tbody>
 </table>

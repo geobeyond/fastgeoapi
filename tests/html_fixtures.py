@@ -426,6 +426,36 @@ def with_photos(api_config: dict, directory: Path) -> dict:
     return api_config
 
 
+def with_records(api_config: dict, directory: Path) -> dict:
+    """``api_config`` with ``records``, a catalogue of one record in a TinyDB file."""
+    data = directory / "records.tinydb"
+    record = {
+        "id": "rome-datasets",
+        "type": "Feature",
+        "geometry": None,
+        "properties": {"title": "Datasets of Rome", "type": "dataset"},
+    }
+    data.write_text(json.dumps({"_default": {"1": record}}))
+    api_config["resources"]["records"] = {
+        "type": "collection",
+        "title": "Records",
+        "description": "A catalogue of datasets",
+        "keywords": [],
+        "extents": {"spatial": {"bbox": [-180, -90, 180, 90], "crs": CRS84}},
+        "links": [],
+        "providers": [
+            {
+                "type": "record",
+                "name": "TinyDBCatalogue",
+                "data": str(data),
+                "id_field": "id",
+                "title_field": "title",
+            }
+        ],
+    }
+    return api_config
+
+
 def with_edr(api_config: dict) -> dict:
     """``api_config`` with ``weather``, environmental data from the fake EDR source."""
     api_config["resources"]["weather"] = {

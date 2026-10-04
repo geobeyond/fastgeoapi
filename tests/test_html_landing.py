@@ -5,12 +5,23 @@
 
 import pytest
 
-from tests.html_fixtures import SERVER_URL, config, fake_build, jsonld, native_client
+from tests.html_fixtures import (
+    SERVER_URL,
+    config,
+    fake_build,
+    jsonld,
+    native_client,
+    section,
+    with_jobs,
+    with_stac,
+)
 
 
 @pytest.fixture(scope="module")
 def client(tmp_path_factory):
-    return native_client(config(), fake_build(tmp_path_factory.mktemp("static")))
+    directory = tmp_path_factory.mktemp("landing")
+    api_config = with_stac(with_jobs(config(), directory))
+    return native_client(api_config, fake_build(directory / "static"))
 
 
 def _landing(client, **params):
@@ -31,6 +42,38 @@ def test_the_sections_lead_to_their_html_pages(client):
     for path in ("collections", "processes", "openapi", "conformance"):
         assert f'href="{SERVER_URL}/{path}?f=html"' in html
     assert "TileMatrixSets" not in html  # no tile collection in this configuration
+
+
+def test_the_sections_lead_to_the_jobs_and_to_stac(client):
+    html = _landing(client)
+
+    assert f'href="{SERVER_URL}/jobs?f=html"' in html
+    assert f'href="{SERVER_URL}/stac?f=html"' in html
+
+
+def test_the_keywords_of_the_service_follow_the_language(client):
+    assert '<span class="keyword">geospatial</span>' in _landing(client)
+    assert '<span class="keyword">géospatiale</span>' in _landing(client, lang="fr-CA")
+
+
+def test_the_service_states_its_terms_license_provider_and_contact(client):
+    about = section(_landing(client), "About this service")
+    license_url = "https://creativecommons.org/licenses/by/4.0/"
+
+    assert f'<dt>Terms of service</dt><dd><a href="{license_url}">{license_url}</a></dd>' in about
+    assert f'<a href="{license_url}">CC-BY 4.0 license</a>' in about
+    assert '<a href="https://pygeoapi.io">Organization Name</a>' in about
+    assert "Mailing Address, City, Administrative Area, Zip or Postal Code, Country" in about
+    assert '<a href="mailto:you@example.org">you@example.org</a>' in about
+    assert "<dd>Mo-Fr 08:00-17:00</dd>" in about
+
+
+def test_the_api_definition_offers_swagger_redoc_and_the_document(client):
+    api = section(_landing(client), "API definition")
+
+    assert f'<a href="{SERVER_URL}/openapi?f=html">Swagger UI</a>' in api
+    assert f'<a href="{SERVER_URL}/openapi?f=html&amp;ui=redoc">ReDoc</a>' in api
+    assert f'<a href="{SERVER_URL}/openapi">OpenAPI document</a>' in api
 
 
 def test_each_collection_is_a_card_with_what_it_serves(client):

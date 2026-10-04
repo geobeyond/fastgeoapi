@@ -47,6 +47,13 @@ def test_the_instances_describe_their_collection(client, path):
     assert '<span class="keyword">forecast</span>' in html
 
 
+def test_the_schema_shows_the_unit_of_each_property(client):
+    html = _page(client, "/collections/weather/schema").text
+
+    assert "<th>Unit</th>" in html
+    assert "<td><code>temperature</code><br>Temperature</td><td>number</td><td>K</td>" in html
+
+
 def test_the_collection_leads_to_its_queries(client):
     html = _page(client, "/collections/weather").text
 
