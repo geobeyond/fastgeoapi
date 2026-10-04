@@ -323,6 +323,17 @@ function linkPage(map: MapLike, data: FeatureCollection | null): void {
     });
 }
 
+/**
+ * Folds a compact attribution. MapLibre opens it the first time it has
+ * something to say and folds it on the first drag: a long one, such as the
+ * sources of a terrain, would cover the map until then.
+ */
+function foldAttribution(container: HTMLElement): void {
+  container
+    .querySelector(".maplibregl-ctrl-attrib.maplibregl-compact")
+    ?.classList.remove("maplibregl-compact-show");
+}
+
 /** Builds the map of ``config`` inside ``element``. */
 export function startMap(
   element: HTMLElement,
@@ -426,6 +437,14 @@ export function startMap(
     );
   });
   map.on("moveend", refreshImage);
+  // Once only: the reader may open it again, and the map goes idle after every move.
+  let folded = false;
+  map.on("idle", () => {
+    if (!folded) {
+      folded = true;
+      foldAttribution(container);
+    }
+  });
   return map;
 }
 

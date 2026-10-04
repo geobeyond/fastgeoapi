@@ -286,6 +286,30 @@ describe("startMap", () => {
     expect(position).toBe("top-right");
   });
 
+  it("opens with the attribution folded, and leaves it open once the reader opens it", () => {
+    const map = start({
+      kind: "extent",
+      camera,
+      basemap: null,
+      bbox: [12, 41, 13, 42],
+    });
+    const attribution = document.createElement("details");
+    attribution.className =
+      "maplibregl-ctrl maplibregl-ctrl-attrib maplibregl-compact maplibregl-compact-show";
+    (map.options.container as HTMLElement).append(attribution);
+
+    map.fire("idle");
+    const folded = !attribution.classList.contains("maplibregl-compact-show");
+    attribution.classList.add("maplibregl-compact-show");
+    map.fire("idle");
+
+    expect(folded).toBe(true);
+    expect(attribution.classList.contains("maplibregl-compact")).toBe(true);
+    expect(attribution.classList.contains("maplibregl-compact-show")).toBe(
+      true,
+    );
+  });
+
   it("fits one point without zooming past the streets", () => {
     const point = {
       type: "FeatureCollection" as const,
