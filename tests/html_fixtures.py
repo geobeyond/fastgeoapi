@@ -216,6 +216,7 @@ def add_running_job(directory: Path) -> None:
             "mimetype": "application/json",
             "message": "Halfway there",
             "progress": 50,
+            "parameters": {"inputs": {"name": "Ada"}},
         }
     )
 

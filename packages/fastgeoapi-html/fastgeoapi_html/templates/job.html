@@ -6,6 +6,8 @@
     {% for fact in facts %}<dt>{{ fact.label }}</dt><dd>{% if fact.when %}{{ fact.value | instant }}{% else %}{{ fact.value }}{% endif %}</dd>
     {% endfor %}
   </dl>
+  {% if parameters %}<h2>{{ _("Parameters") }}</h2>
+  <pre>{{ parameters }}</pre>{% endif %}
   {% if results %}<p><a href="{{ results }}">{{ _("Show the results") }}</a></p>{% endif %}
   {% if follow %}
   <fga-job-status>

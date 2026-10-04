@@ -527,6 +527,13 @@ ol.feature-list {
   overflow-x: auto;
 }
 
+form.limit {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 12px 0;
+}
+
 table.items td {
   white-space: nowrap;
 }

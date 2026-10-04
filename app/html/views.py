@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
 
@@ -546,21 +547,54 @@ def _job_crumbs(context: PageContext, *tail: dict[str, str]) -> list[dict[str, s
     ]
 
 
+def _duration(started: str | None, finished: str | None) -> str:
+    """How long a job ran, or has run so far, in hours, minutes and seconds: ``H:MM:SS``.
+
+    pygeoapi writes the days apart, in English; the hours keep counting here instead.
+    """
+    if not started:
+        return ""
+    try:
+        start = datetime.fromisoformat(started)
+        end = datetime.fromisoformat(finished) if finished else datetime.now(UTC)
+    except ValueError:
+        return ""
+    start = start if start.tzinfo else start.replace(tzinfo=UTC)
+    end = end if end.tzinfo else end.replace(tzinfo=UTC)
+    hours, rest = divmod(int((end - start).total_seconds()), 3600)
+    minutes, seconds = divmod(rest, 60)
+    return f"{hours}:{minutes:02d}:{seconds:02d}"
+
+
+JOB_LIMITS = (100, 1000, 2000)
+"""The page sizes the jobs page offers beside the server's default, as pygeoapi's does."""
+
+
 def jobs(context: PageContext) -> dict[str, Any]:
-    """The jobs, one row each."""
+    """The jobs, one row each, a page at a time."""
     _ = context.gettext
     base = base_url(context)
+    limits = context.api.config["server"].get("limits") or {}
+    default = int(limits.get("default_items", 10))
+    asked = str(context.params.get("limit") or "")
+    limit = int(asked) if asked.isdigit() else default
     return {
         "title": _("Jobs"),
         "description": _("The jobs this service has run or is running."),
+        "action": f"{base}/jobs",
+        "language": context.params.get("lang"),
+        "limit": limit,
+        "limits": sorted({default, limit, *JOB_LIMITS}),
         "rows": [
             {
                 "id": item["jobID"],
                 "process": item.get("processID", ""),
+                "process_href": f"{base}/processes/{item.get('processID', '')}?f=html",
                 "status": _status(item.get("status", ""), _),
-                "created": item.get("created"),
-                "finished": item.get("finished"),
+                "started": item.get("started"),
+                "duration": _duration(item.get("started"), item.get("finished")),
                 "progress": item.get("progress"),
+                "message": item.get("message") or "",
                 "href": f"{base}/jobs/{item['jobID']}?f=html",
             }
             for item in context.document.get("jobs", [])
@@ -580,6 +614,7 @@ def job(context: PageContext) -> dict[str, Any]:
     job_id = document.get("jobID") or context.path_params.get("job_id", "")
     status = document.get("status", "")
     progress = document.get("progress")
+    parameters = document.get("parameters")
     facts = [
         {"label": _("Process"), "value": document.get("processID")},
         {"label": _("Status"), "value": _status(status, _)},
@@ -588,6 +623,10 @@ def job(context: PageContext) -> dict[str, Any]:
         {"label": _("Created"), "value": document.get("created"), "when": True},
         {"label": _("Started"), "value": document.get("started"), "when": True},
         {"label": _("Finished"), "value": document.get("finished"), "when": True},
+        {
+            "label": _("Duration"),
+            "value": _duration(document.get("started"), document.get("finished")),
+        },
         {"label": _("Updated"), "value": document.get("updated"), "when": True},
     ]
     follow = None
@@ -602,6 +641,7 @@ def job(context: PageContext) -> dict[str, Any]:
         "title": _("Job %(job)s") % {"job": job_id},
         "facts": [fact for fact in facts if fact["value"]],
         "results": f"{base}/jobs/{job_id}/results?f=html" if status == "successful" else None,
+        "parameters": json.dumps(parameters, indent=2, ensure_ascii=False) if parameters else "",
         "follow": follow,
         "links": json_links(document, context.request.locale),
         "crumbs": _job_crumbs(context, {"label": job_id}),

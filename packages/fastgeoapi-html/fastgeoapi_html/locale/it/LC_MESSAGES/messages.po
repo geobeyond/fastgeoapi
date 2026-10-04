@@ -626,3 +626,6 @@ msgstr "Collezioni di dati"
 
 msgid "Record collections"
 msgstr "Collezioni di record"
+
+msgid "Duration"
+msgstr "Durata"
