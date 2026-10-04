@@ -2,7 +2,6 @@ import {
   baseStyle,
   dataBounds,
   extentFeature,
-  indexed,
   mapImageUrl,
   startMap,
   type FeatureCollection,
@@ -27,7 +26,7 @@ class FakeMap {
   styles: unknown[] = [];
   fitted: unknown[] = [];
   fitOptions: unknown[] = [];
-  states: unknown[] = [];
+  updates: unknown[] = [];
   images: unknown[] = [];
   bounds: [number, number, number, number] = [12, 41, 13, 42];
 
@@ -46,7 +45,10 @@ class FakeMap {
   }
   getSource(id: string) {
     return id in this.sources
-      ? { updateImage: (image: unknown) => this.images.push(image) }
+      ? {
+          updateImage: (image: unknown) => this.images.push(image),
+          setData: (data: unknown) => this.updates.push([id, data]),
+        }
       : undefined;
   }
   addLayer(layer: { id: string }) {
@@ -58,9 +60,6 @@ class FakeMap {
   fitBounds(bounds: unknown, options?: unknown) {
     this.fitted.push(bounds);
     this.fitOptions.push(options);
-  }
-  setFeatureState(feature: unknown, state: unknown) {
-    this.states.push([feature, state]);
   }
   getBounds() {
     const [w, s, e, n] = this.bounds;
@@ -153,14 +152,6 @@ describe("helpers", () => {
     });
   });
 
-  it("numbers the features so that the list can find them", () => {
-    expect(
-      indexed(collection).features.map(
-        (feature) => feature.properties?.fga_index,
-      ),
-    ).toEqual([0, 1]);
-  });
-
   it("finds the bounds of every coordinate", () => {
     expect(dataBounds(collection)).toEqual([12, 41, 14, 43]);
     expect(dataBounds({ type: "FeatureCollection", features: [] })).toBeNull();
@@ -231,7 +222,7 @@ describe("startMap", () => {
     expect(map.options.minZoom).toBe(0);
   });
 
-  it("draws the features of the page and highlights the one under the pointer", () => {
+  it("draws the item under the pointer above the others, where points overlap too", () => {
     document.body.innerHTML = "";
     const item = document.createElement("li");
     item.dataset.fgaFeature = "1";
@@ -251,11 +242,20 @@ describe("startMap", () => {
 
     map.fire("load");
     item.dispatchEvent(new Event("mouseenter"));
+    const shown = map.updates[map.updates.length - 1];
+    item.dispatchEvent(new Event("mouseleave"));
 
-    expect(map.sources["fga-data"].promoteId).toBe("fga_index");
     expect(map.fitted).toEqual([[12, 41, 14, 43]]);
-    expect(map.states).toEqual([
-      [{ source: "fga-data", id: 1 }, { active: true }],
+    expect(map.layers.indexOf("fga-active-point")).toBeGreaterThan(
+      map.layers.indexOf("fga-data-point"),
+    );
+    expect(shown).toEqual([
+      "fga-active",
+      { type: "FeatureCollection", features: [collection.features[1]] },
+    ]);
+    expect(map.updates[map.updates.length - 1]).toEqual([
+      "fga-active",
+      { type: "FeatureCollection", features: [] },
     ]);
   });
 

@@ -66,15 +66,20 @@ export type MapConfig =
     }
   | { kind: "extent"; camera: Camera; basemap: Basemap | null; bbox: Bbox };
 
+/** The part of a MapLibre source the island uses: an image's or a GeoJSON one's. */
+export interface SourceLike {
+  updateImage(image: object): void;
+  setData(data: object): void;
+}
+
 /** The part of a MapLibre map the island uses: a fake stands in for it in tests. */
 export interface MapLike {
   on(event: string, handler: () => void): void;
   addSource(id: string, source: object): void;
-  getSource(id: string): { updateImage(image: object): void } | undefined;
+  getSource(id: string): SourceLike | undefined;
   addLayer(layer: object): void;
   setStyle(style: object): void;
   fitBounds(bounds: Bbox, options?: object): void;
-  setFeatureState(feature: object, state: object): void;
   getBounds(): {
     getWest(): number;
     getSouth(): number;
@@ -89,6 +94,8 @@ export type MapClass = new (options: Record<string, unknown>) => MapLike;
 const ACCENT = "#2c6db5";
 const ACTIVE = "#d97706";
 const DATA = "fga-data";
+/** The feature under the pointer, drawn on its own above the others: points can overlap. */
+const HOVERED = "fga-active";
 /** The closest a map zooms to fit its data: one point would otherwise ask for zoom 22. */
 const FIT_MAX_ZOOM = 16;
 /** The deepest basemap tiles there are: past them MapLibre enlarges the last ones. */
@@ -136,17 +143,6 @@ export function extentFeature(bbox: Bbox): Feature {
         ],
       ],
     },
-  };
-}
-
-/** The features with their position in the list, which the page's items refer to. */
-export function indexed(data: FeatureCollection): FeatureCollection {
-  return {
-    ...data,
-    features: data.features.map((feature, index) => ({
-      ...feature,
-      properties: { ...(feature.properties ?? {}), fga_index: index },
-    })),
   };
 }
 
@@ -211,14 +207,8 @@ export function baseStyle(basemap: Basemap | null): Style {
   };
 }
 
-/** Fill, line and point layers of a GeoJSON source, in the accent colour or the active one. */
-export function dataLayers(source: string): object[] {
-  const color = [
-    "case",
-    ["boolean", ["feature-state", "active"], false],
-    ACTIVE,
-    ACCENT,
-  ];
+/** Fill, line and point layers of a GeoJSON source, in ``color``. */
+export function dataLayers(source: string, color: string = ACCENT): object[] {
   return [
     {
       id: `${source}-fill`,
@@ -286,26 +276,30 @@ function picker(
   return select;
 }
 
+const NOTHING: FeatureCollection = { type: "FeatureCollection", features: [] };
+
 function addData(map: MapLike, data: FeatureCollection | string): void {
-  const source = typeof data === "string" ? data : indexed(data);
-  map.addSource(DATA, {
-    type: "geojson",
-    data: source,
-    promoteId: "fga_index",
-  });
+  map.addSource(DATA, { type: "geojson", data });
   dataLayers(DATA).forEach((layer) => map.addLayer(layer));
+  map.addSource(HOVERED, { type: "geojson", data: NOTHING });
+  dataLayers(HOVERED, ACTIVE).forEach((layer) => map.addLayer(layer));
 }
 
-function linkPage(map: MapLike): void {
+function linkPage(map: MapLike, data: FeatureCollection | null): void {
   document
     .querySelectorAll<HTMLElement>("[data-fga-feature]")
     .forEach((item) => {
-      const id = Number(item.dataset.fgaFeature);
+      const feature = data?.features[Number(item.dataset.fgaFeature)];
+      if (feature === undefined) {
+        return;
+      }
       item.addEventListener("mouseenter", () =>
-        map.setFeatureState({ source: DATA, id }, { active: true }),
+        map
+          .getSource(HOVERED)
+          ?.setData({ type: "FeatureCollection", features: [feature] }),
       );
       item.addEventListener("mouseleave", () =>
-        map.setFeatureState({ source: DATA, id }, { active: false }),
+        map.getSource(HOVERED)?.setData(NOTHING),
       );
     });
   document
@@ -418,7 +412,12 @@ export function startMap(
       });
     }
     refreshImage();
-    linkPage(map);
+    linkPage(
+      map,
+      config.kind === "features" && typeof config.data !== "string"
+        ? config.data
+        : null,
+    );
   });
   map.on("moveend", refreshImage);
   return map;
