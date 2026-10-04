@@ -494,3 +494,51 @@ msgstr "Scarica"
 
 msgid "Narrow the download"
 msgstr "Restringi il download"
+
+msgid "Coordinates"
+msgstr "Coordinate"
+
+msgid "Well-known text, such as %(example)s"
+msgstr "Well-known text, come %(example)s"
+
+msgid "Radius"
+msgstr "Raggio"
+
+msgid "Units of the radius"
+msgstr "Unità del raggio"
+
+msgid "Height"
+msgstr "Quota"
+
+msgid "Parameters"
+msgstr "Parametri"
+
+msgid "Instances of %(collection)s"
+msgstr "Istanze di %(collection)s"
+
+msgid "Instance %(instance)s of %(collection)s"
+msgstr "Istanza %(instance)s di %(collection)s"
+
+msgid "%(query)s, %(collection)s, instance %(instance)s"
+msgstr "%(query)s, %(collection)s, istanza %(instance)s"
+
+msgid "%(query)s, %(collection)s"
+msgstr "%(query)s, %(collection)s"
+
+msgid "Queries"
+msgstr "Interrogazioni"
+
+msgid "Query"
+msgstr "Interroga"
+
+msgid "Domain"
+msgstr "Dominio"
+
+msgid "Axis"
+msgstr "Asse"
+
+msgid "Count"
+msgstr "Numero"
+
+msgid "Unit"
+msgstr "Unità"

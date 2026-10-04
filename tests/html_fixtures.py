@@ -15,6 +15,7 @@ import numpy as np
 import rasterio
 from pygeoapi.process.base import BaseProcessor
 from pygeoapi.process.manager.tinydb_ import TinyDBManager
+from pygeoapi.provider.base_edr import BaseEDRProvider
 from pygeoapi.util import yaml_load
 from rasterio.transform import from_bounds
 from starlette.testclient import TestClient
@@ -319,6 +320,70 @@ def with_coverage(api_config: dict, directory: Path) -> dict:
                 "options": {"DATA": {"BAND": 1}},
                 "format": {"name": "GTiff", "mimetype": "application/tiff"},
             }
+        ],
+    }
+    return api_config
+
+
+EDR_COVERAGE = {
+    "type": "Coverage",
+    "domain": {
+        "type": "Domain",
+        "domainType": "Point",
+        "axes": {
+            "x": {"values": [12.5]},
+            "y": {"values": [41.9]},
+            "t": {"values": ["2026-10-03T00:00:00Z"]},
+        },
+        "referencing": [],
+    },
+    "parameters": {
+        "temperature": {
+            "type": "Parameter",
+            "unit": {"symbol": "K"},
+            "observedProperty": {"label": {"en": "Temperature"}},
+        }
+    },
+    "ranges": {
+        "temperature": {
+            "type": "NdArray",
+            "dataType": "float",
+            "axisNames": ["t"],
+            "shape": [1],
+            "values": [288.4],
+        }
+    },
+}
+"""The answer of the fake EDR source: one temperature at one point."""
+
+
+class FakeEDRProvider(BaseEDRProvider):
+    """An EDR source with one instance and one point, without xarray."""
+
+    def get_fields(self) -> dict:
+        return {"temperature": {"title": "Temperature", "type": "number", "x-ogc-unit": "K"}}
+
+    def instances(self) -> list[str]:
+        return ["2026"]
+
+    def instance(self, instance: str) -> bool:
+        return instance in self.instances()
+
+    def position(self, **kwargs) -> dict:
+        return EDR_COVERAGE
+
+
+def with_edr(api_config: dict) -> dict:
+    """``api_config`` with ``weather``, environmental data from the fake EDR source."""
+    api_config["resources"]["weather"] = {
+        "type": "collection",
+        "title": "Weather",
+        "description": "Temperatures",
+        "keywords": [],
+        "extents": {"spatial": {"bbox": [6.6, 36.6, 18.5, 47.1], "crs": CRS84}},
+        "links": [],
+        "providers": [
+            {"type": "edr", "name": "tests.html_fixtures.FakeEDRProvider", "data": "unused"}
         ],
     }
     return api_config

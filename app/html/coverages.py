@@ -5,11 +5,14 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlsplit
 
-from app.html.collection import REL, collection_crumbs, preview
-from app.html.maps import extent_of
+from pygeoapi import l10n
+
+from app.html.collection import REL, collection_crumbs, edr_label, preview
+from app.html.features import feature_name
+from app.html.maps import basemap, camera, domain_footprint, extent_of, features_island
 from app.html.pages import PageContext, Related
-from app.html.parameters import Field
-from app.html.views import Gettext, base_url
+from app.html.parameters import Field, parameter_of
+from app.html.views import Gettext, base_url, html_link
 
 THE_SCHEMA = Related("schema", "/collections/{collection_id:path}/schema")
 """The schema of the collection a page belongs to."""
@@ -127,4 +130,266 @@ def coverage(context: PageContext) -> dict[str, Any]:
         "downloads": downloads,
         "map": preview(context, collection_id, resource),
         "crumbs": collection_crumbs(context, title, {"label": _("Coverage")}),
+    }
+
+
+AXIS_VALUES = 5
+"""How many values of an axis or of a range the tables show."""
+
+QUERY_GEOMETRIES = {
+    "position": "POINT(12.5 41.9)",
+    "radius": "POINT(12.5 41.9)",
+    "area": "POLYGON((12 41, 13 41, 13 42, 12 42, 12 41))",
+    "trajectory": "LINESTRING(12 41, 13 42)",
+    "corridor": "LINESTRING(12 41, 13 42)",
+}
+"""An example of the coordinates of each EDR query that takes them."""
+
+
+def edr_where(context: PageContext) -> tuple[str, str | None]:
+    """The collection and the instance of an EDR page.
+
+    ``{collection_id:path}`` is greedy: an instance query reaches the plain
+    query's route with ``name/instances/2026`` as the collection.
+    """
+    collection_id, found, instance = context.path_params["collection_id"].partition("/instances/")
+    return collection_id, instance if found else context.path_params.get("instance_id")
+
+
+def _query_type(context: PageContext) -> str:
+    if "location_id" in context.path_params:
+        return "locations"
+    return urlsplit(context.url).path.rstrip("/").rsplit("/", 1)[-1]
+
+
+def edr_fields(
+    query_type: str, collection: dict[str, Any], params: dict[str, str], _: Gettext
+) -> list[Field]:
+    """The fields of an EDR query: its geometry, then height, time, parameters and CRS."""
+    fields = []
+    if query_type in QUERY_GEOMETRIES:
+        fields.append(
+            Field(
+                "coords",
+                _("Coordinates"),
+                "text",
+                params.get("coords", ""),
+                hint=_("Well-known text, such as %(example)s")
+                % {"example": QUERY_GEOMETRIES[query_type]},
+            )
+        )
+    if query_type == "cube":
+        fields.append(
+            Field(
+                "bbox",
+                _("Bounding box"),
+                "bbox",
+                params.get("bbox", ""),
+                hint=_("West, south, east, north"),
+            )
+        )
+    if query_type == "radius":
+        fields.append(Field("within", _("Radius"), "number", params.get("within", "")))
+        fields.append(
+            Field(
+                "within-units",
+                _("Units of the radius"),
+                "select",
+                params.get("within-units", ""),
+                (("", ""), ("km", "km"), ("m", "m"), ("mi", "mi")),
+            )
+        )
+    fields.append(Field("z", _("Height"), "text", params.get("z", "")))
+    if temporal_of(collection):
+        fields.append(datetime_field(params, _))
+    names = tuple((name, name) for name in collection.get("parameter_names") or {})
+    if names:
+        fields.append(
+            Field(
+                "parameter-name",
+                _("Parameters"),
+                "select",
+                params.get("parameter-name", ""),
+                (("", ""), *names),
+            )
+        )
+    systems = tuple((uri, uri) for uri in collection.get("crs") or [])
+    if len(systems) > 1:
+        fields.append(
+            Field(
+                "crs",
+                _("Coordinate reference system"),
+                "select",
+                params.get("crs", ""),
+                (("", ""), *systems),
+            )
+        )
+    return fields
+
+
+def _first(values: list[Any]) -> str:
+    shown = ", ".join(str(value) for value in values[:AXIS_VALUES])
+    return f"{shown}, …" if len(values) > AXIS_VALUES else shown
+
+
+def coverage_tables(
+    document: dict[str, Any], locale: Any
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """The axes and the parameters of a CoverageJSON answer, with the first values of each."""
+    first = (document.get("coverages") or [document])[0]
+    axes = []
+    for name, axis in ((first.get("domain") or {}).get("axes") or {}).items():
+        if "values" in axis:
+            axes.append(
+                {"name": name, "shown": _first(axis["values"]), "count": len(axis["values"])}
+            )
+        else:
+            axes.append(
+                {
+                    "name": name,
+                    "shown": f"{axis.get('start')} … {axis.get('stop')}",
+                    "count": axis.get("num"),
+                }
+            )
+    parameters = []
+    for name, spec in (document.get("parameters") or first.get("parameters") or {}).items():
+        unit = (spec.get("unit") or {}).get("symbol")
+        unit = unit.get("value") if isinstance(unit, dict) else unit
+        values = ((first.get("ranges") or {}).get(name) or {}).get("values") or []
+        label = (spec.get("observedProperty") or {}).get("label")
+        parameters.append(
+            {
+                "name": name,
+                "label": l10n.translate(label, locale) or "",
+                "unit": unit or "",
+                "shown": _first(values),
+            }
+        )
+    return axes, parameters
+
+
+def instances(context: PageContext) -> dict[str, Any]:
+    """The instances of an EDR collection, each linked to its page."""
+    _ = context.gettext
+    collection_id = edr_where(context)[0]
+    resource = context.api.config["resources"].get(collection_id, {})
+    title = (context.related.get("collection") or {}).get("title") or collection_id
+    base = base_url(context)
+    return {
+        "title": _("Instances of %(collection)s") % {"collection": title},
+        "rows": [
+            {
+                "id": each["id"],
+                "href": html_link(each.get("links", []))
+                or f"{base}/collections/{collection_id}/instances/{each['id']}?f=html",
+            }
+            for each in context.document.get("instances", [])
+        ],
+        "map": preview(context, collection_id, resource),
+        "crumbs": collection_crumbs(context, title, {"label": _("Instances")}),
+    }
+
+
+def instance(context: PageContext) -> dict[str, Any]:
+    """An instance of an EDR collection, and the queries it answers."""
+    _ = context.gettext
+    collection_id, found = edr_where(context)
+    instance_id = context.document.get("id") or found or ""
+    resource = context.api.config["resources"].get(collection_id, {})
+    title = (context.related.get("collection") or {}).get("title") or collection_id
+    base = base_url(context)
+    url = f"{base}/collections/{collection_id}/instances/{instance_id}"
+    return {
+        "title": _("Instance %(instance)s of %(collection)s")
+        % {"instance": instance_id, "collection": title},
+        "sections": [
+            {"label": edr_label(name, _), "href": f"{url}/{name}?f=html"}
+            for name in context.document.get("data_queries") or {}
+            if name not in ("items", "instances")
+        ],
+        "map": preview(context, collection_id, resource),
+        "crumbs": collection_crumbs(
+            context,
+            title,
+            {
+                "label": _("Instances"),
+                "href": f"{base}/collections/{collection_id}/instances?f=html",
+            },
+            {"label": instance_id},
+        ),
+    }
+
+
+def edr_query(context: PageContext) -> dict[str, Any]:
+    """An EDR query: its form, and what it answered, in tables and on the map.
+
+    Opened without parameters, the page is the blank form, and the map
+    shows the collection.
+    """
+    _ = context.gettext
+    api = context.api
+    collection_id, instance_id = edr_where(context)
+    query_type = _query_type(context)
+    resource = api.config["resources"].get(collection_id, {})
+    described = context.related.get("collection") or {}
+    title = described.get("title") or collection_id
+    fields = edr_fields(query_type, described, context.params, _)
+    error_field = (
+        parameter_of(context.error, [field.name for field in fields]) if context.error else None
+    )
+    document = context.document if isinstance(context.document, dict) else {}
+    background = basemap(api.config)
+    axes, parameters, listed, shown = [], [], [], None
+    if document.get("type") == "FeatureCollection":
+        listed = [
+            {"index": index, "name": feature_name(feature, None)}
+            for index, feature in enumerate(document.get("features") or [])
+        ]
+        shown = features_island(camera(resource, fit_data=True), background, document)
+    elif document.get("domain") or document.get("coverages"):
+        axes, parameters = coverage_tables(document, context.request.locale)
+        footprints = [
+            found
+            for each in document.get("coverages") or [document]
+            if (found := domain_footprint(each.get("domain") or {})) is not None
+        ]
+        if footprints:
+            shown = features_island(
+                camera(resource, fit_data=True),
+                background,
+                {"type": "FeatureCollection", "features": footprints},
+            )
+    label = edr_label(query_type, _)
+    base = base_url(context)
+    tail = []
+    if instance_id:
+        heading = _("%(query)s, %(collection)s, instance %(instance)s") % {
+            "query": label,
+            "collection": title,
+            "instance": instance_id,
+        }
+        tail = [
+            {
+                "label": _("Instances"),
+                "href": f"{base}/collections/{collection_id}/instances?f=html",
+            },
+            {
+                "label": instance_id,
+                "href": f"{base}/collections/{collection_id}/instances/{instance_id}?f=html",
+            },
+        ]
+    else:
+        heading = _("%(query)s, %(collection)s") % {"query": label, "collection": title}
+    return {
+        "title": heading,
+        "action": context.url.split("?", 1)[0],
+        "language": context.params.get("lang"),
+        "fields": fields,
+        "error": context.error,
+        "error_field": error_field,
+        "axes": axes,
+        "parameters": parameters,
+        "features": listed,
+        "map": shown or preview(context, collection_id, resource),
+        "crumbs": collection_crumbs(context, title, *tail, {"label": label}),
     }

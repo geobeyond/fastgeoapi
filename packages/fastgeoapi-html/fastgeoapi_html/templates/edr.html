@@ -1,0 +1,35 @@
+{% extends "_layout.html" %}
+{% from "_field.html" import field %}
+{% block content %}
+<div class="split{% if not map %} solo{% endif %}">
+  <section class="panel">
+    <h1>{{ title }}</h1>
+    {% if error and not error_field %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+    <form class="filters" method="get" action="{{ action }}">
+      <input type="hidden" name="f" value="html">
+      {% if language %}<input type="hidden" name="lang" value="{{ language }}">{% endif %}
+      {% for each in fields %}{{ field(each, error if each.name == error_field else none) }}
+      {% endfor %}
+      <div class="actions wide"><a href="{{ action }}?f=html">{{ _("Clear") }}</a> <button class="primary" type="submit">{{ _("Query") }}</button></div>
+    </form>
+    {% if axes %}<h2>{{ _("Domain") }}</h2>
+    <table class="data">
+      <thead><tr><th>{{ _("Axis") }}</th><th>{{ _("Values") }}</th><th>{{ _("Count") }}</th></tr></thead>
+      <tbody>
+      {% for axis in axes %}<tr><td><code>{{ axis.name }}</code></td><td>{{ axis.shown }}</td><td>{{ axis.count }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>{% endif %}
+    {% if parameters %}<h2>{{ _("Parameters") }}</h2>
+    <table class="data">
+      <thead><tr><th>{{ _("Name") }}</th><th>{{ _("Title") }}</th><th>{{ _("Unit") }}</th><th>{{ _("Values") }}</th></tr></thead>
+      <tbody>
+      {% for parameter in parameters %}<tr><td><code>{{ parameter.name }}</code></td><td>{{ parameter.label }}</td><td>{{ parameter.unit }}</td><td>{{ parameter.shown }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>{% endif %}
+    {% if features %}<ol class="feature-list">{% for each in features %}<li class="item" data-fga-feature="{{ each.index }}"><span class="name">{{ each.name }}</span></li>{% endfor %}</ol>{% endif %}
+  </section>
+  {% include "_map.html" %}
+</div>
+{% endblock %}

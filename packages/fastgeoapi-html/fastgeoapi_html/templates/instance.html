@@ -1,0 +1,11 @@
+{% extends "_layout.html" %}
+{% block content %}
+<div class="split{% if not map %} solo{% endif %}">
+  <section class="panel">
+    <h1>{{ title }}</h1>
+    {% if sections %}<h2>{{ _("Queries") }}</h2>
+    <ul class="sections">{% for section in sections %}<li><a href="{{ section.href }}">{{ section.label }}</a></li>{% endfor %}</ul>{% endif %}
+  </section>
+  {% include "_map.html" %}
+</div>
+{% endblock %}

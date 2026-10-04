@@ -65,3 +65,37 @@ PAGES: dict[str, Page] = {
     "/jobs/{job_id}": Page("job.html", views.job, islands=("pages/job-status.ts",)),
     "/jobs/{job_id}/results": Page("results.html", views.results),
 }
+
+EDR_QUERIES = ("position", "area", "cube", "radius", "trajectory", "corridor", "locations")
+"""The EDR queries pygeoapi routes, each with and without an instance."""
+
+_EDR_QUERY = Page(
+    "edr.html",
+    coverages.edr_query,
+    islands=collection.MAP_ISLAND,
+    related=(collection.THE_COLLECTION,),
+    on_bad_request=True,
+)
+
+_INSTANCE = "/collections/{collection_id:path}/instances/{instance_id}"
+
+PAGES.update(
+    {
+        "/collections/{collection_id:path}/instances": Page(
+            "instances.html",
+            coverages.instances,
+            islands=collection.MAP_ISLAND,
+            related=(collection.THE_COLLECTION,),
+        ),
+        _INSTANCE: Page(
+            "instance.html",
+            coverages.instance,
+            islands=collection.MAP_ISLAND,
+            related=(collection.THE_COLLECTION,),
+        ),
+        "/collections/{collection_id:path}/locations/{location_id}": _EDR_QUERY,
+        f"{_INSTANCE}/locations/{{location_id}}": _EDR_QUERY,
+        **{f"/collections/{{collection_id:path}}/{query}": _EDR_QUERY for query in EDR_QUERIES},
+        **{f"{_INSTANCE}/{query}": _EDR_QUERY for query in EDR_QUERIES},
+    }
+)
