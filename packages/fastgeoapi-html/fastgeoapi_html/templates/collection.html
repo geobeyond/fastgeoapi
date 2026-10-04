@@ -1,0 +1,20 @@
+{% extends "_layout.html" %}
+{% block content %}
+<div class="split{% if not map %} solo{% endif %}">
+  <section class="panel">
+    <h1>{{ title }}</h1>
+    {% if description %}<p class="lead">{{ description }}</p>{% endif %}
+    {% if kinds or keywords %}<p>{% for kind in kinds %}<span class="badge">{{ kind }}</span> {% endfor %}{% for keyword in keywords %}<span class="keyword">{{ keyword }}</span> {% endfor %}</p>{% endif %}
+    {% if sections %}<h2>{{ _("Explore") }}</h2>
+    <ul class="sections">{% for section in sections %}<li><a href="{{ section.href }}">{{ section.label }}</a></li>{% endfor %}</ul>{% endif %}
+    <h2>{{ _("About") }}</h2>
+    <dl class="facts">
+      {% for fact in facts %}<dt>{{ fact.label }}</dt><dd>{{ fact.value }}</dd>
+      {% endfor %}
+    </dl>
+    {% if links %}<h2>{{ _("Links") }}</h2>
+    <ul class="sections">{% for link in links %}<li><a href="{{ link.href }}">{{ link.title }}</a></li>{% endfor %}</ul>{% endif %}
+  </section>
+  {% include "_map.html" %}
+</div>
+{% endblock %}

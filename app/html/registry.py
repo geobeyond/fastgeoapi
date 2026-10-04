@@ -1,6 +1,6 @@
 """The pages fastgeoapi renders, by the path of their route."""
 
-from app.html import views
+from app.html import collection, views
 from app.html.pages import Page
 
 PAGES: dict[str, Page] = {
@@ -11,6 +11,9 @@ PAGES: dict[str, Page] = {
     "/collections": Page("collections.html", views.collections),
     "/collections/{collection_id:path}/queryables": Page("queryables.html", views.queryables),
     "/collections/{collection_id:path}/schema": Page("schema.html", views.schema),
+    "/collections/{collection_id:path}": Page(
+        "collection.html", collection.collection, islands=collection.MAP_ISLAND
+    ),
     "/openapi": Page(
         "openapi.html", views.openapi, islands=("pages/api-docs.ts",), needs_document=False
     ),

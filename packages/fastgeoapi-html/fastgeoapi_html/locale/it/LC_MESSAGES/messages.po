@@ -296,3 +296,60 @@ msgstr "Ricarica la pagina per vedere come procede il job."
 
 msgid "The status could not be read:"
 msgstr "Non è stato possibile leggere lo stato:"
+
+msgid "Default"
+msgstr "Predefinito"
+
+msgid "Style"
+msgstr "Stile"
+
+msgid "Instances"
+msgstr "Istanze"
+
+msgid "Query at a position"
+msgstr "Interroga in un punto"
+
+msgid "Query in an area"
+msgstr "Interroga in un'area"
+
+msgid "Query in a cube"
+msgstr "Interroga in un cubo"
+
+msgid "Query within a radius"
+msgstr "Interroga entro un raggio"
+
+msgid "Query along a trajectory"
+msgstr "Interroga lungo una traiettoria"
+
+msgid "Query in a corridor"
+msgstr "Interroga in un corridoio"
+
+msgid "Locations"
+msgstr "Luoghi"
+
+msgid "Items"
+msgstr "Elementi"
+
+msgid "Tilesets"
+msgstr "Tileset"
+
+msgid "Item type"
+msgstr "Tipo degli elementi"
+
+msgid "Spatial extent"
+msgstr "Estensione spaziale"
+
+msgid "Temporal extent"
+msgstr "Estensione temporale"
+
+msgid "Storage CRS"
+msgstr "CRS di archiviazione"
+
+msgid "Explore"
+msgstr "Esplora"
+
+msgid "About"
+msgstr "Informazioni"
+
+msgid "Links"
+msgstr "Link"

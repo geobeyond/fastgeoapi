@@ -1,6 +1,6 @@
 """The landing page: the service, its sections and its collections.
 
-``app.*`` is imported at the top of ``tests.html_fixtures``, and nowhere else here.
+``app.*`` is imported inside ``tests.html_fixtures.native_client``, and nowhere else here.
 """
 
 import pytest

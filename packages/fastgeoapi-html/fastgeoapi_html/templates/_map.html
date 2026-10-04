@@ -1,0 +1,5 @@
+{% if map %}<aside class="mapcol">
+  <fga-map>
+    <script type="application/json">{{ map | tojson }}</script>
+  </fga-map>
+</aside>{% endif %}
