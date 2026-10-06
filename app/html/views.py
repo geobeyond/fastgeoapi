@@ -187,13 +187,12 @@ def landing(context: PageContext) -> dict[str, Any]:
         for resource in api.config.get("resources", {}).values()
     ):
         hrefs["stac"] = f"{base}/stac"
-    sections = [
-        ("data", _("Collections")),
-        ("stac", _("SpatioTemporal Asset Catalog")),
-        (PROCESSES, _("Processes")),
-        (JOB_LIST, _("Jobs")),
-    ]
-    if "tiles" in active_specs(api.config):
+    specs = active_specs(api.config)
+    sections = [("data", _("Collections")), ("stac", _("SpatioTemporal Asset Catalog"))]
+    # Processes and jobs have routes only when a process is configured.
+    if "processes" in specs:
+        sections += [(PROCESSES, _("Processes")), (JOB_LIST, _("Jobs"))]
+    if "tiles" in specs:
         sections.append((TILING_SCHEMES, _("Tile matrix sets")))
     sections += [("service-doc", _("API documentation")), ("conformance", _("Conformance"))]
     definition = []
@@ -227,6 +226,7 @@ def landing(context: PageContext) -> dict[str, Any]:
             )
             for name, resource in api.config.get("resources", {}).items()
             if resource.get("type") == "collection"
+            and resource.get("visibility", "default") != "hidden"
         ],
         "jsonld": catalog_jsonld(api, locale),
     }
