@@ -1,3 +1,3 @@
 {% if map %}<fga-map>
-    <script type="application/json">{{ map | tojson }}</script>
+    <script type="application/json">{{ dict(map, labels=dict(map.labels or {}, widen=_("Widen the map"), narrow=_("Narrow the map"))) | tojson }}</script>
   </fga-map>{% endif %}
