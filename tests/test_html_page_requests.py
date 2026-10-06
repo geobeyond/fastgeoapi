@@ -26,8 +26,27 @@ async def _thing(request):
     return JSONResponse({"name": request.path_params["name"], "query": query, "links": []})
 
 
+async def _named(request):
+    name = request.path_params["name"]
+    return JSONResponse(
+        {
+            "name": name,
+            "query": {},
+            "links": [
+                {
+                    "href": f"{SERVER_URL}/named/{name}?f=json",
+                    "rel": "self",
+                    "type": "application/json",
+                }
+            ],
+        }
+    )
+
+
 async def _details(request):
     name = request.path_params["name"]
+    if name == "raising":
+        raise RuntimeError("the data source failed")
     if name == "broken":
         return JSONResponse({"code": "NoApplicableCode", "description": "broken"}, status_code=500)
     if name == "missing":
@@ -90,6 +109,7 @@ PAGES = {
     "/strict": Page("plain.html", _shown, on_bad_request=True),
     "/demanding": Page("plain.html", _shown, on_bad_request=True),
     "/thread": Page("plain.html", _where, needs_document=False),
+    "/named/{name}": Page("plain.html", _shown),
 }
 
 
@@ -107,6 +127,7 @@ def client(tmp_path_factory):
         Route("/strict", _strict),
         Route("/demanding", _demanding),
         Route("/thread", _thing),
+        Route("/named/{name}", _named),
     ]
     pages = NativePages(PAGES, [root], root / "locale", root / "static")
     return TestClient(Starlette(routes=pages.wrap(api, routes)), raise_server_exceptions=False)
@@ -114,6 +135,22 @@ def client(tmp_path_factory):
 
 def _page(client, path, **params):
     return client.get(path, params={"f": "html", **params})
+
+
+def test_a_related_route_that_raises_is_none(client):
+    r = _page(client, "/things/raising")
+
+    assert r.status_code == 200
+    assert "details[none]" in r.text
+
+
+def test_a_path_beyond_latin_1_is_a_page_with_encoded_urls(client):
+    r = _page(client, "/named/東京")
+    encoded = "%E6%9D%B1%E4%BA%AC"
+
+    assert r.status_code == 200
+    assert f'<link rel="canonical" href="{SERVER_URL}/named/{encoded}?f=html">' in r.text
+    assert f"<{SERVER_URL}/named/{encoded}?f=json>" in r.headers["link"]
 
 
 def test_empty_fields_reach_neither_the_route_nor_the_page_url(client):
