@@ -1,7 +1,8 @@
 """The parameters of a collection's items: the ones its data applies, and the form that sets them.
 
 A parameter counts as applied when the provider's ``query()`` uses the
-argument pygeoapi passes it in. The table below was read from the code of
+argument pygeoapi passes it in, or, for ``crs``, when ``query()`` carries
+pygeoapi's ``@crs_transform``. The table below was read from the code of
 pygeoapi 0.24, and a test reads that code again. Providers outside the
 table count through the conformance classes they declare.
 """
@@ -52,42 +53,48 @@ _SQL_ARGUMENTS = _FEATURE_ARGUMENTS | {"filterq", "crs_transform_spec"}
 
 PROVIDER_ARGUMENTS: dict[str, frozenset[str]] = {
     "pygeoapi.provider.csv_.CSVProvider": frozenset(
-        {"bbox", "properties", "select_properties", "skip_geometry"}
+        {"bbox", "properties", "select_properties", "skip_geometry", "crs_transform_spec"}
     ),
     "pygeoapi.provider.csw_facade.CSWFacadeProvider": frozenset(
-        {"bbox", "datetime_", "properties", "sortby", "q"}
+        {"bbox", "datetime_", "properties", "sortby", "q", "crs_transform_spec"}
     ),
     "pygeoapi.provider.elasticsearch_.ElasticsearchCatalogueProvider": _FEATURE_ARGUMENTS | {"q"},
-    "pygeoapi.provider.elasticsearch_.ElasticsearchProvider": _FEATURE_ARGUMENTS | {"q", "filterq"},
-    "pygeoapi.provider.erddap.TabledapProvider": frozenset({"bbox", "datetime_"}),
+    "pygeoapi.provider.elasticsearch_.ElasticsearchProvider": _FEATURE_ARGUMENTS
+    | {"q", "filterq", "crs_transform_spec"},
+    "pygeoapi.provider.erddap.TabledapProvider": frozenset(
+        {"bbox", "datetime_", "crs_transform_spec"}
+    ),
     "pygeoapi.provider.esri.ESRIServiceProvider": _FEATURE_ARGUMENTS | {"crs_transform_spec"},
     "pygeoapi.provider.geojson.GeoJSONProvider": frozenset(
-        {"bbox", "properties", "select_properties", "skip_geometry"}
+        {"bbox", "properties", "select_properties", "skip_geometry", "crs_transform_spec"}
     ),
     "pygeoapi.provider.mongo.MongoProvider": frozenset(
-        {"bbox", "datetime_", "properties", "sortby", "skip_geometry"}
+        {"bbox", "datetime_", "properties", "sortby", "skip_geometry", "crs_transform_spec"}
     ),
     "pygeoapi.provider.mvt_postgresql.MVTPostgreSQLProvider": _SQL_ARGUMENTS,
     "pygeoapi.provider.ogr.OGRProvider": frozenset(
         {"bbox", "properties", "skip_geometry", "crs_transform_spec"}
     ),
     "pygeoapi.provider.opensearch_.OpenSearchCatalogueProvider": _FEATURE_ARGUMENTS | {"q"},
-    "pygeoapi.provider.opensearch_.OpenSearchProvider": _FEATURE_ARGUMENTS | {"q", "filterq"},
+    "pygeoapi.provider.opensearch_.OpenSearchProvider": _FEATURE_ARGUMENTS
+    | {"q", "filterq", "crs_transform_spec"},
     "pygeoapi.provider.oracle.OracleProvider": _SQL_ARGUMENTS | {"q"},
-    "pygeoapi.provider.parquet.ParquetProvider": _FEATURE_ARGUMENTS - {"sortby"},
-    "pygeoapi.provider.sensorthings.SensorThingsProvider": _FEATURE_ARGUMENTS,
-    "pygeoapi.provider.socrata.SODAServiceProvider": _FEATURE_ARGUMENTS,
+    "pygeoapi.provider.parquet.ParquetProvider": (_FEATURE_ARGUMENTS - {"sortby"})
+    | {"crs_transform_spec"},
+    "pygeoapi.provider.sensorthings.SensorThingsProvider": _FEATURE_ARGUMENTS
+    | {"crs_transform_spec"},
+    "pygeoapi.provider.socrata.SODAServiceProvider": _FEATURE_ARGUMENTS | {"crs_transform_spec"},
     "pygeoapi.provider.sql.GenericSQLProvider": _SQL_ARGUMENTS,
     "pygeoapi.provider.sql.MySQLProvider": _SQL_ARGUMENTS,
     "pygeoapi.provider.sql.PostgreSQLProvider": _SQL_ARGUMENTS,
     "pygeoapi.provider.sqlite.SQLiteGPKGProvider": frozenset(
-        {"bbox", "properties", "skip_geometry"}
+        {"bbox", "properties", "skip_geometry", "crs_transform_spec"}
     ),
     "pygeoapi.provider.tinydb_.TinyDBCatalogueProvider": frozenset(
-        {"bbox", "datetime_", "properties", "sortby", "q"}
+        {"bbox", "datetime_", "properties", "sortby", "q", "crs_transform_spec"}
     ),
     "pygeoapi.provider.tinydb_.TinyDBProvider": frozenset(
-        {"bbox", "datetime_", "properties", "sortby", "q"}
+        {"bbox", "datetime_", "properties", "sortby", "q", "crs_transform_spec"}
     ),
     "app.provider.geoparquet.GeoParquetProvider": _FEATURE_ARGUMENTS | {"filterq"},
 }
