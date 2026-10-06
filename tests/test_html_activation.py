@@ -5,6 +5,7 @@
 
 import importlib
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -43,6 +44,20 @@ def test_native_without_the_package_names_the_extra_to_install(monkeypatch):
 
     with pytest.raises(HtmlPagesUnavailableError, match=r"fastgeoapi\[html\]"):
         activation.pages_from(_settings("native"))
+
+
+def test_the_message_names_the_variable_as_it_is_set(monkeypatch):
+    monkeypatch.setitem(sys.modules, "fastgeoapi_html", None)
+
+    with pytest.raises(HtmlPagesUnavailableError, match=r"DEV_FASTGEOAPI_HTML_PAGES"):
+        activation.pages_from(_settings("native"))
+
+
+def test_the_package_readme_names_the_variable_as_it_is_set():
+    readme = Path("packages/fastgeoapi-html/README.md").read_text()
+
+    assert "DEV_FASTGEOAPI_HTML_PAGES=native" in readme
+    assert "`FASTGEOAPI_HTML_PAGES=native`" not in readme
 
 
 def test_the_default_follows_fastgeoapis_settings(monkeypatch):
