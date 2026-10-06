@@ -9,8 +9,8 @@ from pathlib import Path
 PACKAGE = "fastgeoapi_html"
 
 MISSING = (
-    "FASTGEOAPI_HTML_PAGES=native needs the fastgeoapi-html package: install "
-    "fastgeoapi[html], or set FASTGEOAPI_HTML_PAGES=pygeoapi"
+    "native HTML pages need the fastgeoapi-html package: install fastgeoapi[html], "
+    "or set DEV_FASTGEOAPI_HTML_PAGES (PROD_FASTGEOAPI_HTML_PAGES in production) to pygeoapi"
 )
 
 
