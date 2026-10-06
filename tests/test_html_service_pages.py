@@ -53,6 +53,12 @@ def test_its_numbers_follow_the_page_language(client):
     assert "<td>0</td><td>559.082.264,029</td>" in html
 
 
+def test_small_cell_sizes_keep_their_decimals(client):
+    html = _page(client, "/TileMatrixSets/WorldCRS84Quad").text
+
+    assert "<td>12</td><td>68,247.347</td><td>0.0001716614</td>" in html
+
+
 def test_an_unknown_tile_matrix_set_keeps_pygeoapis_answer(client):
     r = _page(client, "/TileMatrixSets/Nope")
 

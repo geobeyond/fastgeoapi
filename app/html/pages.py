@@ -220,6 +220,7 @@ class NativePages:
             )
             environment.filters["instant"] = lambda value: format_instant(value, language)
             environment.filters["number"] = lambda value: format_number(value, language)
+            environment.filters["precise"] = lambda value: format_precise(value, language)
             environment.filters["safe_url"] = safe_url
             self._environments[language] = environment
         return environment
@@ -302,6 +303,13 @@ def format_instant(value: str | None, language: str) -> str:
 def format_number(value: float | None, language: str) -> str:
     """A number, as the page's language writes it."""
     return "" if value is None else format_decimal(value, locale=language)
+
+
+def format_precise(value: float | None, language: str) -> str:
+    """A small measure, such as a cell size in degrees, with up to ten decimals."""
+    if value is None:
+        return ""
+    return format_decimal(value, format="#,##0.##########", locale=language)
 
 
 def _as_written(body: bytes) -> bytes:
