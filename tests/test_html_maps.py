@@ -89,6 +89,17 @@ def test_a_map_of_data_fits_the_data_and_keeps_the_extent_as_fallback():
     }
 
 
+def test_a_map_of_data_with_a_view_fits_the_data_and_falls_back_on_the_view():
+    resource = {**ROME, "view": {"center": [12.5, 41.9], "zoom": 9}}
+
+    assert camera(resource, fit_data=True) == {
+        "center": [12.5, 41.9],
+        "zoom": 9.0,
+        "minZoom": 0,
+        "fitData": True,
+    }
+
+
 def test_without_anything_the_map_shows_the_world():
     assert camera({}) == {"center": [0.0, 0.0], "zoom": 0.0, "minZoom": 0}
 
