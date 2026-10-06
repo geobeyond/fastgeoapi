@@ -165,17 +165,18 @@ www-authenticate: Bearer scope="openid",
 That document names the authorization server, whose metadata reports, on
 the demo:
 
-| Key                                     | Value                                            |
-| --------------------------------------- | ------------------------------------------------ |
-| `issuer`                                | `https://fastgeoapi.fly.dev/mcp/`                |
-| `grant_types_supported`                 | `authorization_code`, `refresh_token`            |
-| `response_types_supported`              | `code`                                           |
-| `code_challenge_methods_supported`      | `S256`                                           |
-| `token_endpoint_auth_methods_supported` | `none`, `private_key_jwt`                        |
-| `scopes_supported`                      | `openid`, `profile`, `email`, `offline_access`   |
-| `registration_endpoint`                 | present — Dynamic Client Registration (RFC 7591) |
-| `client_id_metadata_document_supported` | `true` — CIMD                                    |
-| `jwks_uri`                              | **absent**, deliberately                         |
+| Key                                                | Value                                            |
+| -------------------------------------------------- | ------------------------------------------------ |
+| `issuer`                                           | `https://fastgeoapi.fly.dev/mcp/`                |
+| `grant_types_supported`                            | `authorization_code`, `refresh_token`            |
+| `response_types_supported`                         | `code`                                           |
+| `code_challenge_methods_supported`                 | `S256`                                           |
+| `token_endpoint_auth_methods_supported`            | `none`, `private_key_jwt`                        |
+| `token_endpoint_auth_signing_alg_values_supported` | `RS256`                                          |
+| `scopes_supported`                                 | `openid`, `profile`, `email`, `offline_access`   |
+| `registration_endpoint`                            | present — Dynamic Client Registration (RFC 7591) |
+| `client_id_metadata_document_supported`            | `true` — CIMD                                    |
+| `jwks_uri`                                         | **absent**, deliberately                         |
 
 Three consequences, in the order they tend to bite.
 
@@ -188,7 +189,11 @@ credentials is exactly what the demo expects.
 **You may register dynamically or present a CIMD.** Both are supported:
 Dynamic Client Registration at the registration endpoint, or a Client ID
 Metadata Document — a URL as your `client_id`, whose document publishes
-your redirect URIs.
+your redirect URIs. A document that authenticates with `private_key_jwt`
+signs its assertion in `RS256`, as the metadata says: the authorization
+server verifies it with an RSA key from the document's key set and
+ignores keys of other types. The assertion's `iss` and `sub` are the
+`client_id`, and its `aud` is the token endpoint.
 
 **The access token is a reference token, and nobody else can validate
 it.** It is a JWT signed with `HS256` from a key derived from the

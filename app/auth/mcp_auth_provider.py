@@ -6,9 +6,13 @@ proxying against any OIDC-compliant identity provider (Logto, Auth0,
 Keycloak, etc.) without custom per-provider code.
 """
 
+import json
+
 from fastmcp.server.auth.oidc_proxy import OIDCProxy
 from loguru import logger
 from mcp.server.auth.provider import AccessToken
+from starlette.routing import Route
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 
 class MCPAuthMisconfiguredError(RuntimeError):
@@ -126,6 +130,82 @@ def _coerce_consent_mode(consent_mode: str | None) -> bool | str:
 
 
 DEFAULT_MCP_ACCESS_TOKEN_EXPIRY_SECONDS = 60 * 60 * 24  # 24 hours
+
+CLIENT_ASSERTION_SIGNING_ALGS = ["RS256"]
+"""The algorithms fastmcp verifies a ``private_key_jwt`` client assertion with.
+
+Its JWT verifier's default, so the key a client signs with must be an RSA key.
+"""
+
+
+class _SigningAlgsMetadata:
+    """The authorization server metadata, with the algorithms of ``private_key_jwt``.
+
+    RFC 8414 §2 asks for ``token_endpoint_auth_signing_alg_values_supported``
+    wherever ``private_key_jwt`` is offered, and fastmcp leaves it out: a
+    client whose JWKS holds keys of several types can only guess which one
+    to sign with. Pure ASGI, around the CORS app fastmcp mounts; a value
+    fastmcp publishes itself is kept.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Answer as fastmcp does, adding the algorithms to the document of a GET."""
+        if scope.get("method") != "GET":
+            await self.app(scope, receive, send)
+            return
+        start: Message = {}
+        body = bytearray()
+
+        async def held(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                start.update(message)
+                return
+            if message["type"] != "http.response.body":
+                await send(message)
+                return
+            body.extend(message.get("body", b""))
+            if message.get("more_body", False):
+                return
+            content = _with_signing_algs(bytes(body)) if start["status"] == 200 else bytes(body)
+            headers = [(k, v) for k, v in start["headers"] if k.lower() != b"content-length"]
+            headers.append((b"content-length", str(len(content)).encode()))
+            await send({**start, "headers": headers})
+            await send({"type": "http.response.body", "body": content})
+
+        await self.app(scope, receive, held)
+
+
+def _with_signing_algs(body: bytes) -> bytes:
+    """``body`` with the signing algorithms, when it offers ``private_key_jwt``."""
+    metadata = json.loads(body)
+    if "private_key_jwt" not in (metadata.get("token_endpoint_auth_methods_supported") or []):
+        return body
+    metadata.setdefault(
+        "token_endpoint_auth_signing_alg_values_supported", CLIENT_ASSERTION_SIGNING_ALGS
+    )
+    return json.dumps(metadata, separators=(",", ":")).encode()
+
+
+class _SigningAlgsOIDCProxy(OIDCProxy):
+    """fastmcp's OIDC proxy, whose metadata names the algorithms of client assertions."""
+
+    def get_routes(self, mcp_path: str | None = None) -> list[Route]:
+        """Fastmcp's routes, the authorization server metadata among them wrapped."""
+        return [
+            Route(
+                route.path,
+                endpoint=_SigningAlgsMetadata(route.endpoint),
+                methods=route.methods,
+                name=route.name,
+                include_in_schema=route.include_in_schema,
+            )
+            if route.path.startswith("/.well-known/oauth-authorization-server")
+            else route
+            for route in super().get_routes(mcp_path)
+        ]
 
 
 def configure_mcp_auth(
@@ -257,7 +337,7 @@ def configure_mcp_auth(
 
         identity_assertion = IdentityAssertion(trusted_issuers=list(trusted_issuers))
 
-    auth = OIDCProxy(
+    auth = _SigningAlgsOIDCProxy(
         identity_assertion=identity_assertion,
         config_url=oidc_well_known_endpoint,
         client_id=client_id,

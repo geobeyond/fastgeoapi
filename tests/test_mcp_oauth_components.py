@@ -1094,6 +1094,76 @@ class TestOAuthEndpointURLConsistency:
                             "token_endpoint"
                         ), "token_endpoint should be consistent"
 
+    def _server_client(self, mock_oidc_config):
+        """A client of the MCP app and its well-known routes, as ``create_mcp_server`` mounts them."""
+        from unittest.mock import MagicMock, patch
+
+        from fastmcp import FastMCP
+        from starlette.applications import Starlette
+        from starlette.routing import Mount
+        from starlette.testclient import TestClient
+
+        from app.auth.mcp_auth_provider import configure_mcp_auth
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = mock_oidc_config
+        mock_response.raise_for_status = MagicMock()
+        with patch("httpx2.get", return_value=mock_response):
+            with patch("requests.get", return_value=mock_response):
+                auth, mcp_auth_routes = configure_mcp_auth(
+                    oidc_well_known_endpoint="https://example.logto.app/oidc/.well-known/openid-configuration",
+                    client_id="test-client",
+                    client_secret="test-secret",
+                    mcp_base_url="http://localhost:5000/mcp/",
+                    scopes=["openid", "profile", "email"],
+                )
+                mcp_app = FastMCP("Test MCP", auth=auth).http_app(path="/")
+        app = Starlette(routes=[Mount("/mcp", app=mcp_app), *mcp_auth_routes])
+        return TestClient(app, raise_server_exceptions=False)
+
+    def test_authorization_server_metadata_names_the_assertion_signing_algorithms(
+        self, mock_oidc_config
+    ):
+        """RFC 8414 §2 wants the signing algorithms wherever private_key_jwt is offered.
+
+        A client whose JWKS holds keys of several types picks its signing
+        key from this list; without it, it can only guess.
+        """
+        from app.auth.mcp_auth_provider import CLIENT_ASSERTION_SIGNING_ALGS
+
+        response = self._server_client(mock_oidc_config).get(
+            "/.well-known/oauth-authorization-server/mcp"
+        )
+
+        assert response.status_code == 200, response.text[:200]
+        metadata = response.json()
+        assert "private_key_jwt" in metadata["token_endpoint_auth_methods_supported"]
+        assert metadata["token_endpoint_auth_signing_alg_values_supported"] == (
+            CLIENT_ASSERTION_SIGNING_ALGS
+        )
+
+    def test_the_authorization_server_metadata_still_answers_a_preflight(self, mock_oidc_config):
+        response = self._server_client(mock_oidc_config).options(
+            "/.well-known/oauth-authorization-server/mcp",
+            headers={
+                "Origin": "https://client.example",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+
+        assert response.status_code == 200, response.text[:200]
+        assert response.headers["access-control-allow-origin"] == "*"
+
+    def test_the_advertised_algorithms_are_the_ones_client_assertions_are_verified_with(self):
+        """fastmcp checks a private_key_jwt assertion with its JWT verifier's default algorithm."""
+        from fastmcp.server.auth.providers.jwt import JWTVerifier
+
+        from app.auth.mcp_auth_provider import CLIENT_ASSERTION_SIGNING_ALGS
+
+        verifier = JWTVerifier(jwks_uri="https://client.example/jwks.json")
+
+        assert [verifier.algorithm] == CLIENT_ASSERTION_SIGNING_ALGS
+
     @pytest.mark.asyncio
     async def test_mcp_remote_oauth_flow_uses_consistent_auth_server(self, mock_oidc_config):
         """Simulate the mcp-remote OAuth flow to verify it uses consistent auth servers.
