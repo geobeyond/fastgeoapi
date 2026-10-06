@@ -344,36 +344,43 @@ footer a {
   }
 }
 
+/*
+ * The opening of a page with a map: its first block beside a square map, and
+ * the rest of the page below, across.
+ */
 .split {
   display: grid;
-  grid-template-columns: minmax(380px, 42%) 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 26px 24px;
 }
 
 .split.solo {
-  grid-template-columns: minmax(0, 960px);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .panel {
   min-width: 0;
-  padding: 18px 22px;
 }
 
-.mapcol {
-  position: sticky;
-  top: 0;
-  height: calc(100vh - 60px);
-  padding: 12px 12px 12px 0;
+.rest {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 24px 34px;
 }
 
 fga-map {
   position: relative;
   display: block;
-  height: 100%;
+  aspect-ratio: 1 / 1;
   overflow: hidden;
   background: #dfe7ef;
   border: 1px solid var(--fga-border);
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(16, 42, 67, 0.12);
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(16, 42, 67, 0.08);
 }
 
 .fga-map-canvas {
@@ -555,13 +562,11 @@ nav.pager {
 
 @media (max-width: 900px) {
   .split {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .mapcol {
-    position: static;
-    height: 55vh;
-    padding: 0 12px 12px;
+  .split > fga-map {
+    aspect-ratio: 4 / 3;
   }
 
   form.filters,

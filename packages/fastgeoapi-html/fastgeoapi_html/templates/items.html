@@ -20,6 +20,10 @@
       </details>{% endif %}
       <div class="actions wide"><a href="{{ action | safe_url }}?f=html">{{ _("Clear") }}</a> <button class="primary" type="submit">{{ _("Apply") }}</button></div>
     </form>
+  </section>
+  {% include "_map.html" %}
+</div>
+{% if chips or count or features or prev or next %}<section class="rest">
     {% if chips %}<ul class="chips">
     {% for chip in chips %}<li class="chip{% if chip.ignored %} ignored{% endif %}"><code>{{ chip.name }}={{ chip.value }}</code>{% if chip.ignored %} <small>{{ _("the data of this collection does not apply it") }}</small>{% endif %} <a href="{{ chip.remove | safe_url }}" aria-label="{{ _('Remove %(parameter)s', parameter=chip.name) }}">×</a></li>
     {% endfor %}
@@ -35,7 +39,5 @@
     </table>
     </div>{% endif %}
     {% if prev or next %}<nav class="pager">{% if prev %}<a rel="prev" href="{{ prev | safe_url }}">{{ _("Previous") }}</a>{% endif %}{% if next %}<a rel="next" href="{{ next | safe_url }}">{{ _("Next") }}</a>{% endif %}</nav>{% endif %}
-  </section>
-  {% include "_map.html" %}
-</div>
+</section>{% endif %}
 {% endblock %}

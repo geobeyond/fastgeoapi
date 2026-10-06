@@ -6,6 +6,10 @@
     <h1>{{ title }}</h1>
     {% if description %}<p class="lead">{{ description }}</p>{% endif %}
     {% if stac_version %}<dl class="facts"><dt>{{ _("STAC version") }}</dt><dd>{{ stac_version }}</dd></dl>{% endif %}
+  </section>
+  {% include "_map.html" %}
+</div>
+{% if children.rows or entries.rows or properties or assets %}<section class="rest">
     {% for heading, found in ((_("Catalogs"), children), (_("Items"), entries)) %}{% if found.rows %}<h2>{{ heading }}</h2>
     <table class="data">
       <thead><tr><th>{{ _("Name") }}</th>{% for column in found.columns %}<th>{{ column.label }}</th>{% endfor %}</tr></thead>
@@ -30,7 +34,5 @@
       {% endfor %}
       </tbody>
     </table>{% endif %}
-  </section>
-  {% include "_map.html" %}
-</div>
+</section>{% endif %}
 {% endblock %}

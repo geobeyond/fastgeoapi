@@ -9,6 +9,10 @@
       {% for fact in facts %}<dt>{{ fact.label }}</dt><dd>{{ fact.value }}</dd>
       {% endfor %}
     </dl>
+  </section>
+  {% include "_map.html" %}
+</div>
+<section class="rest">
     {% if bands %}<h2>{{ _("Bands") }}</h2>
     <table class="data">
       <thead><tr><th>{{ _("Name") }}</th><th>{{ _("Title") }}</th><th>{{ _("Type") }}</th></tr></thead>
@@ -26,7 +30,5 @@
       <div class="actions wide"><a href="{{ action | safe_url }}?f=html">{{ _("Clear") }}</a> <button class="primary" type="submit">{{ _("Narrow the download") }}</button></div>
     </form>
     {% if downloads %}<p class="links-row">{% for each in downloads %}<a class="pill" href="{{ each.href | safe_url }}">{{ each.label }}</a> {% endfor %}</p>{% endif %}
-  </section>
-  {% include "_map.html" %}
-</div>
+</section>
 {% endblock %}
