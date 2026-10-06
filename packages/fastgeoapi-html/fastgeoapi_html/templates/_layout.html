@@ -14,7 +14,7 @@
 {% endfor %}<script type="application/ld+json">{{ jsonld | tojson }}</script>
 {% for src in scripts %}<script type="module" src="{{ src | safe_url }}"></script>
 {% endfor %}</head>
-<body>
+<body{% block body %} class="dense"{% endblock %}>
 <header class="bar">
   <a class="brand" href="{{ site.home | safe_url }}"><img src="{{ site.logo | safe_url }}" alt="{{ site.title }}"></a>
   <nav class="sections">{% for item in nav %}<a href="{{ item.href | safe_url }}">{{ item.label }}</a>{% endfor %}</nav>
