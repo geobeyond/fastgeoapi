@@ -8,6 +8,7 @@ import {
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 
 import { readConfig } from "./config";
+import { WidenControl } from "./widen";
 
 // MapLibre finds its worker next to its own module, under a name the build
 // never emits: the worker is built on its own and its URL handed over.
@@ -48,6 +49,9 @@ export interface Basemap {
 
 interface Labels {
   style: string;
+  /** The names of the control that widens the map, when the page has one. */
+  widen?: string;
+  narrow?: string;
 }
 
 export type MapConfig =
@@ -71,8 +75,15 @@ export type MapConfig =
       camera: Camera;
       basemap: Basemap | null;
       data: FeatureCollection | string;
+      labels?: { widen?: string; narrow?: string };
     }
-  | { kind: "extent"; camera: Camera; basemap: Basemap | null; bbox: Bbox };
+  | {
+      kind: "extent";
+      camera: Camera;
+      basemap: Basemap | null;
+      bbox: Bbox;
+      labels?: { widen?: string; narrow?: string };
+    };
 
 /** The part of a MapLibre source the island uses: an image's or a GeoJSON one's. */
 export interface SourceLike {
@@ -670,6 +681,14 @@ export function startMap(
   // The compass shows the tilt too, and a click on it brings the map back
   // north and flat: a right drag or two fingers rotate and tilt it.
   map.addControl(new NavigationControl({ visualizePitch: true }), "top-right");
+  // Beside the first block of its page, the map can widen across it.
+  const labels = "labels" in config ? config.labels : undefined;
+  if (labels?.widen && labels.narrow) {
+    map.addControl(
+      new WidenControl(element, { widen: labels.widen, narrow: labels.narrow }),
+      "top-right",
+    );
+  }
   map.addControl(new ScaleControl(), "bottom-left");
   map.on("load", () => {
     loaded = true;

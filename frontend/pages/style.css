@@ -673,3 +673,34 @@ nav.pager {
     grid-template-columns: 1fr;
   }
 }
+
+/*
+ * Widened, the map leaves the side of the first block for the whole width
+ * above it; narrowed, it is square again.
+ */
+.split:has(> fga-map[wide]) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.split > fga-map[wide] {
+  order: -1;
+  aspect-ratio: auto;
+  height: var(--fga-map-wide-height);
+}
+
+.fga-widen button {
+  line-height: 1;
+  color: var(--fga-heading);
+}
+
+@media (max-width: 900px) {
+  .fga-widen {
+    display: none;
+  }
+
+  .split > fga-map[wide] {
+    order: 0;
+    aspect-ratio: 4 / 3;
+    height: auto;
+  }
+}
