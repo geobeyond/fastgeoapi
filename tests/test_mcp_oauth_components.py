@@ -1251,6 +1251,45 @@ class TestOAuthEndpointURLConsistency:
         for secret in (assertion, "c2lnbmF0dXJl", "the-code", "the-verifier"):
             assert secret not in line, line
 
+    def test_a_refused_token_request_cannot_forge_log_lines(self, mock_oidc_config):
+        """Whatever the request carries, it leaves one line, its values escaped and bounded."""
+        import base64
+        import json
+
+        from loguru import logger
+
+        def part(value: dict) -> str:
+            return base64.urlsafe_b64encode(json.dumps(value).encode()).decode().rstrip("=")
+
+        assertion = ".".join(
+            [
+                part({"alg": "ES256", "kid": "k" * 500}),
+                part({"iss": "https://client.example\r\nERROR | forged by the claims"}),
+                "c2lnbmF0dXJl",
+            ]
+        )
+        messages: list[str] = []
+        sink = logger.add(lambda message: messages.append(str(message)), level="WARNING")
+        try:
+            self._server_client(mock_oidc_config).post(
+                "/mcp/token",
+                data={
+                    "grant_type": "authorization_code",
+                    "client_id": "unregistered\nWARNING | forged by the client id",
+                    "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                    "client_assertion": assertion,
+                },
+            )
+        finally:
+            logger.remove(sink)
+
+        (line,) = [message for message in messages if "token request refused" in message]
+        assert line.rstrip("\n").count("\n") == 0, line
+        assert "\r" not in line, line
+        assert "client_id=unregistered\\nWARNING | forged by the client id" in line, line
+        assert "iss=https://client.example\\r\\nERROR | forged by the claims" in line, line
+        assert f"kid={'k' * 200}…" in line, line
+
     def test_the_advertised_algorithms_are_the_ones_client_assertions_are_verified_with(self):
         """fastmcp checks a private_key_jwt assertion with its JWT verifier's default algorithm."""
         from fastmcp.server.auth.providers.jwt import JWTVerifier
