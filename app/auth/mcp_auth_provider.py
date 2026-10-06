@@ -261,15 +261,32 @@ def _log_refused(status: int, form: bytes, answer: bytes) -> None:
         reply = {}
     parts = [
         f"status={status}",
-        f"grant_type={fields.get('grant_type')}",
-        f"client_id={fields.get('client_id')}",
-        f"error={reply.get('error')}",
-        f"error_description={reply.get('error_description')}",
+        f"grant_type={_safe(fields.get('grant_type'))}",
+        f"client_id={_safe(fields.get('client_id'))}",
+        f"error={_safe(reply.get('error'))}",
+        f"error_description={_safe(reply.get('error_description'))}",
     ]
     assertion = fields.get("client_assertion") or fields.get("assertion")
     if assertion:
         parts.append(_described(assertion))
     logger.warning(f"MCP token request refused: {' '.join(parts)}")
+
+
+_LOGGED_LENGTH = 200
+"""The most characters a refused token request writes to the log for one value."""
+
+
+def _safe(value: object) -> str:
+    """``value`` for a log line, its control characters escaped and its length bounded.
+
+    Anyone can send a token request, and a line break in a form field or a
+    claim would otherwise write records of its own into the log.
+    """
+    text = "".join(
+        character if character.isprintable() else character.encode("unicode_escape").decode()
+        for character in str(value)
+    )
+    return text if len(text) <= _LOGGED_LENGTH else f"{text[:_LOGGED_LENGTH]}…"
 
 
 def _described(assertion: str) -> str:
@@ -288,11 +305,10 @@ def _described(assertion: str) -> str:
     if not isinstance(header, dict) or not isinstance(claims, dict):
         return "assertion=unreadable"
     subject = claims.get("sub")
-    described = [f"{key}={header.get(key)}" for key in ("alg", "kid", "typ")]
-    described += [f"{key}={claims.get(key)}" for key in ("iss", "aud", "iat", "exp")]
-    described.append(
-        f"sub={subject if subject == claims.get('iss') else 'present' if subject else 'absent'}"
-    )
+    described = [f"{key}={_safe(header.get(key))}" for key in ("alg", "kid", "typ")]
+    described += [f"{key}={_safe(claims.get(key))}" for key in ("iss", "aud", "iat", "exp")]
+    shown = _safe(subject) if subject == claims.get("iss") else "present" if subject else "absent"
+    described.append(f"sub={shown}")
     described.append(f"jti={'present' if claims.get('jti') else 'absent'}")
     return " ".join(described)
 
