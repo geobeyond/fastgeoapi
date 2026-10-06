@@ -225,6 +225,21 @@ interface Style {
   sprite?: unknown;
 }
 
+/** How long a map of data waits for the basemap's style before drawing on its tiles. */
+export const STYLE_WAIT_MS = 4000;
+
+/** Whether a document is a MapLibre style the island can draw on: sources and layers. */
+export function isStyle(value: unknown): value is Style {
+  const style = value as Partial<Style> | null;
+  return (
+    typeof style === "object" &&
+    style !== null &&
+    typeof style.sources === "object" &&
+    style.sources !== null &&
+    Array.isArray(style.layers)
+  );
+}
+
 const basemapStyles = new Map<string, Promise<Style | null>>();
 
 /** The basemap's style, asked once for the page; null when it does not arrive. */
@@ -233,8 +248,9 @@ function loadStyle(url: string): Promise<Style | null> {
   if (found === undefined) {
     found = fetch(url)
       .then((response) =>
-        response.ok ? (response.json() as Promise<Style>) : null,
+        response.ok ? (response.json() as Promise<unknown>) : null,
       )
+      .then((document) => (isStyle(document) ? document : null))
       .catch(() => null);
     basemapStyles.set(url, found);
   }
@@ -634,15 +650,22 @@ export function startMap(
   if (config.kind === "tiles" && config.basemap?.style) {
     drawTiles(0);
   } else if (config.basemap?.style) {
-    // A style that does not load leaves the map without its first render:
-    // the basemap's tiles take its place. Errors of a source come later.
+    // A style that does not load, or loads late, leaves the data waiting for
+    // the map's first render: the basemap's tiles take its place, for good.
+    // Errors of a source come later.
     let replaced = false;
-    map.on("error", (event) => {
-      if (!loaded && !replaced && !event?.sourceId) {
+    const fallBack = (): void => {
+      if (!loaded && !replaced) {
         replaced = true;
         map.setStyle(baseStyle(config.basemap));
       }
+    };
+    map.on("error", (event) => {
+      if (!event?.sourceId) {
+        fallBack();
+      }
     });
+    window.setTimeout(fallBack, STYLE_WAIT_MS);
   }
   // The compass shows the tilt too, and a click on it brings the map back
   // north and flat: a right drag or two fingers rotate and tilt it.

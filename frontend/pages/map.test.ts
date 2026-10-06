@@ -3,8 +3,10 @@ import {
   composeStyles,
   dataBounds,
   extentFeature,
+  isStyle,
   mapImageUrl,
   startMap,
+  STYLE_WAIT_MS,
   turnedSize,
   type FeatureCollection,
   type MapConfig,
@@ -220,6 +222,12 @@ describe("helpers", () => {
     }).sources as Record<string, { maxzoom?: number }>;
 
     expect(sources.basemap.maxzoom).toBe(19);
+  });
+
+  it("knows a style by its sources and its layers", () => {
+    expect(isStyle({ version: 8, sources: {}, layers: [] })).toBe(true);
+    expect(isStyle({ not: "a style" })).toBe(false);
+    expect(isStyle(null)).toBe(false);
   });
 });
 
@@ -493,6 +501,79 @@ describe("startMap", () => {
     expect((map.styles[0] as Composed).layers.map((layer) => layer.id)).toEqual(
       ["background", "basemap", "water"],
     );
+  });
+
+  it("puts the tiles over the basemap's tiles when its style is no style", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ not: "a style" }),
+      }),
+    );
+    const map = start({
+      kind: "tiles",
+      camera,
+      basemap: { ...RASTER, style: "https://s/not-a-style" },
+      styles: [{ name: "Default", style: HILLSHADE }],
+      labels: { style: "Style" },
+    });
+
+    await vi.waitFor(() => expect(map.styles).toHaveLength(1));
+    vi.unstubAllGlobals();
+
+    expect((map.styles[0] as Composed).layers.map((layer) => layer.id)).toEqual(
+      ["background", "basemap", "water"],
+    );
+  });
+
+  it("draws on the basemap's tiles when its style is late", () => {
+    vi.useFakeTimers();
+    const map = start({
+      kind: "features",
+      camera,
+      basemap: { ...RASTER, style: "https://s/slow" },
+      data: collection,
+    });
+
+    vi.advanceTimersByTime(STYLE_WAIT_MS);
+    vi.useRealTimers();
+
+    expect(map.styles).toEqual([baseStyle(RASTER)]);
+  });
+
+  it("a late style does not take the map back", () => {
+    vi.useFakeTimers();
+    const map = start({
+      kind: "features",
+      camera,
+      basemap: { ...RASTER, style: "https://s/slow" },
+      data: collection,
+    });
+
+    vi.advanceTimersByTime(STYLE_WAIT_MS);
+    map.fire("error");
+    map.fire("load");
+    vi.advanceTimersByTime(STYLE_WAIT_MS);
+    vi.useRealTimers();
+
+    expect(map.styles).toHaveLength(1);
+  });
+
+  it("keeps the basemap's style when the map loads in time", () => {
+    vi.useFakeTimers();
+    const map = start({
+      kind: "features",
+      camera,
+      basemap: { ...RASTER, style: "https://s/quick" },
+      data: collection,
+    });
+
+    map.fire("load");
+    vi.advanceTimersByTime(STYLE_WAIT_MS);
+    vi.useRealTimers();
+
+    expect(map.styles).toEqual([]);
   });
 
   it("asks the image of a turned map at the size of the box it covers", () => {
