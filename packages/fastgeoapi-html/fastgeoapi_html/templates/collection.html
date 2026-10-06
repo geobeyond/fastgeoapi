@@ -7,6 +7,10 @@
     {% if kinds or keywords %}<p>{% for kind in kinds %}<span class="badge">{{ kind }}</span> {% endfor %}{% for keyword in keywords %}<span class="keyword">{{ keyword }}</span> {% endfor %}</p>{% endif %}
     {% if sections %}<h2>{{ _("Explore") }}</h2>
     <ul class="sections">{% for section in sections %}<li><a href="{{ section.href | safe_url }}">{{ section.label }}</a></li>{% endfor %}</ul>{% endif %}
+  </section>
+  {% include "_map.html" %}
+</div>
+<section class="rest">
     <h2>{{ _("About") }}</h2>
     <dl class="facts">
       {% for fact in facts %}<dt>{{ fact.label }}</dt><dd>{{ fact.value }}</dd>
@@ -25,7 +29,5 @@
       </tbody>
     </table>{% endif %}
     {% include "_links.html" %}
-  </section>
-  {% include "_map.html" %}
-</div>
+</section>
 {% endblock %}

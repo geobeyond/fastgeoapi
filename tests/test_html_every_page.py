@@ -3,6 +3,8 @@
 ``app.*`` is imported inside ``tests.html_fixtures.native_client``, and nowhere else here.
 """
 
+import re
+
 import pytest
 from markupsafe import escape
 
@@ -71,6 +73,11 @@ LINKED_PATHS = [
     f"/jobs/{RUNNING_JOB}",
 ]
 
+OPENING = re.compile(
+    r'<div class="split">\s*<section class="panel">.*?</section>\s*<fga-map>', re.DOTALL
+)
+"""A page's first block, then its map, side by side in the opening grid."""
+
 
 @pytest.fixture(scope="module")
 def client(tmp_path_factory):
@@ -120,3 +127,28 @@ def test_every_link_of_the_json_is_on_the_page(client, path):
 
     assert links
     assert missing == []
+
+
+@pytest.mark.parametrize("path", MAP_PATHS)
+def test_every_map_sits_beside_the_first_block_of_its_page(client, path):
+    html = client.get(path, params={"f": "html"}).text
+
+    assert OPENING.search(html), html[:3000]
+    assert 'class="mapcol"' not in html
+
+
+def test_the_items_run_below_the_opening_across_the_page(client):
+    html = client.get("/collections/lakes/items", params={"f": "html"}).text
+    opening, _, rest = html.partition('<section class="rest">')
+
+    assert '<form class="filters"' in opening
+    assert '<table class="data items">' in rest
+    assert '<form class="filters"' not in rest
+
+
+def test_the_first_block_of_an_item_is_its_properties_and_its_links_follow(client):
+    html = client.get("/collections/lakes/items/0", params={"f": "html"}).text
+    opening, _, rest = html.partition('<section class="rest">')
+
+    assert '<table class="data">' in opening
+    assert "<h2>Links</h2>" in rest

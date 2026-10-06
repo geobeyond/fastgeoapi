@@ -7,6 +7,10 @@
       {% for fact in facts %}<dt>{{ fact.label }}</dt><dd>{% if fact.href %}<a href="{{ fact.href | safe_url }}">{{ fact.value }}</a>{% else %}{{ fact.value }}{% endif %}</dd>
       {% endfor %}
     </dl>
+  </section>
+  {% include "_map.html" %}
+</div>
+{% if template or metadata %}<section class="rest">
     {% if template %}<h2>{{ _("Tiles") }}</h2>
     <pre><code>{{ template }}</code></pre>{% endif %}
     {% if metadata %}<h2>{{ _("Metadata") }}</h2>
@@ -17,7 +21,5 @@
       {% endfor %}
       </tbody>
     </table>{% endif %}
-  </section>
-  {% include "_map.html" %}
-</div>
+</section>{% endif %}
 {% endblock %}
