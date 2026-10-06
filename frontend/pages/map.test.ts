@@ -590,10 +590,10 @@ describe("startMap", () => {
     map.fire("load");
 
     const url = new URL(map.sources["fga-image"].url as string);
-    expect([url.searchParams.get("width"), url.searchParams.get("height")]).toEqual([
-      "600",
-      "800",
-    ]);
+    expect([
+      url.searchParams.get("width"),
+      url.searchParams.get("height"),
+    ]).toEqual(["600", "800"]);
   });
 
   it("asks one map image per view, again when the map stops moving", () => {
