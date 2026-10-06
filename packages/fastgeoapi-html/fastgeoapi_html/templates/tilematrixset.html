@@ -11,7 +11,7 @@
     <thead><tr><th>{{ _("Level") }}</th><th>{{ _("Scale denominator") }}</th><th>{{ _("Cell size") }}</th><th>{{ _("Matrix") }}</th><th>{{ _("Tile size") }}</th></tr></thead>
     <tbody>
     {% for matrix in matrices %}
-      <tr><td>{{ matrix.id }}</td><td>{{ matrix.scaleDenominator | number }}</td><td>{{ matrix.cellSize | number }}</td><td>{{ matrix.matrixWidth }} × {{ matrix.matrixHeight }}</td><td>{{ matrix.tileWidth }} × {{ matrix.tileHeight }}</td></tr>
+      <tr><td>{{ matrix.id }}</td><td>{{ matrix.scaleDenominator | number }}</td><td>{{ matrix.cellSize | precise }}</td><td>{{ matrix.matrixWidth }} × {{ matrix.matrixHeight }}</td><td>{{ matrix.tileWidth }} × {{ matrix.tileHeight }}</td></tr>
     {% endfor %}
     </tbody>
   </table>
