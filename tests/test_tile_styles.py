@@ -207,6 +207,29 @@ def test_a_style_that_cannot_be_read_is_left_out(tmp_path):
     assert [style.name for style in styles] == ["day"]
 
 
+@pytest.mark.parametrize(
+    "text",
+    ["[]", '"a string"', '{"version": 8, "sources": [], "layers": []}'],
+    ids=["a list", "a string", "sources as a list"],
+)
+def test_a_style_that_reads_but_is_no_style_is_left_out(tmp_path, text):
+    odd = tmp_path / "odd.json"
+    odd.write_text(text)
+
+    styles = tile_styles(
+        _collection(
+            _map_provider(
+                styles={"odd": str(odd), "day": _style(tmp_path / "day.json")},
+                default_style="odd",
+            )
+        ),
+        TILEJSON,
+        _content(),
+    )
+
+    assert [style.name for style in styles] == ["day"]
+
+
 def test_when_no_configured_style_can_be_read_one_is_made_from_the_tiles(tmp_path):
     (style,) = tile_styles(
         _collection(

@@ -108,11 +108,15 @@ def _tile_provider_style(providers: list[dict]) -> Iterator[tuple[str, dict, str
 
 def _read(name: str, location: str, store_options: dict | None) -> dict | None:
     try:
-        return read_style(location, store_options)
+        document = read_style(location, store_options)
     except Exception as error:
         # The type only: the message of a store error may name the object.
         logger.warning(f"style {name} could not be read: {type(error).__name__}")
         return None
+    if not isinstance(document, dict) or not isinstance(document.get("sources", {}), dict):
+        logger.warning(f"style {name} is not a MapLibre style")
+        return None
+    return document
 
 
 def _pointed(document: dict, source_id: str, source: dict[str, Any]) -> dict[str, Any]:
