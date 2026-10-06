@@ -76,13 +76,17 @@ def extend_schema(schema: dict[str, Any]) -> dict[str, Any]:
 
 def extension_problem(config: dict[str, Any]) -> tuple[str, str] | None:
     """Where the first of fastgeoapi's keys breaks its schema, and why; None when all hold."""
-    server_map = (config.get("server") or {}).get("map")
+    # A document of another shape is pygeoapi's schema to refuse: the editor
+    # checks these keys on what an operator is still writing.
+    server = config.get("server")
+    server_map = server.get("map") if isinstance(server, dict) else None
     for key, schema in MAP_KEYS.items():
         if isinstance(server_map, dict) and key in server_map:
             problem = _problem(schema, server_map[key], ["server", "map", key])
             if problem is not None:
                 return problem
-    for name, resource in (config.get("resources") or {}).items():
+    resources = config.get("resources")
+    for name, resource in (resources if isinstance(resources, dict) else {}).items():
         if not isinstance(resource, dict) or resource.get("type") != "collection":
             continue
         for key, schema in COLLECTION_KEYS.items():
