@@ -4,7 +4,18 @@ from __future__ import annotations
 
 from typing import Any
 
+from pygeoapi.formats import F_JSON
+
+from app.html.pages import with_query, without_query
 from app.provider.tile_styles import TileStyle
+
+LONGITUDE_FIRST = frozenset(
+    {
+        "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+        "http://www.opengis.net/def/crs/OGC/1.3/CRS84h",
+    }
+)
+"""The reference systems MapLibre can draw as they are: longitude, then latitude."""
 
 MAP_IMAGE_MIN_ZOOM = 2
 """The lowest zoom of a collection drawn as map images: a whole-world image can time out."""
@@ -108,6 +119,19 @@ def image_island(
         "maxSize": max_size,
         "labels": {"style": style_label},
     }
+
+
+def drawn_features(
+    page_url: str, crs: str | None, features: dict[str, Any]
+) -> dict[str, Any] | str:
+    """What a map of features draws: the page's features, or its JSON without ``crs``.
+
+    MapLibre reads longitude and latitude. A page asked in another
+    reference system draws the same document asked in CRS84.
+    """
+    if not crs or crs in LONGITUDE_FIRST:
+        return features
+    return with_query(without_query(page_url, "crs"), f=F_JSON)
 
 
 def features_island(view: dict[str, Any], base: dict[str, str] | None, data: Any) -> dict[str, Any]:

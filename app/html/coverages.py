@@ -7,7 +7,14 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 
 from app.html.collection import REL, collection_crumbs, edr_label, preview
 from app.html.features import feature_name
-from app.html.maps import basemap, camera, domain_footprint, extent_of, features_island
+from app.html.maps import (
+    basemap,
+    camera,
+    domain_footprint,
+    drawn_features,
+    extent_of,
+    features_island,
+)
 from app.html.pages import PageContext, Related
 from app.html.parameters import Field, parameter_of
 from app.html.views import Gettext, base_url, html_link, json_links, parameter_row
@@ -340,7 +347,11 @@ def edr_query(context: PageContext) -> dict[str, Any]:
             {"index": index, "name": feature_name(feature, None)}
             for index, feature in enumerate(document.get("features") or [])
         ]
-        shown = features_island(camera(resource, fit_data=True), background, document)
+        shown = features_island(
+            camera(resource, fit_data=True),
+            background,
+            drawn_features(context.url, context.params.get("crs"), document),
+        )
     elif document.get("domain") or document.get("coverages"):
         axes, parameters = coverage_tables(document, context.request.locale)
         footprints = [

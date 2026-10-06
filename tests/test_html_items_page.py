@@ -22,6 +22,8 @@ BAIKAL_WIKI = "https://en.wikipedia.org/wiki/Lake_Baikal"
 
 WRONG_CRS = "http://www.opengis.net/def/crs/EPSG/0/9999"
 
+CRS84 = "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+
 
 @pytest.fixture(scope="module")
 def client(tmp_path_factory):
@@ -156,3 +158,22 @@ def test_an_unknown_collection_keeps_its_json_404(client):
     r = _page(client, "/collections/nope/items")
 
     assert (r.status_code, r.headers["content-type"]) == (404, "application/json")
+
+
+@pytest.mark.parametrize(
+    "crs",
+    ["http://www.opengis.net/def/crs/EPSG/0/3857", "http://www.opengis.net/def/crs/EPSG/0/4326"],
+)
+@pytest.mark.parametrize("path", ["/collections/lakes/items", "/collections/lakes/items/0"])
+def test_a_page_in_another_crs_draws_its_json_in_longitude_and_latitude(tmp_path, crs, path):
+    api_config = config()
+    api_config["resources"]["lakes"]["providers"][0]["crs"] = [CRS84, crs]
+    client = native_client(api_config, fake_build(tmp_path))
+
+    r = client.get(path, params={"f": "html", "crs": crs, "limit": 2})
+    data = island_config(r.text, "fga-map")["data"]
+
+    assert r.status_code == 200
+    assert isinstance(data, str)
+    assert "crs=" not in data
+    assert "f=json" in data

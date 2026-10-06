@@ -10,7 +10,7 @@ from urllib.parse import quote
 from pygeoapi.linked_data import geojson2jsonld
 
 from app.html.collection import collection_crumbs, provider_of
-from app.html.maps import basemap, camera, features_island
+from app.html.maps import basemap, camera, drawn_features, features_island
 from app.html.pages import PageContext, Related
 from app.html.parameters import chips, honoured, items_fields, parameter_of
 from app.html.views import as_text, base_url, json_links
@@ -122,7 +122,11 @@ def items(context: PageContext) -> dict[str, Any]:
         "map": features_island(
             camera(resource, fit_data=True),
             basemap(api.config),
-            {"type": "FeatureCollection", "features": features},
+            drawn_features(
+                context.url,
+                context.params.get("crs"),
+                {"type": "FeatureCollection", "features": features},
+            ),
         ),
         "jsonld": {
             "@context": "https://schema.org",
@@ -167,7 +171,11 @@ def item(context: PageContext) -> dict[str, Any]:
         shown = features_island(
             camera(resource, fit_data=True),
             basemap(api.config),
-            {"type": "FeatureCollection", "features": [document]},
+            drawn_features(
+                context.url,
+                context.params.get("crs"),
+                {"type": "FeatureCollection", "features": [document]},
+            ),
         )
     # pygeoapi's function takes the properties out of the feature it is given.
     linked = geojson2jsonld(
