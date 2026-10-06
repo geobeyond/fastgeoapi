@@ -295,9 +295,10 @@ class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
             content = self.source.content()
         except TileSourceError as error:
             raise ProviderGenericError(user_msg=str(error)) from None
+        zoom = self.options.get("zoom") or {}
         if content.data_type == "vector":
-            return _vector_tilejson(content, dataset, server_url, tileset)
-        return _raster_tilejson(content, dataset, server_url, tileset)
+            return _vector_tilejson(content, dataset, server_url, tileset, zoom)
+        return _raster_tilejson(content, dataset, server_url, tileset, zoom)
 
     def get_html_metadata(
         self, dataset, server_url, layer, tileset, title, description, keywords, **kwargs
@@ -319,16 +320,21 @@ class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
         }
 
 
-def _tilejson(content: TileContent, dataset: str, server_url: str, tileset: str) -> dict[str, Any]:
+def _tilejson(
+    content: TileContent, dataset: str, server_url: str, tileset: str, zoom: dict[str, int]
+) -> dict[str, Any]:
     """The TileJSON 3.0.0 keys of every tileset, in the shape MapLibre reads as a source."""
+    low, high = _zooms(content, zoom)
+    lon, lat, center_zoom = content.center
     tilejson: dict[str, Any] = {
         "tilejson": "3.0.0",
         "name": content.name or dataset,
         "tiles": [_xyz_url(server_url, dataset, tileset, content.format_parameter)],
-        "minzoom": content.min_zoom,
-        "maxzoom": content.max_zoom,
+        "minzoom": low,
+        "maxzoom": high,
         "bounds": list(content.bounds),
-        "center": list(content.center),
+        # TileJSON wants the zoom of the center between minzoom and maxzoom.
+        "center": [lon, lat, min(max(center_zoom, low), high)],
     }
     if content.description:
         tilejson["description"] = content.description
@@ -337,9 +343,24 @@ def _tilejson(content: TileContent, dataset: str, server_url: str, tileset: str)
     return tilejson
 
 
-def _vector_tilejson(content: TileContent, dataset: str, server_url: str, tileset: str) -> dict:
+def _zooms(content: TileContent, zoom: dict[str, int]) -> tuple[int, int]:
+    """The zooms a client can ask: the data's, within the configured ``zoom``.
+
+    Past the last one a client such as MapLibre enlarges the deepest tiles it
+    has; a maxzoom beyond the configuration would make it ask tiles that
+    answer 404 instead.
+    """
+    return (
+        max(content.min_zoom, zoom.get("min", content.min_zoom)),
+        min(content.max_zoom, zoom.get("max", content.max_zoom)),
+    )
+
+
+def _vector_tilejson(
+    content: TileContent, dataset: str, server_url: str, tileset: str, zoom: dict[str, int]
+) -> dict:
     """TileJSON 3.0.0 for a vector source, with its layers."""
-    tilejson = _tilejson(content, dataset, server_url, tileset)
+    tilejson = _tilejson(content, dataset, server_url, tileset, zoom)
     tilejson["vector_layers"] = [_vector_layer(layer) for layer in content.layers]
     return tilejson
 
@@ -356,9 +377,11 @@ def _vector_layer(layer: VectorLayer) -> dict[str, Any]:
     return entry
 
 
-def _raster_tilejson(content: TileContent, dataset: str, server_url: str, tileset: str) -> dict:
+def _raster_tilejson(
+    content: TileContent, dataset: str, server_url: str, tileset: str, zoom: dict[str, int]
+) -> dict:
     """TileJSON 3.0.0 for a raster or raster-dem source, with the tile size and the encoding."""
-    tilejson = _tilejson(content, dataset, server_url, tileset)
+    tilejson = _tilejson(content, dataset, server_url, tileset, zoom)
     if content.tile_size:
         tilejson["tileSize"] = content.tile_size
     if content.dem is not None:
