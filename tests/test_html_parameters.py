@@ -69,7 +69,14 @@ class Silent:
 def _used(function: ast.FunctionDef) -> frozenset[str]:
     names = {argument.arg for argument in function.args.args}
     read = {node.id for node in ast.walk(function) if isinstance(node, ast.Name)}
-    return frozenset(name for name in ARGUMENT_PARAMETERS if name in names and name in read)
+    used = {name for name in ARGUMENT_PARAMETERS if name in names and name in read}
+    # pygeoapi's @crs_transform reads crs_transform_spec and transforms what query() returns.
+    decorators = {
+        getattr(each, "id", getattr(each, "attr", "")) for each in function.decorator_list
+    }
+    if "crs_transform" in decorators:
+        used.add("crs_transform_spec")
+    return frozenset(used)
 
 
 def _query(node: ast.ClassDef) -> ast.FunctionDef | None:
@@ -139,6 +146,7 @@ def test_a_provider_of_pygeoapi_applies_what_its_query_reads():
     assert honoured({"name": "GeoJSON"}) == ALWAYS | {
         "bbox",
         "bbox-crs",
+        "crs",
         QUERYABLES,
         "properties",
         "skipGeometry",
@@ -194,7 +202,14 @@ def test_the_form_shows_what_geojson_applies():
     )
 
     assert _names(in_view) == ["name", "area", "kind", "seen", "bbox", "limit"]
-    assert _names(advanced) == ["bbox-crs", "properties", "skipGeometry", "offset", "resulttype"]
+    assert _names(advanced) == [
+        "crs",
+        "bbox-crs",
+        "properties",
+        "skipGeometry",
+        "offset",
+        "resulttype",
+    ]
 
 
 def test_a_data_source_that_filters_gets_cql2_with_examples():

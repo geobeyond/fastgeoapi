@@ -90,10 +90,16 @@ def test_a_refused_bbox_shows_its_message_by_the_field(client):
 
 
 def test_a_message_naming_no_field_shows_above_the_form(client):
+    html = _page(client, **{"filter-lang": "klingon"}).text
+
+    assert '<p class="error" role="alert">Invalid filter language' in html
+    assert html.index('<p class="error"') < html.index('<form class="filters"')
+
+
+def test_a_crs_the_data_does_not_offer_shows_by_its_field(client):
     html = _page(client, crs=WRONG_CRS).text
 
-    assert f'<p class="error" role="alert">CRS &#39;{WRONG_CRS}&#39; not supported' in html
-    assert html.index('<p class="error"') < html.index('<form class="filters"')
+    assert f'<p class="field-error" role="alert">CRS &#39;{WRONG_CRS}&#39; not supported' in html
 
 
 def test_every_property_of_the_page_is_a_column(client):
