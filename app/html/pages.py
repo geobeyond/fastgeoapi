@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from babel.dates import format_datetime
 from babel.numbers import format_decimal
@@ -28,8 +28,11 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, Response
 from starlette.routing import Route
 
+from app.config.logging import create_logger
 from app.html.assets import STYLE, Assets
 from app.html.i18n import translations
+
+logger = create_logger("app.html.pages")
 
 FORMAT_LABELS = {
     "application/json": "JSON",
@@ -141,7 +144,16 @@ class NativePages:
                         return answer
             related: dict[str, Any] = {}
             for each in page.related:
-                answer = await endpoints[each.route](_asking_related(request, each))
+                try:
+                    answer = await endpoints[each.route](_asking_related(request, each))
+                except Exception as failure:
+                    if each.required:
+                        raise
+                    # A page reads its related routes for extras: one that
+                    # fails leaves its part of the page empty.
+                    logger.warning(f"related route {each.route} failed: {type(failure).__name__}")
+                    related[each.name] = None
+                    continue
                 if answer.status_code >= 400 and each.required:
                     return answer
                 found = _document(answer) if answer.status_code < 400 else None
@@ -242,19 +254,27 @@ def with_query(url: str, **params: str) -> str:
     return urlunsplit(parts._replace(query=urlencode(query)))
 
 
+_PATH_SAFE = "/:@!$&'()*+,;=~"
+"""What stays as it is in a path: its separators and the characters RFC 3986 lets a segment keep."""
+
+_URL_SAFE = _PATH_SAFE + "?#[]%"
+"""What stays as it is in a whole URL: also its query, its fragment and its escapes."""
+
+
 def page_url(api: API, request: Request) -> str:
     """The page's URL on the configured server URL, with the request's parameters and ``f=html``.
 
     The request may come through a proxy, under another host name: the
     links of a page follow the configuration, as pygeoapi's own links do.
-    Empty parameters are left out.
+    Empty parameters are left out, and the path is percent-encoded.
     """
     path = request.scope["path"]
     root = request.scope.get("root_path", "")
     if root and path.startswith(root):
         path = path[len(root) :]
     query = [*_filled(request), ("f", F_HTML)]
-    return f"{api.base_url.rstrip('/')}{path.rstrip('/')}?{urlencode(query)}"
+    encoded = quote(path.rstrip("/"), safe=_PATH_SAFE)
+    return f"{api.base_url.rstrip('/')}{encoded}?{urlencode(query)}"
 
 
 def without_query(url: str, *names: str) -> str:
@@ -466,8 +486,10 @@ def _frame(
 
 
 def _headers(url: str, links: list[dict[str, Any]], locale: Any) -> dict[str, str]:
-    variants = [f'<{url}>; rel="self"; type="text/html"'] + [
-        f'<{each["href"]}>; rel="alternate"; type="{each["type"]}"' for each in _formats(url, links)
+    # Starlette writes headers as latin-1: every URL of the Link header is percent-encoded.
+    variants = [f'<{quote(url, safe=_URL_SAFE)}>; rel="self"; type="text/html"'] + [
+        f'<{quote(each["href"], safe=_URL_SAFE)}>; rel="alternate"; type="{each["type"]}"'
+        for each in _formats(url, links)
     ]
     return {
         "Content-Language": l10n.locale2str(locale),
