@@ -5,6 +5,7 @@ import {
   extentFeature,
   mapImageUrl,
   startMap,
+  turnedSize,
   type FeatureCollection,
   type MapConfig,
 } from "./map";
@@ -168,6 +169,18 @@ describe("mapImageUrl", () => {
       url.searchParams.get("height"),
     ]).toEqual(["2048", "1024"]);
     expect(url.searchParams.get("f")).toBe("png");
+  });
+});
+
+describe("turnedSize", () => {
+  it("keeps the canvas size when the map points north", () => {
+    expect(turnedSize(800, 600, 0)).toEqual([800, 600]);
+  });
+
+  it("gives the size of the box around a turned view", () => {
+    const [width, height] = turnedSize(900, 600, 90);
+
+    expect([Math.round(width), Math.round(height)]).toEqual([600, 900]);
   });
 });
 
@@ -480,6 +493,26 @@ describe("startMap", () => {
     expect((map.styles[0] as Composed).layers.map((layer) => layer.id)).toEqual(
       ["background", "basemap", "water"],
     );
+  });
+
+  it("asks the image of a turned map at the size of the box it covers", () => {
+    const map = start({
+      kind: "image",
+      camera,
+      basemap: null,
+      maps: [{ name: "Default", url: "https://e.org/map" }],
+      maxSize: 2048,
+      labels: { style: "Style" },
+    });
+    map.bearing = 90;
+
+    map.fire("load");
+
+    const url = new URL(map.sources["fga-image"].url as string);
+    expect([url.searchParams.get("width"), url.searchParams.get("height")]).toEqual([
+      "600",
+      "800",
+    ]);
   });
 
   it("asks one map image per view, again when the map stops moving", () => {
