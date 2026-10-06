@@ -87,11 +87,11 @@ def items(context: PageContext) -> dict[str, Any]:
         for index, feature in enumerate(features)
     ]
     count = None
-    if context.document is not None and not features:
+    matched = document.get("numberMatched")
+    if context.document is not None and not features and not matched:
         count = _("No items")
     elif context.document is not None:
         returned = document.get("numberReturned", len(features))
-        matched = document.get("numberMatched")
         count = (
             _("%(returned)s of %(matched)s items") % {"returned": returned, "matched": matched}
             if matched is not None

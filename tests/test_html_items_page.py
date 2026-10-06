@@ -177,3 +177,10 @@ def test_a_page_in_another_crs_draws_its_json_in_longitude_and_latitude(tmp_path
     assert isinstance(data, str)
     assert "crs=" not in data
     assert "f=json" in data
+
+
+def test_only_how_many_says_how_many_match(client):
+    html = _page(client, resulttype="hits").text
+
+    assert "No items" not in html
+    assert "0 of 25 items" in html
