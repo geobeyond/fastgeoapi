@@ -4,7 +4,7 @@
   <section class="panel">
     <h1>{{ title }}</h1>
     <dl class="facts">
-      {% for fact in facts %}<dt>{{ fact.label }}</dt><dd>{% if fact.href %}<a href="{{ fact.href }}">{{ fact.value }}</a>{% else %}{{ fact.value }}{% endif %}</dd>
+      {% for fact in facts %}<dt>{{ fact.label }}</dt><dd>{% if fact.href %}<a href="{{ fact.href | safe_url }}">{{ fact.value }}</a>{% else %}{{ fact.value }}{% endif %}</dd>
       {% endfor %}
     </dl>
     {% if template %}<h2>{{ _("Tiles") }}</h2>

@@ -3,7 +3,7 @@
 <div class="container">
   <h1>{{ title }}</h1>
   <p class="lead">{{ description }}</p>
-  <form class="limit" method="get" action="{{ action }}">
+  <form class="limit" method="get" action="{{ action | safe_url }}">
     <input type="hidden" name="f" value="html">
     {% if language %}<input type="hidden" name="lang" value="{{ language }}">{% endif %}
     <label for="field-limit">{{ _("Items per page") }}</label>
@@ -16,7 +16,7 @@
     <thead><tr><th>{{ _("Job") }}</th><th>{{ _("Process") }}</th><th>{{ _("Status") }}</th><th>{{ _("Started") }}</th><th>{{ _("Duration") }}</th><th>{{ _("Progress") }}</th><th>{{ _("Message") }}</th></tr></thead>
     <tbody>
     {% for row in rows %}
-      <tr><td><a href="{{ row.href }}"><code>{{ row.id }}</code></a></td><td><a href="{{ row.process_href }}">{{ row.process }}</a></td><td>{{ row.status }}</td><td>{{ row.started | instant }}</td><td>{{ row.duration }}</td><td>{% if row.progress is not none %}{{ row.progress }}%{% endif %}</td><td>{{ row.message }}</td></tr>
+      <tr><td><a href="{{ row.href | safe_url }}"><code>{{ row.id }}</code></a></td><td><a href="{{ row.process_href | safe_url }}">{{ row.process }}</a></td><td>{{ row.status }}</td><td>{{ row.started | instant }}</td><td>{{ row.duration }}</td><td>{% if row.progress is not none %}{{ row.progress }}%{% endif %}</td><td>{{ row.message }}</td></tr>
     {% endfor %}
     </tbody>
   </table>
@@ -24,6 +24,6 @@
   {% else %}
   <p>{{ _("No job yet.") }}</p>
   {% endif %}
-  {% if prev or next %}<nav class="pager">{% if prev %}<a rel="prev" href="{{ prev }}">{{ _("Previous") }}</a>{% endif %}{% if next %}<a rel="next" href="{{ next }}">{{ _("Next") }}</a>{% endif %}</nav>{% endif %}
+  {% if prev or next %}<nav class="pager">{% if prev %}<a rel="prev" href="{{ prev | safe_url }}">{{ _("Previous") }}</a>{% endif %}{% if next %}<a rel="next" href="{{ next | safe_url }}">{{ _("Next") }}</a>{% endif %}</nav>{% endif %}
 </div>
 {% endblock %}

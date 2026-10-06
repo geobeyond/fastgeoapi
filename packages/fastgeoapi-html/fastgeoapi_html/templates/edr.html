@@ -5,12 +5,12 @@
   <section class="panel">
     <h1>{{ title }}</h1>
     {% if error and not error_field %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-    <form class="filters" method="get" action="{{ action }}">
+    <form class="filters" method="get" action="{{ action | safe_url }}">
       <input type="hidden" name="f" value="html">
       {% if language %}<input type="hidden" name="lang" value="{{ language }}">{% endif %}
       {% for each in fields %}{{ field(each, error if each.name == error_field else none) }}
       {% endfor %}
-      <div class="actions wide"><a href="{{ action }}?f=html">{{ _("Clear") }}</a> <button class="primary" type="submit">{{ _("Query") }}</button></div>
+      <div class="actions wide"><a href="{{ action | safe_url }}?f=html">{{ _("Clear") }}</a> <button class="primary" type="submit">{{ _("Query") }}</button></div>
     </form>
     {% if axes %}<h2>{{ _("Domain") }}</h2>
     <table class="data">

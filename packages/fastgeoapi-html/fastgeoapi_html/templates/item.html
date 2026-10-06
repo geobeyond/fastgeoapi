@@ -11,7 +11,7 @@
       {% endfor %}
       </tbody>
     </table>
-    {% if prev or next %}<nav class="pager">{% if prev %}<a rel="prev" href="{{ prev }}">{{ _("Previous") }}</a>{% endif %}{% if next %}<a rel="next" href="{{ next }}">{{ _("Next") }}</a>{% endif %}</nav>{% endif %}
+    {% if prev or next %}<nav class="pager">{% if prev %}<a rel="prev" href="{{ prev | safe_url }}">{{ _("Previous") }}</a>{% endif %}{% if next %}<a rel="next" href="{{ next | safe_url }}">{{ _("Next") }}</a>{% endif %}</nav>{% endif %}
     {% include "_links.html" %}
   </section>
   {% include "_map.html" %}

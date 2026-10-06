@@ -7,7 +7,7 @@
     <table class="data">
       <thead><tr><th>{{ _("Title") }}</th><th>{{ _("Tiling scheme") }}</th><th>{{ _("Data type") }}</th></tr></thead>
       <tbody>
-      {% for row in rows %}<tr><td><a href="{{ row.href }}">{{ row.title }}</a></td><td>{{ row.tms }}</td><td>{{ row.data_type }}</td></tr>
+      {% for row in rows %}<tr><td><a href="{{ row.href | safe_url }}">{{ row.title }}</a></td><td>{{ row.tms }}</td><td>{{ row.data_type }}</td></tr>
       {% endfor %}
       </tbody>
     </table>

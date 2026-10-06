@@ -6,9 +6,9 @@
 <ul class="nested">{% for name, each in value.items() %}<li><code>{{ name }}</code>: {{ show(each) }}</li>{% endfor %}</ul>
 {%- elif value is string -%}
 {%- if value.startswith(("http://", "https://")) and value.lower().endswith((".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp")) -%}
-<a href="{{ value }}"><img src="{{ value }}" alt="{{ value.rsplit('/', 1)[-1] }}" width="80"></a>
+<a href="{{ value | safe_url }}"><img src="{{ value | safe_url }}" alt="{{ value.rsplit('/', 1)[-1] }}" width="80"></a>
 {%- elif value.startswith(("http://", "https://")) and " " not in value -%}
-<a href="{{ value }}">{{ value }}</a>
+<a href="{{ value | safe_url }}">{{ value }}</a>
 {%- else -%}
 {{ value | urlize }}
 {%- endif -%}

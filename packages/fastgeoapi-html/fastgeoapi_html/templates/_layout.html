@@ -5,25 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% if title and title != site.title %}{{ title }} · {% endif %}{{ site.title }}</title>
 {% if description %}<meta name="description" content="{{ description | striptags | truncate(300) }}">
-{% endif %}<link rel="canonical" href="{{ canonical }}">
-{% if prev %}<link rel="prev" href="{{ prev }}">
-{% endif %}{% if next %}<link rel="next" href="{{ next }}">
-{% endif %}{% for format in formats %}<link rel="alternate" type="{{ format.type }}" href="{{ format.href }}">
-{% endfor %}<link rel="icon" href="{{ site.icon }}">
-{% for href in styles %}<link rel="stylesheet" href="{{ href }}">
+{% endif %}<link rel="canonical" href="{{ canonical | safe_url }}">
+{% if prev %}<link rel="prev" href="{{ prev | safe_url }}">
+{% endif %}{% if next %}<link rel="next" href="{{ next | safe_url }}">
+{% endif %}{% for format in formats %}<link rel="alternate" type="{{ format.type }}" href="{{ format.href | safe_url }}">
+{% endfor %}<link rel="icon" href="{{ site.icon | safe_url }}">
+{% for href in styles %}<link rel="stylesheet" href="{{ href | safe_url }}">
 {% endfor %}<script type="application/ld+json">{{ jsonld | tojson }}</script>
-{% for src in scripts %}<script type="module" src="{{ src }}"></script>
+{% for src in scripts %}<script type="module" src="{{ src | safe_url }}"></script>
 {% endfor %}</head>
 <body>
 <header class="bar">
-  <a class="brand" href="{{ site.home }}"><img src="{{ site.logo }}" alt="{{ site.title }}"></a>
-  <nav class="sections">{% for item in nav %}<a href="{{ item.href }}">{{ item.label }}</a>{% endfor %}</nav>
+  <a class="brand" href="{{ site.home | safe_url }}"><img src="{{ site.logo | safe_url }}" alt="{{ site.title }}"></a>
+  <nav class="sections">{% for item in nav %}<a href="{{ item.href | safe_url }}">{{ item.label }}</a>{% endfor %}</nav>
   <div class="tools">
-    <nav class="languages" aria-label="{{ _('Language') }}">{% for language in languages %}{% if language.current %}<strong>{{ language.label }}</strong>{% else %}<a href="{{ language.href }}" hreflang="{{ language.code }}">{{ language.label }}</a>{% endif %}{% endfor %}</nav>
-    {% for format in formats %}<a class="pill" href="{{ format.href }}">{{ format.label }}</a>{% endfor %}
+    <nav class="languages" aria-label="{{ _('Language') }}">{% for language in languages %}{% if language.current %}<strong>{{ language.label }}</strong>{% else %}<a href="{{ language.href | safe_url }}" hreflang="{{ language.code }}">{{ language.label }}</a>{% endif %}{% endfor %}</nav>
+    {% for format in formats %}<a class="pill" href="{{ format.href | safe_url }}">{{ format.label }}</a>{% endfor %}
   </div>
 </header>
-<nav class="crumbs" aria-label="{{ _('Breadcrumb') }}"><a href="{{ site.home }}">{{ _("Home") }}</a>{% for crumb in crumbs %} / {% if crumb.href %}<a href="{{ crumb.href }}">{{ crumb.label }}</a>{% else %}<span>{{ crumb.label }}</span>{% endif %}{% endfor %}</nav>
+<nav class="crumbs" aria-label="{{ _('Breadcrumb') }}"><a href="{{ site.home | safe_url }}">{{ _("Home") }}</a>{% for crumb in crumbs %} / {% if crumb.href %}<a href="{{ crumb.href | safe_url }}">{{ crumb.label }}</a>{% else %}<span>{{ crumb.label }}</span>{% endif %}{% endfor %}</nav>
 <main>
 {% block content %}{% endblock %}
 </main>

@@ -6,7 +6,7 @@
     <h1>{{ title }}</h1>
     {% if description %}<p class="lead">{{ description }}</p>{% endif %}
     {% if error and not error_field %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-    <form class="filters" method="get" action="{{ action }}">
+    <form class="filters" method="get" action="{{ action | safe_url }}">
       <input type="hidden" name="f" value="html">
       {% if language %}<input type="hidden" name="lang" value="{{ language }}">{% endif %}
       {% for each in fields %}{{ field(each, error if each.name == error_field else none) }}
@@ -18,10 +18,10 @@
         {% endfor %}
         </div>
       </details>{% endif %}
-      <div class="actions wide"><a href="{{ action }}?f=html">{{ _("Clear") }}</a> <button class="primary" type="submit">{{ _("Apply") }}</button></div>
+      <div class="actions wide"><a href="{{ action | safe_url }}?f=html">{{ _("Clear") }}</a> <button class="primary" type="submit">{{ _("Apply") }}</button></div>
     </form>
     {% if chips %}<ul class="chips">
-    {% for chip in chips %}<li class="chip{% if chip.ignored %} ignored{% endif %}"><code>{{ chip.name }}={{ chip.value }}</code>{% if chip.ignored %} <small>{{ _("the data of this collection does not apply it") }}</small>{% endif %} <a href="{{ chip.remove }}" aria-label="{{ _('Remove %(parameter)s', parameter=chip.name) }}">×</a></li>
+    {% for chip in chips %}<li class="chip{% if chip.ignored %} ignored{% endif %}"><code>{{ chip.name }}={{ chip.value }}</code>{% if chip.ignored %} <small>{{ _("the data of this collection does not apply it") }}</small>{% endif %} <a href="{{ chip.remove | safe_url }}" aria-label="{{ _('Remove %(parameter)s', parameter=chip.name) }}">×</a></li>
     {% endfor %}
     </ul>{% endif %}
     {% if count %}<p class="results">{{ count }}</p>{% endif %}
@@ -29,12 +29,12 @@
     <table class="data items">
       <thead><tr><th>{{ name_column }}</th>{% if uri_column %}<th>{{ uri_column }}</th>{% endif %}{% for column in columns %}<th>{{ column }}</th>{% endfor %}</tr></thead>
       <tbody>
-      {% for each in features %}<tr data-fga-feature="{{ each.index }}"><td><a class="name" href="{{ each.href }}">{{ each.name }}</a></td>{% if uri_column %}<td>{% if each.uri %}<a href="{{ each.uri }}">{{ each.uri }}</a>{% endif %}</td>{% endif %}{% for cell in each.cells %}<td>{{ cell | truncate(35) }}</td>{% endfor %}</tr>
+      {% for each in features %}<tr data-fga-feature="{{ each.index }}"><td><a class="name" href="{{ each.href | safe_url }}">{{ each.name }}</a></td>{% if uri_column %}<td>{% if each.uri %}<a href="{{ each.uri | safe_url }}">{{ each.uri }}</a>{% endif %}</td>{% endif %}{% for cell in each.cells %}<td>{{ cell | truncate(35) }}</td>{% endfor %}</tr>
       {% endfor %}
       </tbody>
     </table>
     </div>{% endif %}
-    {% if prev or next %}<nav class="pager">{% if prev %}<a rel="prev" href="{{ prev }}">{{ _("Previous") }}</a>{% endif %}{% if next %}<a rel="next" href="{{ next }}">{{ _("Next") }}</a>{% endif %}</nav>{% endif %}
+    {% if prev or next %}<nav class="pager">{% if prev %}<a rel="prev" href="{{ prev | safe_url }}">{{ _("Previous") }}</a>{% endif %}{% if next %}<a rel="next" href="{{ next | safe_url }}">{{ _("Next") }}</a>{% endif %}</nav>{% endif %}
   </section>
   {% include "_map.html" %}
 </div>

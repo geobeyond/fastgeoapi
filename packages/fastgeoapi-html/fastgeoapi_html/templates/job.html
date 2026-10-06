@@ -8,7 +8,7 @@
   </dl>
   {% if parameters %}<h2>{{ _("Parameters") }}</h2>
   <pre>{{ parameters }}</pre>{% endif %}
-  {% if results %}<p><a href="{{ results }}">{{ _("Show the results") }}</a></p>{% endif %}
+  {% if results %}<p><a href="{{ results | safe_url }}">{{ _("Show the results") }}</a></p>{% endif %}
   {% if follow %}
   <fga-job-status>
     <script type="application/json">{{ follow | tojson }}</script>
