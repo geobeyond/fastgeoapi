@@ -135,3 +135,27 @@ def test_text_from_the_configuration_is_never_markup(tmp_path):
 
     assert "<script>alert(1)</script>" not in html
     assert jsonld(html)["name"] == title
+
+
+def test_a_hidden_collection_has_no_card(tmp_path):
+    api_config = config()
+    api_config["resources"]["lakes"]["visibility"] = "hidden"
+
+    html = native_client(api_config, fake_build(tmp_path)).get("/", params={"f": "html"}).text
+
+    assert f'href="{SERVER_URL}/collections/lakes?f=html"' not in html
+    assert f'href="{SERVER_URL}/collections/obs?f=html"' in html
+
+
+def test_without_processes_the_landing_offers_neither_processes_nor_jobs(tmp_path):
+    api_config = with_jobs(config(), tmp_path)
+    del api_config["resources"]["hello-world"]
+
+    html = (
+        native_client(api_config, fake_build(tmp_path / "static"))
+        .get("/", params={"f": "html"})
+        .text
+    )
+
+    assert f"{SERVER_URL}/processes?f=html" not in html
+    assert f"{SERVER_URL}/jobs?f=html" not in html
