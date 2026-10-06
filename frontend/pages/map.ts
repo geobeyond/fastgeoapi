@@ -137,6 +137,22 @@ export function mapImageUrl(
   return url.toString();
 }
 
+/**
+ * The size of an image of the box around a turned view. The box of a turned
+ * map is wider than the canvas: an image of it at the canvas size would come
+ * out stretched along one side and squeezed along the other.
+ */
+export function turnedSize(
+  width: number,
+  height: number,
+  bearing: number,
+): [number, number] {
+  const angle = (bearing * Math.PI) / 180;
+  const cos = Math.abs(Math.cos(angle));
+  const sin = Math.abs(Math.sin(angle));
+  return [width * cos + height * sin, width * sin + height * cos];
+}
+
 /** A polygon feature of a box. */
 export function extentFeature(bbox: Bbox): Feature {
   const [w, s, e, n] = bbox;
@@ -529,11 +545,16 @@ export function startMap(
     }
     const canvas = map.getCanvas();
     const bounds = boundsOf(map);
+    const [width, height] = turnedSize(
+      canvas.clientWidth,
+      canvas.clientHeight,
+      map.getBearing(),
+    );
     const url = mapImageUrl(
       config.maps[image].url,
       bounds,
-      canvas.clientWidth,
-      canvas.clientHeight,
+      width,
+      height,
       config.maxSize,
     );
     const source = map.getSource(IMAGE);
