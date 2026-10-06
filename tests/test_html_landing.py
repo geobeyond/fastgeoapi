@@ -1,7 +1,9 @@
 """The landing page: the service, its sections and its collections.
 
-``app.*`` is imported inside ``tests.html_fixtures.native_client``, and nowhere else here.
+``app.*`` is imported inside the tests and ``tests.html_fixtures.native_client``, never at the top.
 """
+
+import re
 
 import pytest
 
@@ -104,7 +106,7 @@ def test_in_italian_the_interface_is_italian(client):
     html = _landing(client, lang="it")
 
     assert '<html lang="it-IT" dir="ltr">' in html
-    assert "<h2>Collezioni</h2>" in html
+    assert '<h2>Collezioni <span class="count">2</span></h2>' in html
     assert '<span class="badge">Feature</span>' in html
 
 
@@ -159,3 +161,24 @@ def test_without_processes_the_landing_offers_neither_processes_nor_jobs(tmp_pat
 
     assert f"{SERVER_URL}/processes?f=html" not in html
     assert f"{SERVER_URL}/jobs?f=html" not in html
+
+
+def test_the_title_comes_under_the_ogc_apis_the_service_offers(client):
+    assert '<p class="eyebrow">OGC API · Features · Processes</p>' in _landing(client)
+
+
+def test_the_eyebrow_names_the_apis_in_order_and_none_without_them():
+    from app.html.views import eyebrow
+
+    assert eyebrow(frozenset({"core", "maps", "features", "edr"})) == (
+        "OGC API · Features · Maps · EDR"
+    )
+    assert eyebrow(frozenset({"core", "stac"})) == ""
+
+
+def test_the_collections_heading_counts_its_cards(client):
+    html = _landing(client)
+    found = re.search(r'<h2>Collections <span class="count">(\d+)</span></h2>', html)
+
+    assert found is not None
+    assert int(found.group(1)) == html.count('<article class="card">') == 2
