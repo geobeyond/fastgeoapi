@@ -477,7 +477,7 @@ describe("startMap", () => {
     const shown = map.updates[map.updates.length - 1];
     item.dispatchEvent(new Event("mouseleave"));
 
-    expect(map.fitted).toEqual([[12, 41, 14, 43]]);
+    expect(map.options.bounds).toEqual([12, 41, 14, 43]);
     expect(map.layers.indexOf("fga-active-point")).toBeGreaterThan(
       map.layers.indexOf("fga-data-point"),
     );
@@ -548,10 +548,33 @@ describe("startMap", () => {
       data: point,
     });
 
+    expect(map.options.bounds).toEqual([12.5, 41.9, 12.5, 41.9]);
+    expect(map.options.fitBoundsOptions).toMatchObject({ maxZoom: 16 });
+  });
+
+  it("opens an empty page of items on the collection's extent", () => {
+    const map = start({
+      kind: "features",
+      camera: { ...camera, fitData: true },
+      basemap: null,
+      data: { type: "FeatureCollection", features: [] },
+    });
+
+    expect(map.options.bounds).toEqual([12, 41, 13, 42]);
+  });
+
+  it("opens on its box from the start, and does not fit again once loaded", () => {
+    const map = start({
+      kind: "extent",
+      camera,
+      basemap: null,
+      bbox: [12, 41, 13, 42],
+    });
+
     map.fire("load");
 
-    expect(map.fitted).toEqual([[12.5, 41.9, 12.5, 41.9]]);
-    expect(map.fitOptions[0]).toMatchObject({ maxZoom: 16 });
+    expect(map.options.bounds).toEqual([12, 41, 13, 42]);
+    expect(map.fitted).toEqual([]);
   });
 
   it("fills a bbox field with the bounds of the map", () => {
@@ -571,7 +594,7 @@ describe("startMap", () => {
     button.click();
 
     expect(input.value).toBe("12.000000,41.000000,13.000000,42.000000");
-    expect(map.fitted).toEqual([[12, 41, 13, 42]]);
+    expect(map.options.bounds).toEqual([12, 41, 13, 42]);
   });
 });
 

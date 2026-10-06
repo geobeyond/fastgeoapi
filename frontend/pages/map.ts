@@ -182,6 +182,24 @@ export function dataBounds(data: FeatureCollection): Bbox | null {
   return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
 }
 
+/** How a map fits a box: a margin, and never closer than the streets. */
+const FIT = { padding: 24, maxZoom: FIT_MAX_ZOOM };
+
+/** The box a map opens on: its extent, its data, else the camera's bounds; none for a view. */
+export function openingBounds(config: MapConfig): Bbox | undefined {
+  if (config.kind === "extent") {
+    return config.bbox;
+  }
+  if (
+    config.kind === "features" &&
+    config.camera.fitData &&
+    typeof config.data !== "string"
+  ) {
+    return dataBounds(config.data) ?? config.camera.bounds;
+  }
+  return config.camera.bounds;
+}
+
 interface Style {
   version: 8;
   sources: object;
@@ -521,6 +539,9 @@ export function startMap(
   }
   element.append(container);
   const camera = config.camera;
+  // The map opens on its box from the start: fitting it once loaded would
+  // first read every tile of the whole world in view.
+  const opening = openingBounds(config);
   map = new MapType({
     container,
     style:
@@ -532,6 +553,7 @@ export function startMap(
     center: camera.center ?? [0, 0],
     zoom: camera.zoom ?? 0,
     minZoom: camera.minZoom ?? 0,
+    ...(opening ? { bounds: opening, fitBoundsOptions: FIT } : {}),
     attributionControl: { compact: true },
     // A tilted view reaches the horizon, and one image of all that comes out
     // coarse and stretched near the reader: map images stay flat, and turn.
@@ -564,21 +586,6 @@ export function startMap(
       addData(map, {
         type: "FeatureCollection",
         features: [extentFeature(config.bbox)],
-      });
-    }
-    const fit =
-      config.kind === "extent"
-        ? config.bbox
-        : config.kind === "features" &&
-            camera.fitData &&
-            typeof config.data !== "string"
-          ? dataBounds(config.data)
-          : camera.bounds;
-    if (fit) {
-      map.fitBounds(fit, {
-        padding: 24,
-        animate: false,
-        maxZoom: FIT_MAX_ZOOM,
       });
     }
     refreshImage();

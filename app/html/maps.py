@@ -51,11 +51,15 @@ def camera(
     floor = MAP_IMAGE_MIN_ZOOM if map_image else 0
     view = resource.get("view")
     if view:
-        return {
+        opening: dict[str, Any] = {
             "center": list(view["center"]),
             "zoom": max(float(view["zoom"]), floor),
             "minZoom": floor,
         }
+        if fit_data:
+            # The data comes first; the view is where a page without any opens.
+            opening["fitData"] = True
+        return opening
     # At zoom 0 the whole world is in view, so such a center says nothing of
     # where the data is: the extent does.
     if tilejson_center is not None and any(tilejson_center[:2]) and tilejson_center[2] > 0:
