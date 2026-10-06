@@ -18,14 +18,14 @@
       </tbody>
     </table>{% endif %}
     <h2>{{ _("Download") }}</h2>
-    <form class="filters" method="get" action="{{ action }}">
+    <form class="filters" method="get" action="{{ action | safe_url }}">
       <input type="hidden" name="f" value="html">
       {% if language %}<input type="hidden" name="lang" value="{{ language }}">{% endif %}
       {% for each in fields %}{{ field(each) }}
       {% endfor %}
-      <div class="actions wide"><a href="{{ action }}?f=html">{{ _("Clear") }}</a> <button class="primary" type="submit">{{ _("Narrow the download") }}</button></div>
+      <div class="actions wide"><a href="{{ action | safe_url }}?f=html">{{ _("Clear") }}</a> <button class="primary" type="submit">{{ _("Narrow the download") }}</button></div>
     </form>
-    {% if downloads %}<p class="links-row">{% for each in downloads %}<a class="pill" href="{{ each.href }}">{{ each.label }}</a> {% endfor %}</p>{% endif %}
+    {% if downloads %}<p class="links-row">{% for each in downloads %}<a class="pill" href="{{ each.href | safe_url }}">{{ each.label }}</a> {% endfor %}</p>{% endif %}
   </section>
   {% include "_map.html" %}
 </div>

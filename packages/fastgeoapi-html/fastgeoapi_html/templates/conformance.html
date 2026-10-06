@@ -6,7 +6,7 @@
   {% for group in groups %}
   <h2>{{ group.standard }}</h2>
   <ul class="classes">
-    {% for uri in group.classes %}<li><a href="{{ uri }}">{{ uri }}</a></li>
+    {% for uri in group.classes %}<li><a href="{{ uri | safe_url }}">{{ uri }}</a></li>
     {% endfor %}
   </ul>
   {% endfor %}

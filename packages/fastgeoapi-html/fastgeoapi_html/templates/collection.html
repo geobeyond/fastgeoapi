@@ -6,16 +6,16 @@
     {% if description %}<p class="lead">{{ description }}</p>{% endif %}
     {% if kinds or keywords %}<p>{% for kind in kinds %}<span class="badge">{{ kind }}</span> {% endfor %}{% for keyword in keywords %}<span class="keyword">{{ keyword }}</span> {% endfor %}</p>{% endif %}
     {% if sections %}<h2>{{ _("Explore") }}</h2>
-    <ul class="sections">{% for section in sections %}<li><a href="{{ section.href }}">{{ section.label }}</a></li>{% endfor %}</ul>{% endif %}
+    <ul class="sections">{% for section in sections %}<li><a href="{{ section.href | safe_url }}">{{ section.label }}</a></li>{% endfor %}</ul>{% endif %}
     <h2>{{ _("About") }}</h2>
     <dl class="facts">
       {% for fact in facts %}<dt>{{ fact.label }}</dt><dd>{{ fact.value }}</dd>
       {% endfor %}
     </dl>
     {% if licenses %}<h2>{{ _("License") }}</h2>
-    <ul class="links">{% for link in licenses %}<li><a href="{{ link.href }}">{{ link.title }}</a></li>{% endfor %}</ul>{% endif %}
+    <ul class="links">{% for link in licenses %}<li><a href="{{ link.href | safe_url }}">{{ link.title }}</a></li>{% endfor %}</ul>{% endif %}
     {% if reference_systems %}<h2>{{ _("Reference systems") }}</h2>
-    <ul class="links">{% for crs in reference_systems %}<li><a href="{{ crs }}">{{ crs }}</a></li>{% endfor %}</ul>{% endif %}
+    <ul class="links">{% for crs in reference_systems %}<li><a href="{{ crs | safe_url }}">{{ crs }}</a></li>{% endfor %}</ul>{% endif %}
     {% if parameters %}<h2>{{ _("Parameters") }}</h2>
     <table class="data">
       <thead><tr><th>{{ _("Name") }}</th><th>{{ _("Title") }}</th><th>{{ _("Unit") }}</th></tr></thead>

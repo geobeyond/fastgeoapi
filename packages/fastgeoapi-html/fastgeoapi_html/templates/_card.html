@@ -1,5 +1,5 @@
 <article class="card">
-  <h3><a href="{{ card.href }}">{{ card.title }}</a></h3>
+  <h3><a href="{{ card.href | safe_url }}">{{ card.title }}</a></h3>
   {% if card.description %}<p>{{ card.description }}</p>{% endif %}
   {% for badge in card.badges %}<span class="badge">{{ badge }}</span>{% endfor %}
   {% if card.keywords %}<p class="keywords">{% for keyword in card.keywords %}<span class="keyword">{{ keyword }}</span>{% endfor %}</p>{% endif %}

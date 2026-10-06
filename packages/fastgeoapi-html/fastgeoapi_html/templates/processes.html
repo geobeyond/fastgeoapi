@@ -2,7 +2,7 @@
 {% block content %}
 <div class="container">
   <h1>{{ title }}</h1>
-  <p class="lead">{{ description }} <a href="{{ jobs }}">{{ _("Jobs") }}</a></p>
+  <p class="lead">{{ description }} <a href="{{ jobs | safe_url }}">{{ _("Jobs") }}</a></p>
   <div class="grid">
     {% for card in processes %}{% include "_card.html" %}{% endfor %}
   </div>

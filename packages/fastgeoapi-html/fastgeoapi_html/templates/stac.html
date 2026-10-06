@@ -10,7 +10,7 @@
     <table class="data">
       <thead><tr><th>{{ _("Name") }}</th>{% for column in found.columns %}<th>{{ column.label }}</th>{% endfor %}</tr></thead>
       <tbody>
-      {% for row in found.rows %}<tr><td><a href="{{ row.href }}">{{ row.title }}</a></td>{% for column in found.columns %}<td>{% if column.key == "created" %}{{ row.created | instant }}{% elif column.key == "size" %}{{ row.size | number }}{% else %}{{ row[column.key] }}{% endif %}</td>{% endfor %}</tr>
+      {% for row in found.rows %}<tr><td><a href="{{ row.href | safe_url }}">{{ row.title }}</a></td>{% for column in found.columns %}<td>{% if column.key == "created" %}{{ row.created | instant }}{% elif column.key == "size" %}{{ row.size | number }}{% else %}{{ row[column.key] }}{% endif %}</td>{% endfor %}</tr>
       {% endfor %}
       </tbody>
     </table>{% endif %}{% endfor %}
@@ -26,7 +26,7 @@
     <table class="data">
       <thead><tr><th>{{ _("Name") }}</th><th>{{ _("Type") }}</th><th>{{ _("Last modified") }}</th><th>{{ _("Size") }}</th></tr></thead>
       <tbody>
-      {% for asset in assets %}<tr><td><a href="{{ asset.href }}">{{ asset.name }}</a></td><td>{{ asset.type }}</td><td>{{ asset.created | instant }}</td><td>{{ asset.size | number }}</td></tr>
+      {% for asset in assets %}<tr><td><a href="{{ asset.href | safe_url }}">{{ asset.name }}</a></td><td>{{ asset.type }}</td><td>{{ asset.created | instant }}</td><td>{{ asset.size | number }}</td></tr>
       {% endfor %}
       </tbody>
     </table>{% endif %}

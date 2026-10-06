@@ -2,7 +2,7 @@
 {% block content %}
 <div class="container">
   <h1>{{ title }}</h1>
-  <p class="lead">{{ _("The OpenAPI document of this service:") }} <a href="{{ docs.url }}">{{ docs.url }}</a> · <a href="{{ other.href }}">{{ other.label }}</a></p>
+  <p class="lead">{{ _("The OpenAPI document of this service:") }} <a href="{{ docs.url | safe_url }}">{{ docs.url }}</a> · <a href="{{ other.href | safe_url }}">{{ other.label }}</a></p>
   <fga-api-docs>
     <script type="application/json">{{ docs | tojson }}</script>
     <noscript><p>{{ _("The viewer needs JavaScript; the document is linked above.") }}</p></noscript>

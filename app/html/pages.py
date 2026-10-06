@@ -208,8 +208,26 @@ class NativePages:
             )
             environment.filters["instant"] = lambda value: format_instant(value, language)
             environment.filters["number"] = lambda value: format_number(value, language)
+            environment.filters["safe_url"] = safe_url
             self._environments[language] = environment
         return environment
+
+
+_WEB_SCHEMES = frozenset({"", "http", "https", "mailto", "tel"})
+"""The schemes a page links to: relative URLs, the web, mail and telephone."""
+
+
+def safe_url(value: object) -> str:
+    """``value`` when a browser would open it as a page, an empty string otherwise.
+
+    Documents bring their own URLs (their links, a ``uri_field``, STAC
+    hrefs), and a ``javascript:`` or ``data:`` one would run in the page.
+    ``urlsplit`` reads the scheme as a browser does: it drops leading
+    control characters and spaces, tabs and newlines, and lowercases it.
+    """
+    if not isinstance(value, str) or urlsplit(value).scheme not in _WEB_SCHEMES:
+        return ""
+    return value
 
 
 def with_query(url: str, **params: str) -> str:
