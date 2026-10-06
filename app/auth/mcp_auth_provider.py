@@ -6,7 +6,11 @@ proxying against any OIDC-compliant identity provider (Logto, Auth0,
 Keycloak, etc.) without custom per-provider code.
 """
 
+import base64
 import json
+import logging
+from collections.abc import Callable
+from urllib.parse import parse_qsl
 
 from fastmcp.server.auth.oidc_proxy import OIDCProxy
 from loguru import logger
@@ -189,23 +193,143 @@ def _with_signing_algs(body: bytes) -> bytes:
     return json.dumps(metadata, separators=(",", ":")).encode()
 
 
-class _SigningAlgsOIDCProxy(OIDCProxy):
-    """fastmcp's OIDC proxy, whose metadata names the algorithms of client assertions."""
+_CLIENT_AUTH_LOGGERS = (
+    "fastmcp.server.auth.providers.jwt",
+    "fastmcp.server.auth.cimd",
+    "fastmcp.server.auth.identity_assertion",
+)
+"""fastmcp's loggers of client assertions, which say why one is refused at DEBUG only."""
+
+
+class _RefusedTokenLog:
+    """A log line for each refused token request, around the CORS app fastmcp mounts.
+
+    fastmcp tells the client why it refused a token and logs little of it,
+    so a partner's 401 cannot be read on this side. The line names the
+    grant, the client and the answer, and for a client assertion or an
+    ID-JAG its header and claims: never the assertion, the code or a secret.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Hand the request to fastmcp unchanged, and log its answer when it refuses."""
+        if scope.get("method") != "POST":
+            await self.app(scope, receive, send)
+            return
+        body = bytearray()
+        while True:
+            message = await receive()
+            body.extend(message.get("body", b""))
+            if message["type"] != "http.request" or not message.get("more_body", False):
+                break
+        form = bytes(body)
+        replayed = False
+
+        async def replay() -> Message:
+            nonlocal replayed
+            if replayed:
+                return await receive()
+            replayed = True
+            return {"type": "http.request", "body": form, "more_body": False}
+
+        status = 0
+        answer = bytearray()
+
+        async def watch(message: Message) -> None:
+            nonlocal status
+            if message["type"] == "http.response.start":
+                status = message["status"]
+            elif message["type"] == "http.response.body" and status >= 400:
+                answer.extend(message.get("body", b""))
+                if not message.get("more_body", False):
+                    _log_refused(status, form, bytes(answer))
+            await send(message)
+
+        await self.app(scope, replay, watch)
+
+
+def _log_refused(status: int, form: bytes, answer: bytes) -> None:
+    """One line on a refused token request: the grant, the client, the error, the assertion."""
+    fields = dict(parse_qsl(form.decode("utf-8", "replace")))
+    try:
+        reply = json.loads(answer)
+    except ValueError:
+        reply = None
+    if not isinstance(reply, dict):
+        reply = {}
+    parts = [
+        f"status={status}",
+        f"grant_type={fields.get('grant_type')}",
+        f"client_id={fields.get('client_id')}",
+        f"error={reply.get('error')}",
+        f"error_description={reply.get('error_description')}",
+    ]
+    assertion = fields.get("client_assertion") or fields.get("assertion")
+    if assertion:
+        parts.append(_described(assertion))
+    logger.warning(f"MCP token request refused: {' '.join(parts)}")
+
+
+def _described(assertion: str) -> str:
+    """The header and claims of an assertion, its signature left out.
+
+    ``sub`` is written out when it repeats ``iss``, as in a client
+    assertion where both are the client id; in an ID-JAG it is the user,
+    and only its presence is said.
+    """
+    try:
+        header_part, claims_part = assertion.split(".")[:2]
+        header = json.loads(_decoded(header_part))
+        claims = json.loads(_decoded(claims_part))
+    except ValueError:
+        return "assertion=unreadable"
+    if not isinstance(header, dict) or not isinstance(claims, dict):
+        return "assertion=unreadable"
+    subject = claims.get("sub")
+    described = [f"{key}={header.get(key)}" for key in ("alg", "kid", "typ")]
+    described += [f"{key}={claims.get(key)}" for key in ("iss", "aud", "iat", "exp")]
+    described.append(
+        f"sub={subject if subject == claims.get('iss') else 'present' if subject else 'absent'}"
+    )
+    described.append(f"jti={'present' if claims.get('jti') else 'absent'}")
+    return " ".join(described)
+
+
+def _decoded(part: str) -> bytes:
+    """A base64url part of a JWT, its padding restored."""
+    return base64.urlsafe_b64decode(part + "=" * (-len(part) % 4))
+
+
+def _wrapped(route: Route, wrapper: Callable[[ASGIApp], ASGIApp]) -> Route:
+    """``route`` with its endpoint inside ``wrapper``."""
+    return Route(
+        route.path,
+        endpoint=wrapper(route.endpoint),
+        methods=route.methods,
+        name=route.name,
+        include_in_schema=route.include_in_schema,
+    )
+
+
+class _InteropOIDCProxy(OIDCProxy):
+    """fastmcp's OIDC proxy, readable by the clients and the logs on the other side.
+
+    Its metadata names the algorithms of client assertions, and each token
+    request it refuses leaves a line in the log.
+    """
 
     def get_routes(self, mcp_path: str | None = None) -> list[Route]:
-        """Fastmcp's routes, the authorization server metadata among them wrapped."""
-        return [
-            Route(
-                route.path,
-                endpoint=_SigningAlgsMetadata(route.endpoint),
-                methods=route.methods,
-                name=route.name,
-                include_in_schema=route.include_in_schema,
-            )
-            if route.path.startswith("/.well-known/oauth-authorization-server")
-            else route
-            for route in super().get_routes(mcp_path)
-        ]
+        """Fastmcp's routes, the server metadata and the token endpoint wrapped."""
+        routes = []
+        for route in super().get_routes(mcp_path):
+            if route.path.startswith("/.well-known/oauth-authorization-server"):
+                route = _wrapped(route, _SigningAlgsMetadata)
+            elif route.path == "/token":
+                route = _wrapped(route, _RefusedTokenLog)
+            routes.append(route)
+        return routes
 
 
 def configure_mcp_auth(
@@ -337,7 +461,13 @@ def configure_mcp_auth(
 
         identity_assertion = IdentityAssertion(trusted_issuers=list(trusted_issuers))
 
-    auth = _SigningAlgsOIDCProxy(
+    # fastmcp says why it refuses a client assertion at DEBUG only, and these
+    # loggers write little else, so the reason for a partner's 401 reaches
+    # the logs without the rest of fastmcp's debug output.
+    for name in _CLIENT_AUTH_LOGGERS:
+        logging.getLogger(name).setLevel(logging.DEBUG)
+
+    auth = _InteropOIDCProxy(
         identity_assertion=identity_assertion,
         config_url=oidc_well_known_endpoint,
         client_id=client_id,

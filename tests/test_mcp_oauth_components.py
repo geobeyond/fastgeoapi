@@ -1154,6 +1154,103 @@ class TestOAuthEndpointURLConsistency:
         assert response.status_code == 200, response.text[:200]
         assert response.headers["access-control-allow-origin"] == "*"
 
+    def test_why_fastmcp_refuses_an_assertion_reaches_its_handlers(self, mock_oidc_config):
+        """fastmcp says why it refuses a client assertion at DEBUG, under a logger at INFO."""
+        import asyncio
+        import logging
+
+        from fastmcp.server.auth.providers.jwt import JWTVerifier
+
+        records: list[logging.LogRecord] = []
+
+        class Collect(logging.Handler):
+            def emit(self, record):
+                records.append(record)
+
+        fastmcp_logger = logging.getLogger("fastmcp")
+        collect = Collect()
+        level = fastmcp_logger.level
+        fastmcp_logger.addHandler(collect)
+        fastmcp_logger.setLevel(logging.INFO)
+        try:
+            self._server_client(mock_oidc_config)
+            verifier = JWTVerifier(jwks_uri="https://client.example/jwks.json")
+            refused = asyncio.run(verifier.load_access_token("not-a-jwt"))
+        finally:
+            fastmcp_logger.removeHandler(collect)
+            fastmcp_logger.setLevel(level)
+
+        assert refused is None
+        assert any("Token validation failed" in record.getMessage() for record in records), [
+            record.getMessage() for record in records
+        ]
+
+    def test_a_refused_token_request_is_logged_with_its_assertion_but_not_its_secrets(
+        self, mock_oidc_config
+    ):
+        """A partner's 401 can be read from our log: the request, the answer, the assertion.
+
+        The assertion's header and claims say which key signed it and for
+        whom; the assertion itself, the code and its verifier stay out.
+        """
+        import base64
+        import json
+
+        from loguru import logger
+
+        def part(value: dict) -> str:
+            return base64.urlsafe_b64encode(json.dumps(value).encode()).decode().rstrip("=")
+
+        assertion = ".".join(
+            [
+                part({"alg": "ES256", "kid": "07672baa71db4fb683054084ba18129d", "typ": "JWT"}),
+                part(
+                    {
+                        "iss": "https://client.example/cimd.json",
+                        "sub": "https://client.example/cimd.json",
+                        "aud": "http://localhost:5000/mcp/token",
+                        "iat": 1759708100,
+                        "exp": 1759708160,
+                        "jti": "one-time",
+                    }
+                ),
+                "c2lnbmF0dXJl",
+            ]
+        )
+        messages: list[str] = []
+        sink = logger.add(lambda message: messages.append(str(message)), level="WARNING")
+        try:
+            response = self._server_client(mock_oidc_config).post(
+                "/mcp/token",
+                data={
+                    "grant_type": "authorization_code",
+                    "code": "the-code",
+                    "code_verifier": "the-verifier",
+                    "redirect_uri": "https://client.example/callback",
+                    "client_id": "unregistered-client",
+                    "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                    "client_assertion": assertion,
+                },
+            )
+        finally:
+            logger.remove(sink)
+
+        assert response.status_code in (400, 401), response.text[:200]
+        (line,) = [message for message in messages if "token request refused" in message]
+        for expected in (
+            f"status={response.status_code}",
+            "grant_type=authorization_code",
+            "client_id=unregistered-client",
+            f"error={response.json()['error']}",
+            "alg=ES256",
+            "kid=07672baa71db4fb683054084ba18129d",
+            "aud=http://localhost:5000/mcp/token",
+            "jti=present",
+        ):
+            assert expected in line, line
+        for secret in (assertion, "c2lnbmF0dXJl", "the-code", "the-verifier"):
+            assert secret not in line, line
+
     def test_the_advertised_algorithms_are_the_ones_client_assertions_are_verified_with(self):
         """fastmcp checks a private_key_jwt assertion with its JWT verifier's default algorithm."""
         from fastmcp.server.auth.providers.jwt import JWTVerifier
