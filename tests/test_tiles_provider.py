@@ -114,6 +114,30 @@ def test_outside_the_zooms_of_the_data_or_of_the_configuration_is_not_found(tmp_
         provider.get_tiles(z=6, x=0, y=0)  # the configuration stops at 5
 
 
+@pytest.mark.parametrize(
+    ("zoom", "expected"),
+    [({"min": 1, "max": 5}, (1, 2)), ({"min": 0, "max": 1}, (0, 1))],
+    ids=["configured from 1", "configured up to 1"],
+)
+def test_the_tilejson_zooms_are_the_datas_within_the_configured_ones(tmp_path, zoom, expected):
+    from app.provider.tiles import TilesProvider
+    from app.tiles import sources
+
+    with mock.patch.dict(sources._REGISTRY):
+        sources.register_tile_source(
+            "grid", matches=lambda data: data.endswith(".grid"), build=_Grid
+        )
+        provider = TilesProvider(_definition(tmp_path / "world.grid", zoom=zoom))
+
+    tilejson = provider.get_vendor_metadata(
+        "world", SERVER, "world", "WebMercatorQuad", "World", "World", []
+    )
+
+    assert (tilejson["minzoom"], tilejson["maxzoom"]) == expected
+    # TileJSON 3.0.0: the zoom of the center lies between minzoom and maxzoom.
+    assert expected[0] <= tilejson["center"][2] <= expected[1]
+
+
 def test_data_no_backend_reads_is_refused_at_construction(tmp_path):
     from pygeoapi.provider.base import ProviderGenericError
 
