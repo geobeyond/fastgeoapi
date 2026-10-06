@@ -629,3 +629,9 @@ msgstr "Collezioni di record"
 
 msgid "Duration"
 msgstr "Durata"
+
+msgid "Widen the map"
+msgstr "Allarga la mappa"
+
+msgid "Narrow the map"
+msgstr "Riduci la mappa"

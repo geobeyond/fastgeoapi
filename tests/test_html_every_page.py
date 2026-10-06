@@ -163,3 +163,17 @@ def test_the_pages_of_cards_are_large_and_the_others_dense(client, path):
     html = client.get(path, params={"f": "html"}).text
 
     assert ("<body>" if path in CARD_PATHS else '<body class="dense">') in html
+
+
+@pytest.mark.parametrize("path", MAP_PATHS)
+def test_every_map_island_carries_the_labels_of_its_widen_control(client, path):
+    labels = island_config(client.get(path, params={"f": "html"}).text, "fga-map")["labels"]
+
+    assert (labels["widen"], labels["narrow"]) == ("Widen the map", "Narrow the map")
+
+
+def test_the_widen_control_speaks_the_language_of_the_page(client):
+    html = client.get("/collections/lakes/items", params={"f": "html", "lang": "it"}).text
+    labels = island_config(html, "fga-map")["labels"]
+
+    assert (labels["widen"], labels["narrow"]) == ("Allarga la mappa", "Riduci la mappa")
