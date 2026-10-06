@@ -152,3 +152,14 @@ def test_the_first_block_of_an_item_is_its_properties_and_its_links_follow(clien
 
     assert '<table class="data">' in opening
     assert "<h2>Links</h2>" in rest
+
+
+CARD_PATHS = ("/", "/collections", "/processes")
+"""The pages made of cards, on the large sizes; every other page is dense."""
+
+
+@pytest.mark.parametrize("path", PATHS)
+def test_the_pages_of_cards_are_large_and_the_others_dense(client, path):
+    html = client.get(path, params={"f": "html"}).text
+
+    assert ("<body>" if path in CARD_PATHS else '<body class="dense">') in html
