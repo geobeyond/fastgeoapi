@@ -11,6 +11,7 @@ import {
   type FeatureCollection,
   type MapConfig,
 } from "./map";
+import { WidenControl } from "./widen";
 
 const maplibre = vi.hoisted(() => ({
   setWorkerUrl: vi.fn(),
@@ -108,8 +109,9 @@ class FakeMap {
       getNorth: () => n,
     };
   }
+  canvas = { clientWidth: 800, clientHeight: 600 };
   getCanvas() {
-    return { clientWidth: 800, clientHeight: 600 };
+    return this.canvas;
   }
 }
 
@@ -654,6 +656,66 @@ describe("startMap", () => {
       "fga-active",
       { type: "FeatureCollection", features: [] },
     ]);
+  });
+
+  it("puts the widen control under the compass when the page names it", () => {
+    const map = start({
+      kind: "extent",
+      camera,
+      basemap: null,
+      bbox: [12, 41, 13, 42],
+      labels: { widen: "Widen the map", narrow: "Narrow the map" },
+    });
+    const controls = map.controls as [unknown, string][];
+    const widen = controls.findIndex(
+      ([control]) => control instanceof WidenControl,
+    );
+    const navigation = controls.findIndex(
+      ([control]) => control instanceof maplibre.NavigationControl,
+    );
+
+    expect(widen).toBeGreaterThan(navigation);
+    expect(controls[widen][1]).toBe("top-right");
+  });
+
+  it("has no widen control when the page does not name it", () => {
+    const map = start({
+      kind: "extent",
+      camera,
+      basemap: null,
+      bbox: [12, 41, 13, 42],
+    });
+    const controls = map.controls as [unknown, string][];
+
+    expect(controls.some(([control]) => control instanceof WidenControl)).toBe(
+      false,
+    );
+  });
+
+  it("asks a widened map's image at the size MapLibre resized it to", () => {
+    const map = start({
+      kind: "image",
+      camera,
+      basemap: null,
+      maps: [{ name: "Default", url: "https://e.org/map" }],
+      maxSize: 2048,
+      labels: {
+        style: "Style",
+        widen: "Widen the map",
+        narrow: "Narrow the map",
+      },
+    });
+    map.fire("load");
+
+    map.canvas = { clientWidth: 1200, clientHeight: 480 };
+    map.fire("moveend");
+
+    const image = map.images[map.images.length - 1] as { url: string };
+    const url = new URL(image.url);
+    expect([
+      url.searchParams.get("width"),
+      url.searchParams.get("height"),
+    ]).toEqual(["1200", "480"]);
   });
 
   it("gives every map its zoom buttons, a compass that shows the tilt, and a scale", () => {
