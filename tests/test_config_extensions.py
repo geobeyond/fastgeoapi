@@ -78,6 +78,15 @@ def test_resources_without_collections_pass():
     assert extension_problem({"resources": {"hello": {"type": "process", "view": 1}}}) is None
 
 
+@pytest.mark.parametrize(
+    "config",
+    [{"resources": ["oops"]}, {"server": "oops"}, {"server": {"map": ["oops"]}}],
+    ids=["resources as a list", "server as text", "map as a list"],
+)
+def test_a_document_of_another_shape_leaves_its_schema_to_complain(config):
+    assert extension_problem(config) is None
+
+
 def test_the_schema_offers_the_view_to_collections_only():
     schema = load_schema()
 

@@ -102,16 +102,38 @@ def _schema_problems(config: dict, forgive_placeholders: bool) -> list[str]:
     # does. YAML turns `2000-10-30T18:24:39Z` into a `datetime`, which
     # the schema has no type for — validating the raw mapping reports a
     # correct document as broken.
-    instance = json.loads(to_json(config))
+    document = json.loads(to_json(config))
 
     problems = []
-    for error in Draft202012Validator(load_schema()).iter_errors(instance):
+    for error in Draft202012Validator(load_schema()).iter_errors(document):
         instance = error.instance
         if forgive_placeholders and isinstance(instance, str) and _PLACEHOLDER.search(instance):
             continue
         where = ".".join(str(part) for part in error.absolute_path) or "the document root"
         problems.append(f"{where}: {error.message}")
+    # fastgeoapi's own keys sit where pygeoapi's schema lets anything in; the
+    # factory refuses a broken one at start, so the editor must too.
+    from app.pygeoapi.config_extensions import extension_problem
+
+    problem = extension_problem(document)
+    if problem is not None:
+        where, message = problem
+        if not (forgive_placeholders and _placeholder_at(document, where)):
+            problems.append(f"{where}: {message}")
     return problems
+
+
+def _placeholder_at(config: dict, where: str) -> bool:
+    """Whether the value at the dotted path ``where`` is still a ``${VAR}``."""
+    value: Any = config
+    for part in where.split("."):
+        if isinstance(value, dict):
+            value = value.get(part)
+        elif isinstance(value, list) and part.isdigit() and int(part) < len(value):
+            value = value[int(part)]
+        else:
+            return False
+    return isinstance(value, str) and bool(_PLACEHOLDER.search(value))
 
 
 def validate_source(text: str) -> Outcome:
