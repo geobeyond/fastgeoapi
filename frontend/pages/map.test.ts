@@ -56,11 +56,18 @@ class FakeMap {
   on(event: string, handler: Handler) {
     (this.handlers[event] ??= []).push(handler);
   }
+  zoom = 5;
   getBearing() {
     return this.bearing;
   }
-  setBearing(bearing: number) {
-    this.bearing = bearing;
+  getZoom() {
+    return this.zoom;
+  }
+  // MapLibre's jumpTo fires moveend at once: the fake does too.
+  jumpTo(options: { bearing?: number; zoom?: number }) {
+    this.bearing = options.bearing ?? this.bearing;
+    this.zoom = options.zoom ?? this.zoom;
+    this.fire("moveend");
   }
   fire(event: string) {
     (this.handlers[event] ?? []).forEach((handler) => handler());
@@ -302,25 +309,69 @@ describe("startMap", () => {
     expect("maxPitch" in extent.options).toBe(false);
   });
 
-  it("turns with two fingers on a trackpad, where the browser tells the angle", () => {
-    const map = start({
-      kind: "extent",
-      camera,
-      basemap: null,
-      bbox: [12, 41, 13, 42],
-    });
+  const gesture = (type: string, rotation = 0, scale = 1) =>
+    Object.assign(new Event(type, { cancelable: true }), { rotation, scale });
+  const touches = (type: string, count: number) =>
+    Object.assign(new Event(type), { touches: Array.from({ length: count }) });
+  const extent: MapConfig = {
+    kind: "extent",
+    camera,
+    basemap: null,
+    bbox: [12, 41, 13, 42],
+  };
+
+  it("turns and zooms with two fingers on a trackpad, past a small turn", () => {
+    const map = start(extent);
     const canvas = map.options.container as HTMLElement;
     map.bearing = 10;
-    const gesture = (type: string, rotation: number) =>
-      Object.assign(new Event(type, { cancelable: true }), { rotation });
 
-    const started = gesture("gesturestart", 0);
+    const started = gesture("gesturestart");
     canvas.dispatchEvent(started);
-    const turned = gesture("gesturechange", 30);
+    canvas.dispatchEvent(gesture("gesturechange", 5, 1));
+    const still = map.bearing;
+    const turned = gesture("gesturechange", 30, 2);
     canvas.dispatchEvent(turned);
 
-    expect(map.bearing).toBe(-20);
+    expect(still).toBe(10);
+    expect(map.bearing).toBe(-10);
+    expect(map.zoom).toBe(6);
     expect(started.defaultPrevented && turned.defaultPrevented).toBe(true);
+  });
+
+  it("leaves two fingers on a screen to MapLibre", () => {
+    const map = start(extent);
+    const canvas = map.options.container as HTMLElement;
+    canvas.dispatchEvent(touches("touchstart", 2));
+
+    const started = gesture("gesturestart");
+    canvas.dispatchEvent(started);
+    canvas.dispatchEvent(gesture("gesturechange", 45, 2));
+
+    expect(started.defaultPrevented).toBe(false);
+    expect([map.bearing, map.zoom]).toEqual([0, 5]);
+  });
+
+  it("asks a map image once the fingers leave the trackpad, not while they move", () => {
+    const map = start({
+      kind: "image",
+      camera,
+      basemap: null,
+      maps: [{ name: "Default", url: "https://e.org/map" }],
+      maxSize: 2048,
+      labels: { style: "Style" },
+    });
+    map.fire("load");
+    const canvas = map.options.container as HTMLElement;
+
+    canvas.dispatchEvent(gesture("gesturestart"));
+    [20, 40, 60].forEach((angle) =>
+      canvas.dispatchEvent(gesture("gesturechange", angle)),
+    );
+    const during = map.images.length;
+    canvas.dispatchEvent(gesture("gestureend"));
+
+    expect(during).toBe(0);
+    expect(map.images).toHaveLength(1);
   });
 
   it("draws the basemap under the tiles, above the style's own background", () => {

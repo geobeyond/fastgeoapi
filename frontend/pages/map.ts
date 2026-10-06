@@ -97,7 +97,8 @@ export interface MapLike {
   };
   getCanvas(): { clientWidth: number; clientHeight: number };
   getBearing(): number;
-  setBearing(bearing: number): void;
+  getZoom(): number;
+  jumpTo(options: { bearing?: number; zoom?: number }): void;
 }
 
 export type MapClass = new (options: Record<string, unknown>) => MapLike;
@@ -430,27 +431,73 @@ function linkPage(map: MapLike, data: FeatureCollection | null): void {
     });
 }
 
-/** Safari's gesture event: the angle the fingers have turned since it began. */
+/** Degrees the fingers turn before the map does: a pinch always turns them a little. */
+const TURN_THRESHOLD = 10;
+
+/** Safari's gesture event: how far the fingers have turned and spread since it began. */
 interface TrackpadGesture extends Event {
   rotation: number;
+  scale: number;
+}
+
+/** Whether two fingers on a trackpad are moving the map; image maps wait for them. */
+interface Gesture {
+  active: boolean;
 }
 
 /**
- * Turns the map with two fingers on a trackpad. MapLibre turns it with two
- * fingers on a touch screen only; Safari tells a page how far the fingers
- * turn on a trackpad, and keeps its own zoom of the page out of the way once
- * the page takes the gesture. Other browsers tell nothing, and nothing changes.
+ * Turns and zooms the map with two fingers on a trackpad. Safari tells a page
+ * how far the fingers turn and spread, and keeps its own zoom of the page out
+ * of the way once the page takes the gesture. On a touch screen Safari tells
+ * the same, but MapLibre already follows the fingers there: while they touch
+ * the screen the gesture is left alone. Other browsers tell nothing.
  */
-function turnWithTrackpad(container: HTMLElement, map: MapLike): void {
-  let start = 0;
+function turnWithTrackpad(
+  container: HTMLElement,
+  map: MapLike,
+  ended: () => void,
+): Gesture {
+  const gesture: Gesture = { active: false };
+  let touching = 0;
+  let bearing = 0;
+  let zoom = 0;
+  const count = (event: Event): void => {
+    touching = (event as TouchEvent).touches.length;
+  };
+  ["touchstart", "touchend", "touchcancel"].forEach((type) =>
+    container.addEventListener(type, count, { passive: true }),
+  );
   container.addEventListener("gesturestart", (event) => {
+    if (touching > 0) {
+      return;
+    }
     event.preventDefault();
-    start = map.getBearing();
+    gesture.active = true;
+    bearing = map.getBearing();
+    zoom = map.getZoom();
   });
   container.addEventListener("gesturechange", (event) => {
+    if (!gesture.active) {
+      return;
+    }
     event.preventDefault();
-    map.setBearing(start - (event as TrackpadGesture).rotation);
+    const { rotation, scale } = event as TrackpadGesture;
+    const turned =
+      Math.abs(rotation) < TURN_THRESHOLD
+        ? 0
+        : rotation - Math.sign(rotation) * TURN_THRESHOLD;
+    const spread = scale > 0 ? Math.log2(scale) : 0;
+    map.jumpTo({ bearing: bearing - turned, zoom: zoom + spread });
   });
+  container.addEventListener("gestureend", (event) => {
+    if (!gesture.active) {
+      return;
+    }
+    event.preventDefault();
+    gesture.active = false;
+    ended();
+  });
+  return gesture;
 }
 
 /**
@@ -473,9 +520,11 @@ export function startMap(
   const container = document.createElement("div");
   container.className = "fga-map-canvas";
   let image = 0;
+  let gesture: Gesture = { active: false };
   let map: MapLike;
   const refreshImage = (): void => {
-    if (config.kind !== "image") {
+    // While fingers move the map, every step fires moveend: the image waits for them.
+    if (config.kind !== "image" || gesture.active) {
       return;
     }
     const canvas = map.getCanvas();
@@ -559,7 +608,7 @@ export function startMap(
     // coarse and stretched near the reader: map images stay flat, and turn.
     ...(config.kind === "image" ? { maxPitch: 0 } : {}),
   });
-  turnWithTrackpad(container, map);
+  gesture = turnWithTrackpad(container, map, refreshImage);
   let loaded = false;
   if (config.kind === "tiles" && config.basemap?.style) {
     drawTiles(0);
