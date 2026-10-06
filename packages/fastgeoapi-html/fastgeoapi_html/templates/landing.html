@@ -3,6 +3,7 @@
 {% block content %}
 <section class="hero">
   <div class="container">
+    {% if eyebrow %}<p class="eyebrow">{{ eyebrow }}</p>{% endif %}
     <h1>{{ title }}</h1>
     {% if description %}<p class="lead">{{ description }}</p>{% endif %}
     {% if keywords %}<p>{% for keyword in keywords %}<span class="keyword">{{ keyword }}</span> {% endfor %}</p>{% endif %}
@@ -11,7 +12,7 @@
 </section>
 {% if collections %}
 <div class="container">
-  <h2>{{ _("Collections") }}</h2>
+  <h2>{{ _("Collections") }} <span class="count">{{ collections | length }}</span></h2>
   <div class="grid">
     {% for card in collections %}{% include "_card.html" %}{% endfor %}
   </div>

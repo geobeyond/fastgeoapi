@@ -173,6 +173,23 @@ def _about(metadata: dict[str, Any], locale: Any, _: Gettext) -> list[dict[str, 
     return [fact for fact in facts if fact["value"]]
 
 
+_API_NAMES = (
+    ("features", "Features"),
+    ("tiles", "Tiles"),
+    ("maps", "Maps"),
+    ("coverages", "Coverages"),
+    ("edr", "EDR"),
+    ("processes", "Processes"),
+)
+"""The OGC APIs a landing names over its title, as the standards call them."""
+
+
+def eyebrow(specs: frozenset[str]) -> str:
+    """What the landing says over its title: the OGC APIs the service offers, if any."""
+    names = [name for spec, name in _API_NAMES if spec in specs]
+    return " · ".join(["OGC API", *names]) if names else ""
+
+
 def landing(context: PageContext) -> dict[str, Any]:
     """The service, its sections, its collections, and what pygeoapi's landing says of it."""
     _ = context.gettext
@@ -208,6 +225,7 @@ def landing(context: PageContext) -> dict[str, Any]:
     return {
         "title": context.document.get("title", ""),
         "description": context.document.get("description", ""),
+        "eyebrow": eyebrow(specs),
         "keywords": list(keywords or []),
         "about": _about(metadata, locale, _),
         "definition": definition,
