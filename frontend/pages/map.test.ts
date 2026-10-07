@@ -578,6 +578,24 @@ describe("startMap", () => {
     expect(map.styles).toEqual([]);
   });
 
+  it("keeps the basemap's style when it arrives in time and its tiles late", () => {
+    vi.useFakeTimers();
+    const map = start({
+      kind: "features",
+      camera,
+      basemap: { ...RASTER, style: "https://s/quick" },
+      data: collection,
+    });
+
+    vi.advanceTimersByTime(STYLE_WAIT_MS / 2);
+    map.fire("style.load");
+    vi.advanceTimersByTime(STYLE_WAIT_MS);
+    map.fire("load");
+    vi.useRealTimers();
+
+    expect(map.styles).toEqual([]);
+  });
+
   it("asks the image of a turned map at the size of the box it covers", () => {
     const map = start({
       kind: "image",
