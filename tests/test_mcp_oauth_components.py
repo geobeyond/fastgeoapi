@@ -1341,6 +1341,63 @@ class TestOAuthEndpointURLConsistency:
         assert "iss=https://client.example\\r\\nERROR | forged by the claims" in line, line
         assert f"kid={'k' * 200}…" in line, line
 
+    @pytest.mark.parametrize(
+        "assertion",
+        ["no-dots-at-all", "!!!.@@@.c2ln", None],
+        ids=["no dots", "not base64", "nested past the recursion limit"],
+    )
+    def test_an_odd_assertion_is_answered_in_full_and_logged_once(
+        self, mock_oidc_config, assertion
+    ):
+        """Whatever the assertion, the client gets its whole answer and the log one line."""
+        import base64
+
+        from loguru import logger
+
+        if assertion is None:
+            nested = ("[" * 100_000 + "]" * 100_000).encode()
+            part = base64.urlsafe_b64encode(nested).decode().rstrip("=")
+            assertion = f"{part}.e30.c2ln"
+        messages: list[str] = []
+        sink = logger.add(lambda message: messages.append(str(message)), level="WARNING")
+        try:
+            response = self._server_client(mock_oidc_config).post(
+                "/mcp/token",
+                data={
+                    "grant_type": "authorization_code",
+                    "client_id": "unregistered-client",
+                    "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                    "client_assertion": assertion,
+                },
+            )
+        finally:
+            logger.remove(sink)
+
+        assert response.status_code in (400, 401), response.text[:200]
+        assert response.json()["error"]
+        (line,) = [message for message in messages if "token request refused" in message]
+        assert "assertion=unreadable" in line, line
+
+    def test_a_form_that_is_not_utf8_is_answered_in_full_and_logged_once(self, mock_oidc_config):
+        """A form that is not UTF-8 still gets its whole answer, and the log its line."""
+        from loguru import logger
+
+        messages: list[str] = []
+        sink = logger.add(lambda message: messages.append(str(message)), level="WARNING")
+        try:
+            response = self._server_client(mock_oidc_config).post(
+                "/mcp/token",
+                content=b"grant_type=authorization_code&client_id=caf\xe9&code=%FF\xff",
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+        finally:
+            logger.remove(sink)
+
+        assert 400 <= response.status_code < 500, response.text[:200]
+        assert response.json()["error"]
+        (line,) = [message for message in messages if "token request refused" in message]
+        assert "client_id=caf\ufffd" in line, line
+
     def test_the_advertised_algorithms_are_the_ones_client_assertions_are_verified_with(self):
         """fastmcp checks a private_key_jwt assertion with its JWT verifier's default algorithm."""
         from fastmcp.server.auth.providers.jwt import JWTVerifier

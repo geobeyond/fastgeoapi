@@ -323,7 +323,9 @@ def _described(assertion: str) -> str:
         header_part, claims_part = assertion.split(".")[:2]
         header = json.loads(_decoded(header_part))
         claims = json.loads(_decoded(claims_part))
-    except ValueError:
+    except (ValueError, RecursionError):
+        # json raises RecursionError on a part nested past the recursion
+        # limit: that part is unreadable too.
         return "assertion=unreadable"
     if not isinstance(header, dict) or not isinstance(claims, dict):
         return "assertion=unreadable"
