@@ -663,10 +663,15 @@ export function startMap(
   } else if (config.basemap?.style) {
     // A style that does not load, or loads late, leaves the data waiting for
     // the map's first render: the basemap's tiles take its place, for good.
-    // Errors of a source come later.
+    // The wait ends on `style.load`: `load` also waits for the first tiles,
+    // which a slow connection delays past it. Errors of a source come later.
     let replaced = false;
+    let styled = false;
+    map.on("style.load", () => {
+      styled = true;
+    });
     const fallBack = (): void => {
-      if (!loaded && !replaced) {
+      if (!styled && !loaded && !replaced) {
         replaced = true;
         map.setStyle(baseStyle(config.basemap));
       }
