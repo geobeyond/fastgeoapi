@@ -237,10 +237,15 @@ def safe_url(value: object) -> str:
     hrefs), and a ``javascript:`` or ``data:`` one would run in the page.
     ``urlsplit`` reads the scheme as a browser does: it drops leading
     control characters and spaces, tabs and newlines, and lowercases it.
+    A URL it cannot read, such as one with an unclosed IPv6 host, gives an empty string too.
     """
-    if not isinstance(value, str) or urlsplit(value).scheme not in _WEB_SCHEMES:
+    if not isinstance(value, str):
         return ""
-    return value
+    try:
+        scheme = urlsplit(value).scheme
+    except ValueError:
+        return ""
+    return value if scheme in _WEB_SCHEMES else ""
 
 
 def with_query(url: str, **params: str) -> str:
