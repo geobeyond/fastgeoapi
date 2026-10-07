@@ -1154,6 +1154,57 @@ class TestOAuthEndpointURLConsistency:
         assert response.status_code == 200, response.text[:200]
         assert response.headers["access-control-allow-origin"] == "*"
 
+    def _fastmcp_records(self, mock_oidc_config, emit):
+        """What fastmcp's handlers receive while ``emit`` logs, with the fastmcp logger at INFO."""
+        import logging
+
+        records: list[logging.LogRecord] = []
+
+        class Collect(logging.Handler):
+            def emit(self, record):
+                records.append(record)
+
+        fastmcp_logger = logging.getLogger("fastmcp")
+        collect = Collect()
+        level = fastmcp_logger.level
+        fastmcp_logger.addHandler(collect)
+        fastmcp_logger.setLevel(logging.INFO)
+        try:
+            self._server_client(mock_oidc_config)
+            emit()
+        finally:
+            fastmcp_logger.removeHandler(collect)
+            fastmcp_logger.setLevel(level)
+        return [record.getMessage() for record in records]
+
+    def test_the_subject_of_an_id_jag_stays_out_of_the_logs(self, mock_oidc_config):
+        """A successful exchange names the user at DEBUG: only refusals are let through."""
+        import logging
+
+        messages = self._fastmcp_records(
+            mock_oidc_config,
+            lambda: logging.getLogger("fastmcp.server.auth.identity_assertion").debug(
+                "ID-JAG validated for subject=%s issuer=%s", "alice@example.com", "https://idp"
+            ),
+        )
+
+        assert not [message for message in messages if "alice@example.com" in message]
+
+    def test_a_refusal_from_fastmcp_comes_out_on_one_line(self, mock_oidc_config):
+        """The reason may carry what the client sent, such as a kid with a line break."""
+        import logging
+
+        messages = self._fastmcp_records(
+            mock_oidc_config,
+            lambda: logging.getLogger("fastmcp.server.auth.providers.jwt").debug(
+                "JWKS key lookup failed: key ID '%s' not found", "kid\nERROR forged"
+            ),
+        )
+
+        (refusal,) = [message for message in messages if "JWKS key lookup failed" in message]
+        assert "\n" not in refusal
+        assert "kid\\nERROR forged" in refusal
+
     def test_why_fastmcp_refuses_an_assertion_reaches_its_handlers(self, mock_oidc_config):
         """fastmcp says why it refuses a client assertion at DEBUG, under a logger at INFO."""
         import asyncio

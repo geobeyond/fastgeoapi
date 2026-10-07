@@ -193,12 +193,35 @@ def _with_signing_algs(body: bytes) -> bytes:
     return json.dumps(metadata, separators=(",", ":")).encode()
 
 
-_CLIENT_AUTH_LOGGERS = (
-    "fastmcp.server.auth.providers.jwt",
-    "fastmcp.server.auth.cimd",
-    "fastmcp.server.auth.identity_assertion",
+_REFUSAL_LOGGER = "fastmcp.server.auth.providers.jwt"
+"""fastmcp's JWT verifier, which says why it refuses a client assertion at DEBUG only."""
+
+_REFUSALS = (
+    "Token validation failed",
+    "JWKS key lookup failed",
+    "Skipping JWKS key",
+    "Skipping unusable JWKS key",
+    "JWKS fetch blocked",
+    "JWKS key processing failed",
 )
-"""fastmcp's loggers of client assertions, which say why one is refused at DEBUG only."""
+"""The DEBUG messages of that verifier that say why an assertion was refused."""
+
+
+class _RefusalsOnly(logging.Filter):
+    """At DEBUG, only the reasons for a refusal, escaped and bounded with ``_safe``.
+
+    A reason can carry what the client sent, such as a kid. fastmcp's other
+    DEBUG messages name users and successful exchanges the logs need not keep.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.levelno > logging.DEBUG:
+            return True
+        message = record.getMessage()
+        if not message.startswith(_REFUSALS):
+            return False
+        record.msg, record.args = _safe(message), ()
+        return True
 
 
 class _RefusedTokenLog:
@@ -477,11 +500,12 @@ def configure_mcp_auth(
 
         identity_assertion = IdentityAssertion(trusted_issuers=list(trusted_issuers))
 
-    # fastmcp says why it refuses a client assertion at DEBUG only, and these
-    # loggers write little else, so the reason for a partner's 401 reaches
-    # the logs without the rest of fastmcp's debug output.
-    for name in _CLIENT_AUTH_LOGGERS:
-        logging.getLogger(name).setLevel(logging.DEBUG)
+    # fastmcp says why it refuses a client assertion at DEBUG only: the reason
+    # for a partner's 401 reaches the logs, and nothing else at that level.
+    refusals = logging.getLogger(_REFUSAL_LOGGER)
+    refusals.setLevel(logging.DEBUG)
+    if not any(isinstance(each, _RefusalsOnly) for each in refusals.filters):
+        refusals.addFilter(_RefusalsOnly())
 
     auth = _InteropOIDCProxy(
         identity_assertion=identity_assertion,
