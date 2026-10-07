@@ -33,6 +33,11 @@ def test_a_url_a_browser_would_run_is_dropped(url):
     assert safe_url(url) == ""
 
 
+@pytest.mark.parametrize("url", ["http://[x", "http://[not-an-ip]/", "https://[::1/a"])
+def test_a_url_that_does_not_parse_is_dropped(url):
+    assert safe_url(url) == ""
+
+
 @pytest.mark.parametrize(
     "url",
     [
