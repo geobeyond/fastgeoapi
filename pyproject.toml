@@ -110,10 +110,7 @@ docs = [
     "zensical>=0.0.58",
 ]
 maps = [
-    # The mlnative fork runs MapLibre Native and adds resizing, raw RGBA and an
-    # asyncio API. Its wheels exist only for Linux x86_64 and aarch64, on the
-    # fork's GitHub release, so the marker and [tool.uv.sources] name both.
-    "mlnative==0.4.0.dev1; sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')",
+    "mapli==0.2.2; sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')",
     "pillow>=11",
 ]
 
@@ -124,9 +121,9 @@ members = ["packages/*"]
 
 [tool.uv.sources]
 fastgeoapi-html = { workspace = true }
-mlnative = [
-    { url = "https://github.com/francbartoli/mlnative/releases/download/v0.4.0.dev1/mlnative-0.4.0.dev1-py3-none-manylinux_2_39_x86_64.whl", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
-    { url = "https://github.com/francbartoli/mlnative/releases/download/v0.4.0.dev1/mlnative-0.4.0.dev1-py3-none-manylinux_2_39_aarch64.whl", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
+mapli = [
+    { url = "https://github.com/geobeyond/mapli/releases/download/v0.2.2/mapli-0.2.2-cp39-abi3-manylinux_2_34_x86_64.whl", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+    { url = "https://github.com/geobeyond/mapli/releases/download/v0.2.2/mapli-0.2.2-cp39-abi3-manylinux_2_34_aarch64.whl", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
 ]
 
 [tool.hatch.build.targets.sdist]
