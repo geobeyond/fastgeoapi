@@ -75,15 +75,11 @@ jobs:
           git tag "${{ steps.check-version.outputs.tag }}"
           git push origin "${{ steps.check-version.outputs.tag }}"
 
+      # fastgeoapi[html] pins the pages package to an exact version: the
+      # script moves both projects and the pin to the same dev version.
       - name: Bump version for developmental release
         if: github.ref == 'refs/heads/develop'
-        run: |
-          current_version=$(python -c "import tomli; print(tomli.load(open('pyproject.toml', 'rb'))['project']['version'])")
-          IFS='.' read -r -a version_parts <<< "$current_version"
-          new_patch=$((version_parts[2] + 1))
-          new_version="${version_parts[0]}.${version_parts[1]}.$new_patch.dev.$(date +%s)"
-          python -c "import tomli, tomli_w; data = tomli.load(open('pyproject.toml', 'rb')); data['project']['version'] = '$new_version'; tomli_w.dump(data, open('pyproject.toml', 'wb'))"
-          echo "Publishing version: $new_version"
+        run: python .github/scripts/dev_version.py
 
       - name: Set up Node
         if: steps.check-version.outputs.tag || github.ref == 'refs/heads/develop'
@@ -126,9 +122,47 @@ jobs:
           fi
           echo "The page is in $wheel"
 
+      # The pages package goes in a directory of its own, so the check
+      # above still finds a single fastgeoapi wheel and the pages can be
+      # published first.
+      - name: Build the pages package
+        if: steps.check-version.outputs.tag || github.ref == 'refs/heads/develop'
+        run: python -m build packages/fastgeoapi-html --outdir dist-html
+
+      # Without its compiled assets the package installs, and every native
+      # page then fails to find its stylesheet and its maps.
+      - name: Refuse to publish a pages wheel with no pages in it
+        if: steps.check-version.outputs.tag || github.ref == 'refs/heads/develop'
+        run: |
+          set -euo pipefail
+          wheel=$(ls dist-html/*.whl)
+          if ! python -m zipfile -l "$wheel" | grep -q "fastgeoapi_html/static/.vite/manifest.json"; then
+            echo "::error::$wheel carries no compiled pages: the frontend build did not run"
+            exit 1
+          fi
+          echo "The pages are in $wheel"
+
+      # The pages first: fastgeoapi[html] pins them, so fastgeoapi never
+      # names a pages version that is not there yet.
+      - name: Publish the pages package on PyPI
+        if: steps.check-version.outputs.tag
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: dist-html/
+
       - name: Publish package on PyPI
         if: steps.check-version.outputs.tag
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+
+      - name: Publish the pages package on TestPyPI
+        if: github.ref == 'refs/heads/develop'
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist-html/
+          skip-existing: true
+          verbose: true
+          print-hash: true
 
       - name: Publish package on TestPyPI
         if: github.ref == 'refs/heads/develop'
