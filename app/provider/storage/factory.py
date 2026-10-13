@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 import threading
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -112,7 +112,7 @@ def obstore_options(store_options: dict | None, base: str = "") -> dict:
 
 
 @contextmanager
-def _explicit_endpoint_wins(config: dict) -> Iterator[None]:
+def _explicit_endpoint_wins(config: dict) -> Generator[None]:
     """Hide the environment's endpoint while a store with its own is built.
 
     A dataset is read where it lives, not where the process banks. But
