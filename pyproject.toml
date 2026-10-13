@@ -122,8 +122,8 @@ members = ["packages/*"]
 [tool.uv.sources]
 fastgeoapi-html = { workspace = true }
 mapli = [
-    { url = "https://github.com/geobeyond/mapli/releases/download/v0.2.2/mapli-0.2.2-cp39-abi3-manylinux_2_34_x86_64.whl", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
-    { url = "https://github.com/geobeyond/mapli/releases/download/v0.2.2/mapli-0.2.2-cp39-abi3-manylinux_2_34_aarch64.whl", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
+    { url = "https://github.com/geobeyond/mapli/releases/download/v0.3.1/mapli-0.3.1-cp39-abi3-manylinux_2_34_x86_64.whl", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+    { url = "https://github.com/geobeyond/mapli/releases/download/v0.3.1/mapli-0.3.1-cp39-abi3-manylinux_2_34_aarch64.whl", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
 ]
 
 [tool.hatch.build.targets.sdist]
