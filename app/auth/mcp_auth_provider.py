@@ -10,7 +10,7 @@ import base64
 import json
 import logging
 from collections.abc import Callable
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qsl, urlparse
 
 from fastmcp.server.auth.oidc_proxy import OIDCProxy
 from loguru import logger
@@ -370,6 +370,37 @@ class _InteropOIDCProxy(OIDCProxy):
             elif route.path == "/token":
                 route = _wrapped(route, _RefusedTokenLog)
             routes.append(route)
+        return routes
+
+    def get_well_known_routes(self, mcp_path: str | None = None) -> list[Route]:
+        """Fastmcp's discovery routes, and OIDC Discovery under an issuer that has a path.
+
+        OpenID Connect Discovery appends its well-known path to the issuer,
+        so for ``https://host/mcp/`` a client asks
+        ``/mcp/.well-known/openid-configuration`` and checks the document's
+        issuer against that URL. Fastmcp serves the document at the RFC 8414
+        path and at the root, where the issuer cannot match the URL.
+        """
+        routes = super().get_well_known_routes(mcp_path)
+        issuer_path = urlparse(str(self.issuer_url or "")).path.rstrip("/")
+        if not issuer_path:
+            return routes
+        metadata = next(
+            (
+                r
+                for r in routes
+                if r.path == f"/.well-known/oauth-authorization-server{issuer_path}"
+            ),
+            None,
+        )
+        if metadata is not None:
+            routes.append(
+                Route(
+                    f"{issuer_path}/.well-known/openid-configuration",
+                    endpoint=metadata.endpoint,
+                    methods=metadata.methods,
+                )
+            )
         return routes
 
 
