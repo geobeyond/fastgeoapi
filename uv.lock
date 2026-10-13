@@ -959,8 +959,8 @@ docs = [
     { name = "zensical" },
 ]
 maps = [
-    { name = "mapli", version = "0.2.2", source = { url = "https://github.com/geobeyond/mapli/releases/download/v0.2.2/mapli-0.2.2-cp39-abi3-manylinux_2_34_aarch64.whl" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-    { name = "mapli", version = "0.2.2", source = { url = "https://github.com/geobeyond/mapli/releases/download/v0.2.2/mapli-0.2.2-cp39-abi3-manylinux_2_34_x86_64.whl" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "mapli", version = "0.3.1", source = { url = "https://github.com/geobeyond/mapli/releases/download/v0.3.1/mapli-0.3.1-cp39-abi3-manylinux_2_34_aarch64.whl" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+    { name = "mapli", version = "0.3.1", source = { url = "https://github.com/geobeyond/mapli/releases/download/v0.3.1/mapli-0.3.1-cp39-abi3-manylinux_2_34_x86_64.whl" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "pillow" },
 ]
 
@@ -1031,8 +1031,8 @@ docs = [
     { name = "zensical", specifier = ">=0.0.58" },
 ]
 maps = [
-    { name = "mapli", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'", url = "https://github.com/geobeyond/mapli/releases/download/v0.2.2/mapli-0.2.2-cp39-abi3-manylinux_2_34_aarch64.whl" },
-    { name = "mapli", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", url = "https://github.com/geobeyond/mapli/releases/download/v0.2.2/mapli-0.2.2-cp39-abi3-manylinux_2_34_x86_64.whl" },
+    { name = "mapli", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'", url = "https://github.com/geobeyond/mapli/releases/download/v0.3.1/mapli-0.3.1-cp39-abi3-manylinux_2_34_aarch64.whl" },
+    { name = "mapli", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", url = "https://github.com/geobeyond/mapli/releases/download/v0.3.1/mapli-0.3.1-cp39-abi3-manylinux_2_34_x86_64.whl" },
     { name = "pillow", specifier = ">=11" },
 ]
 
@@ -1828,26 +1828,26 @@ wheels = [
 
 [[package]]
 name = "mapli"
-version = "0.2.2"
-source = { url = "https://github.com/geobeyond/mapli/releases/download/v0.2.2/mapli-0.2.2-cp39-abi3-manylinux_2_34_aarch64.whl" }
+version = "0.3.1"
+source = { url = "https://github.com/geobeyond/mapli/releases/download/v0.3.1/mapli-0.3.1-cp39-abi3-manylinux_2_34_aarch64.whl" }
 resolution-markers = [
     "python_full_version >= '3.13' and platform_machine == 'aarch64' and sys_platform == 'linux'",
     "python_full_version < '3.13' and platform_machine == 'aarch64' and sys_platform == 'linux'",
 ]
 wheels = [
-    { url = "https://github.com/geobeyond/mapli/releases/download/v0.2.2/mapli-0.2.2-cp39-abi3-manylinux_2_34_aarch64.whl", hash = "sha256:ae8f8e5698f925be6f8d4fb6bb0eddd7e944e0234e653f1a7233130d75447aa6" },
+    { url = "https://github.com/geobeyond/mapli/releases/download/v0.3.1/mapli-0.3.1-cp39-abi3-manylinux_2_34_aarch64.whl", hash = "sha256:9edd006015e6ed6e397b0f561eaa124f7ed0c457526de8cf40316787c34f00a2" },
 ]
 
 [[package]]
 name = "mapli"
-version = "0.2.2"
-source = { url = "https://github.com/geobeyond/mapli/releases/download/v0.2.2/mapli-0.2.2-cp39-abi3-manylinux_2_34_x86_64.whl" }
+version = "0.3.1"
+source = { url = "https://github.com/geobeyond/mapli/releases/download/v0.3.1/mapli-0.3.1-cp39-abi3-manylinux_2_34_x86_64.whl" }
 resolution-markers = [
     "python_full_version >= '3.13' and platform_machine == 'x86_64' and sys_platform == 'linux'",
     "python_full_version < '3.13' and platform_machine == 'x86_64' and sys_platform == 'linux'",
 ]
 wheels = [
-    { url = "https://github.com/geobeyond/mapli/releases/download/v0.2.2/mapli-0.2.2-cp39-abi3-manylinux_2_34_x86_64.whl", hash = "sha256:0a5b89bd512da64bc23964911b947abdf56d659273d58d55cec9b24a7daa226a" },
+    { url = "https://github.com/geobeyond/mapli/releases/download/v0.3.1/mapli-0.3.1-cp39-abi3-manylinux_2_34_x86_64.whl", hash = "sha256:ca0622186dbe5740c65a29521d4748e69b1dc23ba77621b300f4759d9dfb8526" },
 ]
 
 [[package]]
