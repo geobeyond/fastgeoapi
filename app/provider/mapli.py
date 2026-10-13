@@ -3,7 +3,7 @@
 import asyncio
 import dataclasses
 from datetime import timedelta
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import mapli
 from pygeoapi.provider.base import BaseProvider
@@ -12,11 +12,11 @@ from app.maps.sources import (
     ObjectUrl,
     SourceContext,
 )
+from app.provider import maps as provider_maps
 from app.provider.base import (
     AsyncProviderMixin,
     StorageBackedMixin,
 )
-from app.provider import maps as provider_maps
 
 if TYPE_CHECKING:
     from app.maps.contract import (
@@ -29,6 +29,8 @@ if TYPE_CHECKING:
 
 @dataclasses.dataclass(frozen=True)
 class MapliProviderConfig:
+    """Mapli provider config"""
+
     data: str
     max_renderers_per_worker: int
     num_workers: int
@@ -43,6 +45,7 @@ class MapliProviderConfig:
 
 
 class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
+    """OGC API Maps provider backed by mapli."""
 
     THREAD_SAFE = True
     native_async = True
@@ -72,8 +75,9 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             store_options=provider_def.get("store_options"),
             styles=provider_def.get("styles", {}),
             style_factory=provider_def.get(
-                "style_factory", "app.maps.styles.create_maplibre_styles"),
-            max_size=provider_def.get("max_size", 2048)
+                "style_factory", "app.maps.styles.create_maplibre_styles"
+            ),
+            max_size=provider_def.get("max_size", 2048),
         )
         self._range_server = None
         _config_as_dict = dataclasses.asdict(self._config)
@@ -87,24 +91,18 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
                     (lambda: self.cached_ranges.at(self.cached_ranges.meta()).read)
                     if self.cached_ranges is not None
                     else (lambda: self.byte_ranges().read)
-                )
+                ),
             )
         )
         self._map_styles = provider_maps.build_styles(
             source=_map_source,
-            documents=provider_maps.StyleDocuments(
-                self._config.styles, self._config.store_options
-            ),
-            options=_config_as_dict
+            documents=provider_maps.StyleDocuments(self._config.styles, self._config.store_options),
+            options=_config_as_dict,
         )
         self._render_pool = mapli.RenderPool(
             workers=self._config.num_workers,
-            max_renderers_per_worker=self._config.max_renderers_per_worker
+            max_renderers_per_worker=self._config.max_renderers_per_worker,
         )
-
-    def style_names(self) -> list[str]:
-        """The configured style names."""
-        return sorted(self._map_styles.names())
 
     def _get_object_url(self) -> ObjectUrl:
         cached, server = self.cached_ranges, self._range_server
@@ -122,10 +120,7 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
     def _generate_map_request(self, **parameters: Any) -> "MapRequest":
         return provider_maps.map_request(
-            style_for=(
-                lambda name, transparent: self._map_styles.style(
-                    name, transparent)
-            ),
+            style_for=(lambda name, transparent: self._map_styles.style(name, transparent)),
             max_size=self._config.max_size,
             **parameters,
         )
@@ -143,10 +138,7 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
     ) -> bytes:
         """Generate a map image."""
         map_request = provider_maps.map_request(
-            style_for=(
-                lambda name, is_transparent: self._map_styles.style(
-                    name, is_transparent)
-            ),
+            style_for=(lambda name, is_transparent: self._map_styles.style(name, is_transparent)),
             max_size=self._config.max_size,
             style=style,
             bbox=bbox,
@@ -154,7 +146,7 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             height=height,
             crs=crs,
             transparent=transparent,
-            format_=format_
+            format_=format_,
         )
         return await self._render_pool.arender_from_bounds(
             style_id=map_request.style,
@@ -164,10 +156,5 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         )
 
     def query(self, **kwargs: Any) -> bytes:
+        """Generate a map image."""
         return asyncio.run(self.aquery(), **kwargs)
-
-    async def aclose(self) -> None:
-        pass
-
-    def close(self) -> None:
-        pass
