@@ -23,7 +23,7 @@ import socket
 import subprocess  # ruff: ignore[suspicious-subprocess-import]
 import sys
 import time
-from collections.abc import Iterator
+from collections.abc import Generator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from pathlib import Path
@@ -53,7 +53,7 @@ def _etag_of(path: Path) -> str:
 
 
 @contextmanager
-def _serve(tmp_path: Path, poll_seconds: str, workers: int = 2) -> Iterator[tuple[str, Path]]:
+def _serve(tmp_path: Path, poll_seconds: str, workers: int = 2) -> Generator[tuple[str, Path]]:
     """Start uvicorn with `workers` processes on a configuration file on disk."""
     config_path = tmp_path / "pygeoapi-config.yml"
     config_path.write_text(Path(REPO, "tests/data/pygeoapi-config.yml").read_text())

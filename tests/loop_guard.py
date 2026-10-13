@@ -7,7 +7,7 @@ layer's backend, so the guard watches that backend's synchronous methods.
 """
 
 import importlib
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 
 from blockbuster import BlockBuster, BlockBusterFunction, blockbuster_ctx
@@ -27,7 +27,7 @@ SYNC_STORE_METHODS = (
 
 
 @contextmanager
-def loop_guard() -> Iterator[BlockBuster]:
+def loop_guard() -> Generator[BlockBuster]:
     """Fail on any blocking call made on the event loop, the storage layer's included."""
     # The live class: another test module may have purged app.* and imported it again.
     store = importlib.import_module("app.provider.storage.obstore_").ObstoreStore
