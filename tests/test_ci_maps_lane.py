@@ -1,6 +1,6 @@
 """The renderer tests have a nox session and a CI lane on Ubuntu 24.04."""
 
-import runpy
+import ast
 from pathlib import Path
 
 import yaml
@@ -23,4 +23,15 @@ def test_ci_installs_the_renderer_libraries_for_that_lane():
 
 
 def test_nox_has_a_maps_session():
-    assert callable(runpy.run_path("noxfile.py").get("maps"))
+    # Parsed, not run: running the noxfile imports nox, which the unlocked
+    # lanes on main do not install.
+    tree = ast.parse(Path("noxfile.py").read_text())
+    sessions = {
+        node.name
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+        for decorator in node.decorator_list
+        if ast.unparse(decorator).startswith("session")
+    }
+
+    assert "maps" in sessions
