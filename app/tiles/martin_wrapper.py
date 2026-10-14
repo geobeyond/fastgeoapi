@@ -31,6 +31,7 @@ from typing import Any
 
 import yaml
 from starlette.applications import Starlette
+from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
@@ -209,6 +210,8 @@ def build_martin_wrapper_app_from_pygeoapi(pygeoapi_config: dict) -> Starlette |
     fd, tmp_path = tempfile.mkstemp(prefix="martin-wrapper-", suffix=".yaml")
     try:
         with os.fdopen(fd, "w") as f:
+            print(f"------------Writing martin config to temporary file: {tmp_path}")
+            print(f"------------Martin config content:\n{yaml.safe_dump(martin_config)}")
             yaml.safe_dump(martin_config, f)
         return build_martin_wrapper_app(tmp_path)
     finally:
@@ -240,15 +243,19 @@ def build_martin_wrapper_app(config_path: str) -> Starlette:
     logger.info(f"martin-wrapper: loaded {len(server.list_sources())} source(s) from {config_path}")
 
     async def get_tile(request: Request) -> Response:
+        print(f"------------Received tile request: {request.url}")
         source_ids = request.path_params["source_ids"]
         z = request.path_params["z"]
         x = request.path_params["x"]
         y = request.path_params["y"]
         try:
-            data, content_type, content_encoding = server.get_tile(
-                source_ids, z, x, y, query=request.url.query or None
+            # A tile can take seconds (a remote GeoParquet scan); martin-py
+            # releases the GIL, so a worker thread keeps the event loop free.
+            data, content_type, content_encoding = await run_in_threadpool(
+                server.get_tile, source_ids, z, x, y, query=request.url.query or None
             )
         except Exception as e:
+            print(f"------------Tile fetch failed for {source_ids}/{z}/{x}/{y}: {e}")
             logger.warning(f"martin-wrapper: tile fetch failed for {source_ids}/{z}/{x}/{y}: {e}")
             return JSONResponse({"code": "NotFound", "description": str(e)}, status_code=404)
         headers = {"Content-Encoding": content_encoding} if content_encoding else {}

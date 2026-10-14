@@ -22,6 +22,7 @@ from pygeoapi.l10n import LocaleError
 from pygeoapi.provider.base import ProviderConnectionError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
+from starlette.routing import Mount
 
 from app.config.app import configuration as cfg
 from app.config.logging import create_logger, silence_probe_access_logs
@@ -360,6 +361,13 @@ def create_app(lifespan=None):
     # under the same process. See app/tiles/martin_wrapper.py for why this
     # mount carries no auth wrapper and must stay off in production.
     martin_wrapper_config = cfg.FASTGEOAPI_MARTIN_WRAPPER_CONFIG
+    martin_wrapper_path = f"{cfg.FASTGEOAPI_CONTEXT}/martin-wrapper"
+
+    def _mount_martin_wrapper(sub_app) -> None:
+        # Ahead of the FASTGEOAPI_CONTEXT mount, which would otherwise
+        # claim every path under it, this one included.
+        app.router.routes.insert(0, Mount(martin_wrapper_path, app=sub_app))
+
     if martin_wrapper_config:
         from app.tiles.martin_wrapper import TileServer as _MartinTileServer
         from app.tiles.martin_wrapper import (
@@ -371,7 +379,7 @@ def create_app(lifespan=None):
             logger.warning(
                 "FASTGEOAPI_MARTIN_WRAPPER_CONFIG is set but the optional `martin-py` "
                 "wrapper dependency is not installed (install it with "
-                "`uv sync --extra martin_wrapper`); /martin-wrapper will not be mounted."
+                f"`uv sync --extra martin_wrapper`); {martin_wrapper_path} will not be mounted."
             )
         elif martin_wrapper_config == "auto":
             # Derived from the pygeoapi config this very boot already
@@ -382,20 +390,20 @@ def create_app(lifespan=None):
             if martin_wrapper_app is None:
                 logger.warning(
                     "FASTGEOAPI_MARTIN_WRAPPER_CONFIG=auto found no resource with a "
-                    "provider this martin-py build can manage; /martin-wrapper will "
+                    f"provider this martin-py build can manage; {martin_wrapper_path} will "
                     "not be mounted."
                 )
             else:
-                app.mount("/martin-wrapper", martin_wrapper_app)
+                _mount_martin_wrapper(martin_wrapper_app)
                 logger.warning(
-                    "Martin wrapper endpoint mounted at /martin-wrapper (config: "
+                    f"Martin wrapper endpoint mounted at {martin_wrapper_path} (config: "
                     "auto-derived from the pygeoapi config); this surface is "
                     "UNAUTHENTICATED and for benchmarking only."
                 )
         else:
-            app.mount("/martin-wrapper", build_martin_wrapper_app(martin_wrapper_config))
+            _mount_martin_wrapper(build_martin_wrapper_app(martin_wrapper_config))
             logger.warning(
-                f"Martin wrapper endpoint mounted at /martin-wrapper (config: "
+                f"Martin wrapper endpoint mounted at {martin_wrapper_path} (config: "
                 f"{martin_wrapper_config}); this surface is UNAUTHENTICATED and for "
                 "benchmarking only."
             )

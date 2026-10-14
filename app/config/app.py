@@ -90,7 +90,7 @@ class DevConfig(GlobalConfig):
     # already loaded (app.tiles.martin_wrapper) instead of hand-writing a
     # second file. Opt-in and off by default: when set AND the optional
     # `martin-py` wrapper dependency is installed, mounts an
-    # UNAUTHENTICATED `/martin-wrapper/{source_ids}/{z}/{x}/{y}` endpoint
+    # UNAUTHENTICATED `{FASTGEOAPI_CONTEXT}/martin-wrapper/{source_ids}/{z}/{x}/{y}` endpoint
     # that serves tiles straight from martin-py's in-process bindings,
     # to benchmark it against pygeoapi's own tile provider. Never set
     # this on a public deployment.
@@ -166,7 +166,7 @@ class ProdConfig(GlobalConfig):
     # already loaded (app.tiles.martin_wrapper) instead of hand-writing a
     # second file. Opt-in and off by default: when set AND the optional
     # `martin-py` wrapper dependency is installed, mounts an
-    # UNAUTHENTICATED `/martin-wrapper/{source_ids}/{z}/{x}/{y}` endpoint
+    # UNAUTHENTICATED `{FASTGEOAPI_CONTEXT}/martin-wrapper/{source_ids}/{z}/{x}/{y}` endpoint
     # that serves tiles straight from martin-py's in-process bindings,
     # to benchmark it against pygeoapi's own tile provider. Never set
     # this on a public deployment.

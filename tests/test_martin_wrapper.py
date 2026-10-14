@@ -160,7 +160,7 @@ def test_martin_wrapper_not_mounted_without_config():
     with mock.patch.dict(os.environ, BASE_ENV, clear=False):
         app = _reload_app(BASE_ENV)
     with TestClient(app, raise_server_exceptions=False) as client:
-        r = client.get("/martin-wrapper/wrapper_source/0/0/0")
+        r = client.get("/geoapi/martin-wrapper/wrapper_source/0/0/0")
     assert r.status_code == 404
 
 
@@ -171,9 +171,11 @@ def test_martin_wrapper_mounted_when_configured(tmp_path):
     with mock.patch.dict(os.environ, env, clear=False):
         app = _reload_app(env)
     with TestClient(app, raise_server_exceptions=False) as client:
-        r = client.get("/martin-wrapper/wrapper_source/0/0/0")
+        r = client.get("/geoapi/martin-wrapper/wrapper_source/0/0/0")
+        outside_context = client.get("/martin-wrapper/wrapper_source/0/0/0")
     assert r.status_code == 200
     assert r.headers["content-type"] == "application/x-protobuf"
+    assert outside_context.status_code == 404
 
 
 def test_martin_wrapper_skips_mount_when_dependency_missing(tmp_path):
@@ -184,7 +186,7 @@ def test_martin_wrapper_skips_mount_when_dependency_missing(tmp_path):
         with mock.patch.dict(sys.modules, {"martin_py": None}):
             app = _reload_app(env)
     with TestClient(app, raise_server_exceptions=False) as client:
-        r = client.get("/martin-wrapper/wrapper_source/0/0/0")
+        r = client.get("/geoapi/martin-wrapper/wrapper_source/0/0/0")
     assert r.status_code == 404
 
 
@@ -199,7 +201,7 @@ def test_martin_wrapper_auto_derives_from_the_pygeoapi_config():
     with mock.patch.dict(os.environ, env, clear=False):
         app = _reload_app(env)
     with TestClient(app, raise_server_exceptions=False) as client:
-        r = client.get("/martin-wrapper/lakes/0/0/0")
+        r = client.get("/geoapi/martin-wrapper/lakes/0/0/0")
     assert r.status_code == 200
     assert r.headers["content-type"] == "application/x-protobuf"
 
@@ -221,5 +223,5 @@ def test_martin_wrapper_auto_skips_mount_when_pygeoapi_config_has_nothing_manage
     with mock.patch.dict(os.environ, env, clear=False):
         app = _reload_app(env)
     with TestClient(app, raise_server_exceptions=False) as client:
-        r = client.get("/martin-wrapper/obs/0/0/0")
+        r = client.get("/geoapi/martin-wrapper/obs/0/0/0")
     assert r.status_code == 404

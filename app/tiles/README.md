@@ -2,7 +2,7 @@
 
 In-process tile-serving surfaces that sit alongside pygeoapi's own OGC API
 tile provider. Today that's one module: [`martin_wrapper.py`](martin_wrapper.py),
-which mounts `/martin-wrapper/{source_ids}/{z}/{x}/{y}` — vector tiles served
+which mounts `/geoapi/martin-wrapper/{source_ids}/{z}/{x}/{y}` — vector tiles served
 straight from [martin-py](https://martin.maplibre.org/)'s in-process
 bindings, for benchmarking pygeoapi's tile path against martin's own under
 the same process and load generator. See that module's docstring for the
@@ -75,14 +75,14 @@ uv run fastgeoapi run --host 0.0.0.0 --port 5000 --reload
 A successful mount logs:
 
 ```
-Martin wrapper endpoint mounted at /martin-wrapper (config: ...); this surface is UNAUTHENTICATED and for benchmarking only.
+Martin wrapper endpoint mounted at /geoapi/martin-wrapper (config: ...); this surface is UNAUTHENTICATED and for benchmarking only.
 ```
 
 ### Try it
 
 ```shell
-curl http://localhost:5000/martin-wrapper/<source_id>/<z>/<x>/<y>
-# e.g. curl http://localhost:5000/martin-wrapper/lakes/0/0/0
+curl http://localhost:5000/geoapi/martin-wrapper/<source_id>/<z>/<x>/<y>
+# e.g. curl http://localhost:5000/geoapi/martin-wrapper/lakes/0/0/0
 ```
 
 `<source_id>` is the pygeoapi resource id (`auto` mode) or the source
@@ -102,7 +102,7 @@ Connection**, then set:
 - **Name**: anything, e.g. `fastgeoapi martin-wrapper`
 - **URL**:
   ```
-  http://localhost:5000/martin-wrapper/<source_id>/{z}/{x}/{y}
+  http://localhost:5000/geoapi/martin-wrapper/<source_id>/{z}/{x}/{y}
   ```
   `{z}`, `{x}`, `{y}` lowercase, exactly as shown — QGIS's placeholder
   syntax matches the wrapper's own route
