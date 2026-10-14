@@ -884,7 +884,7 @@ wheels = [
 
 [[package]]
 name = "fastgeoapi"
-version = "0.3.0"
+version = "0.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "authlib" },
@@ -1038,7 +1038,7 @@ maps = [
 
 [[package]]
 name = "fastgeoapi-html"
-version = "0.3.0"
+version = "0.4.0"
 source = { editable = "packages/fastgeoapi-html" }
 
 [[package]]

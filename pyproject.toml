@@ -1,6 +1,6 @@
 [project]
 name = "fastgeoapi"
-version = "0.3.0"
+version = "0.4.0"
 description = "fastgeoapi"
 authors = [{ name = "Francesco Bartoli", email = "francesco.bartoli@geobeyond.it" }]
 maintainers = [{ name = "Youssef Harby", email = "youssef.harby@geobeyond.it" }]
@@ -68,7 +68,7 @@ pmtiles = [
 ]
 # fastgeoapi's own HTML pages (FASTGEOAPI_HTML_PAGES=native).
 html = [
-    "fastgeoapi-html==0.3.0",
+    "fastgeoapi-html==0.4.0",
 ]
 
 [dependency-groups]
