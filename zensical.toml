@@ -40,6 +40,7 @@ nav = [
       { "GeoParquet provider" = "operators/how-to/geoparquet.md" },
       { "PMTiles provider" = "operators/how-to/pmtiles.md" },
       { "MapLibre provider" = "operators/how-to/maplibre.md" },
+      { "Native HTML pages" = "operators/how-to/html-pages.md" },
       { "Editing the configuration" = "operators/how-to/configuration-editor.md" },
       { "Enabling the MCP server" = "operators/how-to/enabling-mcp.md" },
     ] },
