@@ -7,4 +7,8 @@ scripts. Install it with `pip install "fastgeoapi[html]"` and set
 production).
 
 The package holds files only. The code that renders the pages is part of
-fastgeoapi.
+fastgeoapi, which pins this package to its own version.
+
+[Native HTML pages](https://geobeyond.github.io/fastgeoapi/operators/how-to/html-pages/)
+in the fastgeoapi documentation covers the configuration, the languages,
+the maps and how to replace a template with your own.

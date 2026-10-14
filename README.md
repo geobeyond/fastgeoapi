@@ -118,6 +118,16 @@ This diagram gives an overview of the basic architecture:
 - **Writing is not activating** - the editor mounts no reload webhook: putting a configuration into service stays a separate, deliberate gesture
 - **JSON endpoints too** - the same checks run from `curl` or in CI, with no browser involved
 
+### 🖥️ HTML pages of its own
+
+- **Opt-in, same URLs** - with the `html` extra and `FASTGEOAPI_HTML_PAGES=native` (prefixed `DEV_` or `PROD_`), fastgeoapi's pages replace pygeoapi's on the same `f=html` URLs; the JSON does not change
+- **MapLibre maps** - tile collections drawn in the styles configured for them, map images from the Maps provider, and a background that can be a MapLibre style
+- **Pages that act** - a filter form on the items, a form that runs a process, a job page that follows the job to its end
+- **English and Italian** - picked with `lang` or the browser's `Accept-Language`, from the languages of the configuration
+- **Your templates, one file at a time** - a directory of templates replaces the package's of the same name and leaves the others alone
+
+👉 **[Native HTML pages](https://geobeyond.github.io/fastgeoapi/operators/how-to/html-pages/)** has the configuration and the list of pages.
+
 ### 🧰 The stack underneath
 
 - **FastAPI and Starlette** - the ASGI application pygeoapi is mounted into, built programmatically rather than at import time
@@ -312,6 +322,15 @@ With options:
 ```shell
 fastgeoapi run --host 0.0.0.0 --port 5000 --reload
 ```
+
+Serve fastgeoapi's own HTML pages instead of pygeoapi's:
+
+```shell
+pip install "fastgeoapi[html]"
+echo "DEV_FASTGEOAPI_HTML_PAGES=native" >> .env
+```
+
+See [native HTML pages](https://geobeyond.github.io/fastgeoapi/operators/how-to/html-pages/).
 
 Edit the configuration, with a form and a YAML view side by side:
 

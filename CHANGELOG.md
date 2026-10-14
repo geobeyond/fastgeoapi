@@ -7,7 +7,7 @@
 
 ### Notes
 
-- **html**: native HTML pages replace pygeoapi's templates when `FASTGEOAPI_HTML_PAGES=native` is set and the `fastgeoapi[html]` extra is installed, which brings the new `fastgeoapi-html` package; pygeoapi's pages stay the default. Their maps open on the data, then on the collection's `view`, then on its extent.
+- **html**: native HTML pages replace pygeoapi's templates when `DEV_FASTGEOAPI_HTML_PAGES=native` (`PROD_FASTGEOAPI_HTML_PAGES` in production) is set and the `fastgeoapi[html]` extra is installed, which brings the new `fastgeoapi-html` package; pygeoapi's pages stay the default. Their maps open on the data, then on the collection's `view`, then on its extent.
 - **mcp**: the authorization server metadata names `token_endpoint_auth_signing_alg_values_supported: ["RS256"]`, the one algorithm it accepts for `private_key_jwt` client assertions, and OIDC discovery is also served under the issuer, at `/mcp/.well-known/openid-configuration`. Each refused token request leaves one log line with the assertion's header and claims.
 
 ### Features

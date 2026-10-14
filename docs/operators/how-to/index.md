@@ -89,6 +89,10 @@ Two things to expect the first time, both measured rather than guessed:
   guide](pmtiles.md#performance-what-a-tile-costs) explains why a global
   box would open on an empty map.
 
+## Serve fastgeoapi's own HTML pages
+
+pygeoapi's pages are the default. The [native HTML pages](html-pages.md) replace them on the same URLs. They draw their maps with MapLibre, come in English and Italian, and take your own templates one file at a time.
+
 ## Configure Identity and Access Management
 
 TBD

@@ -21,20 +21,32 @@ uv run nox -s docs-build   # the site, in strict mode
 
 ## The frontend
 
-The editor's page has its own suite, and it runs in CI as the `page`
-job:
+The editor's page and the scripts of the HTML pages share a suite, and it
+runs in CI as the `page` job:
 
 ```bash
 cd frontend
 npm test          # vitest
 npm run typecheck
 npm run format:check
+npm run build
 ```
 
 It is not optional dressing. The bridge between the form and the YAML
 document is where a bug would be silent — a save that quietly drops
 what the schema does not describe — so those tests are the ones holding
 the design up.
+
+## The translations of the pages
+
+The Italian catalog of the HTML pages,
+`packages/fastgeoapi-html/fastgeoapi_html/locale/it/LC_MESSAGES/messages.po`,
+is edited by hand, and `tests/test_html_catalogs.py` keeps it complete:
+it extracts every string from the templates and from `app/html`, and
+fails on each one the catalog does not translate. A string you add to a
+page therefore needs its `msgid` and `msgstr` in the catalog in the same
+change. The pages read the `.po` file as it is, so there is no `.mo` to
+compile.
 
 ## Before you push
 
