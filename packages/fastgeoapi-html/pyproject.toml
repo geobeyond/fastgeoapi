@@ -1,6 +1,6 @@
 [project]
 name = "fastgeoapi-html"
-version = "0.3.0"
+version = "0.4.0"
 description = "The HTML pages of fastgeoapi: templates, message catalogs and compiled assets"
 authors = [{ name = "Francesco Bartoli", email = "francesco.bartoli@geobeyond.it" }]
 requires-python = ">=3.12,<3.14"
