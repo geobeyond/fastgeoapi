@@ -42,9 +42,10 @@ class MapliCollectionStyles:
 
     Implements the ``app.maps.contract.MapStyles`` protocol.
 
-    This contains a set styles for mapli to apply to the underlying
+    This is a container for mapli styles, which are applicable to the underlying
     collection's map source. The styles are defined in accordance with the
-    MapLibre Style Specification.
+    MapLibre Style Specification, with the additional source support that is
+    provided by mapli (which itself is based on MapLibre Native).
 
     Contrary to the ``app.maps.styles.MapLibreStyles`` class, this performs
     eager initialization of default styles.
@@ -55,29 +56,30 @@ class MapliCollectionStyles:
     def __init__(
             self,
             collection_map_source: "MapSource",
-            **inline_style: dict[str, dict]
+            **custom_style: dict[str, dict]
     ):
         self._styles = {
-            **{k: v for k, v in inline_style.items()}
+            **{k: v for k, v in custom_style.items()}
         }
-        source_name = "dataset"  # name used in the default styles to refer to the data source
+        default_source_name = "dataset"  # name used in default styles to refer to the data source
         if len(self._styles) == 0:  # provide a default style
             content = collection_map_source.content()
             if content.kind == "vector":
                 default_style = generate_default_vector_style(
                     vector_layers=content.layers,
-                    source=source_name
+                    source=default_source_name
                 )
             elif content.kind == "raster":
                 default_style = generate_default_raster_style(
-                    source=source_name)
+                    source=default_source_name)
             else:  # "raster-dem":
                 default_style = generate_default_hillshade_style(
-                    source=source_name)
+                    source=default_source_name)
+            url_prefix = "pmtiles://" if collection_map_source.format == "pmtiles" else ""
             default_style["sources"] = {
-                source_name: {
+                default_source_name: {
                     "type": content.kind,
-                    "url": f"pmtiles://{collection_map_source.url()}"
+                    "url": f"{url_prefix}{collection_map_source.url()}"
                 }
             }
             self._styles["default"] = default_style
@@ -160,18 +162,13 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
                 ),
             )
         )
-        self._map_styles = provider_maps.build_styles(
-            source=_map_source,
-            documents=provider_maps.StyleDocuments(self._config.styles, self._config.store_options),
-            options=_config_as_dict,
-        )
+        # self._map_styles = provider_maps.build_styles(
+        #     source=_map_source,
+        #     documents=provider_maps.StyleDocuments(self._config.styles, self._config.store_options),
+        #     options=_config_as_dict,
+        # )
 
         self._map_styles = MapliCollectionStyles(_map_source)
-
-        self._render_pool = mapli.RenderPool(
-            workers=self._config.num_workers,
-            max_renderers_per_worker=self._config.max_renderers_per_worker,
-        )
         logger.debug("---------------------------------------------------")
         logger.debug("---------------------------------------------------")
         logger.debug("---------------------------------------------------")
@@ -180,6 +177,11 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         logger.debug("---------------------------------------------------")
         logger.debug("---------------------------------------------------")
         logger.debug(f"{self._map_styles.names()=}")
+
+        self._render_pool = mapli.RenderPool(
+            workers=self._config.num_workers,
+            max_renderers_per_worker=self._config.max_renderers_per_worker,
+        )
 
         for style_id in self._map_styles.names():
             logger.debug(f"{style_id=}")
@@ -192,7 +194,6 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
     def _get_object_url(self) -> ObjectUrl:
         cached, server = self.cached_ranges, self._range_server
         if cached is not None and server is not None:
-            # The renderer reads the object through this process, by version.
             return ObjectUrl(
                 resolver=lambda: server.url_for(cached, cached.known_meta() or cached.meta())
             )
@@ -229,6 +230,7 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             transparent=transparent,
             format_=format_,
         )
+        # mapli's input coordinates are lon,lat so we need to convert back
         logger.debug(f"{map_request.style=}")
         logger.debug(f"{bbox=}")
         logger.debug(f"{map_request.bbox=}")
