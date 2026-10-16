@@ -4,6 +4,7 @@
 """
 
 import json
+import re
 
 import pytest
 from pygeoapi.provider.base import ProviderGenericError
@@ -259,6 +260,36 @@ def _tile_definition(path, **options) -> dict:
         ({"style": 42}, "option style must be the path or URL of a MapLibre style"),
         ({"style": "  "}, "option style must be the path or URL of a MapLibre style"),
         ({"style_source": ""}, "option style_source must be the name"),
+        ({"styles": "night.json"}, "option styles must map style names to the paths or URLs"),
+        ({"styles": {}}, "option styles must map style names to the paths or URLs"),
+        ({"styles": {"night": ""}}, "option styles must map style names to the paths or URLs"),
+        ({"styles": {"night": {"href": "night.json"}}}, "option styles must map style names"),
+        (
+            {"style": "roads.json", "styles": {"night": "night.json"}},
+            "options style and styles cannot be used together",
+        ),
+        (
+            {"styles": {"night": "night.json"}, "default_style": "day"},
+            "default_style day is not among the configured styles",
+        ),
+        ({"default_style": "day"}, "default_style day is not among the configured styles"),
+        (
+            {"styles": {"day": "day.json"}, "default_style": ["day"]},
+            re.escape("default_style ['day'] is not among the configured styles"),
+        ),
+    ],
+    ids=[
+        "style not text",
+        "style blank",
+        "style_source blank",
+        "styles as text",
+        "styles empty",
+        "a blank location",
+        "an object as location",
+        "style with styles",
+        "an unknown default",
+        "a default without styles",
+        "a default as a list",
     ],
 )
 def test_the_tile_provider_refuses_a_style_option_it_cannot_use(tmp_path, options, message):
@@ -276,3 +307,13 @@ def test_the_tile_provider_takes_a_style_and_its_source_name(tmp_path):
     )
 
     assert provider.options["style"] == "styles/roads.json"
+
+
+def test_the_tile_provider_takes_named_styles_and_a_default(tmp_path):
+    archive = write_archive(tmp_path / "roads.pmtiles", {(0, 0, 0): TILE_BYTES(0, 0, 0)})
+    styles = {"night": "styles/night.json", "day": "s3://bucket/styles/day.json"}
+
+    provider = PMTilesProvider(_tile_definition(archive, styles=styles, default_style="day"))
+
+    assert provider.options["styles"] == styles
+    assert provider.options["default_style"] == "day"

@@ -65,14 +65,38 @@ _STYLE_OPTIONS = {
 
 
 def check_style_options(options: dict) -> None:
-    """Check ``style`` and ``style_source``: when given, non-empty strings.
+    """Check the style options of a tile provider.
 
-    Raises :class:`ValueError` for any other value.
+    ``style`` and ``style_source``, when given, are non-empty strings.
+    ``styles`` maps style names to the paths or URLs of MapLibre styles,
+    and ``default_style`` is one of those names. ``style`` is one unnamed
+    style, so it cannot come with ``styles``. Raises :class:`ValueError`
+    for anything else.
     """
     for key, meaning in _STYLE_OPTIONS.items():
         value = options.get(key)
-        if value is not None and (not isinstance(value, str) or not value.strip()):
+        if value is not None and not _is_text(value):
             raise ValueError(f"option {key} must be {meaning}")
+    styles = options.get("styles")
+    if styles is not None:
+        if not isinstance(styles, dict) or not styles:
+            raise ValueError(_STYLES_MEANING)
+        if not all(_is_text(name) and _is_text(location) for name, location in styles.items()):
+            raise ValueError(_STYLES_MEANING)
+        if options.get("style") is not None:
+            raise ValueError(
+                "options style and styles cannot be used together: give the style a name in styles"
+            )
+    default = options.get("default_style")
+    if default is not None and (not _is_text(default) or default not in (styles or {})):
+        raise ValueError(f"default_style {default} is not among the configured styles")
+
+
+_STYLES_MEANING = "option styles must map style names to the paths or URLs of MapLibre styles"
+
+
+def _is_text(value: object) -> bool:
+    return isinstance(value, str) and bool(value.strip())
 
 
 class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
