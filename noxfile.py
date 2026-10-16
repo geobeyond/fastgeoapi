@@ -225,7 +225,11 @@ def models(session: Session) -> None:
     stronger guard: it catches a hand-edit of the generated module, not
     only a schema change.
     """
-    session.install("datamodel-code-generator>=0.25,<1")
+    # Pin one exact version, the same as `models-check`: a generator release
+    # can write the same models in another form, which would fail the check
+    # on branches that change nothing of the kind. Upgrade it on purpose,
+    # with the regenerated module in the same change.
+    session.install("datamodel-code-generator==0.85.0")
     session.install(".")
     session.run("python", "scripts/generate_config_models.py", *session.posargs)
 
@@ -243,7 +247,8 @@ def models_check(session: Session) -> None:
     hand-edit of the generated module, which no fingerprint of the
     schema could notice.
     """
-    session.install("datamodel-code-generator>=0.25,<1")
+    # The version `models` pins: see the comment there.
+    session.install("datamodel-code-generator==0.85.0")
     session.install(".")
     session.run("python", "scripts/generate_config_models.py", "--check")
 
