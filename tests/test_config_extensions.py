@@ -10,6 +10,7 @@ from pygeoapi.config import load_schema
 from pygeoapi.util import yaml_load
 
 from app.pygeoapi.config_extensions import (
+    INGEST_SCHEMA,
     MAP_STYLE_SCHEMA,
     VIEW_SCHEMA,
     extend_schema,
@@ -19,6 +20,8 @@ from app.pygeoapi.factory import ConfigValidationError, normalize_config
 
 CONFIG_PATH = "tests/data/pygeoapi-config.yml"
 LIBERTY = "https://tiles.openfreemap.org/styles/liberty"
+OVERTURE = "https://nlebovits.github.io/overture-portolan/catalog.json"
+PORTOLAN_SCHEMA = "https://schemas.portolan-sdi.org/portolan/v0.1.1/schema.json"
 
 
 @pytest.fixture
@@ -72,10 +75,67 @@ def test_a_wrong_view_is_refused_with_its_path(config, view, where):
         normalize_config(config)
 
 
+@pytest.mark.parametrize(
+    "ingest",
+    [
+        {"from": "portolan", "catalog": OVERTURE, "collection": "building"},
+        {
+            "from": "portolan",
+            "catalog": "s3://catalogs/anncsu/catalog.json",
+            "collection": "civici",
+            "schema": PORTOLAN_SCHEMA,
+        },
+        {"from": "portolan", "catalog": "catalogs/local", "collection": "roads"},
+    ],
+    ids=["https", "bucket with schema", "local path"],
+)
+def test_a_collection_with_an_ingest_key_is_accepted(config, ingest):
+    config["resources"]["obs"]["ingest"] = ingest
+
+    assert normalize_config(config)["resources"]["obs"]["ingest"] == ingest
+
+
+@pytest.mark.parametrize(
+    ("ingest", "where"),
+    [
+        ({"from": "portolan", "catalog": OVERTURE}, "resources.obs.ingest"),
+        ({"from": "stac", "catalog": OVERTURE, "collection": "b"}, "resources.obs.ingest.from"),
+        ({"from": "portolan", "catalog": "", "collection": "b"}, "resources.obs.ingest.catalog"),
+        (
+            {"from": "portolan", "catalog": OVERTURE, "collection": "b", "schema": "v0.1.1"},
+            "resources.obs.ingest.schema",
+        ),
+        (
+            {"from": "portolan", "catalog": OVERTURE, "collection": "b", "at": "2026-10-15"},
+            "resources.obs.ingest",
+        ),
+        ("portolan", "resources.obs.ingest"),
+    ],
+    ids=[
+        "no collection",
+        "unknown source",
+        "empty catalog",
+        "schema not a URL",
+        "unknown key",
+        "not an object",
+    ],
+)
+def test_a_wrong_ingest_key_is_refused_with_its_path(config, ingest, where):
+    config["resources"]["obs"]["ingest"] = ingest
+
+    with pytest.raises(ConfigValidationError, match=re.escape(f"configuration at {where}:")):
+        normalize_config(config)
+
+
 def test_resources_without_collections_pass():
     assert extension_problem({}) is None
     assert extension_problem({"resources": None}) is None
-    assert extension_problem({"resources": {"hello": {"type": "process", "view": 1}}}) is None
+    assert (
+        extension_problem(
+            {"resources": {"hello": {"type": "process", "view": 1, "ingest": "portolan"}}}
+        )
+        is None
+    )
 
 
 @pytest.mark.parametrize(
@@ -87,20 +147,24 @@ def test_a_document_of_another_shape_leaves_its_schema_to_complain(config):
     assert extension_problem(config) is None
 
 
-def test_the_schema_offers_the_view_to_collections_only():
+def test_the_schema_offers_the_collection_keys_to_collections_only():
     schema = load_schema()
 
     extended = extend_schema(schema)
 
     assert all(alt["properties"]["view"] == VIEW_SCHEMA for alt in _collection_schemas(extended))
     assert all("view" not in alt["properties"] for alt in _collection_schemas(schema))
+    assert all(
+        alt["properties"]["ingest"] == INGEST_SCHEMA for alt in _collection_schemas(extended)
+    )
+    assert all("ingest" not in alt["properties"] for alt in _collection_schemas(schema))
     processes = [
         alternative
         for value in extended["properties"]["resources"]["patternProperties"].values()
         for alternative in value.get("anyOf", [value])
         if "processor" in alternative.get("properties", {})
     ]
-    assert processes and all("view" not in alt["properties"] for alt in processes)
+    assert processes and all({"view", "ingest"}.isdisjoint(alt["properties"]) for alt in processes)
 
 
 def test_a_map_style_is_accepted(config):
