@@ -142,7 +142,8 @@ high zoom.
 
 A tile collection is drawn from its TileJSON. Its styles come from the
 first of these that has any: a map provider in the same collection, the
-`style` option of its tile provider (see the `options.style` row of the
+`styles` or the `style` option of its tile provider (see the
+`options.styles` and `options.style` rows of the
 [PMTiles provider](pmtiles.md#configuration)), or a default style built
 from the tiles themselves. When there are several, a control on the map
 switches between them.

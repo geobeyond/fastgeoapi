@@ -2,9 +2,9 @@
 
 The tiles are read through the collection's TileJSON, which MapLibre
 takes as a source as it is. The styles come, in this order, from the
-collection's map provider, from the ``style`` option of its tile
-provider, or from the tiles themselves, as the maps draw a collection
-that has no style of its own.
+collection's map provider, from the ``styles`` or the ``style`` option of
+its tile provider, or from the tiles themselves, as the maps draw a
+collection that has no style of its own.
 """
 
 from __future__ import annotations
@@ -57,14 +57,14 @@ def tile_styles(
     """The styles for the collection's tiles, the default first; never empty.
 
     The configured styles come from the collection's map provider, or else
-    from the ``style`` option of its tile provider. A style that cannot be
-    read is left out with a warning; when none is left, the style is made
-    from the tiles. Style documents are read here, so call it off the
-    event loop.
+    from the ``styles`` or the ``style`` option of its tile provider. A
+    style that cannot be read is left out with a warning; when none is
+    left, the style is made from the tiles. Style documents are read here,
+    so call it off the event loop.
     """
     source = tile_source(tilejson_url, content)
     providers = collection.get("providers") or []
-    for configured in (_map_styles(providers), _tile_provider_style(providers)):
+    for configured in (_map_styles(providers), _tile_provider_styles(providers)):
         styles = [
             TileStyle(name, _pointed(document, source_id, source))
             for name, document, source_id in configured
@@ -77,33 +77,42 @@ def tile_styles(
 def _map_styles(providers: list[dict]) -> Iterator[tuple[str, dict, str]]:
     """The readable styles of the first map provider, its default style first."""
     for provider in providers:
-        if provider.get("type") != "map":
-            continue
-        options = provider.get("options") or {}
-        locations = dict(options.get("styles") or {})
-        default = options.get("default_style")
-        source_id = options.get("style_source") or DEFAULT_SOURCE
-        # Sorting is stable: the default goes first, the others keep their order.
-        for name in sorted(locations, key=lambda name: name != default):
-            document = _read(name, locations[name], provider.get("store_options"))
-            if document is not None:
-                yield name, document, source_id
-        return
+        if provider.get("type") == "map":
+            yield from _named_styles(provider)
+            return
 
 
-def _tile_provider_style(providers: list[dict]) -> Iterator[tuple[str, dict, str]]:
-    """The ``style`` of the first tile provider, named after its file, when it can be read."""
+def _tile_provider_styles(providers: list[dict]) -> Iterator[tuple[str, dict, str]]:
+    """The readable styles of the first tile provider.
+
+    They are its ``styles``, the default first, or else its ``style``,
+    named after its file.
+    """
     for provider in providers:
         if provider.get("type") != "tile":
             continue
         options = provider.get("options") or {}
-        location = options.get("style")
-        if location:
+        if options.get("styles"):
+            yield from _named_styles(provider)
+        elif location := options.get("style"):
             name = PurePosixPath(location).stem
             document = _read(name, location, provider.get("store_options"))
             if document is not None:
                 yield name, document, options.get("style_source") or DEFAULT_SOURCE
         return
+
+
+def _named_styles(provider: dict) -> Iterator[tuple[str, dict, str]]:
+    """The readable ``styles`` of a provider, its ``default_style`` first."""
+    options = provider.get("options") or {}
+    locations = dict(options.get("styles") or {})
+    default = options.get("default_style")
+    source_id = options.get("style_source") or DEFAULT_SOURCE
+    # Sorting is stable: the default goes first, the others keep their order.
+    for name in sorted(locations, key=lambda name: name != default):
+        document = _read(name, locations[name], provider.get("store_options"))
+        if document is not None:
+            yield name, document, source_id
 
 
 def _read(name: str, location: str, store_options: dict | None) -> dict | None:
