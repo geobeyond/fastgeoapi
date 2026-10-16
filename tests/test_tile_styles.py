@@ -5,10 +5,12 @@
 
 import json
 import re
+from pathlib import Path
 
 import pytest
 from pygeoapi.provider.base import ProviderGenericError
 
+import app.provider.tile_styles as tile_styles_module
 from app.provider.pmtiles import PMTilesProvider
 from app.provider.tile_styles import DEFAULT_SOURCE, tile_source, tile_styles
 from app.tiles.contract import TileContent, VectorLayer
@@ -165,6 +167,93 @@ def test_the_map_provider_wins_over_the_tile_provider_style(tmp_path):
     )
 
     assert [style.name for style in styles] == ["night"]
+
+
+def test_the_tile_provider_styles_are_used_the_default_leading(tmp_path):
+    styles = tile_styles(
+        _collection(
+            _tile_provider(
+                styles={
+                    "night": _style(tmp_path / "night.json"),
+                    "day": _style(tmp_path / "day.json", colour="#ffffff"),
+                },
+                default_style="day",
+            )
+        ),
+        TILEJSON,
+        _content(),
+    )
+
+    assert [style.name for style in styles] == ["day", "night"]
+    assert all(style.document["sources"][DEFAULT_SOURCE]["url"] == TILEJSON for style in styles)
+
+
+def test_the_tile_provider_style_source_names_the_tiles_source_of_each_style(tmp_path):
+    styles = tile_styles(
+        _collection(
+            _tile_provider(
+                styles={
+                    "night": _style(tmp_path / "night.json", source="roads-src"),
+                    "day": _style(tmp_path / "day.json", source="roads-src"),
+                },
+                style_source="roads-src",
+            )
+        ),
+        TILEJSON,
+        _content(),
+    )
+
+    assert [style.document["sources"]["roads-src"]["url"] for style in styles] == [TILEJSON] * 2
+
+
+def test_the_map_provider_wins_over_the_tile_provider_styles(tmp_path):
+    styles = tile_styles(
+        _collection(
+            _map_provider(styles={"night": _style(tmp_path / "night.json")}),
+            _tile_provider(styles={"day": _style(tmp_path / "day.json")}),
+        ),
+        TILEJSON,
+        _content(),
+    )
+
+    assert [style.name for style in styles] == ["night"]
+
+
+def test_a_tile_provider_style_that_cannot_be_read_is_left_out(tmp_path):
+    styles = tile_styles(
+        _collection(
+            _tile_provider(
+                styles={
+                    "missing": str(tmp_path / "missing.json"),
+                    "day": _style(tmp_path / "day.json"),
+                },
+                default_style="missing",
+            )
+        ),
+        TILEJSON,
+        _content(),
+    )
+
+    assert [style.name for style in styles] == ["day"]
+
+
+def test_a_tile_provider_style_is_read_with_its_store_options(tmp_path, monkeypatch):
+    seen = []
+
+    def read_style(location, store_options):
+        seen.append((location, store_options))
+        return json.loads(Path(_style(tmp_path / "day.json")).read_text())
+
+    monkeypatch.setattr(tile_styles_module, "read_style", read_style)
+    provider = _tile_provider(styles={"day": "s3://bucket/styles/day.json"})
+    provider["store_options"] = {"region": "us-west-2", "skip_signature": True}
+
+    (style,) = tile_styles(_collection(provider), TILEJSON, _content())
+
+    assert style.name == "day"
+    assert seen == [
+        ("s3://bucket/styles/day.json", {"region": "us-west-2", "skip_signature": True})
+    ]
 
 
 def test_without_a_style_one_is_made_from_the_vector_layers():
