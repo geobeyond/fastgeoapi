@@ -3,10 +3,11 @@
 pygeoapi's schema leaves the keys of a collection and of the server's map
 open, so fastgeoapi can add its own and pygeoapi ignores them. They are
 checked here, after pygeoapi's validation, and offered to the editor's form
-by extending the schema it serves. There are two today: a collection's
-``view``, where the maps of its HTML pages open when the data does not say,
-and the ``style`` of the server's map, the MapLibre style those maps are drawn
-on instead of the tiles of its ``url``.
+by extending the schema it serves. A collection has two: ``view``, where the
+maps of its HTML pages open when the data does not say, and ``ingest``, the
+catalog and collection an ingest command took it from. The server's map has
+one, ``style``, the MapLibre style those maps are drawn on instead of the
+tiles of its ``url``.
 """
 
 from __future__ import annotations
@@ -44,7 +45,34 @@ VIEW_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 
-COLLECTION_KEYS: dict[str, dict[str, Any]] = {"view": VIEW_SCHEMA}
+INGEST_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "description": (
+        "The catalog and collection this resource was ingested from; a new ingest updates it"
+    ),
+    "properties": {
+        "from": {"type": "string", "description": "The kind of catalog", "enum": ["portolan"]},
+        "catalog": {
+            "type": "string",
+            "description": "The catalog, as a URL or a path",
+            "minLength": 1,
+        },
+        "collection": {
+            "type": "string",
+            "description": "The id of the collection in the catalog",
+            "minLength": 1,
+        },
+        "schema": {
+            "type": "string",
+            "description": "The schema the catalog declares",
+            "pattern": "^https?://",
+        },
+    },
+    "required": ["from", "catalog", "collection"],
+    "additionalProperties": False,
+}
+
+COLLECTION_KEYS: dict[str, dict[str, Any]] = {"view": VIEW_SCHEMA, "ingest": INGEST_SCHEMA}
 """fastgeoapi's keys of a collection, with their schemas."""
 
 MAP_STYLE_SCHEMA: dict[str, Any] = {
