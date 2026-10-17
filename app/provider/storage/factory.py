@@ -146,17 +146,20 @@ def load_store(base: str, store_options: dict | None = None) -> ObjectStore:
     ``store_options`` are the cloud store settings — ``region``,
     ``skip_signature`` for public data, ``endpoint`` for an
     S3-compatible service (and an explicit one wins over the process
-    environment). They are meaningless for a local path and ignored
-    there.
+    environment). They are meaningless for a local path and for an
+    http(s) URL, and ignored there: a provider's style at an https URL
+    shares the options of its data in a bucket, and the HTTP store
+    refuses any.
     """
     if base.startswith(_URL_SCHEMES):
         from obstore.store import from_url
 
-        if base.startswith(("http://", "https://")):
+        http = base.startswith(("http://", "https://"))
+        if http:
             # The HTTP store adds its own slash before the key: a base ending in
             # one asks for `prefix//key`, which some servers answer with 404.
             base = base.rstrip("/")
-        if store_options:
+        if store_options and not http:
             config = _for_obstore(store_options, base)
             with _explicit_endpoint_wins(config):
                 # ty: `from_url` is overloaded per provider-specific config
