@@ -20,7 +20,7 @@ from app.pygeoapi.factory import ConfigValidationError, normalize_config
 
 CONFIG_PATH = "tests/data/pygeoapi-config.yml"
 LIBERTY = "https://tiles.openfreemap.org/styles/liberty"
-OVERTURE = "https://nlebovits.github.io/overture-portolan/catalog.json"
+CATALOG = "https://catalog.example.org/catalog.json"
 PORTOLAN_SCHEMA = "https://schemas.portolan-sdi.org/portolan/v0.1.1/schema.json"
 
 
@@ -78,7 +78,7 @@ def test_a_wrong_view_is_refused_with_its_path(config, view, where):
 @pytest.mark.parametrize(
     "ingest",
     [
-        {"from": "portolan", "catalog": OVERTURE, "collection": "building"},
+        {"from": "portolan", "catalog": CATALOG, "collection": "building"},
         {
             "from": "portolan",
             "catalog": "s3://catalogs/anncsu/catalog.json",
@@ -98,15 +98,15 @@ def test_a_collection_with_an_ingest_key_is_accepted(config, ingest):
 @pytest.mark.parametrize(
     ("ingest", "where"),
     [
-        ({"from": "portolan", "catalog": OVERTURE}, "resources.obs.ingest"),
-        ({"from": "stac", "catalog": OVERTURE, "collection": "b"}, "resources.obs.ingest.from"),
+        ({"from": "portolan", "catalog": CATALOG}, "resources.obs.ingest"),
+        ({"from": "stac", "catalog": CATALOG, "collection": "b"}, "resources.obs.ingest.from"),
         ({"from": "portolan", "catalog": "", "collection": "b"}, "resources.obs.ingest.catalog"),
         (
-            {"from": "portolan", "catalog": OVERTURE, "collection": "b", "schema": "v0.1.1"},
+            {"from": "portolan", "catalog": CATALOG, "collection": "b", "schema": "v0.1.1"},
             "resources.obs.ingest.schema",
         ),
         (
-            {"from": "portolan", "catalog": OVERTURE, "collection": "b", "at": "2026-10-15"},
+            {"from": "portolan", "catalog": CATALOG, "collection": "b", "at": "2026-10-15"},
             "resources.obs.ingest",
         ),
         ("portolan", "resources.obs.ingest"),
