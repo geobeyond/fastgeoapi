@@ -84,6 +84,15 @@ def test_load_store_builds_s3_store_without_network():
     assert isinstance(store, ObjectStore)
 
 
+def test_an_http_store_ignores_the_options_of_a_bucket():
+    # A style at an https URL shares the store_options of an archive in a
+    # bucket; the HTTP store takes no configuration, so they must not reach it.
+    store = load_store(
+        "https://example.org/styles/", {"region": "us-west-2", "skip_signature": True}
+    )
+    assert isinstance(store, ObjectStore)
+
+
 def test_put_roundtrip(tmp_path):
     store = load_store(str(tmp_path))
     store.put("artifact.yml", b"openapi: 3.0.2\n")
