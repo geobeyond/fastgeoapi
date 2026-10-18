@@ -1,0 +1,47 @@
+[project]
+name = "fastgeoapi-portolan"
+version = "0.4.0"
+description = "Ingest Portolan catalogs into a fastgeoapi configuration"
+authors = [{ name = "Francesco Bartoli", email = "francesco.bartoli@geobeyond.it" }]
+requires-python = ">=3.10"
+readme = "README.md"
+license = "MIT"
+classifiers = ["Development Status :: 4 - Beta"]
+dependencies = [
+    # 0.12 needs Python 3.11; on 3.10 the resolver picks the 0.11 line.
+    "obstore>=0.11",
+    "pmtiles>=3.7,<4",
+    "ruamel.yaml>=0.18",
+    "typer>=0.12",
+]
+
+# `portolan fastgeoapi ingest`: portolan-cli loads this command when both are
+# installed. It is not a dependency, so the pins of portolan-cli stay out of
+# the environments of fastgeoapi.
+[project.entry-points."portolan.commands"]
+fastgeoapi = "fastgeoapi_portolan.plugin:command"
+
+[project.urls]
+Homepage = "https://github.com/geobeyond/fastgeoapi"
+Repository = "https://github.com/geobeyond/fastgeoapi"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["fastgeoapi_portolan"]
+
+[tool.ruff]
+# The rules of fastgeoapi, with the syntax of the oldest Python this package supports.
+extend = "../../pyproject.toml"
+target-version = "py310"
+
+[tool.ruff.lint.per-file-ignores]
+# The exceptions fastgeoapi grants its tests; the paths of the extended
+# configuration resolve against the repository root, so they are repeated here.
+"tests/*" = ["assert", "hardcoded-bind-all-interfaces", "hardcoded-temp-file", "invalid-function-name", "D", "line-too-long"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "strict"

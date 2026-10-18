@@ -77,11 +77,13 @@ def _install_project(session: Session) -> None:
             "sync",
             "--extra",
             "html",
+            "--extra",
+            "portolan",
             env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
         )
     else:
         # Use pip install for release (PyPI versions)
-        session.install(".", "./packages/fastgeoapi-html")
+        session.install(".", "./packages/fastgeoapi-html", "./packages/fastgeoapi-portolan")
 
 
 nox.options.sessions = [
@@ -423,6 +425,25 @@ def maps(session: Session) -> None:
         env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
     )
     session.run("pytest", "-m", "renderer", "-rs", *session.posargs)
+
+
+@session(python=["3.10", "3.12"])
+def portolan(session: Session) -> None:
+    """Run the tests of the package that ingests Portolan catalogs."""
+    # The package supports Python 3.10 for the users of portolan-cli, so its
+    # lane runs there as well; fastgeoapi itself needs 3.12.
+    session.install(
+        "./packages/fastgeoapi-portolan",
+        # The plugin tests run the command through portolan-cli.
+        "portolan-cli>=0.8,<0.9",
+        "pytest",
+        "pytest-asyncio",
+        "ministack>=1.5,<2",
+        "boto3>=1.35",
+        "duckdb>=1.5,<2",
+    )
+    session.chdir("packages/fastgeoapi-portolan")
+    session.run("pytest", *session.posargs)
 
 
 @session(python=python_versions)
