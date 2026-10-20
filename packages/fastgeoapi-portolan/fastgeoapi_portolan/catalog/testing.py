@@ -3,8 +3,10 @@
 A transport passes when the walk over it finds, in each catalog, the
 collections and the skip reasons the reference transport finds, a root
 that does not exist raises ``FileNotFoundError``, and the parts of the
-partitioned collection come back in order. Every catalog but
-``nonconforming`` and ``not_json`` conforms to Portolan v0.2.0.
+partitioned collection come back in order. Every document passes the
+schemas of Portolan v0.2.0 except three: the collection of
+``nonconforming`` has no title, the broken file of ``not_json`` is not
+JSON, and ``plain_stac`` is STAC without the Portolan profile.
 """
 
 from __future__ import annotations

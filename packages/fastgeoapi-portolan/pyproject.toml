@@ -8,9 +8,12 @@ readme = "README.md"
 license = "MIT"
 classifiers = ["Development Status :: 4 - Beta"]
 dependencies = [
+    # With referencing, for the schema validator; the core of the reader imports neither.
+    "jsonschema>=4.18",
     # 0.12 needs Python 3.11; on 3.10 the resolver picks the 0.11 line.
     "obstore>=0.11",
     "pmtiles>=3.7,<4",
+    "referencing>=0.30",
     "ruamel.yaml>=0.18",
     "typer>=0.12",
 ]

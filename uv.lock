@@ -1055,8 +1055,10 @@ name = "fastgeoapi-portolan"
 version = "0.4.0"
 source = { editable = "packages/fastgeoapi-portolan" }
 dependencies = [
+    { name = "jsonschema" },
     { name = "obstore" },
     { name = "pmtiles" },
+    { name = "referencing" },
     { name = "ruamel-yaml" },
     { name = "typer" },
 ]
@@ -1068,9 +1070,11 @@ models = [
 
 [package.metadata]
 requires-dist = [
+    { name = "jsonschema", specifier = ">=4.18" },
     { name = "obstore", specifier = ">=0.11" },
     { name = "pmtiles", specifier = ">=3.7,<4" },
     { name = "pydantic", marker = "extra == 'models'", specifier = ">=2.7" },
+    { name = "referencing", specifier = ">=0.30" },
     { name = "ruamel-yaml", specifier = ">=0.18" },
     { name = "typer", specifier = ">=0.12" },
 ]
