@@ -9,7 +9,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
-from fastgeoapi_portolan.storage import obstore_config, read_bytes, read_range
+from fastgeoapi_portolan.storage import ObstoreTransport, obstore_config, read_bytes, read_range
 
 
 @pytest.fixture
@@ -112,3 +112,19 @@ async def test_an_explicit_endpoint_wins_over_the_environment(bucket, monkeypatc
 
     assert await read_bytes(f"s3://{BUCKET}/cat/catalog.json", bucket) == b'{"id": "root"}'
     assert os.environ["AWS_ENDPOINT_URL_S3"] == NOBODY_LISTENS
+
+
+class Forbidden(SimpleHTTPRequestHandler):
+    def do_GET(self):
+        self.send_error(403)
+
+
+@pytest.mark.asyncio
+async def test_a_store_failure_reaches_the_walk_as_an_oserror():
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Forbidden)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        with pytest.raises(OSError, match="403"):
+            await ObstoreTransport().read(f"http://127.0.0.1:{server.server_address[1]}/x.json")
+    finally:
+        server.shutdown()

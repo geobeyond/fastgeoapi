@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import obstore
+from obstore.exceptions import BaseError
 from obstore.store import LocalStore, from_url
 
 from fastgeoapi_portolan.catalog.locations import is_url
@@ -133,3 +134,24 @@ async def read_range(
     """``length`` bytes of the object at ``location``, from ``start``."""
     store, key = _store_and_key(location, store_options)
     return bytes(await obstore.get_range_async(store, key, start=start, length=length))
+
+
+class ObstoreTransport:
+    """Reads catalog documents through obstore, wherever they are: disk, http(s) or a bucket.
+
+    ``store_options`` reach the buckets only, as with :func:`read_bytes`.
+    """
+
+    def __init__(self, store_options: Mapping[str, Any] | None = None) -> None:
+        self.store_options = store_options
+
+    async def read(self, location: str) -> bytes:
+        """The bytes of the document at ``location``.
+
+        An obstore error becomes an ``OSError``, so the walk skips the
+        document with the reason instead of stopping.
+        """
+        try:
+            return await read_bytes(location, self.store_options)
+        except BaseError as error:
+            raise OSError(str(error)) from error
