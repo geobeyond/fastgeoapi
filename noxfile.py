@@ -252,6 +252,25 @@ def models_check(session: Session) -> None:
     session.run("python", "scripts/generate_config_models.py", "--check")
 
 
+@session(name="portolan-types", python="3.12")
+def portolan_types(session: Session) -> None:
+    """Regenerate the document types of the Portolan reader from its bundled schemas.
+
+    The `http` extra resolves the draft-07 meta-schema the STAC schemas
+    reference; only generation goes to the network, the reader never does.
+    """
+    # The version `models` pins: see the comment there.
+    session.install("datamodel-code-generator[http]==0.85.0")
+    session.run("python", "packages/fastgeoapi-portolan/scripts/generate_types.py")
+
+
+@session(name="portolan-types-check", python="3.12")
+def portolan_types_check(session: Session) -> None:
+    """Fail when the committed types of the Portolan reader no longer match its schemas."""
+    session.install("datamodel-code-generator[http]==0.85.0")
+    session.run("python", "packages/fastgeoapi-portolan/scripts/generate_types.py", "--check")
+
+
 @session(python=python_versions)
 def bandit(session: Session) -> None:
     """Scan code for vulnerabilities."""
@@ -430,7 +449,8 @@ def portolan(session: Session) -> None:
     # The package supports Python 3.10 for the users of portolan-cli, so its
     # lane runs there as well; fastgeoapi itself needs 3.12.
     session.install(
-        "./packages/fastgeoapi-portolan",
+        # With its Pydantic models, so their round trip runs on both Pythons.
+        "./packages/fastgeoapi-portolan[models]",
         # The plugin tests run the command through portolan-cli.
         "portolan-cli>=0.8,<0.9",
         "pytest",

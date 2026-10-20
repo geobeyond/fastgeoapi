@@ -181,7 +181,15 @@ python-version = "3.12"
 # facade in front of it (`app/pygeoapi/config_models/__init__.py`) is
 # checked, and tests pin that the models accept the configurations we
 # actually ship.
-exclude = ["app/pygeoapi/config_models/_generated.py"]
+exclude = [
+    "app/pygeoapi/config_models/_generated.py",
+    # The document types of the Portolan reader, generated from the STAC
+    # schemas: their `allOf` compositions redeclare fields, which is valid at
+    # runtime and refused by a static checker. `catalog/types.py` and
+    # `models/__init__.py`, written by hand, are checked.
+    "packages/fastgeoapi-portolan/fastgeoapi_portolan/catalog/_generated",
+    "packages/fastgeoapi-portolan/fastgeoapi_portolan/models/[a-z]*.py",
+]
 
 [tool.ty.rules]
 # ty is still in alpha, ignoring some rules temporarily

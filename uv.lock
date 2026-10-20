@@ -1061,13 +1061,20 @@ dependencies = [
     { name = "typer" },
 ]
 
+[package.optional-dependencies]
+models = [
+    { name = "pydantic" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "obstore", specifier = ">=0.11" },
     { name = "pmtiles", specifier = ">=3.7,<4" },
+    { name = "pydantic", marker = "extra == 'models'", specifier = ">=2.7" },
     { name = "ruamel-yaml", specifier = ">=0.18" },
     { name = "typer", specifier = ">=0.12" },
 ]
+provides-extras = ["models"]
 
 [[package]]
 name = "fastmcp"
