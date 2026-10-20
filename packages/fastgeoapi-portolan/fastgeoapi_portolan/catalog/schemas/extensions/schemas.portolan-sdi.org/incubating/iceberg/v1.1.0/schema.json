@@ -1,0 +1,166 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.portolan-sdi.org/incubating/iceberg/v1.1.0/schema.json#",
+  "title": "STAC Iceberg Extension",
+  "description": "Extends STAC Collections with Apache Iceberg table access and versioning metadata.",
+  "oneOf": [
+    {
+      "$comment": "This is the schema for STAC Collections.",
+      "type": "object",
+      "allOf": [
+        {
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "const": "Collection"
+            }
+          }
+        },
+        {
+          "$ref": "#/definitions/stac_extensions"
+        },
+        {
+          "$ref": "#/definitions/static_requires_metadata_location"
+        }
+      ],
+      "anyOf": [
+        {
+          "$comment": "Top-level fields in a Collection.",
+          "allOf": [
+            {
+              "required": [
+                "iceberg:catalog_type",
+                "iceberg:table_id"
+              ]
+            },
+            {
+              "$ref": "#/definitions/fields"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "definitions": {
+    "stac_extensions": {
+      "type": "object",
+      "required": [
+        "stac_extensions"
+      ],
+      "properties": {
+        "stac_extensions": {
+          "type": "array",
+          "contains": {
+            "const": "https://schemas.portolan-sdi.org/incubating/iceberg/v1.1.0/schema.json"
+          }
+        }
+      }
+    },
+    "static_requires_metadata_location": {
+      "$comment": "A static catalog has no server to resolve the current metadata, so the metadata.json location is required. A managed catalog resolves it at read time and may omit the field.",
+      "if": {
+        "type": "object",
+        "required": [
+          "iceberg:catalog_type"
+        ],
+        "properties": {
+          "iceberg:catalog_type": {
+            "const": "static"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "iceberg:metadata_location"
+        ]
+      }
+    },
+    "fields": {
+      "type": "object",
+      "properties": {
+        "iceberg:catalog_type": {
+          "type": "string",
+          "enum": [
+            "sql",
+            "rest",
+            "glue",
+            "hive",
+            "dynamodb",
+            "static"
+          ],
+          "description": "Iceberg catalog backend type. 'sql', 'rest', 'glue', 'hive', and 'dynamodb' are Iceberg catalog implementations. 'static' is a Portolan convention, not an Iceberg-defined catalog type. It means a filesystem-style table layout (metadata.json plus Avro manifests, written with the Hadoop/filesystem layout) on object storage, read with no catalog server via PyIceberg StaticTable or DuckDB iceberg_scan, optionally fronted by a pre-rendered static REST surface that a client can ATTACH with no authentication."
+        },
+        "iceberg:catalog_uri": {
+          "type": "string",
+          "description": "Connection URI for the Iceberg catalog. For a static REST surface this is the base URL the REST endpoints are served under."
+        },
+        "iceberg:rest_prefix": {
+          "type": "string",
+          "description": "REST catalog prefix, the '{prefix}' path segment a client inserts into REST paths (v1/{prefix}/namespaces/...), obtained from the 'overrides' or 'defaults' in the GET /v1/config response. Needed only to ATTACH a prefixed REST surface. Example 'sdi'."
+        },
+        "iceberg:authorization_type": {
+          "type": "string",
+          "enum": [
+            "none",
+            "oauth2",
+            "sigv4"
+          ],
+          "description": "Authorization mode a client should use to read the catalog. 'oauth2' and 'sigv4' are the schemes the Iceberg REST spec describes. 'none' is a Portolan convention meaning no client authentication, for a publicly readable catalog, it is not an Iceberg-defined mode."
+        },
+        "iceberg:table_id": {
+          "type": "string",
+          "description": "Fully qualified Iceberg table identifier (namespace.table). A managed catalog resolves this identifier to the current metadata. On a static REST surface the same identifier addresses the pre-rendered table document at v1/{prefix}/namespaces/{namespace}/tables/{table}, so the namespace part mirrors the catalog tree and the table part is the collection id with each hyphen replaced by an underscore, because an unquoted Iceberg identifier takes no hyphen."
+        },
+        "iceberg:metadata_location": {
+          "type": "string",
+          "description": "URL of the table's current metadata.json. The most direct handle for a serverless reader, usable with DuckDB iceberg_scan() or PyIceberg StaticTable without a catalog."
+        },
+        "iceberg:format_version": {
+          "type": "integer",
+          "enum": [
+            1,
+            2,
+            3
+          ],
+          "description": "Iceberg format version. Version 3 is the first version with native geometry/geography types and CRS, so geospatial tables described by this extension are v3 or later."
+        },
+        "iceberg:current_snapshot_id": {
+          "type": "string",
+          "pattern": "^-?[0-9]+$",
+          "description": "Current snapshot ID for reproducibility. Iceberg snapshot IDs are 64-bit, so this is serialized as a string to avoid precision loss in JSON parsers (e.g. JavaScript) that round integers above 2^53."
+        },
+        "iceberg:partition_spec": {
+          "type": "array",
+          "description": "Iceberg partition fields, mirroring the table's current partition spec. Omit for unpartitioned tables.",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "transform"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Partition field name as it appears in the Iceberg partition spec. This is the partition field name, which may differ from the source column name."
+              },
+              "transform": {
+                "type": "string",
+                "description": "Iceberg partition transform. One of 'identity', 'void', 'year', 'month', 'day', 'hour', or the parameterized forms 'bucket[N]' and 'truncate[W]' (the bracketed parameter is required, e.g. 'bucket[16]')."
+              },
+              "source-id": {
+                "type": "integer",
+                "description": "Field ID of the source column the transform is applied to (Iceberg 'source-id')."
+              },
+              "field-id": {
+                "type": "integer",
+                "description": "Field ID assigned to this partition field (Iceberg 'field-id', 1000+ by convention)."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
