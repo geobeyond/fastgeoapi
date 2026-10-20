@@ -73,7 +73,8 @@ def _required(href: str, reply: bytes | OSError) -> dict[str, Any]:
         raise ValueError(f"{href}: {error.reason}") from None
 
 
-def _profile(document: Mapping[str, Any]) -> str | None:
+def declared_profile(document: Mapping[str, Any]) -> str | None:
+    """The Portolan schema ``document`` lists in ``stac_extensions``, if any."""
     extensions = document.get("stac_extensions")
     if not isinstance(extensions, list):
         return None
@@ -127,7 +128,7 @@ class _Walk:
         self.root = root
         self.only = only
         self.validator = validator
-        self.profile = _profile(document)
+        self.profile = declared_profile(document)
         self.seen = {root}
         self.collections: list[Collection] = []
         self.nonconforming: list[Nonconforming] = []
@@ -180,12 +181,12 @@ class _Walk:
                 href=href,
                 document=cast(CollectionDocument, document),
                 item_hrefs=items,
-                profile=_profile(document) or self.profile,
+                profile=declared_profile(document) or self.profile,
             )
         )
 
     def declared(self, href: str, document: Mapping[str, Any]) -> None:
-        own = _profile(document)
+        own = declared_profile(document)
         if own and self.profile and _version(own) != _version(self.profile):
             self.warn(
                 f"{href} declares Portolan {_version(own)}, "

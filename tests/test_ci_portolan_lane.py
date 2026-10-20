@@ -52,3 +52,21 @@ def test_the_root_suite_collects_only_tests():
     config = tomllib.loads(Path("pyproject.toml").read_text())
 
     assert config["tool"]["pytest"]["ini_options"]["testpaths"] == ["tests"]
+
+
+def test_ci_runs_the_rashid_agreement_on_3_10_and_3_12():
+    for python in ("3.10", "3.12"):
+        assert {"python": python, "os": "ubuntu-22.04", "session": "portolan-rashid"} in _rows()
+
+
+def test_nox_has_a_portolan_rashid_session_on_both_pythons():
+    # portolan-cli pins an older rashid, so the comparison has a session of its own.
+    tree = ast.parse(Path("noxfile.py").read_text())
+    (function,) = [
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "portolan_rashid"
+    ]
+    decorators = [ast.unparse(decorator) for decorator in function.decorator_list]
+
+    assert "session(name='portolan-rashid', python=['3.10', '3.12'])" in decorators
