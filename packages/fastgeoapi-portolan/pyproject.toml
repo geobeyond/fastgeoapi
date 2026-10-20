@@ -40,7 +40,7 @@ target-version = "py310"
 [tool.ruff.lint.per-file-ignores]
 # The exceptions fastgeoapi grants its tests; the paths of the extended
 # configuration resolve against the repository root, so they are repeated here.
-"tests/*" = ["assert", "hardcoded-bind-all-interfaces", "hardcoded-temp-file", "invalid-function-name", "D", "line-too-long"]
+"tests/*" = ["assert", "hardcoded-bind-all-interfaces", "hardcoded-password-string", "hardcoded-password-func-arg", "hardcoded-temp-file", "hardcoded-sql-expression", "invalid-function-name", "D", "line-too-long"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

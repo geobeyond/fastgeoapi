@@ -1,0 +1,247 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://stac-extensions.github.io/web-map-links/v1.3.0/schema.json#",
+  "title": "Web Map Links Extension",
+  "description": "STAC Web Map Links Extension for STAC Items, STAC Catalogs and STAC Collections.",
+  "type": "object",
+  "required": [
+    "stac_extensions",
+    "type",
+    "links"
+  ],
+  "properties": {
+    "stac_extensions": {
+      "type": "array",
+      "contains": {
+        "const": "https://stac-extensions.github.io/web-map-links/v1.3.0/schema.json"
+      }
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "Catalog",
+        "Collection",
+        "Feature"
+      ]
+    },
+    "links": {
+      "type": "array",
+      "contains": {
+        "type": "object",
+        "required": [
+          "rel"
+        ],
+        "properties": {
+          "rel": {
+            "enum": [
+              "xyz",
+              "wms",
+              "wmts",
+              "tilejson",
+              "pmtiles",
+              "3d-tiles"
+            ]
+          }
+        }
+      },
+      "items": {
+        "type": "object",
+        "allOf": [
+          {
+            "$comment": "Defines XYZ links",
+            "if": {
+              "properties": {
+                "rel": {
+                  "const": "xyz"
+                }
+              }
+            },
+            "then": {
+              "$ref": "#/definitions/servers"
+            }
+          },
+          {
+            "$comment": "Defines WMTS links",
+            "if": {
+              "properties": {
+                "rel": {
+                  "const": "wmts"
+                }
+              }
+            },
+            "then": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/servers"
+                }
+              ],
+              "if": {
+                "required": [
+                  "wmts:encoding"
+                ],
+                "properties": {
+                  "wmts:encoding": {
+                    "const": "rest"
+                  }
+                }
+              },
+              "then": {
+                "$comment": "REST request encoding",
+                "required": [
+                  "wmts:layer"
+                ],
+                "properties": {
+                  "wmts:layer": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "wmts:encoding": {
+                    "const": "rest"
+                  },
+                  "uriTemplate": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "variables": {
+                    "type": "object",
+                    "description": "This object contains one key per substitution variable in the templated URL. Each key defines the schema of one substitution variable using a JSON Schema fragment and can thus include things like the data type of the variable, enumerations, minimum values, maximum values, etc."
+                  }
+                }
+              },
+              "else": {
+                "$comment": "KVP request encoding",
+                "required": [
+                  "wmts:layer"
+                ],
+                "properties": {
+                  "wmts:layer": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    ]
+                  },
+                  "wmts:encoding": {
+                    "const": "kvp"
+                  },
+                  "wmts:dimensions": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "$comment": "Defines WMS links",
+            "if": {
+              "properties": {
+                "rel": {
+                  "const": "wms"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "wms:layers"
+              ],
+              "properties": {
+                "wms:layers": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "wms:styles": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "wms:dimensions": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "wms:transparent": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          {
+            "$comment": "Defines PMTiles links",
+            "if": {
+              "properties": {
+                "rel": {
+                  "const": "pmtiles"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "pmtiles:layers": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "servers": {
+      "if": {
+        "required": [
+          "href"
+        ],
+        "properties": {
+          "href": {
+            "pattern": "\\{s\\}"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "href:servers"
+        ],
+        "properties": {
+          "href:servers": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "href:servers": {
+            "not": {}
+          }
+        }
+      }
+    }
+  }
+}
