@@ -29,6 +29,24 @@ def test_nox_has_a_portolan_session_on_both_pythons():
     assert "session(python=['3.10', '3.12'])" in decorators
 
 
+def test_ci_runs_the_portolan_types_check():
+    assert {"python": "3.12", "os": "ubuntu-22.04", "session": "portolan-types-check"} in _rows()
+
+
+def test_nox_has_the_portolan_types_sessions():
+    tree = ast.parse(Path("noxfile.py").read_text())
+    decorators = {
+        node.name: [ast.unparse(decorator) for decorator in node.decorator_list]
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+    }
+
+    assert "session(name='portolan-types', python='3.12')" in decorators["portolan_types"]
+    assert (
+        "session(name='portolan-types-check', python='3.12')" in decorators["portolan_types_check"]
+    )
+
+
 def test_the_root_suite_collects_only_tests():
     # The package's own tests run in its lane, against the Pythons it supports.
     config = tomllib.loads(Path("pyproject.toml").read_text())

@@ -4,12 +4,14 @@ repos:
     hooks:
       # The generated configuration models are machine-produced; letting
       # a formatter rewrite them makes `nox -s models-check` fail, because
-      # regenerating would no longer reproduce the committed file.
+      # regenerating would no longer reproduce the committed file. The same
+      # holds for the document types of the Portolan reader and
+      # `nox -s portolan-types-check`.
       - id: ruff-check
         args: [--fix]
-        exclude: '^app/pygeoapi/config_models/(_generated\.py|pygeoapi-config-schema\.yml)$'
+        exclude: '^(app/pygeoapi/config_models/(_generated\.py|pygeoapi-config-schema\.yml)|packages/fastgeoapi-portolan/fastgeoapi_portolan/(catalog/_generated/[^/]+|models/(?!__init__\.py)[^/]+)\.py)$'
       - id: ruff-format
-        exclude: '^app/pygeoapi/config_models/(_generated\.py|pygeoapi-config-schema\.yml)$'
+        exclude: '^(app/pygeoapi/config_models/(_generated\.py|pygeoapi-config-schema\.yml)|packages/fastgeoapi-portolan/fastgeoapi_portolan/(catalog/_generated/[^/]+|models/(?!__init__\.py)[^/]+)\.py)$'
   - repo: local
     hooks:
       - id: check-added-large-files
@@ -31,14 +33,14 @@ repos:
         entry: end-of-file-fixer
         language: system
         types: [text]
-        exclude: '^(app/pygeoapi/config_models/(_generated\.py|pygeoapi-config-schema\.yml)|packages/fastgeoapi-portolan/fastgeoapi_portolan/catalog/schemas/.+\.json)$'
+        exclude: '^(app/pygeoapi/config_models/(_generated\.py|pygeoapi-config-schema\.yml)|packages/fastgeoapi-portolan/fastgeoapi_portolan/catalog/schemas/.+\.json|packages/fastgeoapi-portolan/fastgeoapi_portolan/(catalog/_generated/[^/]+|models/(?!__init__\.py)[^/]+)\.py)$'
         stages: [pre-commit, pre-push, manual]
       - id: trailing-whitespace
         name: Trim Trailing Whitespace
         entry: trailing-whitespace-fixer
         language: system
         types: [text]
-        exclude: '^(app/pygeoapi/config_models/(_generated\.py|pygeoapi-config-schema\.yml)|packages/fastgeoapi-portolan/fastgeoapi_portolan/catalog/schemas/.+\.json)$'
+        exclude: '^(app/pygeoapi/config_models/(_generated\.py|pygeoapi-config-schema\.yml)|packages/fastgeoapi-portolan/fastgeoapi_portolan/catalog/schemas/.+\.json|packages/fastgeoapi-portolan/fastgeoapi_portolan/(catalog/_generated/[^/]+|models/(?!__init__\.py)[^/]+)\.py)$'
         stages: [pre-commit, pre-push, manual]
       - id: ty
         name: Type check with ty
