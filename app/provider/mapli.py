@@ -1,7 +1,10 @@
 """Fastgeoapi provider for OGC API Maps that uses mapli for rendering."""
 
 import asyncio
+import copy
 import dataclasses
+import hashlib
+import json
 import math
 from collections.abc import Sequence
 from pathlib import Path
@@ -19,9 +22,9 @@ from pygeoapi.provider.base import (
 )
 
 from app.config.logging import create_logger
+from app.maps.contract import SourceNotDrawableError
 from app.maps.sources import (
     ObjectUrl,
-    SourceContent,
     SourceContext,
     source_for,
 )
@@ -40,12 +43,16 @@ from app.provider.storage.cache import range_cache_enabled
 from app.provider.storage.loopback import SOURCES, ensure_range_server
 
 if TYPE_CHECKING:
+    from app.maps.contract import MapSource, SourceContent
     from app.provider.storage import CachedRanges
     from app.provider.storage.loopback import RangeServer
 
 logger = create_logger("app.provider.mapli")
 
 CRS_84 = "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+
+# The highest latitude mapli draws: the north edge of web mercator
+MAX_LATITUDE = 85.05112877980659
 
 
 @dataclasses.dataclass(frozen=True)
@@ -55,8 +62,10 @@ class MapliMapProviderConfig:
     _supported_dem_encodings: ClassVar[list[str]] = ["mapbox", "terrarium"]
 
     data: str
-    num_workers: int = 4
-    max_renderers_per_worker: int = 8
+    # Each worker is a thread with its own renderers, each renderer has its own
+    # GL context and tile cache: keep these low on slim nodes
+    num_workers: int = 1
+    max_renderers_per_worker: int = 4
     storage_crs: str = WEB_MERCATOR
     default_vector_colors: tuple[str, ...] = (
         "#e15759",
@@ -90,7 +99,7 @@ class MapliMapProviderConfig:
                     f"default_style {self.default_style!r} is not among the configured styles"
                 )
             )
-        if self.dem_data_encodings and self.dem_data_encodings not in ("mapbox", "terrarium"):
+        if self.dem_data_encodings and self.dem_data_encodings not in self._supported_dem_encodings:
             raise ProviderGenericError(
                 user_msg=(
                     f"dem must be one of {self._supported_dem_encodings!r}, "
@@ -101,28 +110,35 @@ class MapliMapProviderConfig:
     @classmethod
     def from_pygeoapi_provider_def(cls, provider_def: dict) -> "MapliMapProviderConfig":
         """Generate an instance from a pygeoapi provider definition dictionary."""
+        options = provider_def.get("options") or {}
         return cls(
             data=provider_def["data"],
-            data_url=provider_def.get("options", {}).get("data_url"),
-            max_renderers_per_worker=provider_def.get("options", {}).get(
-                "max_renderers_per_worker", 8
+            data_url=options.get("data_url", cls.data_url),
+            dem_data_encodings=options.get("dem", cls.dem_data_encodings),
+            max_renderers_per_worker=options.get(
+                "max_renderers_per_worker", cls.max_renderers_per_worker
             ),
-            num_workers=provider_def.get("options", {}).get("num_workers", 4),
-            storage_crs=provider_def.get("storage_crs", WEB_MERCATOR),
-            store_options=provider_def.get("store_options"),
-            styles=provider_def.get("styles", {}),
-            default_background_color=provider_def.get("default_background_color", "#ffffff"),
-            min_image_width=(provider_def.get("options", {}).get("min_image_width", 10)),
-            max_image_width=(
-                provider_def.get("options", {}).get(
-                    "max_image_width", provider_def.get("options", {}).get("max_size", 2048)
-                )
+            num_workers=options.get("num_workers", cls.num_workers),
+            storage_crs=provider_def.get("storage_crs", cls.storage_crs),
+            store_options=provider_def.get("store_options", cls.store_options),
+            styles=options.get("styles") or {},
+            default_style=options.get("default_style", cls.default_style),
+            default_background_color=options.get(
+                "default_background_color", cls.default_background_color
             ),
-            min_image_height=(provider_def.get("options", {}).get("min_image_height", 10)),
-            max_image_height=(
-                provider_def.get("options", {}).get(
-                    "max_image_height", provider_def.get("options", {}).get("max_size", 2048)
-                )
+            default_vector_colors=tuple(
+                options.get("default_vector_colors", cls.default_vector_colors)
+            ),
+            default_hillshade_background_color=options.get(
+                "default_hillshade_background_color", cls.default_hillshade_background_color
+            ),
+            min_image_width=options.get("min_image_width", cls.min_image_width),
+            max_image_width=options.get(
+                "max_image_width", options.get("max_size", cls.max_image_width)
+            ),
+            min_image_height=options.get("min_image_height", cls.min_image_height),
+            max_image_height=options.get(
+                "max_image_height", options.get("max_size", cls.max_image_height)
             ),
         )
 
@@ -151,44 +167,68 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
     _DEFAULT_STYLE_NAME = "default"
 
+    # Name used in styles to refer to the collection's data. When a style declares
+    # this source without a `url`, the provider fills in the current URL of the data
+    _DATASET_SOURCE_NAME = "dataset"
+
     # Configuration explicitly used by this provider
     _config: MapliMapProviderConfig
 
     # The fastgeoapi local http cache server which may be used as a local http cache
     _range_server: "RangeServer | None"
 
-    _render_pool: mapli.RenderPool
+    _render_pool: mapli.RenderPool | None
+    _map_source: "MapSource | None"
     _map_styles: dict[str, str | dict]
 
     def __init__(self, provider_def: dict) -> None:
         super().__init__(provider_def)
         self._range_server = None
         self._config = MapliMapProviderConfig.from_pygeoapi_provider_def(provider_def)
-        if self._config.data_url is None:
-            data_comes_from_bucket = (
-                "://" in self._config.data
-                and not self._config.data.startswith(("file://", "http://", "https://"))
-            )
+        if self._config.data_url is None and is_bucket(self._config.data):
+            # NOTE: mapli (and thus MapLibre Native, which it uses) fetches the
+            # data itself, by URL, without bucket credentials. This means that
+            # a bucket can be read either:
+            # - through the range cache's loopback server, which reads it
+            #   with the credentials, or
+            # - at a public data_url.
+            #
+            # Private buckets are thus only supported with the range cache
+            # enabled, because its loopback server reads the bucket through
+            # fastgeoapi's store, which is able to authenticate with the
+            # provider's store_options.
+            #
+            # Providing a presigned URL of the object would be another way
+            # to give mapli access to a private bucket without the range cache,
+            # but it is deliberately not supported: a presigned URL expires, so it
+            # would have to be signed again periodically (e.g. every hour), and
+            # each new URL would amount to registering a new style in mapli. It
+            # would also put a secret in the style.
+            #
+            # To use a private bucket without the range cache, run a proxy that
+            # signs requests to the bucket with its own credentials (e.g.
+            # aws-sigv4-proxy) and point data_url at it.
             should_use_local_cache = (
                 provider_def.get("options", {}).get("range_cache", True) and range_cache_enabled()
             )
-            if data_comes_from_bucket and not should_use_local_cache:
+            if not should_use_local_cache:
                 raise ProviderGenericError(
-                    user_msg=("a public bucket needs options.data_url, the https URL of the data")
+                    user_msg=(
+                        "data in a bucket needs either the range cache or options.data_url, "
+                        "the https URL of the data"
+                    )
                 )
 
         try:
-            _source_format = source_for(self._config.data)
+            self._source_format = source_for(self._config.data)
         except LookupError as error:
             raise ProviderGenericError(user_msg=f"map source not supported: {error}") from error
 
-        # Cannot create default styles and register them with mapli yet, because
-        # fastgeoapi's local cache initialization is async
+        # Cannot create default styles yet: that reads the data, and the
+        # constructor must not do any I/O
+        self._map_source = None
         self._map_styles = {}
-        self._render_pool = mapli.RenderPool(
-            workers=self._config.num_workers,
-            max_renderers_per_worker=self._config.max_renderers_per_worker,
-        )
+        self._render_pool = None
 
     async def aquery(
         self,
@@ -235,61 +275,99 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             [float(i) for i in bbox] if bbox else (-HALF_WORLD, -HALF_WORLD, HALF_WORLD, HALF_WORLD)
         )
         if any(math.isnan(i) for i in web_mercator_bbox):
-            raise ProviderGenericError("bounding box contains NaN values")
+            raise MapParameterError(user_msg="bounding box contains NaN values")
         lon_lat_bbox = parse_web_mercator_bbox_as_crs84_bbox(web_mercator_bbox)
 
-        if len(self._map_styles) == 0:  # this is the first time we are running
-            await self._initialize_styles()
+        cached = self.cached_ranges
+        if cached is not None:
+            self._range_server = await ensure_range_server()
+            # Register only once the version is known: on a reload, the provider
+            # this one replaces keeps serving its maps until then
+            await cached.ameta_without_waiting()
+            SOURCES.register(cached)
 
-        style_id = style or self._DEFAULT_STYLE_NAME
-        registered_style_identifier = "-".join(
-            (style_id, "transparent" if with_transparency else "")
-        )
-        if not self._render_pool.has_style(registered_style_identifier):
-            style_definition = self._generate_style(
-                style_id, transparent_background=with_transparency
+        if self._render_pool is None:
+            self._render_pool = mapli.RenderPool(
+                workers=self._config.num_workers,
+                max_renderers_per_worker=self._config.max_renderers_per_worker,
             )
-            logger.debug(f"{style_definition=}")
-            if isinstance(style_definition, str):
-                self._render_pool.register_style(registered_style_identifier, url=style_definition)
-            else:
-                self._render_pool.register_style(registered_style_identifier, json=style_definition)
-        return await self._render_pool.arender_from_bounds(
-            style_id=registered_style_identifier,
-            bbox=lon_lat_bbox,
-            width=width,
-            height=height,
+        render_pool = self._render_pool
+
+        style_id = style or self._config.default_style or self._DEFAULT_STYLE_NAME
+        # In a thread: preparing the style may read the data and its version
+        registered_style_identifier = await self.run_sync(
+            self._register_style, render_pool, style_id, with_transparency
         )
+        try:
+            return await render_pool.arender_from_bounds(
+                style_id=registered_style_identifier,
+                bbox=lon_lat_bbox,
+                width=width,
+                height=height,
+            )
+        except mapli.StyleLoadError as error:
+            logger.warning(f"mapli could not load style {style_id!r}: {error}")
+            raise ProviderGenericError(user_msg=f"style {style_id} could not be loaded") from error
+        except mapli.MapliError as error:
+            logger.warning(f"mapli failed to render with {type(error).__name__}: {error}")
+            raise ProviderGenericError(user_msg="the map renderer failed") from error
 
     def query(self, **kwargs: Any) -> bytes:
         """Generate a map image."""
-        return asyncio.run(self.aquery(), **kwargs)
+        return asyncio.run(self.aquery(**kwargs))
 
-    async def _initialize_styles(self) -> None:
-        if self.cached_ranges:
-            self._range_server = await ensure_range_server()
-            SOURCES.register(self.cached_ranges)
-        try:
-            _source_format = source_for(self._config.data)
-        except LookupError as error:
-            raise ProviderGenericError(user_msg=f"map source not supported: {error}") from error
+    def _register_style(
+        self, render_pool: mapli.RenderPool, style_id: str, transparent_background: bool
+    ) -> str:
+        """Register the style with mapli, if needed, and return its identifier there.
 
-        _map_source = _source_format.build(
-            SourceContext(
-                data=self._config.data,
-                options=dataclasses.asdict(self._config),
-                location=self._get_object_url,
-                ranges=(
-                    (lambda: self.cached_ranges.at(self.cached_ranges.meta()).read)
-                    if self.cached_ranges is not None
-                    else (lambda: self.byte_ranges().read)
-                ),
-            )
+        The identifier changes along with the style's contents, including the URL of
+        the data, which names its version when read through the range cache. When the
+        data changes, a new style gets registered instead of drawing the old version.
+        """
+        if len(self._map_styles) == 0:  # this is the first time we are running
+            self._initialize_styles()
+        style_definition = self._generate_style(
+            style_id, transparent_background=transparent_background
         )
+        if isinstance(style_definition, str):
+            registered_style_identifier = style_id
+        else:
+            serialized = json.dumps(style_definition, sort_keys=True)
+            digest = hashlib.sha256(serialized.encode()).hexdigest()[:16]
+            registered_style_identifier = f"{style_id}-{digest}"
+        if not render_pool.has_style(registered_style_identifier):
+            if isinstance(style_definition, str):
+                render_pool.register_style(registered_style_identifier, url=style_definition)
+            else:
+                render_pool.register_style(registered_style_identifier, json=style_definition)
+        return registered_style_identifier
+
+    def _initialize_styles(self) -> None:
+        # NOTE: these lambdas are called right away, while building the source, so the
+        # source does not end up holding a reference to `self`. Keeping it that way
+        # avoids a reference cycle, which would delay freeing the render pool on reload
+        cached = self.cached_ranges
+        try:
+            self._map_source = self._source_format.build(
+                SourceContext(
+                    data=self._config.data,
+                    options={"dem": self._config.dem_data_encodings},
+                    location=self._get_object_url,
+                    ranges=(
+                        (lambda: cached.at(cached.meta()).read)
+                        if cached is not None
+                        else (lambda: self.byte_ranges().read)
+                    ),
+                )
+            )
+            source_content = self._map_source.content()
+        except ImportError as error:
+            raise ProviderGenericError(user_msg=f"map source not available: {error}") from error
+        except SourceNotDrawableError as error:
+            raise ProviderGenericError(user_msg=f"map source not drawable: {error}") from error
         self._map_styles = {
-            self._DEFAULT_STYLE_NAME: self._generate_default_map_style(
-                _map_source.format, _map_source.content(), _map_source.url()
-            ),
+            self._DEFAULT_STYLE_NAME: self._generate_default_map_style(source_content),
             **(dict(self._config.styles)),
         }
 
@@ -309,34 +387,32 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         else:
             raise RuntimeError("Cannot obtain object_url")
 
-    def _generate_default_map_style(
-        self,
-        source_format: str,
-        source_content: "SourceContent",
-        source_url: str,
-    ) -> dict[str, dict]:
-        default_source_name = "dataset"  # name used in default styles to refer to the data source
+    def _generate_default_map_style(self, source_content: "SourceContent") -> dict[str, Any]:
+        """Generate the default style, with the data source but not its URL yet."""
         if source_content.kind == "vector":
             default_style = generate_default_vector_style(
                 vector_layers=source_content.layers,
-                source=default_source_name,
+                source=self._DATASET_SOURCE_NAME,
                 colors=self._config.default_vector_colors,
                 background_color=self._config.default_background_color,
             )
         elif source_content.kind == "raster":
             default_style = generate_default_raster_style(
-                source=default_source_name,
+                source=self._DATASET_SOURCE_NAME,
                 background_color=self._config.default_background_color,
             )
         else:  # "raster-dem":
             default_style = generate_default_hillshade_style(
-                source=default_source_name,
+                source=self._DATASET_SOURCE_NAME,
                 background_color=self._config.default_hillshade_background_color,
             )
-        url_prefix = "pmtiles://" if source_format == "pmtiles" else ""
-        default_style["sources"] = {
-            default_source_name: {"type": source_content.kind, "url": f"{url_prefix}{source_url}"}
-        }
+        dataset_source: dict[str, Any] = {"type": source_content.kind}
+        if source_content.tile_size:
+            # MapLibre assumes 512 pixel raster tiles unless told otherwise
+            dataset_source["tileSize"] = source_content.tile_size
+        if source_content.dem:
+            dataset_source["encoding"] = source_content.dem
+        default_style["sources"] = {self._DATASET_SOURCE_NAME: dataset_source}
         return default_style
 
     def _generate_style(self, style_identifier: str, transparent_background: bool) -> dict | str:
@@ -349,13 +425,23 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             # TODO: retrieve the style from the remote and modify if needed
             return style_definition
         else:
-            result = style_definition.copy()
+            result = copy.deepcopy(style_definition)
+            dataset_source = result.get("sources", {}).get(self._DATASET_SOURCE_NAME)
+            if dataset_source is not None and "url" not in dataset_source:
+                dataset_source["url"] = self._generate_dataset_url()
             for background_layer in [
                 layer for layer in result.get("layers", []) if layer.get("type") == "background"
             ]:
                 layout_definition = background_layer.setdefault("layout", {})
                 layout_definition["visibility"] = "none" if transparent_background else "visible"
             return result
+
+    def _generate_dataset_url(self) -> str:
+        """Generate the URL of the data as it is now, which may name its current version."""
+        if self._map_source is None:
+            raise RuntimeError("the styles have not been initialized yet")
+        url_prefix = "pmtiles://" if self._map_source.format == "pmtiles" else ""
+        return f"{url_prefix}{self._map_source.url()}"
 
 
 def parse_web_mercator_bbox_as_crs84_bbox(
@@ -375,14 +461,16 @@ def parse_web_mercator_bbox_as_crs84_bbox(
     ymin = max(-HALF_WORLD, min(HALF_WORLD, web_mercator_bbox[1]))
     ymax = max(-HALF_WORLD, min(HALF_WORLD, web_mercator_bbox[3]))
 
-    return tuple(
-        transform_bbox(
-            [xmin, ymin, xmax, ymax],
-            from_crs=WEB_MERCATOR,
-            to_crs=CRS_84,
-            always_xy=True,
-        )
+    west, south, east, north = transform_bbox(
+        [xmin, ymin, xmax, ymax],
+        from_crs=WEB_MERCATOR,
+        to_crs=CRS_84,
+        always_xy=True,
     )
+    # The edge of web mercator comes back a hair beyond the latitude mapli accepts
+    south = max(-MAX_LATITUDE, min(MAX_LATITUDE, south))
+    north = max(-MAX_LATITUDE, min(MAX_LATITUDE, north))
+    return west, south, east, north
 
 
 def generate_default_vector_style(
