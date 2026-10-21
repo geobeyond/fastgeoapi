@@ -130,7 +130,6 @@ fastgeoapi-html = { workspace = true }
 mlnative = [
     { url = "https://github.com/francbartoli/mlnative/releases/download/v0.4.0.dev1/mlnative-0.4.0.dev1-py3-none-manylinux_2_39_x86_64.whl", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
     { url = "https://github.com/francbartoli/mlnative/releases/download/v0.4.0.dev1/mlnative-0.4.0.dev1-py3-none-manylinux_2_39_aarch64.whl", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
-
 ]
 mapli = [
     { url = "https://github.com/geobeyond/mapli/releases/download/v0.3.1/mapli-0.3.1-cp39-abi3-manylinux_2_34_x86_64.whl", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
