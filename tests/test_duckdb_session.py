@@ -270,7 +270,7 @@ def test_a_cloud_directory_is_globbed_on_the_native_path(monkeypatch):
     assert "'s3://bucket/ds/**/*.parquet'" in expression, expression
 
 
-def test_cloud_sources_are_enumerated_on_the_bridge():
+def test_cloud_sources_are_enumerated_on_the_bridge(s3_endpoint, monkeypatch):
     """On the obstore path a cloud dataset is listed, never globbed.
 
     Reading Overture through the obstore filesystem showed that DuckDB
@@ -279,15 +279,40 @@ def test_cloud_sources_are_enumerated_on_the_bridge():
     multi-file dataset on a bucket — the partitioned case the design was
     built for — would be unusable. So on that path the scan lists the
     objects through the storage layer and hands DuckDB explicit paths.
+
+    The dataset sits on the local S3: Overture keeps only its latest
+    releases, so a path into one of them stops resolving within months.
     """
+    import boto3
+
+    monkeypatch.setenv("AWS_ALLOW_HTTP", "true")
+    client = boto3.client(
+        "s3",
+        endpoint_url=s3_endpoint,
+        aws_access_key_id="test",
+        aws_secret_access_key="test",
+        region_name="us-east-1",
+    )
+    client.create_bucket(Bucket="fastgeoapi-enumeration")
+    for key in ("ds/country=it/part-0.parquet", "ds/country=fr/part-0.parquet", "ds/README.md"):
+        client.put_object(Bucket="fastgeoapi-enumeration", Key=key, Body=b"")
+
     expression = scan_expression(
-        "s3://overturemaps-us-west-2/release/2026-08-19.0/theme=base/type=bathymetry/",
-        store_options={"region": "us-west-2", "skip_signature": True},
+        "s3://fastgeoapi-enumeration/ds/",
+        store_options={
+            "endpoint": s3_endpoint.removeprefix("http://"),
+            "region": "us-east-1",
+            "key_id": "test",
+            "secret": "test",
+            "url_style": "path",
+            "use_ssl": False,
+        },
         engine_options={"fastgeoapi_reader": "obstore"},
     )
     assert "*" not in expression, expression
-    assert ".parquet'" in expression
-    assert "s3://overturemaps-us-west-2/" in expression
+    assert "'s3://fastgeoapi-enumeration/ds/country=it/part-0.parquet'" in expression
+    assert "'s3://fastgeoapi-enumeration/ds/country=fr/part-0.parquet'" in expression
+    assert "README" not in expression
 
 
 def test_enumeration_covers_nested_layouts(tmp_path):
