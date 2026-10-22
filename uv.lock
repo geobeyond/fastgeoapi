@@ -959,8 +959,7 @@ docs = [
     { name = "zensical" },
 ]
 mapli = [
-    { name = "mapli", version = "0.3.1", source = { url = "https://github.com/geobeyond/mapli/releases/download/v0.3.1/mapli-0.3.1-cp39-abi3-manylinux_2_34_aarch64.whl" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-    { name = "mapli", version = "0.3.1", source = { url = "https://github.com/geobeyond/mapli/releases/download/v0.3.1/mapli-0.3.1-cp39-abi3-manylinux_2_34_x86_64.whl" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "mapli", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
 ]
 maps = [
     { name = "mlnative", version = "0.4.0.dev1", source = { url = "https://github.com/francbartoli/mlnative/releases/download/v0.4.0.dev1/mlnative-0.4.0.dev1-py3-none-manylinux_2_39_aarch64.whl" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
@@ -1034,10 +1033,7 @@ docs = [
     { name = "mkdocstrings-python", specifier = ">=2.0.7" },
     { name = "zensical", specifier = ">=0.0.58" },
 ]
-mapli = [
-    { name = "mapli", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'", url = "https://github.com/geobeyond/mapli/releases/download/v0.3.1/mapli-0.3.1-cp39-abi3-manylinux_2_34_aarch64.whl" },
-    { name = "mapli", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", url = "https://github.com/geobeyond/mapli/releases/download/v0.3.1/mapli-0.3.1-cp39-abi3-manylinux_2_34_x86_64.whl" },
-]
+mapli = [{ name = "mapli", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')", specifier = ">=0.4.1" }]
 maps = [
     { name = "mlnative", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'", url = "https://github.com/francbartoli/mlnative/releases/download/v0.4.0.dev1/mlnative-0.4.0.dev1-py3-none-manylinux_2_39_aarch64.whl" },
     { name = "mlnative", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", url = "https://github.com/francbartoli/mlnative/releases/download/v0.4.0.dev1/mlnative-0.4.0.dev1-py3-none-manylinux_2_39_x86_64.whl" },
@@ -1836,26 +1832,12 @@ wheels = [
 
 [[package]]
 name = "mapli"
-version = "0.3.1"
-source = { url = "https://github.com/geobeyond/mapli/releases/download/v0.3.1/mapli-0.3.1-cp39-abi3-manylinux_2_34_aarch64.whl" }
-resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine == 'aarch64' and sys_platform == 'linux'",
-    "python_full_version < '3.13' and platform_machine == 'aarch64' and sys_platform == 'linux'",
-]
+version = "0.4.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/21/57/7a9cd5af4c012221d7202bee1a752ad77133faaf45b5a13a6865e5159016/mapli-0.4.1.tar.gz", hash = "sha256:dd4ea204063a5aa5c4a7625283c54bb4a87c18df37b179c4bd28bf0275c488d7", size = 23569247, upload-time = "2026-10-22T14:57:32.087Z" }
 wheels = [
-    { url = "https://github.com/geobeyond/mapli/releases/download/v0.3.1/mapli-0.3.1-cp39-abi3-manylinux_2_34_aarch64.whl", hash = "sha256:9edd006015e6ed6e397b0f561eaa124f7ed0c457526de8cf40316787c34f00a2" },
-]
-
-[[package]]
-name = "mapli"
-version = "0.3.1"
-source = { url = "https://github.com/geobeyond/mapli/releases/download/v0.3.1/mapli-0.3.1-cp39-abi3-manylinux_2_34_x86_64.whl" }
-resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine == 'x86_64' and sys_platform == 'linux'",
-    "python_full_version < '3.13' and platform_machine == 'x86_64' and sys_platform == 'linux'",
-]
-wheels = [
-    { url = "https://github.com/geobeyond/mapli/releases/download/v0.3.1/mapli-0.3.1-cp39-abi3-manylinux_2_34_x86_64.whl", hash = "sha256:ca0622186dbe5740c65a29521d4748e69b1dc23ba77621b300f4759d9dfb8526" },
+    { url = "https://files.pythonhosted.org/packages/f2/59/eec3ae5029373d1d4a42d29f6dc206cd3dde66e53e50436a5bfb48591079/mapli-0.4.1-cp39-abi3-manylinux_2_34_aarch64.whl", hash = "sha256:e8c836380a26eceb83309cddf44faf816c09b48fbeedc310fab4931a39248df7", size = 21796691, upload-time = "2026-10-22T14:57:25.124Z" },
+    { url = "https://files.pythonhosted.org/packages/bd/9a/ddb193b67f4823866f190dd61957175cae677a0237220711c821e6868d2b/mapli-0.4.1-cp39-abi3-manylinux_2_34_x86_64.whl", hash = "sha256:7b827b174bda0fd224450796172999679b379786495db782d02a2a41c4a4e3d3", size = 22277233, upload-time = "2026-10-22T14:57:28.657Z" },
 ]
 
 [[package]]
