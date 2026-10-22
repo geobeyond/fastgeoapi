@@ -121,7 +121,7 @@ with no credentials at all it fails differently but no better, after
 roughly twenty seconds of EC2-metadata retries:
 
 ```yaml
-data: s3://overturemaps-us-west-2/release/2026-08-19.0/theme=divisions/type=division/
+data: s3://overturemaps-us-west-2/release/2026-09-23.1/theme=divisions/type=division/
 store_options:
   region: us-west-2
   skip_signature: true

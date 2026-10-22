@@ -37,7 +37,7 @@ resources:
     providers:
       - type: tile
         name: app.provider.pmtiles.PMTilesProvider
-        data: s3://overturemaps-extras-us-west-2/tiles/2026-08-19.0/places.pmtiles
+        data: s3://overturemaps-extras-us-west-2/tiles/2026-09-23.1/places.pmtiles
         store_options:
           region: us-west-2
           skip_signature: true
