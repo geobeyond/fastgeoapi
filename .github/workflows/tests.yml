@@ -73,7 +73,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
-          version: "0.10.9"
+          version: "0.13.5"
 
       - name: Install Nox
         run: |
@@ -198,7 +198,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
-          version: "0.10.9"
+          version: "0.13.5"
 
       - name: Install Nox
         run: |
