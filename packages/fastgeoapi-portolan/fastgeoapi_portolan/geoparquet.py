@@ -59,17 +59,11 @@ def _data_asset(document: Mapping[str, Any]) -> Mapping[str, Any] | None:
     assets = document.get("assets")
     if not isinstance(assets, Mapping):
         return None
-    return next(
-        (asset for asset in assets.values() if _is_parquet_data(asset)), None
-    )
+    return next((asset for asset in assets.values() if _is_parquet_data(asset)), None)
 
 
 def _folder(location: str) -> str:
-    return (
-        location.rsplit("/", 1)[0]
-        if is_url(location)
-        else str(Path(location).parent)
-    )
+    return location.rsplit("/", 1)[0] if is_url(location) else str(Path(location).parent)
 
 
 def _columns(described: Iterable[Mapping[str, Any]]) -> list[str]:
@@ -78,9 +72,7 @@ def _columns(described: Iterable[Mapping[str, Any]]) -> list[str]:
     for fields in described:
         columns = fields.get("table:columns")
         for column in columns if isinstance(columns, list) else ():
-            if isinstance(column, Mapping) and isinstance(
-                column.get("name"), str
-            ):
+            if isinstance(column, Mapping) and isinstance(column.get("name"), str):
                 names[column["name"]] = None
     return list(names)
 
@@ -104,11 +96,7 @@ def _id_field(
         return overrides.id_fields[collection.id], "option"
     # The provider takes a single column.
     composite = isinstance(key, list) and len(key) > 1
-    why = (
-        f"table:primary_key {key} is composite"
-        if composite
-        else "no column to use as id"
-    )
+    why = f"table:primary_key {key} is composite" if composite else "no column to use as id"
     return Refused(f"{why}: pass --id-field {collection.id}=<column>")
 
 
@@ -123,9 +111,7 @@ def _geometry_column(
         return named, "column name"
     if collection.id in overrides.geometry_columns:
         return overrides.geometry_columns[collection.id], "option"
-    return Refused(
-        f"no geometry column: pass --geometry-column {collection.id}=<column>"
-    )
+    return Refused(f"no geometry column: pass --geometry-column {collection.id}=<column>")
 
 
 def _listed(locations: list[str], limit: int = 3) -> str:
@@ -134,9 +120,7 @@ def _listed(locations: list[str], limit: int = 3) -> str:
     return f"{shown} and {rest} more" if rest > 0 else shown
 
 
-async def geoparquet(
-    collection: Collection, overrides: Overrides
-) -> Provided | Refused | None:
+async def geoparquet(collection: Collection, overrides: Overrides) -> Provided | Refused | None:
     """The feature provider for the GeoParquet data of ``collection``.
 
     The items are read when the data is in them or partitioned. A
@@ -161,22 +145,16 @@ async def geoparquet(
             return None
         if items.nonconforming:
             rejected = [entry.href for entry in items.nonconforming]
-            return Refused(
-                f"{len(rejected)} items do not conform: {_listed(rejected)}"
-            )
+            return Refused(f"{len(rejected)} items do not conform: {_listed(rejected)}")
         parts = [
             (href, found)
-            for href, item in zip(
-                collection.item_hrefs, items.items, strict=True
-            )
+            for href, item in zip(collection.item_hrefs, items.items, strict=True)
             if (found := _data_asset(item)) is not None
         ]
         described += [found for _, found in parts]
         described += [item.get("properties") or {} for item in items.items]
         if glob is None:
-            folders = sorted(
-                {_folder(resolve(href, found["href"])) for href, found in parts}
-            )
+            folders = sorted({_folder(resolve(href, found["href"])) for href, found in parts})
             if len(folders) > 1:
                 return Refused(
                     f"the data of the items is in {len(folders)} folders, a glob takes one: "
@@ -191,9 +169,7 @@ async def geoparquet(
     elif asset is not None:
         alternate = asset.get("alternate")
         s3 = alternate.get("s3") if isinstance(alternate, Mapping) else None
-        if isinstance(s3, Mapping) and str(s3.get("href", "")).startswith(
-            "s3://"
-        ):
+        if isinstance(s3, Mapping) and str(s3.get("href", "")).startswith("s3://"):
             data = str(s3["href"])
             choices.append("data: s3 alternate")
         else:
