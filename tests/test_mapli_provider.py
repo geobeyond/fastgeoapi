@@ -158,20 +158,8 @@ def test_a_source_no_format_reads_is_refused(tmp_path):
         _provider(tmp_path / "roads.geojson")
 
 
-def test_a_bucket_without_the_range_cache_needs_the_data_url():
-    from pygeoapi.provider.base import ProviderGenericError
-
-    with pytest.raises(ProviderGenericError, match=r"options\.data_url"):
-        _provider(BUCKET_DATA, {"range_cache": False})
-
-
-def test_a_bucket_without_data_url_is_accepted_with_the_range_cache():
-    with mock.patch("app.provider.mapli.range_cache_enabled", return_value=True):
-        _provider(BUCKET_DATA)
-
-
-def test_a_bucket_with_a_data_url_needs_no_range_cache():
-    _provider(BUCKET_DATA, {"range_cache": False, "data_url": "https://example.org/land.pmtiles"})
+def test_a_bucket_needs_neither_the_range_cache_nor_a_data_url():
+    _provider(BUCKET_DATA, {"range_cache": False})
 
 
 # Bounding boxes
@@ -462,16 +450,14 @@ async def test_a_mapli_error_is_a_provider_error(archive, error, message):
     assert raised.value.message == message
 
 
-# Data in a bucket, read through the loopback server
+# Data in a bucket, read through the mapli scheme handler
 
 
 def _bucket_provider(tmp_path, origin=None):
     from app.provider.storage import CachedRanges
     from tests.range_cache_fixtures import CountingStore, memory_store, range_cache
 
-    # The test settings turn the range cache off; the server runs with it on by default
-    with mock.patch("app.provider.mapli.range_cache_enabled", return_value=True):
-        provider = _provider(BUCKET_DATA)
+    provider = _provider(BUCKET_DATA)
     origin = origin if origin is not None else CountingStore(memory_store())
     origin.put("land.pmtiles", land_archive(tmp_path / "land.pmtiles").read_bytes())
     provider.cached_ranges = CachedRanges(
@@ -484,42 +470,80 @@ def _rendered_url() -> str:
     return _pool().rendered_style()["sources"]["dataset"]["url"].removeprefix("pmtiles://")
 
 
-@pytest.mark.asyncio
-async def test_a_bucket_is_read_through_the_loopback_server(tmp_path):
-    import httpx
+def _serve(url: str, data_range: tuple[int, int] | None = None):
+    from app.provider.mapli import _SCHEME_HANDLER
 
+    return _SCHEME_HANDLER(mapli.ResourceRequest(url=url, kind="source", data_range=data_range))
+
+
+def _is_error(response, reason: str) -> bool:
+    # mapli's Response exposes nothing but its repr, e.g. 'Response.error(NotFound, "...")'
+    return repr(response).startswith(f"Response.error({reason},")
+
+
+@pytest.mark.asyncio
+async def test_a_bucket_is_read_through_the_scheme_handler(tmp_path):
     from app.provider.storage.cache import version_of
-    from app.provider.storage.loopback import close_range_server
 
     provider, _ = _bucket_provider(tmp_path)
-    try:
-        await _map(provider)
-        url = _rendered_url()
-        cached = provider.cached_ranges
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, headers={"Range": "bytes=0-6"})
-    finally:
-        await close_range_server()
+    await _map(provider)
+    url = _rendered_url()
+    cached = provider.cached_ranges
 
-    assert url.startswith("http://127.0.0.1:")
-    assert url.endswith(f"/{cached.source}/{version_of(cached.meta())}")
-    assert (response.status_code, response.content[:7]) == (206, b"PMTiles")
+    assert url == f"fastgeoapi://{cached.source}/{version_of(cached.meta())}"
+    assert bytes(_serve(url, (0, 6))) == b"PMTiles"
+
+
+@pytest.mark.asyncio
+async def test_a_range_past_the_end_is_clamped_and_one_beyond_it_is_not_found(tmp_path):
+    provider, origin = _bucket_provider(tmp_path)
+    await _map(provider)
+    url, size = _rendered_url(), len(origin.get("land.pmtiles"))
+
+    assert len(_serve(url, (size - 3, size + 100))) == 3
+    assert len(_serve(url)) == size
+    assert _is_error(_serve(url, (size, size + 10)), "NotFound")
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_source_or_version_is_not_found(tmp_path):
+    provider, _ = _bucket_provider(tmp_path)
+    await _map(provider)
+    source, version = _rendered_url().removeprefix("fastgeoapi://").split("/")
+
+    assert _is_error(_serve(f"fastgeoapi://nope/{version}", (0, 6)), "NotFound")
+    assert _is_error(_serve(f"fastgeoapi://{source}/nope", (0, 6)), "NotFound")
+
+
+@pytest.mark.asyncio
+async def test_data_that_changed_under_its_version_is_not_found(tmp_path):
+    provider, origin = _bucket_provider(tmp_path)
+    await _map(provider)
+    url = _rendered_url()
+    origin.put("land.pmtiles", origin.get("land.pmtiles") + b"\x00")
+
+    assert _is_error(_serve(url, (0, 6)), "NotFound")
+
+
+@pytest.mark.asyncio
+async def test_a_failing_read_is_a_server_error(tmp_path):
+    provider, _ = _bucket_provider(tmp_path)
+    await _map(provider)
+    url = _rendered_url()
+
+    with mock.patch.object(provider.cached_ranges, "at", side_effect=OSError("boom")):
+        assert _is_error(_serve(url, (0, 6)), "Server")
 
 
 @pytest.mark.asyncio
 async def test_a_new_version_of_the_data_is_drawn_with_a_new_style(tmp_path):
-    from app.provider.storage.loopback import close_range_server
-
     provider, origin = _bucket_provider(tmp_path)
-    try:
-        await _map(provider)
-        first_url, first_style = _rendered_url(), _pool().renders[-1]["style_id"]
-        origin.put("land.pmtiles", origin.get("land.pmtiles") + b"\x00")
-        provider.cached_ranges.invalidate()
-        await _map(provider)
-        second_url, second_style = _rendered_url(), _pool().renders[-1]["style_id"]
-    finally:
-        await close_range_server()
+    await _map(provider)
+    first_url, first_style = _rendered_url(), _pool().renders[-1]["style_id"]
+    origin.put("land.pmtiles", origin.get("land.pmtiles") + b"\x00")
+    provider.cached_ranges.invalidate()
+    await _map(provider)
+    second_url, second_style = _rendered_url(), _pool().renders[-1]["style_id"]
 
     assert first_url != second_url
     assert first_style != second_style
@@ -527,17 +551,61 @@ async def test_a_new_version_of_the_data_is_drawn_with_a_new_style(tmp_path):
 
 @pytest.mark.asyncio
 async def test_the_first_map_of_a_bucket_blocks_nothing_on_the_loop(tmp_path):
-    from app.provider.storage.loopback import close_range_server
     from tests.loop_guard import loop_guard
 
     provider, _ = _bucket_provider(tmp_path)
-    try:
-        with loop_guard():
-            png = await _map(provider)
-    finally:
-        await close_range_server()
+    with loop_guard():
+        png = await _map(provider)
 
     assert png.startswith(b"\x89PNG")
+
+
+# Data in a bucket without the range cache, read straight from its store
+
+
+def _uncached_bucket_provider(tmp_path, options=None):
+    from tests.range_cache_fixtures import CountingStore, memory_store
+
+    provider = _provider(BUCKET_DATA, {"range_cache": False, **(options or {})})
+    origin = CountingStore(memory_store())
+    origin.put("land.pmtiles", land_archive(tmp_path / "land.pmtiles").read_bytes())
+    provider.store = origin
+    return provider, origin
+
+
+@pytest.mark.asyncio
+async def test_a_bucket_without_the_range_cache_is_read_from_its_store(tmp_path):
+    from app.provider.storage.cache import digest, version_of
+
+    provider, origin = _uncached_bucket_provider(tmp_path)
+    await _map(provider)
+    url = _rendered_url()
+    reads_before = len(origin.range_reads)
+
+    assert provider.cached_ranges is None
+    assert url == f"fastgeoapi://{digest(BUCKET_DATA)}/{version_of(origin.head('land.pmtiles'))}"
+    assert bytes(_serve(url, (0, 6))) == b"PMTiles"
+    assert len(origin.range_reads) == reads_before + 1
+
+
+@pytest.mark.asyncio
+async def test_a_bucket_without_the_range_cache_is_looked_up_once(tmp_path):
+    provider, origin = _uncached_bucket_provider(tmp_path)
+    for _ in range(3):
+        await _map(provider)
+
+    assert origin.heads == 1
+
+
+@pytest.mark.asyncio
+async def test_a_bucket_with_a_data_url_and_no_range_cache_is_read_at_the_data_url(tmp_path):
+    provider, origin = _uncached_bucket_provider(
+        tmp_path, {"data_url": "https://example.org/land.pmtiles"}
+    )
+    await _map(provider)
+
+    assert _rendered_url() == "https://example.org/land.pmtiles"
+    assert origin.heads == 0
 
 
 @pytest.mark.asyncio
