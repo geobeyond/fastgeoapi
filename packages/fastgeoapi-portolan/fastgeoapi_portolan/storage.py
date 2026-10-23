@@ -94,7 +94,7 @@ def _explicit_endpoint_wins(config: Mapping[str, Any]) -> Generator[None, None, 
             os.environ.update(hidden)
 
 
-def _store_and_key(location: str, store_options: Mapping[str, Any] | None) -> tuple[Any, str]:
+def store_and_key(location: str, store_options: Mapping[str, Any] | None) -> tuple[Any, str]:
     """The store that holds ``location``, and the key of the object in it.
 
     Bucket options never reach an http(s) store, which refuses any; a
@@ -131,7 +131,7 @@ async def read_bytes(
     store reports is checked before the body is read, and the body as it
     arrives.
     """
-    store, key = _store_and_key(location, store_options)
+    store, key = store_and_key(location, store_options)
     result = await obstore.get_async(store, key)
     if max_bytes is None:
         return bytes(await result.bytes_async())
@@ -150,7 +150,7 @@ async def read_range(
     location: str, start: int, length: int, store_options: Mapping[str, Any] | None = None
 ) -> bytes:
     """``length`` bytes of the object at ``location``, from ``start``."""
-    store, key = _store_and_key(location, store_options)
+    store, key = store_and_key(location, store_options)
     return bytes(await obstore.get_range_async(store, key, start=start, length=length))
 
 
