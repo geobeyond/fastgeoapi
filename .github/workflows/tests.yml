@@ -34,6 +34,15 @@ jobs:
           # - { python: "3.12", os: "macos-latest", session: "tests" }
           - { python: "3.12", os: "ubuntu-22.04", session: "typeguard" }
           - { python: "3.12", os: "ubuntu-24.04", session: "maps" }
+          - { python: "3.10", os: "ubuntu-22.04", session: "portolan" }
+          - { python: "3.12", os: "ubuntu-22.04", session: "portolan" }
+          - { python: "3.10", os: "ubuntu-22.04", session: "portolan-rashid" }
+          - { python: "3.12", os: "ubuntu-22.04", session: "portolan-rashid" }
+          - {
+              python: "3.12",
+              os: "ubuntu-22.04",
+              session: "portolan-types-check",
+            }
           - { python: "3.12", os: "ubuntu-22.04", session: "xdoctest" }
           - { python: "3.12", os: "ubuntu-22.04", session: "docs-build" }
 
@@ -43,7 +52,8 @@ jobs:
       PRE_COMMIT_COLOR: "always"
       UV_SYSTEM_PYTHON: 1
       UV_BREAK_SYSTEM_PACKAGES: 1
-      SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
+      # Only the safety session reads the key; every session installs from PyPI.
+      SAFETY_API_KEY: ${{ matrix.session == 'safety' && secrets.SAFETY_API_KEY || '' }}
 
     steps:
       - name: Check out the repository

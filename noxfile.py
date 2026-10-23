@@ -77,11 +77,13 @@ def _install_project(session: Session) -> None:
             "sync",
             "--extra",
             "html",
+            "--extra",
+            "portolan",
             env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
         )
     else:
         # Use pip install for release (PyPI versions)
-        session.install(".", "./packages/fastgeoapi-html")
+        session.install(".", "./packages/fastgeoapi-html", "./packages/fastgeoapi-portolan")
 
 
 nox.options.sessions = [
@@ -251,6 +253,25 @@ def models_check(session: Session) -> None:
     session.install("datamodel-code-generator==0.85.0")
     session.install(".")
     session.run("python", "scripts/generate_config_models.py", "--check")
+
+
+@session(name="portolan-types", python="3.12")
+def portolan_types(session: Session) -> None:
+    """Regenerate the document types of the Portolan reader from its bundled schemas.
+
+    The `http` extra resolves the draft-07 meta-schema the STAC schemas
+    reference; only generation goes to the network, the reader never does.
+    """
+    # The version `models` pins: see the comment there.
+    session.install("datamodel-code-generator[http]==0.85.0")
+    session.run("python", "packages/fastgeoapi-portolan/scripts/generate_types.py")
+
+
+@session(name="portolan-types-check", python="3.12")
+def portolan_types_check(session: Session) -> None:
+    """Fail when the committed types of the Portolan reader no longer match its schemas."""
+    session.install("datamodel-code-generator[http]==0.85.0")
+    session.run("python", "packages/fastgeoapi-portolan/scripts/generate_types.py", "--check")
 
 
 @session(python=python_versions)
@@ -423,6 +444,38 @@ def maps(session: Session) -> None:
         env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
     )
     session.run("pytest", "-m", "renderer", "-rs", *session.posargs)
+
+
+@session(python=["3.10", "3.12"])
+def portolan(session: Session) -> None:
+    """Run the tests of the package that ingests Portolan catalogs."""
+    # The package supports Python 3.10 for the users of portolan-cli, so its
+    # lane runs there as well; fastgeoapi itself needs 3.12.
+    session.install(
+        # With its Pydantic models, so their round trip runs on both Pythons.
+        "./packages/fastgeoapi-portolan[models]",
+        # The plugin tests run the command through portolan-cli.
+        "portolan-cli>=0.8,<0.9",
+        "pytest",
+        "pytest-asyncio",
+        "ministack>=1.5,<2",
+        "boto3>=1.35",
+        "duckdb>=1.5,<2",
+    )
+    session.chdir("packages/fastgeoapi-portolan")
+    session.run("pytest", *session.posargs)
+
+
+@session(name="portolan-rashid", python=["3.10", "3.12"])
+def portolan_rashid(session: Session) -> None:
+    """Check the conformance kit against rashid, the Portolan validator."""
+    # portolan-cli 0.8 pins rashid below 0.2, and the schemas come from 0.3,
+    # so the comparison runs without portolan-cli.
+    session.install(
+        "./packages/fastgeoapi-portolan", "rashid>=0.3,<0.4", "pytest", "pytest-asyncio"
+    )
+    session.chdir("packages/fastgeoapi-portolan")
+    session.run("pytest", "tests/test_rashid_agreement.py", *session.posargs)
 
 
 @session(python=python_versions)
