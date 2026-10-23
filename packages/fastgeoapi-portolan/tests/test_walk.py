@@ -343,3 +343,46 @@ async def test_the_async_driver_keeps_to_its_concurrency(fixtures):
 
     assert _ids(catalog) == ["rivers", "roads"]
     assert transport.most == 1
+
+
+@pytest.fixture
+def served_fixtures(fixtures):
+    """The kit's catalogs over HTTP on loopback."""
+    from functools import partial
+    from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+
+    base = fixtures.nested.parent.parent
+    handler = partial(SimpleHTTPRequestHandler, directory=str(base))
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    yield fixtures, f"http://127.0.0.1:{server.server_address[1]}"
+    server.shutdown()
+
+
+def test_a_remote_catalog_cannot_link_a_local_file(served_fixtures):
+    fixtures, url = served_fixtures
+    local_collection = fixtures.translated.parent / "roads" / "collection.json"
+    local_item = fixtures.partitioned.parent / "buildings" / "part=0" / "part-0.json"
+    child = {"rel": "child", "href": local_collection.as_uri(), "type": "application/json"}
+    item = {"rel": "item", "href": local_item.as_uri(), "type": "application/geo+json"}
+    _rewrite(fixtures.nested, lambda document: document["links"].append(child))
+    roads = fixtures.nested.parent / "data" / "roads" / "collection.json"
+    _rewrite(roads, lambda document: document["links"].append(item))
+
+    catalog = read_catalog(f"{url}/nested/catalog.json", TRANSPORT)
+
+    assert _ids(catalog) == ["rivers", "roads"]
+    assert {c.id: c.item_hrefs for c in catalog.collections}["roads"] == ()
+    for href in (local_collection.as_uri(), local_item.as_uri()):
+        warning = f"{href} is on the local disk, linked from a remote catalog: not followed"
+        assert warning in catalog.warnings
+
+
+def test_a_local_catalog_still_follows_its_local_links(fixtures):
+    local_collection = fixtures.translated.parent / "roads" / "collection.json"
+    child = {"rel": "child", "href": local_collection.as_uri(), "type": "application/json"}
+    _rewrite(fixtures.nested, lambda document: document["links"].append(child))
+
+    catalog = read_catalog(str(fixtures.nested), TRANSPORT)
+
+    assert local_collection.as_uri() in [collection.href for collection in catalog.collections]
