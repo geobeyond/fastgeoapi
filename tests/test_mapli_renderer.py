@@ -1,7 +1,6 @@
 """The mapli map provider drawing for real, from a local archive and from a bucket."""
 
 import io
-from unittest import mock
 
 import pytest
 
@@ -89,23 +88,35 @@ async def test_an_elevation_archive_is_shaded(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_a_bucket_is_drawn_through_the_loopback_server(tmp_path):
+async def test_a_bucket_is_drawn_through_the_scheme_handler(tmp_path):
     from app.provider.storage import CachedRanges
-    from app.provider.storage.loopback import close_range_server
     from tests.loop_guard import loop_guard
     from tests.range_cache_fixtures import CountingStore, memory_store, range_cache
 
-    with mock.patch("app.provider.mapli.range_cache_enabled", return_value=True):
-        provider = _provider(BUCKET_DATA)
+    provider = _provider(BUCKET_DATA)
     origin = CountingStore(memory_store())
     origin.put("land.pmtiles", land_archive(tmp_path / "land.pmtiles").read_bytes())
     provider.cached_ranges = CachedRanges(
         origin, "land.pmtiles", range_cache(memory_store()), source=BUCKET_DATA
     )
-    try:
-        with loop_guard():
-            image = _image(await _map(provider, transparent=False))
-    finally:
-        await close_range_server()
+    with loop_guard():
+        image = _image(await _map(provider, transparent=False))
 
+    assert _close_to(image.getpixel((32, 24)), (*LAND, 255))
+
+
+@pytest.mark.asyncio
+async def test_a_bucket_without_the_range_cache_is_drawn_through_the_scheme_handler(tmp_path):
+    from tests.loop_guard import loop_guard
+    from tests.range_cache_fixtures import CountingStore, memory_store
+
+    provider = _provider(BUCKET_DATA, {"range_cache": False})
+    origin = CountingStore(memory_store())
+    origin.put("land.pmtiles", land_archive(tmp_path / "land.pmtiles").read_bytes())
+    provider.store = origin
+    with loop_guard():
+        image = _image(await _map(provider, transparent=False))
+
+    assert provider.cached_ranges is None
+    assert origin.range_reads
     assert _close_to(image.getpixel((32, 24)), (*LAND, 255))
