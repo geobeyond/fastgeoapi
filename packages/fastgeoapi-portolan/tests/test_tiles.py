@@ -323,3 +323,20 @@ async def test_store_options_reach_the_provider(folder):
     provided = await pmtiles(_collection(folder), Overrides(store_options={"region": "eu-west-1"}))
 
     assert provided.provider["store_options"] == {"region": "eu-west-1"}
+
+
+@pytest.mark.asyncio
+async def test_a_style_over_the_document_cap_is_left_out(folder, monkeypatch):
+    from fastgeoapi_portolan import tiles
+
+    _write_styles(folder, {"default.json": _style()})
+    assets = {
+        "tiles": {"href": f"./{ARCHIVE}", "type": PMTILES, "roles": ["visual"]},
+        "default-style": _style_asset("./styles/default.json", "default"),
+    }
+    monkeypatch.setattr(tiles, "MAX_DOCUMENT_BYTES", 10)
+
+    provided = await pmtiles(_collection(folder, assets=assets), Overrides())
+
+    assert "styles" not in provided.provider["options"]
+    assert any("default left out: it could not be read" in choice for choice in provided.choices)

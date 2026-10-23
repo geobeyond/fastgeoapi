@@ -33,6 +33,8 @@ from fastgeoapi_portolan.catalog.types import CollectionDocument, ItemDocument
 
 PORTOLAN_SCHEMAS = "https://schemas.portolan-sdi.org/portolan/"
 NO_PORTOLAN_SCHEMA = "the catalog declares no Portolan schema: read as plain STAC"
+# At most this many documents in a walk, and items in a collection; rashid stops at the same.
+MAX_DOCUMENTS = 10_000
 
 T = TypeVar("T")
 Replies = Mapping[str, bytes | OSError]
@@ -126,8 +128,13 @@ class _Walk:
         document: Mapping[str, Any],
         only: frozenset[str] | None,
         validator: SchemaValidator | None,
+        max_documents: int,
     ) -> None:
         self.root = root
+        self.max_documents = max_documents
+        # The root is the first document of the walk.
+        self.queued = 1
+        self.capped = 0
         self.remote = is_url(root)
         self.only = only
         self.validator = validator
@@ -218,7 +225,13 @@ class _Walk:
         if href in self.seen:
             return False
         self.seen.add(href)
-        return not self.translated(href) and not self.local(href)
+        if self.translated(href) or self.local(href):
+            return False
+        if self.queued >= self.max_documents:
+            self.capped += 1
+            return False
+        self.queued += 1
+        return True
 
     def local(self, href: str) -> bool:
         """Whether ``href`` is a file on the local disk linked from a remote catalog."""
@@ -234,6 +247,11 @@ class _Walk:
         return False
 
     def result(self) -> Catalog:
+        if self.capped:
+            self.warn(
+                f"the walk stopped at its limit of {self.max_documents} documents; "
+                f"{self.capped} more not followed"
+            )
         return Catalog(
             root=self.root,
             portolan_schema=self.profile,
@@ -250,6 +268,7 @@ def walk(
     *,
     only: frozenset[str] | None = None,
     validator: SchemaValidator | None = None,
+    max_documents: int = MAX_DOCUMENTS,
 ) -> Steps[Catalog]:
     """Walk the catalog at ``location`` down to its collections.
 
@@ -258,12 +277,13 @@ def walk(
     read, or is not JSON, is skipped with the reason; a root that cannot
     be read raises. With a validator, every catalog and collection is
     checked, and a rejected one is kept apart while the walk goes on below
-    it.
+    it. The walk reads at most ``max_documents``, the root included, and
+    warns about the links it left.
     """
     root = root_document(location)
     replies = yield (root,)
     document = _required(root, replies[root])
-    state = _Walk(root, document, only, validator)
+    state = _Walk(root, document, only, validator, max_documents)
     pending = state.visit(root, document)
     while pending:
         batch = tuple(pending)
@@ -280,14 +300,25 @@ def walk(
     return state.result()  # ruff: ignore[return-in-generator]
 
 
-def walk_items(collection: Collection, *, validator: SchemaValidator | None = None) -> Steps[Items]:
+def walk_items(
+    collection: Collection,
+    *,
+    validator: SchemaValidator | None = None,
+    max_items: int = MAX_DOCUMENTS,
+) -> Steps[Items]:
     """Read the items ``collection`` links, held to the collection's profile.
 
-    An item that cannot be read raises: a collection served without one of
-    its parts would be silently incomplete.
+    An item that cannot be read raises, and so does a collection that
+    links more than ``max_items``: a collection served without some of its
+    parts would be silently incomplete.
     """
     if not collection.item_hrefs:
         return Items((), ())
+    if len(collection.item_hrefs) > max_items:
+        raise ValueError(
+            f"{collection.href}: the collection links {len(collection.item_hrefs)} items, "
+            f"more than the {max_items} the reader reads"
+        )
     replies = yield collection.item_hrefs
     items: list[ItemDocument] = []
     nonconforming: list[Nonconforming] = []

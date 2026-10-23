@@ -39,8 +39,12 @@ def resolve(document: str, href: str) -> str:
     document reached by two paths has one name in the walk.
     Every URL scheme resolves the same way: on the path, keeping the scheme
     and the host, which for an object store is the bucket. ``urljoin`` does that
-    only for the schemes it knows, and ``s3://`` is not one of them.
+    only for the schemes it knows, and ``s3://`` is not one of them. A
+    fragment only names a part of its document, so it is dropped.
     """
+    href = href.partition("#")[0]
+    if not href:
+        return document
     if is_url(href):
         return href
     if not is_url(document):

@@ -21,6 +21,7 @@ from obstore.exceptions import BaseError
 from obstore.store import LocalStore, from_url
 
 from fastgeoapi_portolan.catalog.locations import is_url
+from fastgeoapi_portolan.catalog.protocols import MAX_DOCUMENT_BYTES
 
 _HTTP = ("http://", "https://")
 # The variables obstore reads an endpoint from, in every constructor.
@@ -121,11 +122,28 @@ def _store_and_key(location: str, store_options: Mapping[str, Any] | None) -> tu
         )
 
 
-async def read_bytes(location: str, store_options: Mapping[str, Any] | None = None) -> bytes:
-    """The whole object at ``location``; ``FileNotFoundError`` when there is none."""
+async def read_bytes(
+    location: str, store_options: Mapping[str, Any] | None = None, *, max_bytes: int | None = None
+) -> bytes:
+    """The whole object at ``location``; ``FileNotFoundError`` when there is none.
+
+    With ``max_bytes``, a larger object raises ``OSError``: the size the
+    store reports is checked before the body is read, and the body as it
+    arrives.
+    """
     store, key = _store_and_key(location, store_options)
     result = await obstore.get_async(store, key)
-    return bytes(await result.bytes_async())
+    if max_bytes is None:
+        return bytes(await result.bytes_async())
+    too_large = OSError(f"{location} is larger than {max_bytes} bytes")
+    if result.meta["size"] > max_bytes:
+        raise too_large
+    body = bytearray()
+    async for chunk in result.stream():
+        body += chunk
+        if len(body) > max_bytes:
+            raise too_large
+    return bytes(body)
 
 
 async def read_range(
@@ -139,11 +157,15 @@ async def read_range(
 class ObstoreTransport:
     """Reads catalog documents through obstore, wherever they are: disk, http(s) or a bucket.
 
-    ``store_options`` reach the buckets only, as with :func:`read_bytes`.
+    ``store_options`` reach the buckets only, as with :func:`read_bytes`. A
+    document larger than ``max_bytes`` raises ``OSError``.
     """
 
-    def __init__(self, store_options: Mapping[str, Any] | None = None) -> None:
+    def __init__(
+        self, store_options: Mapping[str, Any] | None = None, *, max_bytes: int = MAX_DOCUMENT_BYTES
+    ) -> None:
         self.store_options = store_options
+        self.max_bytes = max_bytes
 
     async def read(self, location: str) -> bytes:
         """The bytes of the document at ``location``.
@@ -152,6 +174,6 @@ class ObstoreTransport:
         document with the reason instead of stopping.
         """
         try:
-            return await read_bytes(location, self.store_options)
+            return await read_bytes(location, self.store_options, max_bytes=self.max_bytes)
         except BaseError as error:
             raise OSError(str(error)) from error

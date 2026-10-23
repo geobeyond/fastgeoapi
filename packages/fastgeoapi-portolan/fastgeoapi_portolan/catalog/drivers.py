@@ -6,7 +6,7 @@ import asyncio
 
 from fastgeoapi_portolan.catalog.protocols import AsyncTransport, SchemaValidator, Transport
 from fastgeoapi_portolan.catalog.results import Catalog, Collection, Items
-from fastgeoapi_portolan.catalog.walk import Steps, T, walk, walk_items
+from fastgeoapi_portolan.catalog.walk import MAX_DOCUMENTS, Steps, T, walk, walk_items
 
 
 def _run(steps: Steps[T], transport: Transport) -> T:
@@ -49,9 +49,11 @@ def read_catalog(
     *,
     only: frozenset[str] | None = None,
     validator: SchemaValidator | None = None,
+    max_documents: int = MAX_DOCUMENTS,
 ) -> Catalog:
     """Walk the catalog at ``location``, reading one document at a time."""
-    return _run(walk(location, only=only, validator=validator), transport)
+    steps = walk(location, only=only, validator=validator, max_documents=max_documents)
+    return _run(steps, transport)
 
 
 async def read_catalog_async(
@@ -61,16 +63,22 @@ async def read_catalog_async(
     only: frozenset[str] | None = None,
     validator: SchemaValidator | None = None,
     concurrency: int = 16,
+    max_documents: int = MAX_DOCUMENTS,
 ) -> Catalog:
     """Walk the catalog at ``location``, reading up to ``concurrency`` documents at once."""
-    return await _run_async(walk(location, only=only, validator=validator), transport, concurrency)
+    steps = walk(location, only=only, validator=validator, max_documents=max_documents)
+    return await _run_async(steps, transport, concurrency)
 
 
 def read_items(
-    collection: Collection, transport: Transport, *, validator: SchemaValidator | None = None
+    collection: Collection,
+    transport: Transport,
+    *,
+    validator: SchemaValidator | None = None,
+    max_items: int = MAX_DOCUMENTS,
 ) -> Items:
     """The items ``collection`` links, read one at a time."""
-    return _run(walk_items(collection, validator=validator), transport)
+    return _run(walk_items(collection, validator=validator, max_items=max_items), transport)
 
 
 async def read_items_async(
@@ -79,9 +87,11 @@ async def read_items_async(
     *,
     validator: SchemaValidator | None = None,
     concurrency: int = 16,
+    max_items: int = MAX_DOCUMENTS,
 ) -> Items:
     """The items ``collection`` links, read up to ``concurrency`` at once."""
-    return await _run_async(walk_items(collection, validator=validator), transport, concurrency)
+    steps = walk_items(collection, validator=validator, max_items=max_items)
+    return await _run_async(steps, transport, concurrency)
 
 
 class _InThread:

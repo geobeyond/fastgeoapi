@@ -26,7 +26,8 @@ from pmtiles.tile import (
 )
 
 from fastgeoapi_portolan.catalog.locations import is_url, resolve
-from fastgeoapi_portolan.handlers import Overrides, Provided, Refused
+from fastgeoapi_portolan.catalog.protocols import MAX_DOCUMENT_BYTES
+from fastgeoapi_portolan.handlers import Overrides, Provided, Refused, unreadable
 from fastgeoapi_portolan.reader import Collection
 from fastgeoapi_portolan.storage import read_bytes, read_range
 
@@ -87,13 +88,6 @@ def _archive(collection: Collection) -> tuple[str, str] | None:
 
 def _file_name(location: str) -> str:
     return urlsplit(location).path.rsplit("/", 1)[-1] if is_url(location) else Path(location).name
-
-
-def _why(error: Exception) -> str:
-    if isinstance(error, FileNotFoundError):
-        return "it does not exist"
-    text = str(error).strip()
-    return (text.splitlines()[0] if text else type(error).__name__)[:200]
 
 
 def _archive_source(style: Any, style_href: str, archive: str) -> str | None:
@@ -167,9 +161,10 @@ async def _styles(
             choices.append(f"styles: {name} left out: another style has the name")
             continue
         try:
-            style = json.loads(await read_bytes(href, overrides.store_options))
+            raw = await read_bytes(href, overrides.store_options, max_bytes=MAX_DOCUMENT_BYTES)
+            style = json.loads(raw)
         except (OSError, BaseError) as error:
-            choices.append(f"styles: {name} left out: it could not be read: {_why(error)}")
+            choices.append(f"styles: {name} left out: it could not be read: {unreadable(error)}")
             continue
         except ValueError:
             choices.append(f"styles: {name} left out: it is not JSON")
@@ -210,11 +205,11 @@ async def pmtiles(collection: Collection, overrides: Overrides) -> Provided | Re
     try:
         raw = await read_range(location, 0, HEADER_LENGTH, overrides.store_options)
     except (OSError, BaseError) as error:
-        return Refused(f"the archive could not be read: {_why(error)}")
+        return Refused(f"the archive could not be read: {unreadable(error)}")
     try:
         header = deserialize_header(raw)
     except (MagicNumberNotFound, SpecVersionUnsupported, ValueError, IndexError) as error:
-        return Refused(f"the archive header could not be read: {_why(error)}")
+        return Refused(f"the archive header could not be read: {unreadable(error)}")
     tile_type = header["tile_type"]
     tile_format = FORMATS.get(tile_type)
     if tile_format is None:

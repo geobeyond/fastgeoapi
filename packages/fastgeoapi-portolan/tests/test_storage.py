@@ -9,6 +9,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
+from fastgeoapi_portolan.catalog.protocols import MAX_DOCUMENT_BYTES
 from fastgeoapi_portolan.storage import ObstoreTransport, obstore_config, read_bytes, read_range
 
 
@@ -128,3 +129,13 @@ async def test_a_store_failure_reaches_the_walk_as_an_oserror():
             await ObstoreTransport().read(f"http://127.0.0.1:{server.server_address[1]}/x.json")
     finally:
         server.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_document_over_the_cap_is_refused(tmp_path):
+    (tmp_path / "big.json").write_bytes(b"x" * 20)
+
+    with pytest.raises(OSError, match="larger than 10 bytes"):
+        await ObstoreTransport(max_bytes=10).read(str(tmp_path / "big.json"))
+    assert await ObstoreTransport(max_bytes=20).read(str(tmp_path / "big.json")) == b"x" * 20
+    assert ObstoreTransport().max_bytes == MAX_DOCUMENT_BYTES

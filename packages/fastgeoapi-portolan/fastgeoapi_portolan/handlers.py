@@ -36,6 +36,14 @@ class Refused:
     reason: str
 
 
+def unreadable(error: Exception) -> str:
+    """Why a document could not be read, in one line for a summary."""
+    if isinstance(error, FileNotFoundError):
+        return "it does not exist"
+    text = str(error).strip()
+    return (text.splitlines()[0] if text else type(error).__name__)[:200]
+
+
 class Handler(Protocol):
     """Reads one kind of asset; ``None`` when the collection has none of that kind."""
 
