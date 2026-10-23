@@ -7,8 +7,9 @@ does the reading and decides how many documents to fetch at once.
 Only ``child`` links are followed, and only from catalogs: collections do
 not nest. A Portolan catalog keeps its translations in trees the root
 links with ``rel: alternate``, and a link into one of them is not
-followed, or every collection would come in twice. Items are read only
-when asked for.
+followed, or every collection would come in twice. A remote catalog
+cannot send the walk to the local disk: its ``file://`` links are not
+followed. Items are read only when asked for.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ import json
 from collections.abc import Generator, Mapping
 from pathlib import Path
 from typing import Any, Literal, TypeVar, cast
+from urllib.parse import urlsplit
 
 from fastgeoapi_portolan.catalog.locations import is_url, resolve, root_document
 from fastgeoapi_portolan.catalog.protocols import SchemaValidator
@@ -126,6 +128,7 @@ class _Walk:
         validator: SchemaValidator | None,
     ) -> None:
         self.root = root
+        self.remote = is_url(root)
         self.only = only
         self.validator = validator
         self.profile = declared_profile(document)
@@ -174,7 +177,11 @@ class _Walk:
         if identifier is None:
             self.skipped.append(Skipped(href, "the collection has no id"))
             return
-        items = tuple(item for item in _links(document, "item", href) if not self.translated(item))
+        items = tuple(
+            item
+            for item in _links(document, "item", href)
+            if not self.translated(item) and not self.local(item)
+        )
         self.collections.append(
             Collection(
                 id=identifier,
@@ -211,7 +218,14 @@ class _Walk:
         if href in self.seen:
             return False
         self.seen.add(href)
-        return not self.translated(href)
+        return not self.translated(href) and not self.local(href)
+
+    def local(self, href: str) -> bool:
+        """Whether ``href`` is a file on the local disk linked from a remote catalog."""
+        if self.remote and (not is_url(href) or urlsplit(href).scheme.lower() == "file"):
+            self.warn(f"{href} is on the local disk, linked from a remote catalog: not followed")
+            return True
+        return False
 
     def translated(self, href: str) -> bool:
         if any(href == tree or (folder and _within(href, folder)) for tree, folder in self.trees):
