@@ -354,3 +354,16 @@ async def test_a_collection_without_data_says_so(base):
 
     assert built == []
     assert skipped == [Skipped("roads", "format not handled yet: no data or visual asset")]
+
+
+@pytest.mark.asyncio
+async def test_a_collection_whose_items_cannot_be_read_is_skipped(base):
+    document = _document("roads", assets={})
+    href = str(base / "roads" / "collection.json")
+    gone = str(base / "roads" / "items" / "part-0.json")
+    collection = Collection("roads", href, document, (gone,), PORTOLAN)
+
+    built, skipped = await build(_catalog(base, collection), Overrides())
+
+    assert built == []
+    assert skipped == [Skipped("roads", "the items could not be read: it does not exist")]

@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from fastgeoapi_portolan.catalog.locations import is_url, resolve
-from fastgeoapi_portolan.handlers import Overrides, Provided, Refused
+from fastgeoapi_portolan.handlers import Overrides, Provided, Refused, unreadable
 from fastgeoapi_portolan.reader import Collection, read_items
 
 PROVIDER = "app.provider.geoparquet.GeoParquetProvider"
@@ -136,7 +136,10 @@ async def geoparquet(collection: Collection, overrides: Overrides) -> Provided |
     data: str | None = None
 
     if collection.item_hrefs and (glob or asset is None):
-        items = await read_items(collection, overrides.store_options)
+        try:
+            items = await read_items(collection, overrides.store_options)
+        except (OSError, ValueError) as error:
+            return Refused(f"the items could not be read: {unreadable(error)}")
         documents = [
             *items.items,
             *(entry.document for entry in items.nonconforming),

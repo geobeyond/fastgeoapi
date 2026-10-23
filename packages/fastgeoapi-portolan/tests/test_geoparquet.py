@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -304,3 +305,25 @@ async def test_many_folders_are_named_in_short(base):
 
     assert refused.reason.endswith("and 2 more")
     assert "5 folders" in refused.reason
+
+
+@pytest.mark.asyncio
+async def test_items_that_cannot_be_read_refuse_the_collection(base):
+    collection = _collection(base, items={"items/part-0.json": _item("part-0", "./part-0.parquet")})
+    Path(collection.item_hrefs[0]).unlink()
+
+    refused = await geoparquet(collection, Overrides())
+
+    assert isinstance(refused, Refused)
+    assert refused.reason == "the items could not be read: it does not exist"
+
+
+@pytest.mark.asyncio
+async def test_an_item_that_is_not_json_refuses_the_collection(base):
+    collection = _collection(base, items={"items/part-0.json": _item("part-0", "./part-0.parquet")})
+    Path(collection.item_hrefs[0]).write_text("not JSON")
+
+    refused = await geoparquet(collection, Overrides())
+
+    assert isinstance(refused, Refused)
+    assert refused.reason.endswith("the document is not JSON")
