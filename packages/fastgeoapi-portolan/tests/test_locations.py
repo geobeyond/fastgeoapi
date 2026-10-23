@@ -86,3 +86,23 @@ def test_a_relative_href_through_a_symlink_resolves_to_the_real_path(tmp_path):
     resolved = resolve(str(tmp_path / "catalog.json"), "./link/collection.json")
 
     assert resolved == str(tmp_path / "real" / "collection.json")
+
+
+@pytest.mark.parametrize(
+    ("href", "resolved"),
+    [
+        ("./a/collection.json#top", "https://example.org/cat/a/collection.json"),
+        ("https://cdn.example.org/b.json#x", "https://cdn.example.org/b.json"),
+        ("./a/collection.json?v=2#top", "https://example.org/cat/a/collection.json?v=2"),
+    ],
+)
+def test_a_fragment_does_not_name_another_document(href, resolved):
+    assert resolve("https://example.org/cat/catalog.json", href) == resolved
+
+
+def test_a_fragment_in_a_local_href_is_dropped(tmp_path):
+    document = tmp_path / "catalog.json"
+
+    resolved = resolve(str(document), "./a/collection.json#top")
+
+    assert resolved == str((tmp_path / "a" / "collection.json").resolve())

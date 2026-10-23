@@ -386,3 +386,33 @@ def test_a_local_catalog_still_follows_its_local_links(fixtures):
     catalog = read_catalog(str(fixtures.nested), TRANSPORT)
 
     assert local_collection.as_uri() in [collection.href for collection in catalog.collections]
+
+
+def test_the_walk_stops_at_its_document_limit(fixtures):
+    # The root and data fill two places; of roads and deeper, only roads fits.
+    catalog = read_catalog(str(fixtures.nested), TRANSPORT, max_documents=3)
+
+    assert _ids(catalog) == ["roads"]
+    assert "the walk stopped at its limit of 3 documents; 1 more not followed" in (catalog.warnings)
+
+
+def test_a_link_with_a_fragment_is_read_once(fixtures):
+    child = {
+        "rel": "child",
+        "href": "./data/roads/collection.json#top",
+        "type": "application/json",
+        "title": "Roads",
+    }
+    _rewrite(fixtures.nested, lambda document: document["links"].append(child))
+
+    catalog = read_catalog(str(fixtures.nested), TRANSPORT)
+
+    assert _ids(catalog) == ["rivers", "roads"]
+    assert catalog.skipped == ()
+
+
+def test_a_collection_with_more_items_than_the_limit_is_not_read(fixtures):
+    (buildings,) = read_catalog(str(fixtures.partitioned), TRANSPORT).collections
+
+    with pytest.raises(ValueError, match="3 items, more than the 2"):
+        read_items(buildings, TRANSPORT, max_items=2)

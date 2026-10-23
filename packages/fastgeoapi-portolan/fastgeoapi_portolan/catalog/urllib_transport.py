@@ -12,9 +12,7 @@ from typing import BinaryIO
 from urllib.parse import urlsplit
 
 from fastgeoapi_portolan.catalog.locations import is_url
-
-# A catalog document is a few kilobytes; the cap stops a link to a data file.
-MAX_DOCUMENT_BYTES = 32 * 1024 * 1024
+from fastgeoapi_portolan.catalog.protocols import MAX_DOCUMENT_BYTES
 
 
 def _capped(location: str, stream: BinaryIO) -> bytes:
