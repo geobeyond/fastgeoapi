@@ -8,6 +8,10 @@ readme = "README.md"
 license = "MIT"
 classifiers = ["Development Status :: 4 - Beta"]
 dependencies = [
+    # The command is written with click: portolan-cli loads only click
+    # commands, and since 0.26 typer builds its own. 8.2 is the first click
+    # whose CliRunner keeps stderr apart.
+    "click>=8.2",
     # With referencing, for the schema validator; the core of the reader imports neither.
     "jsonschema>=4.18",
     # 0.12 needs Python 3.11; on 3.10 the resolver picks the 0.11 line.
@@ -15,7 +19,6 @@ dependencies = [
     "pmtiles>=3.7,<4",
     "referencing>=0.30",
     "ruamel.yaml>=0.18",
-    "typer>=0.12",
 ]
 
 [project.optional-dependencies]

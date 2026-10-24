@@ -451,8 +451,10 @@ def portolan(session: Session) -> None:
     session.install(
         # With its Pydantic models, so their round trip runs on both Pythons.
         "./packages/fastgeoapi-portolan[models]",
-        # The plugin tests run the command through portolan-cli.
-        "portolan-cli>=0.8,<0.9",
+        # The plugin tests run the command through portolan-cli. Its command
+        # plugins exist only on its main branch, so the session installs a
+        # commit from there until a release ships them.
+        "portolan-cli @ git+https://github.com/portolan-sdi/portolan-cli@eaca65b1576b7a1f1808a6d0c5b5a7ac1bdbd3c7",
         "pytest",
         "pytest-asyncio",
         "ministack>=1.5,<2",

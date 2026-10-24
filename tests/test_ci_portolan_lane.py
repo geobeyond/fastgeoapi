@@ -1,6 +1,7 @@
 """The package that ingests Portolan catalogs has its own lane, on Python 3.10 and 3.12."""
 
 import ast
+import re
 import tomllib
 from pathlib import Path
 
@@ -70,3 +71,26 @@ def test_nox_has_a_portolan_rashid_session_on_both_pythons():
     decorators = [ast.unparse(decorator) for decorator in function.decorator_list]
 
     assert "session(name='portolan-rashid', python=['3.10', '3.12'])" in decorators
+
+
+def test_the_portolan_session_installs_portolan_cli_with_command_plugins():
+    # Command plugins are on portolan-cli's main branch only, so the session
+    # installs one of its commits until a release ships them; from PyPI the
+    # plugin test would skip.
+    tree = ast.parse(Path("noxfile.py").read_text())
+    (function,) = [
+        node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "portolan"
+    ]
+    installed = [
+        node.value
+        for node in ast.walk(function)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and node.value.startswith("portolan-cli")
+    ]
+
+    (requirement,) = installed
+    assert re.fullmatch(
+        r"portolan-cli @ git\+https://github\.com/portolan-sdi/portolan-cli@[0-9a-f]{40}",
+        requirement,
+    )
