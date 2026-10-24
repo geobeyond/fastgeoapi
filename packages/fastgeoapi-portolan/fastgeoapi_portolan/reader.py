@@ -12,6 +12,7 @@ from functools import cache
 from typing import Any
 
 from fastgeoapi_portolan.catalog.drivers import read_catalog_async, read_items_async
+from fastgeoapi_portolan.catalog.protocols import MAX_DOCUMENT_BYTES
 from fastgeoapi_portolan.catalog.results import (
     Catalog,
     Collection,
@@ -21,6 +22,7 @@ from fastgeoapi_portolan.catalog.results import (
     Skipped,
     Validation,
 )
+from fastgeoapi_portolan.catalog.walk import MAX_DOCUMENTS
 from fastgeoapi_portolan.storage import ObstoreTransport
 from fastgeoapi_portolan.validation import JsonSchemaValidator
 
@@ -49,25 +51,39 @@ async def read_catalog(
     *,
     only: frozenset[str] | None = None,
     concurrency: int = 16,
+    max_documents: int = MAX_DOCUMENTS,
+    max_bytes: int = MAX_DOCUMENT_BYTES,
 ) -> Catalog:
     """Read the catalog at ``location`` and check every catalog and collection in it.
 
     ``store_options`` are those of a fastgeoapi configuration, for a
     catalog in a bucket. ``only`` keeps the collections with those ids.
+    The walk reads at most ``max_documents``, each of at most ``max_bytes``.
     """
     return await read_catalog_async(
         location,
-        ObstoreTransport(store_options),
+        ObstoreTransport(store_options, max_bytes=max_bytes),
         only=only,
         validator=_validator(),
         concurrency=concurrency,
+        max_documents=max_documents,
     )
 
 
 async def read_items(
-    collection: Collection, store_options: Mapping[str, Any] | None = None
+    collection: Collection,
+    store_options: Mapping[str, Any] | None = None,
+    *,
+    max_items: int = MAX_DOCUMENTS,
+    max_bytes: int = MAX_DOCUMENT_BYTES,
 ) -> Items:
-    """Read and check the items ``collection`` links."""
+    """Read and check the items ``collection`` links, each of at most ``max_bytes``.
+
+    A collection that links more than ``max_items`` raises ``ValueError``.
+    """
     return await read_items_async(
-        collection, ObstoreTransport(store_options), validator=_validator()
+        collection,
+        ObstoreTransport(store_options, max_bytes=max_bytes),
+        validator=_validator(),
+        max_items=max_items,
     )

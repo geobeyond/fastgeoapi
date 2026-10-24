@@ -26,7 +26,6 @@ from pmtiles.tile import (
 )
 
 from fastgeoapi_portolan.catalog.locations import is_url, resolve
-from fastgeoapi_portolan.catalog.protocols import MAX_DOCUMENT_BYTES
 from fastgeoapi_portolan.handlers import Overrides, Provided, Refused, unreadable
 from fastgeoapi_portolan.reader import Collection
 from fastgeoapi_portolan.storage import read_bytes, read_range
@@ -161,7 +160,9 @@ async def _styles(
             choices.append(f"styles: {name} left out: another style has the name")
             continue
         try:
-            raw = await read_bytes(href, overrides.store_options, max_bytes=MAX_DOCUMENT_BYTES)
+            raw = await read_bytes(
+                href, overrides.store_options, max_bytes=overrides.max_document_bytes
+            )
             style = json.loads(raw)
         except (OSError, BaseError) as error:
             choices.append(f"styles: {name} left out: it could not be read: {unreadable(error)}")

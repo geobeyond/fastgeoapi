@@ -308,6 +308,22 @@ async def test_many_folders_are_named_in_short(base):
 
 
 @pytest.mark.asyncio
+async def test_the_item_limits_come_from_the_overrides(base):
+    items = {f"items/part-{n}.json": _item(f"part-{n}", f"./part-{n}.parquet") for n in range(3)}
+    collection = _collection(base, items=items)
+
+    too_many = await geoparquet(collection, Overrides(max_documents=2))
+    too_large = await geoparquet(collection, Overrides(max_document_bytes=100))
+
+    assert isinstance(too_many, Refused)
+    assert too_many.reason == (
+        "the items could not be read: the collection links 3 items, more than the 2 the reader reads"
+    )
+    assert isinstance(too_large, Refused)
+    assert "larger than 100 bytes" in too_large.reason
+
+
+@pytest.mark.asyncio
 async def test_items_that_cannot_be_read_refuse_the_collection(base):
     collection = _collection(base, items={"items/part-0.json": _item("part-0", "./part-0.parquet")})
     Path(collection.item_hrefs[0]).unlink()

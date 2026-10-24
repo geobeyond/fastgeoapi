@@ -137,7 +137,12 @@ async def geoparquet(collection: Collection, overrides: Overrides) -> Provided |
 
     if collection.item_hrefs and (glob or asset is None):
         try:
-            items = await read_items(collection, overrides.store_options)
+            items = await read_items(
+                collection,
+                overrides.store_options,
+                max_items=overrides.max_documents,
+                max_bytes=overrides.max_document_bytes,
+            )
         except (OSError, ValueError) as error:
             return Refused(f"the items could not be read: {unreadable(error)}")
         documents = [

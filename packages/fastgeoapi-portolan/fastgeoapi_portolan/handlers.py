@@ -6,6 +6,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from fastgeoapi_portolan.catalog.protocols import MAX_DOCUMENT_BYTES
+from fastgeoapi_portolan.catalog.walk import MAX_DOCUMENTS
 from fastgeoapi_portolan.reader import Collection
 
 
@@ -14,11 +16,15 @@ class Overrides:
     """What the command line says in place of the catalog.
 
     ``id_fields`` and ``geometry_columns`` map a collection id to a column.
+    ``max_documents`` bounds the items read for a collection, and
+    ``max_document_bytes`` the size of each document a handler reads.
     """
 
     store_options: Mapping[str, Any] = field(default_factory=dict)
     id_fields: Mapping[str, str] = field(default_factory=dict)
     geometry_columns: Mapping[str, str] = field(default_factory=dict)
+    max_documents: int = MAX_DOCUMENTS
+    max_document_bytes: int = MAX_DOCUMENT_BYTES
 
 
 @dataclass(frozen=True)

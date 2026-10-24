@@ -43,6 +43,42 @@ async def test_the_reader_reads_and_checks_the_items(tmp_path):
     assert items.nonconforming == ()
 
 
+@pytest.mark.asyncio
+async def test_the_walk_stops_at_max_documents(tmp_path):
+    fixtures = write_fixtures(tmp_path)
+
+    catalog = await read_catalog(str(fixtures.nested), max_documents=2)
+
+    assert catalog.collections == ()
+    assert any("its limit of 2 documents" in warning for warning in catalog.warnings)
+
+
+@pytest.mark.asyncio
+async def test_a_document_over_max_bytes_is_not_read(tmp_path):
+    fixtures = write_fixtures(tmp_path)
+
+    with pytest.raises(OSError, match="larger than 100 bytes"):
+        await read_catalog(str(fixtures.nested), max_bytes=100)
+
+
+@pytest.mark.asyncio
+async def test_a_collection_with_more_items_than_max_items_is_not_read(tmp_path):
+    fixtures = write_fixtures(tmp_path)
+    (buildings,) = (await read_catalog(str(fixtures.partitioned))).collections
+
+    with pytest.raises(ValueError, match="more than the 2"):
+        await read_items(buildings, max_items=2)
+
+
+@pytest.mark.asyncio
+async def test_an_item_over_max_bytes_is_not_read(tmp_path):
+    fixtures = write_fixtures(tmp_path)
+    (buildings,) = (await read_catalog(str(fixtures.partitioned))).collections
+
+    with pytest.raises(OSError, match="larger than 100 bytes"):
+        await read_items(buildings, max_bytes=100)
+
+
 @pytest.fixture
 def kit_in_a_bucket(s3_endpoint, tmp_path, monkeypatch):
     """The kit on disk, the same files on the local S3, and the options to read them."""

@@ -33,6 +33,8 @@ from fastgeoapi_portolan.catalog.types import CollectionDocument, ItemDocument
 
 PORTOLAN_SCHEMAS = "https://schemas.portolan-sdi.org/portolan/"
 NO_PORTOLAN_SCHEMA = "the catalog declares no Portolan schema: read as plain STAC"
+# How the warning of a walk that stopped at its limit begins.
+STOPPED_AT_LIMIT = "the walk stopped at its limit"
 # At most this many documents in a walk, and items in a collection; rashid stops at the same.
 MAX_DOCUMENTS = 10_000
 
@@ -249,7 +251,7 @@ class _Walk:
     def result(self) -> Catalog:
         if self.capped:
             self.warn(
-                f"the walk stopped at its limit of {self.max_documents} documents; "
+                f"{STOPPED_AT_LIMIT} of {self.max_documents} documents; "
                 f"{self.capped} more not followed"
             )
         return Catalog(
@@ -316,7 +318,7 @@ def walk_items(
         return Items((), ())
     if len(collection.item_hrefs) > max_items:
         raise ValueError(
-            f"{collection.href}: the collection links {len(collection.item_hrefs)} items, "
+            f"the collection links {len(collection.item_hrefs)} items, "
             f"more than the {max_items} the reader reads"
         )
     replies = yield collection.item_hrefs
