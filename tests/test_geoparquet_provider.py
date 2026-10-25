@@ -5,6 +5,8 @@ metadata), so the tests exercise the same reader path a cloud dataset
 would take — LocalStore and bucket differ only in credentials.
 """
 
+import re
+
 import pytest
 from pygeoapi.provider.base import BaseProvider
 
@@ -255,6 +257,57 @@ def test_get_does_not_interpolate_the_identifier(provider):
 
     with pytest.raises(ProviderItemNotFoundError):
         provider.get("1' OR '1'='1")
+
+
+def test_get_compares_the_identifier_with_the_column_type(provider, monkeypatch):
+    """A typed comparison reaches the scan as a constant.
+
+    DuckDB can then skip row groups by their statistics, which it cannot do
+    for a comparison as text. On a remote file it reads one row group instead
+    of the whole column.
+    """
+    sent = []
+    rows = provider._rows
+
+    def recording(sql, parameters=None):
+        sent.append((sql, parameters))
+        return rows(sql, parameters)
+
+    monkeypatch.setattr(provider, "_rows", recording)
+    provider.get("2")
+
+    ((sql, parameters),) = sent
+    plan = provider._cursor().execute(f"EXPLAIN {sql}", parameters).fetchall()[0][1]
+    assert re.search(r"\bid ?= ?2\b", plan), plan
+
+
+def test_get_matches_the_identifier_as_written(provider):
+    """``2.0`` converts to the integer 2, and still names no item."""
+    from pygeoapi.provider.base import ProviderItemNotFoundError
+
+    with pytest.raises(ProviderItemNotFoundError):
+        provider.get("2.0")
+
+
+def test_get_finds_a_text_identifier(tmp_path):
+    con = connect(str(tmp_path))
+    con.execute(
+        f"""
+        COPY (SELECT 'road-7' AS id, ST_Point(12.5, 41.9) AS geom)
+        TO '{tmp_path}/roads.parquet' (FORMAT parquet)
+        """
+    )
+    roads = GeoParquetProvider(
+        {
+            "name": "app.provider.geoparquet.GeoParquetProvider",
+            "type": "feature",
+            "data": f"{tmp_path}/roads.parquet",
+            "id_field": "id",
+            "geometry_column": "geom",
+        }
+    )
+
+    assert roads.get("road-7")["id"] == "road-7"
 
 
 def test_concurrent_queries_are_correct(tmp_path_factory):
