@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from app.editor.inspect import dry_run, validate_effective, validate_source
+from app.editor.inspect import dry_run, validate_effective, validate_source, validation_problems
 
 SOURCE = Path("pygeoapi-config.yml").read_text()
 TEST_SOURCE = Path("tests/data/pygeoapi-config.yml").read_text()
@@ -140,3 +140,19 @@ def test_a_view_zoom_left_to_a_placeholder_is_fine_in_the_source():
     outcome = validate_source(_with_view({"center": [12.5, 41.9], "zoom": "${ZOOM}"}))
 
     assert outcome.ok, outcome.problems
+
+
+def test_validation_problems_are_those_of_the_first_failing_check(monkeypatch):
+    """The editor's save rule, for the commands that write a document."""
+    monkeypatch.setenv("PORT", "5000")
+    monkeypatch.delenv("FASTGEOAPI_TEST_UNSET", raising=False)
+    unset = SOURCE.replace("${PORT}", "${FASTGEOAPI_TEST_UNSET}", 1)
+    # Broken as written and unresolvable: the source check speaks first.
+    broken = unset.replace("resources:", "resources: [oops]\nunused:", 1)
+
+    assert validation_problems(broken) == validate_source(broken).problems
+    assert any("resources" in problem for problem in validation_problems(broken))
+    assert validation_problems(unset) == [
+        "${FASTGEOAPI_TEST_UNSET} has no value in this environment"
+    ]
+    assert validation_problems(SOURCE) == []

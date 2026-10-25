@@ -174,6 +174,20 @@ def validate_effective(text: str) -> Outcome:
     return Outcome(ok=not problems, problems=problems, variables=variables)
 
 
+def validation_problems(text: str) -> list[str]:
+    """The problems that keep ``text`` from being saved, as the editor's save sees them.
+
+    The document as written first; when it passes, what would run once
+    its placeholders are resolved, so an unset ``${VAR}`` blocks a write
+    here as it blocks ``PUT /editor/config``. A command that writes a
+    configuration takes this as its validator.
+    """
+    source = validate_source(text)
+    if not source.ok:
+        return source.problems
+    return validate_effective(text).problems
+
+
 def dry_run(text: str, augmented: bool = False) -> Outcome:
     """Build the configuration for real, and report what stood up.
 

@@ -56,6 +56,11 @@ allow-direct-references = true
 [project.scripts]
 fastgeoapi = "app.cli:app"
 
+# The editor's save rule, for `portolan fastgeoapi ingest`: the plugin finds
+# it here without importing fastgeoapi.
+[project.entry-points."fastgeoapi_portolan.validators"]
+fastgeoapi = "app.editor.inspect:validation_problems"
+
 [project.optional-dependencies]
 geoparquet = [
     "duckdb>=1.5,<2",
