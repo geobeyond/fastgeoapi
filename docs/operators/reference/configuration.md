@@ -141,9 +141,9 @@ Being outside the schema has one practical consequence: the
 [configuration editor](../how-to/configuration-editor.md)'s form cannot create
 the provider keys below, because no widget can be generated for a key the
 schema does not mention. It preserves them faithfully once they exist; to
-write one, use the editor's YAML tab. The page keys are the exception:
-fastgeoapi checks them after pygeoapi's validation and adds them to the
-schema the editor serves, so the form has fields for them.
+write one, use the editor's YAML tab. The page keys and the provenance key
+are the exception: fastgeoapi checks them after pygeoapi's validation and
+adds them to the schema the editor serves, so the form has fields for them.
 
 ### Provider keys
 
@@ -183,6 +183,23 @@ pygeoapi's own pages ignore them.
 
 `view` needs both keys. A page that shows data, such as the items of a
 collection, fits its map to the data before it looks at `view`.
+
+### Provenance keys
+
+`fastgeoapi config ingest` writes an `ingest` key in every resource it
+creates, and reads it on the next run to tell its own resources from the
+ones written by hand. See [Ingesting a Portolan catalog](../how-to/portolan-ingest.md).
+
+| Key                 | Where        | Meaning                                                                      |
+| ------------------- | ------------ | ---------------------------------------------------------------------------- |
+| `ingest.from`       | a collection | The kind of catalog the resource was ingested from: `portolan`               |
+| `ingest.catalog`    | a collection | The root document of the catalog, as a URL or a path                         |
+| `ingest.collection` | a collection | The id of the collection in that catalog                                     |
+| `ingest.schema`     | a collection | The Portolan schema the catalog declares, an `http` or `https` URL; optional |
+
+The first three are required, and no other key is accepted. A resource
+without `ingest` counts as written by hand, so removing the key takes a
+resource away from the ingest: the next run leaves it alone.
 
 ### Where the configuration itself comes from
 

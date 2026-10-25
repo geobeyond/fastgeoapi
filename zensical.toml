@@ -42,6 +42,7 @@ nav = [
       { "MapLibre provider" = "operators/how-to/maplibre.md" },
       { "Native HTML pages" = "operators/how-to/html-pages.md" },
       { "Editing the configuration" = "operators/how-to/configuration-editor.md" },
+      { "Ingesting a Portolan catalog" = "operators/how-to/portolan-ingest.md" },
       { "Enabling the MCP server" = "operators/how-to/enabling-mcp.md" },
     ] },
     { "Reference" = [

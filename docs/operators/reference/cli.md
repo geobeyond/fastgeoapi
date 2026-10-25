@@ -4,7 +4,7 @@ icon: material/console
 
 # :material-console: The command line
 
-Installing fastgeoapi puts one command on your path. It has three
+Installing fastgeoapi puts one command on your path. It has four
 subcommands, and which one you run decides **what the process is allowed
 to do** — that is the whole design, not an accident of packaging.
 
@@ -12,11 +12,12 @@ to do** — that is the whole design, not an accident of packaging.
 fastgeoapi --help
 ```
 
-| Command                  | What it starts             | Can it change what is served?        |
-| ------------------------ | -------------------------- | ------------------------------------ |
-| `fastgeoapi run`         | the server                 | no — it only reads the configuration |
-| `fastgeoapi openapi`     | nothing; writes a document | no                                   |
-| `fastgeoapi config edit` | the editor, on loopback    | it writes; it cannot activate        |
+| Command                    | What it starts             | Can it change what is served?        |
+| -------------------------- | -------------------------- | ------------------------------------ |
+| `fastgeoapi run`           | the server                 | no — it only reads the configuration |
+| `fastgeoapi openapi`       | nothing; writes a document | no                                   |
+| `fastgeoapi config edit`   | the editor, on loopback    | it writes; it cannot activate        |
+| `fastgeoapi config ingest` | nothing; writes resources  | it writes; it cannot activate        |
 
 ## `fastgeoapi run`
 
@@ -92,12 +93,51 @@ It prints a per-run token and the address to open. There is **no
 refusal is a startup failure rather than a warning, because it is what
 stands in for the authentication chain it deliberately does not have.
 
+## `fastgeoapi config ingest`
+
+Write pygeoapi resources for the GeoParquet and PMTiles collections of a
+Portolan catalog, printed or merged into a configuration. It needs the
+`portolan` extra, and is covered in full in
+[Ingesting a Portolan catalog](../how-to/portolan-ingest.md).
+
+```bash
+fastgeoapi config ingest --from-portolan https://example.org/catalog/
+fastgeoapi config ingest --from-portolan ./catalog --into pygeoapi-config.yml --prune
+fastgeoapi config ingest --from-portolan s3://my-bucket/catalog/ --store-option region=eu-west-1 --json
+```
+
+| Option                 | Default    | Meaning                                                                                             |
+| ---------------------- | ---------- | --------------------------------------------------------------------------------------------------- |
+| `--from-portolan`      | required   | the catalog: its `catalog.json` or the folder that holds it, as a path or a URL                     |
+| `--into`               | none       | the configuration to merge the resources into, a path or a bucket URL; without it, they are printed |
+| `--collection`         | all        | ingest this collection only; repeat for more                                                        |
+| `--prefix`             | none       | put this before every resource id                                                                   |
+| `--store-option`       | none       | a storage option for the buckets, as `key=value`; repeat for more                                   |
+| `--id-field`           | guessed    | the id column of a collection, as `collection=column`, when the catalog names none                  |
+| `--geometry-column`    | guessed    | the geometry column of a collection, as `collection=column`, when the catalog names none            |
+| `--prune`              | off        | with `--into`, remove this catalog's resources whose collection is gone from it                     |
+| `--strict`             | off        | exit with 1, before writing, when a collection is skipped                                           |
+| `--json`               | off        | print the summary as JSON                                                                           |
+| `--max-documents`      | `10000`    | the most documents one walk reads, and the most items read for one collection                       |
+| `--max-document-bytes` | `33554432` | the largest document read, in bytes (32 MiB)                                                        |
+
+Without `--into` the resources go to stdout and the summary to stderr; with
+it, the summary goes to stdout. It exits with 0 even when some collections
+were skipped, with 1 on an error, when nothing is written, and with 2 on a
+wrong command line.
+
+`portolan fastgeoapi ingest` is the same command loaded by portolan-cli, with
+the same options.
+
 ## Two roles, one program
 
 `run` and `config edit` are the same project started differently, and
 neither can do the other's job. The serving role carries no editor; the
 authoring role carries no reload webhook, so it can write a
 configuration but never put one into service.
+
+`config ingest` is on the authoring side too: it writes a configuration
+and never puts it into service.
 
 The separation is tied to the **command** rather than to a setting on
 purpose. A variable can be set by mistake in production — it has
