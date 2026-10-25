@@ -9,8 +9,8 @@ of the collection become its named styles.
 
 from __future__ import annotations
 
-import gzip
 import json
+import zlib
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -25,7 +25,12 @@ from pmtiles.tile import (
     deserialize_header,
 )
 
-from fastgeoapi_portolan.catalog.locations import is_url, resolve
+from fastgeoapi_portolan.catalog.locations import (
+    LOCAL_FROM_REMOTE,
+    is_url,
+    local_from_remote,
+    resolve,
+)
 from fastgeoapi_portolan.handlers import Overrides, Provided, Refused, unreadable
 from fastgeoapi_portolan.reader import Collection
 from fastgeoapi_portolan.storage import read_bytes, read_range
@@ -107,16 +112,32 @@ def _archive_source(style: Any, style_href: str, archive: str) -> str | None:
     return None
 
 
+def _gunzip(data: bytes, limit: int) -> bytes:
+    """``data`` decompressed, or ``ValueError`` once it grows past ``limit`` bytes."""
+    inflater = zlib.decompressobj(wbits=16 + zlib.MAX_WBITS)
+    inflated = inflater.decompress(data, limit + 1)
+    if len(inflated) > limit:
+        raise ValueError(f"the metadata inflates past {limit} bytes")
+    return inflated
+
+
 async def _zoom(
     location: str, header: Mapping[str, Any], overrides: Overrides
 ) -> tuple[dict[str, int], str]:
-    """The zoom span of the ``vector_layers`` in the metadata, or else the header's."""
+    """The zoom span of the ``vector_layers`` in the metadata, or else the header's.
+
+    The header gives the size of the metadata, so it is read and
+    decompressed only within the document cap.
+    """
+    limit = overrides.max_document_bytes
     try:
+        if header["metadata_length"] > limit:
+            raise ValueError(f"the metadata is larger than {limit} bytes")
         raw = await read_range(
             location, header["metadata_offset"], header["metadata_length"], overrides.store_options
         )
         if header["internal_compression"] == Compression.GZIP:
-            raw = gzip.decompress(raw)
+            raw = _gunzip(raw, limit)
         elif header["internal_compression"] != Compression.NONE:
             raise ValueError("compression not read")
         layers = json.loads(raw).get("vector_layers")
@@ -125,7 +146,7 @@ async def _zoom(
             for layer in layers
             if isinstance(layer.get("minzoom"), int) and isinstance(layer.get("maxzoom"), int)
         ]
-    except (OSError, BaseError, ValueError, AttributeError, TypeError):
+    except (OSError, BaseError, ValueError, AttributeError, TypeError, zlib.error):
         spans = []
     if spans:
         return {
@@ -158,6 +179,9 @@ async def _styles(
     for name, href, _ in named:
         if name in sources:
             choices.append(f"styles: {name} left out: another style has the name")
+            continue
+        if local_from_remote(collection.href, href):
+            choices.append(f"styles: {name} left out: it {LOCAL_FROM_REMOTE}")
             continue
         try:
             raw = await read_bytes(
@@ -203,6 +227,8 @@ async def pmtiles(collection: Collection, overrides: Overrides) -> Provided | Re
     if found is None:
         return None
     location, origin = found
+    if local_from_remote(collection.href, location):
+        return Refused(f"the archive {location} {LOCAL_FROM_REMOTE}")
     try:
         raw = await read_range(location, 0, HEADER_LENGTH, overrides.store_options)
     except (OSError, BaseError) as error:

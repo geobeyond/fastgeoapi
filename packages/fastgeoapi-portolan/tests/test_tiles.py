@@ -340,3 +340,67 @@ async def test_a_style_over_the_document_cap_is_left_out(folder):
         "default left out: it could not be read" in choice and "larger than 10 bytes" in choice
         for choice in provided.choices
     )
+
+
+LOCAL_FROM_REMOTE = "is on the local disk, linked from a remote catalog"
+
+
+@pytest.mark.asyncio
+async def test_a_remote_collection_cannot_point_at_a_local_archive(folder):
+    archive = (folder / ARCHIVE).as_uri()
+    assets = {"tiles": {"href": archive, "type": PMTILES, "roles": ["visual"]}}
+    collection = _collection(
+        folder, assets=assets, href="https://example.org/cat/roads/collection.json"
+    )
+
+    refused = await pmtiles(collection, Overrides())
+
+    assert refused == Refused(f"the archive {archive} {LOCAL_FROM_REMOTE}")
+
+
+@pytest.mark.asyncio
+async def test_a_remote_collection_cannot_point_at_a_local_style(folder, served):
+    _write_styles(folder, {"default.json": _style()})
+    assets = {
+        "tiles": {"href": f"./{ARCHIVE}", "type": PMTILES, "roles": ["visual"]},
+        "default-style": _style_asset((folder / "styles" / "default.json").as_uri(), "default"),
+    }
+    collection = _collection(folder, assets=assets, href=f"{served}/roads/collection.json")
+
+    provided = await pmtiles(collection, Overrides())
+
+    assert "styles" not in provided.provider["options"]
+    assert f"styles: default left out: it {LOCAL_FROM_REMOTE}" in provided.choices
+
+
+@pytest.mark.asyncio
+async def test_metadata_over_the_document_cap_is_not_read(folder, monkeypatch):
+    from fastgeoapi_portolan import tiles
+
+    reads = []
+    read_range = tiles.read_range
+
+    async def recording(location, start, length, store_options=None):
+        reads.append((start, length))
+        return await read_range(location, start, length, store_options)
+
+    monkeypatch.setattr(tiles, "read_range", recording)
+
+    provided = await pmtiles(_collection(folder), Overrides(max_document_bytes=10))
+
+    assert reads == [(0, tiles.HEADER_LENGTH)]
+    assert "zoom: 0-14 (header)" in provided.choices
+
+
+@pytest.mark.asyncio
+async def test_metadata_that_inflates_past_the_cap_is_not_read(folder):
+    # A megabyte of zeros gzips to about a kilobyte.
+    metadata = {
+        "vector_layers": [{"id": "parks", "minzoom": 3, "maxzoom": 9}],
+        "padding": "0" * 1_000_000,
+    }
+    _write_archive(folder / ARCHIVE, metadata=metadata)
+
+    provided = await pmtiles(_collection(folder), Overrides(max_document_bytes=100_000))
+
+    assert "zoom: 0-14 (header)" in provided.choices

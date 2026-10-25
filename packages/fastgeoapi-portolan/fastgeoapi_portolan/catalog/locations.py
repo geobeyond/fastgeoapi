@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
 CATALOG = "catalog.json"
+LOCAL_FROM_REMOTE = "is on the local disk, linked from a remote catalog"
 
 _SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
 
@@ -15,6 +16,20 @@ _SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
 def is_url(location: str) -> bool:
     """Whether ``location`` is a URL rather than a path."""
     return _SCHEME.match(location) is not None
+
+
+def is_local(location: str) -> bool:
+    """Whether ``location`` is on the local disk: a path, or a ``file:`` URL."""
+    return not is_url(location) or urlsplit(location).scheme == "file"
+
+
+def local_from_remote(document: str, location: str) -> bool:
+    """Whether ``location``, named in ``document``, is on the local disk while ``document`` is not.
+
+    A remote document reaches the local disk only through a ``file:`` URL,
+    since a path in it resolves against its own host.
+    """
+    return not is_local(document) and is_local(location)
 
 
 def root_document(location: str) -> str:

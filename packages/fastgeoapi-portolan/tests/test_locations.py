@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from fastgeoapi_portolan.catalog.locations import resolve, root_document
+from fastgeoapi_portolan.catalog.locations import local_from_remote, resolve, root_document
 
 
 @pytest.mark.parametrize(
@@ -106,3 +106,24 @@ def test_a_fragment_in_a_local_href_is_dropped(tmp_path):
     resolved = resolve(str(document), "./a/collection.json#top")
 
     assert resolved == str((tmp_path / "a" / "collection.json").resolve())
+
+
+@pytest.mark.parametrize(
+    ("document", "location", "crosses"),
+    [
+        ("https://example.org/cat/roads/collection.json", "file:///srv/data/x.parquet", True),
+        ("https://example.org/cat/roads/collection.json", "FILE:///srv/data/x.parquet", True),
+        ("https://example.org/cat/roads/collection.json", "/srv/data/x.parquet", True),
+        ("s3://bucket/cat/roads/collection.json", "file:///srv/data/x.parquet", True),
+        ("https://example.org/cat/roads/collection.json", "s3://bucket/x.parquet", False),
+        (
+            "https://example.org/cat/roads/collection.json",
+            "https://cdn.example.org/x.pmtiles",
+            False,
+        ),
+        ("/srv/cat/roads/collection.json", "/srv/data/x.parquet", False),
+        ("file:///srv/cat/roads/collection.json", "file:///srv/data/x.parquet", False),
+    ],
+)
+def test_a_remote_document_cannot_name_the_local_disk(document, location, crosses):
+    assert local_from_remote(document, location) is crosses

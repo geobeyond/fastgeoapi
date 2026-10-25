@@ -18,9 +18,14 @@ import json
 from collections.abc import Generator, Mapping
 from pathlib import Path
 from typing import Any, Literal, TypeVar, cast
-from urllib.parse import urlsplit
 
-from fastgeoapi_portolan.catalog.locations import is_url, resolve, root_document
+from fastgeoapi_portolan.catalog.locations import (
+    LOCAL_FROM_REMOTE,
+    is_url,
+    local_from_remote,
+    resolve,
+    root_document,
+)
 from fastgeoapi_portolan.catalog.protocols import SchemaValidator
 from fastgeoapi_portolan.catalog.results import (
     Catalog,
@@ -137,7 +142,6 @@ class _Walk:
         # The root is the first document of the walk.
         self.queued = 1
         self.capped = 0
-        self.remote = is_url(root)
         self.only = only
         self.validator = validator
         self.profile = declared_profile(document)
@@ -237,8 +241,8 @@ class _Walk:
 
     def local(self, href: str) -> bool:
         """Whether ``href`` is a file on the local disk linked from a remote catalog."""
-        if self.remote and (not is_url(href) or urlsplit(href).scheme.lower() == "file"):
-            self.warn(f"{href} is on the local disk, linked from a remote catalog: not followed")
+        if local_from_remote(self.root, href):
+            self.warn(f"{href} {LOCAL_FROM_REMOTE}: not followed")
             return True
         return False
 

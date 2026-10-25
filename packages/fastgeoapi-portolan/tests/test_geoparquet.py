@@ -323,6 +323,44 @@ async def test_the_item_limits_come_from_the_overrides(base):
     assert "larger than 100 bytes" in too_large.reason
 
 
+REMOTE = "https://example.org/cat/roads/collection.json"
+LOCAL_FROM_REMOTE = "is on the local disk, linked from a remote catalog"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"assets": {"data": _parquet("file:///srv/data/other.parquet")}},
+        {"assets": {}, "partition:glob": "file:///srv/data/*.parquet"},
+    ],
+)
+async def test_a_remote_collection_cannot_point_at_local_data(fields):
+    columns = [{"name": "id"}, {"name": "geometry"}]
+    document = {"type": "Collection", "id": "roads", "table:columns": columns, **fields}
+    collection = Collection("roads", REMOTE, document, (), PORTOLAN)
+
+    refused = await geoparquet(collection, Overrides())
+
+    assert isinstance(refused, Refused)
+    assert refused.reason.startswith("the data file:///srv/data/")
+    assert refused.reason.endswith(LOCAL_FROM_REMOTE)
+
+
+@pytest.mark.asyncio
+async def test_a_remote_collection_cannot_point_at_local_data_through_its_items(base):
+    on_disk = _collection(
+        base, items={"items/part-0.json": _item("part-0", "file:///srv/data/part-0.parquet")}
+    )
+    # Plain STAC: the Portolan profile already wants https asset hrefs in items.
+    collection = Collection("roads", REMOTE, on_disk.document, on_disk.item_hrefs, None)
+
+    refused = await geoparquet(collection, Overrides())
+
+    assert isinstance(refused, Refused)
+    assert refused.reason == f"the data file:///srv/data/*.parquet {LOCAL_FROM_REMOTE}"
+
+
 @pytest.mark.asyncio
 async def test_items_that_cannot_be_read_refuse_the_collection(base):
     collection = _collection(base, items={"items/part-0.json": _item("part-0", "./part-0.parquet")})

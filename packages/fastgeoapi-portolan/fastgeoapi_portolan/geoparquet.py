@@ -13,7 +13,12 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from fastgeoapi_portolan.catalog.locations import is_url, resolve
+from fastgeoapi_portolan.catalog.locations import (
+    LOCAL_FROM_REMOTE,
+    is_url,
+    local_from_remote,
+    resolve,
+)
 from fastgeoapi_portolan.handlers import Overrides, Provided, Refused, unreadable
 from fastgeoapi_portolan.reader import Collection, read_items
 
@@ -185,6 +190,8 @@ async def geoparquet(collection: Collection, overrides: Overrides) -> Provided |
             choices.append("data: collection asset")
     if data is None:
         return None
+    if local_from_remote(collection.href, data):
+        return Refused(f"the data {data} {LOCAL_FROM_REMOTE}")
 
     store_options: dict[str, Any] = {}
     rewritten = s3_from_https(data)
