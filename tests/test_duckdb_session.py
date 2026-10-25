@@ -383,13 +383,22 @@ def test_public_data_ignores_ambient_credentials(monkeypatch):
 
 
 def test_an_s3_compatible_endpoint_reaches_the_secret():
-    """Tigris and MinIO are S3-compatible services behind their own endpoint."""
+    """Tigris and MinIO are S3-compatible services behind their own endpoint.
+
+    DuckDB keeps default secrets of its own with the same scope, so the check
+    is on the secret it picks for a read of the dataset.
+    """
     con = connect(
         "s3://bucket/ds",
         store_options={"endpoint": "fly.storage.tigris.dev", "region": "auto"},
     )
-    rendered = str(con.execute("SELECT * FROM duckdb_secrets()").fetchone())
-    assert "tigris" in rendered
+    ((name, _, _),) = con.execute(
+        "FROM which_secret('s3://bucket/ds/part-0.parquet', 's3')"
+    ).fetchall()
+    (secret,) = con.execute(
+        "SELECT secret_string FROM duckdb_secrets() WHERE name = ?", [name]
+    ).fetchone()
+    assert "endpoint=fly.storage.tigris.dev" in secret
 
 
 def test_azure_and_gcs_use_their_own_secret_type():

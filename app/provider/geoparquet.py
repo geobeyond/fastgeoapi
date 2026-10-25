@@ -438,9 +438,12 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
     def get(self, identifier, **kwargs) -> dict:
         """Fetch a single feature by its identifier.
 
-        The identifier is bound as a parameter and compared as text, so
-        a numeric or string id both work and nothing from the URL ever
-        reaches the SQL text.
+        The identifier is bound as a parameter, so nothing from the URL
+        ever reaches the SQL text. It is compared twice. Against the column
+        itself, DuckDB converts it to the column's type and pushes it into
+        the scan as a constant, which lets it skip row groups by their
+        statistics. As text, the match stays exact: ``2.0`` does not name
+        the item ``2``, and an identifier that does not convert names none.
         """
         from pygeoapi.provider.base import ProviderItemNotFoundError
 
@@ -453,9 +456,10 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         sql = (
             # ruff: ignore[hardcoded-sql-expression]
             f"SELECT {projection}, ST_AsGeoJSON({self._geometry_expression()}) "  # nosec B608
-            f'FROM {self._scan} WHERE CAST("{self.id_field}" AS VARCHAR) = ? LIMIT 1'
+            f'FROM {self._scan} WHERE "{self.id_field}" = ? '
+            f'AND CAST("{self.id_field}" AS VARCHAR) = ? LIMIT 1'
         )
-        rows = self._rows(sql, [str(identifier)])
+        rows = self._rows(sql, [str(identifier), str(identifier)])
         if not rows:
             raise ProviderItemNotFoundError(f"no such item: {identifier}")
         return self._rows_to_features(rows, columns, skip_geometry=False)[0]
