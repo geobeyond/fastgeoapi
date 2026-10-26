@@ -294,11 +294,14 @@ name = "cz_conventional_commits"
 tag_format = "v$version"
 version_scheme = "semver"
 version_provider = "pep621"
-# The package of the HTML pages carries the same version, and the html
-# extra pins it: a bump moves both with the project.
+# The packages of the HTML pages and of the Portolan ingest carry the
+# project's version, and the html and portolan extras pin it: a bump moves
+# both packages and both pins with the project.
 version_files = [
     "packages/fastgeoapi-html/pyproject.toml:^version",
     "pyproject.toml:fastgeoapi-html==",
+    "packages/fastgeoapi-portolan/pyproject.toml:^version",
+    "pyproject.toml:fastgeoapi-portolan==",
 ]
 update_changelog_on_bump = true
 major_version_zero = true

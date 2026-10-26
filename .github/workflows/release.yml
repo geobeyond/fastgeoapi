@@ -142,13 +142,24 @@ jobs:
           fi
           echo "The pages are in $wheel"
 
-      # The pages first: fastgeoapi[html] pins them, so fastgeoapi never
-      # names a pages version that is not there yet.
+      # The ingest package gets a directory of its own as well.
+      - name: Build the portolan package
+        if: steps.check-version.outputs.tag || github.ref == 'refs/heads/develop'
+        run: python -m build packages/fastgeoapi-portolan --outdir dist-portolan
+
+      # The two packages first: fastgeoapi[html] and fastgeoapi[portolan]
+      # pin them, so fastgeoapi never names a version that is not there yet.
       - name: Publish the pages package on PyPI
         if: steps.check-version.outputs.tag
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: dist-html/
+
+      - name: Publish the portolan package on PyPI
+        if: steps.check-version.outputs.tag
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: dist-portolan/
 
       - name: Publish package on PyPI
         if: steps.check-version.outputs.tag
@@ -160,6 +171,16 @@ jobs:
         with:
           repository-url: https://test.pypi.org/legacy/
           packages-dir: dist-html/
+          skip-existing: true
+          verbose: true
+          print-hash: true
+
+      - name: Publish the portolan package on TestPyPI
+        if: github.ref == 'refs/heads/develop'
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist-portolan/
           skip-existing: true
           verbose: true
           print-hash: true
