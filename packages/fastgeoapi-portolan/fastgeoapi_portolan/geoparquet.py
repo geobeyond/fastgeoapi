@@ -8,6 +8,7 @@ an S3 bucket becomes an ``s3://`` URL, so DuckDB can expand a glob in it.
 
 from __future__ import annotations
 
+import asyncio
 import re
 from collections.abc import Iterable, Mapping
 from pathlib import Path
@@ -33,6 +34,16 @@ _VIRTUAL_HOSTED = re.compile(
 )
 _PATH_STYLE = re.compile(
     rf"^https://s3[.-]{_REGION}\.amazonaws\.com/(?P<bucket>[^/]+)/(?P<key>.+)$"
+)
+# The store options that are also parameters of a DuckDB S3 secret.
+_SECRET_OPTIONS = (
+    "region",
+    "endpoint",
+    "url_style",
+    "use_ssl",
+    "key_id",
+    "secret",
+    "session_token",
 )
 
 
@@ -222,3 +233,52 @@ async def geoparquet_provider(
     if store_options:
         provider["store_options"] = store_options
     return ProviderMatch(provider, tuple(choices))
+
+
+def _literal(value: Any) -> str:
+    return "'" + str(value).replace("'", "''") + "'"
+
+
+def _s3_secret(store_options: Mapping[str, Any]) -> str:
+    parameters = ["TYPE s3"]
+    parameters += [
+        f"{name.upper()} {_literal(store_options[name])}"
+        for name in _SECRET_OPTIONS
+        if store_options.get(name) is not None
+    ]
+    if store_options.get("skip_signature") is True:
+        # Empty keys stop DuckDB from signing. Without them it signs with the
+        # AWS variables of the environment, and a public bucket answers a
+        # signed request with 403.
+        parameters += ["KEY_ID ''", "SECRET ''"]
+    return f"CREATE SECRET ({', '.join(parameters)})"
+
+
+def _count_duplicate_ids(data: str, column: str, store_options: Mapping[str, Any]) -> int:
+    # Here rather than at the top: DuckDB is needed by --check-ids only.
+    import duckdb
+
+    connection = duckdb.connect()
+    try:
+        # DuckDB loads httpfs by itself for a bucket or an http(s) URL.
+        if data.startswith("s3://"):
+            connection.execute(_s3_secret(store_options))
+        identifier = '"' + column.replace('"', '""') + '"'
+        # The column is quoted as an identifier and the data is a parameter.
+        # ruff: ignore[hardcoded-sql-expression]
+        query = (
+            f"SELECT count(*) - count(DISTINCT {identifier}) "  # nosec B608
+            "FROM read_parquet(?, union_by_name = true)"
+        )
+        row = connection.execute(query, [data]).fetchone()
+        return int(row[0]) if row else 0
+    finally:
+        connection.close()
+
+
+async def duplicate_ids(data: str, column: str, store_options: Mapping[str, Any]) -> int:
+    """How many rows of ``data`` have no id of their own in ``column``: repeated ids and nulls.
+
+    DuckDB reads that column only, in a thread, since its calls block.
+    """
+    return await asyncio.to_thread(_count_duplicate_ids, data, column, store_options)

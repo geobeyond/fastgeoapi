@@ -9,9 +9,10 @@ validator, which is looked up only when a document is about to be written.
 from __future__ import annotations
 
 import asyncio
+import importlib
 import json
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from importlib.metadata import entry_points
 from typing import Any, NoReturn
 
@@ -21,6 +22,7 @@ from ruamel.yaml import YAMLError
 from fastgeoapi_portolan.catalog.protocols import MAX_DOCUMENT_BYTES
 from fastgeoapi_portolan.catalog.walk import MAX_DOCUMENTS, STOPPED_AT_LIMIT
 from fastgeoapi_portolan.document import ConcurrentEditError, read_document, write_document
+from fastgeoapi_portolan.geoparquet import PROVIDER, duplicate_ids
 from fastgeoapi_portolan.handlers import IngestOptions, describe_read_error
 from fastgeoapi_portolan.merge import MergeResult, merge, render
 from fastgeoapi_portolan.reader import Catalog, SkippedDocument, read_catalog
@@ -66,6 +68,8 @@ class _Outcome:
     skipped: list[SkippedDocument]
     warnings: list[str]
     merged: MergeResult | None = None
+    # The resources whose ids --check-ids found repeated or could not read.
+    id_problems: list[str] = field(default_factory=list)
 
 
 def _fail(message: str) -> NoReturn:
@@ -173,10 +177,62 @@ def _ingest(request: _Request) -> _Outcome:
     return _Outcome(catalog, built, skipped, list(catalog.warnings))
 
 
+def _require_duckdb() -> None:
+    try:
+        importlib.import_module("duckdb")
+    except ImportError:
+        _fail("--check-ids needs duckdb: pip install duckdb")
+
+
+def _check_ids(outcome: _Outcome) -> None:
+    """Count, for each GeoParquet resource, the rows without an id of their own."""
+    import duckdb
+
+    checks = [
+        (entry.id, provider)
+        for entry in outcome.built
+        for provider in entry.resource.get("providers", [])
+        if provider.get("name") == PROVIDER
+    ]
+
+    async def problem(provider: dict[str, Any]) -> str | None:
+        column = provider["id_field"]
+        try:
+            found = await duplicate_ids(provider["data"], column, provider.get("store_options", {}))
+        except duckdb.Error as error:
+            return f"the ids could not be checked: {' '.join(str(error).split())}"
+        if found:
+            return f"the id column {column} is not unique: {found} rows repeat an id or have none"
+        return None
+
+    async def problems() -> list[str | None]:
+        return await asyncio.gather(*(problem(provider) for _, provider in checks))
+
+    for (identifier, _), found in zip(checks, asyncio.run(problems()), strict=True):
+        if found:
+            outcome.warnings.append(f"{identifier}: {found}")
+            outcome.id_problems.append(identifier)
+
+
+def _strict_refusal(request: _Request, outcome: _Outcome) -> str | None:
+    """Why --strict stops the command, if it does."""
+    if not request.strict:
+        return None
+    reasons = []
+    if outcome.skipped:
+        reasons.append(f"{len(outcome.skipped)} collections skipped")
+    if outcome.id_problems:
+        reasons.append(
+            f"{len(outcome.id_problems)} collections whose ids repeat or could not be checked"
+        )
+    return ", ".join(reasons) or None
+
+
 def _print(request: _Request, outcome: _Outcome) -> None:
     _report(request, outcome)
-    if request.strict and outcome.skipped:
-        _fail(f"--strict: {len(outcome.skipped)} collections skipped, nothing printed")
+    refusal = _strict_refusal(request, outcome)
+    if refusal:
+        _fail(f"--strict: {refusal}, nothing printed")
     click.echo(render(outcome.built), nl=False)
 
 
@@ -207,9 +263,10 @@ def _merge_into(
     outcome.merged = merged
     outcome.skipped = [*outcome.skipped, *merged.skipped]
 
-    if request.strict and outcome.skipped:
+    refusal = _strict_refusal(request, outcome)
+    if refusal:
         _report(request, outcome)
-        _fail(f"--strict: {len(outcome.skipped)} collections skipped, nothing written")
+        _fail(f"--strict: {refusal}, nothing written")
     if merged.text != document.text:
         check = validator()
         if check is None:
@@ -276,14 +333,19 @@ def ingest_command(*, validator: Callable[[], Validator | None]) -> click.Comman
     @click.option(
         "--check-ids",
         is_flag=True,
-        help="Check that the id column has no duplicates, reading that column only.",
+        help="Check that the id column of each GeoParquet collection is unique, "
+        "reading that column only. Needs duckdb.",
     )
     @click.option(
         "--prune",
         is_flag=True,
         help="With --into, remove the resources of this catalog whose collection is gone from it.",
     )
-    @click.option("--strict", is_flag=True, help="Fail when a collection is skipped.")
+    @click.option(
+        "--strict",
+        is_flag=True,
+        help="Fail when a collection is skipped, or when --check-ids finds a problem.",
+    )
     @click.option("--json", "as_json", is_flag=True, help="Print the summary as JSON.")
     @click.option(
         "--max-documents",
@@ -316,7 +378,7 @@ def ingest_command(*, validator: Callable[[], Validator | None]) -> click.Comman
     ) -> None:
         """Read a Portolan catalog and write pygeoapi resources for its collections."""
         if check_ids:
-            _fail("--check-ids needs duckdb: pip install duckdb")
+            _require_duckdb()
         ingest_options = IngestOptions(
             store_options=_parse_pairs(store_options, "--store-option", "key=value", _parse_value),
             id_fields=_parse_pairs(id_fields, "--id-field", "collection=column"),
@@ -337,6 +399,8 @@ def ingest_command(*, validator: Callable[[], Validator | None]) -> click.Comman
             as_json=as_json,
         )
         outcome = _ingest(request)
+        if check_ids:
+            _check_ids(outcome)
         if into is None:
             _print(request, outcome)
         else:

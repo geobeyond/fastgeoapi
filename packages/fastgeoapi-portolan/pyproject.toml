@@ -58,3 +58,5 @@ extend-exclude = ["fastgeoapi_portolan/catalog/_generated", "fastgeoapi_portolan
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "strict"
+addopts = "-m 'not network'"
+markers = ["network: reads public data over the internet; run with -m network"]

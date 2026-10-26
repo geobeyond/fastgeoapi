@@ -444,15 +444,6 @@ def test_max_document_bytes_bounds_each_document(base):
     assert "larger than 100 bytes" in result.stderr
 
 
-def test_check_ids_is_not_available_yet(base):
-    root = _write_catalog(base / "cat", _collection("roads"))
-
-    result = _run("--from-portolan", str(root), "--check-ids")
-
-    assert result.exit_code == 1
-    assert "--check-ids needs duckdb: pip install duckdb" in result.stderr
-
-
 def test_the_validator_is_discovered_from_the_entry_points(monkeypatch):
     entry_point = EntryPoint(
         name="fastgeoapi", value="json:dumps", group="fastgeoapi_portolan.validators"

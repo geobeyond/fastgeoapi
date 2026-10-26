@@ -106,20 +106,21 @@ fastgeoapi config ingest --from-portolan ./catalog --into pygeoapi-config.yml --
 fastgeoapi config ingest --from-portolan s3://my-bucket/catalog/ --store-option region=eu-west-1 --json
 ```
 
-| Option                 | Default    | Meaning                                                                                             |
-| ---------------------- | ---------- | --------------------------------------------------------------------------------------------------- |
-| `--from-portolan`      | required   | the catalog: its `catalog.json` or the folder that holds it, as a path or a URL                     |
-| `--into`               | none       | the configuration to merge the resources into, a path or a bucket URL; without it, they are printed |
-| `--collection`         | all        | ingest this collection only; repeat for more                                                        |
-| `--prefix`             | none       | put this before every resource id                                                                   |
-| `--store-option`       | none       | a storage option for the buckets, as `key=value`; repeat for more                                   |
-| `--id-field`           | guessed    | the id column of a collection, as `collection=column`, when the catalog names none                  |
-| `--geometry-column`    | guessed    | the geometry column of a collection, as `collection=column`, when the catalog names none            |
-| `--prune`              | off        | with `--into`, remove this catalog's resources whose collection is gone from it                     |
-| `--strict`             | off        | exit with 1, before writing, when a collection is skipped                                           |
-| `--json`               | off        | print the summary as JSON                                                                           |
-| `--max-documents`      | `10000`    | the most documents one walk reads, and the most items read for one collection                       |
-| `--max-document-bytes` | `33554432` | the largest document read, in bytes (32 MiB)                                                        |
+| Option                 | Default    | Meaning                                                                                                                 |
+| ---------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `--from-portolan`      | required   | the catalog: its `catalog.json` or the folder that holds it, as a path or a URL                                         |
+| `--into`               | none       | the configuration to merge the resources into, a path or a bucket URL; without it, they are printed                     |
+| `--collection`         | all        | ingest this collection only; repeat for more                                                                            |
+| `--prefix`             | none       | put this before every resource id                                                                                       |
+| `--store-option`       | none       | a storage option for the buckets, as `key=value`; repeat for more                                                       |
+| `--id-field`           | guessed    | the id column of a collection, as `collection=column`, when the catalog names none                                      |
+| `--geometry-column`    | guessed    | the geometry column of a collection, as `collection=column`, when the catalog names none                                |
+| `--check-ids`          | off        | count, in each GeoParquet collection, the rows that repeat an id or have none, reading the id column only; needs duckdb |
+| `--prune`              | off        | with `--into`, remove this catalog's resources whose collection is gone from it                                         |
+| `--strict`             | off        | exit with 1, before writing, when a collection is skipped or `--check-ids` finds a problem                              |
+| `--json`               | off        | print the summary as JSON                                                                                               |
+| `--max-documents`      | `10000`    | the most documents one walk reads, and the most items read for one collection                                           |
+| `--max-document-bytes` | `33554432` | the largest document read, in bytes (32 MiB)                                                                            |
 
 Without `--into` the resources go to stdout and the summary to stderr; with
 it, the summary goes to stdout. It exits with 0 even when some collections

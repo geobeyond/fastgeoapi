@@ -99,11 +99,11 @@ same summary as JSON:
 }
 ```
 
-| Exit code | When                                                                                                                                                  |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `0`       | the resources were printed or written, even if some collections were skipped                                                                          |
-| `1`       | an error, and nothing was written: an unreadable root, a document that would not validate, a concurrent edit, or a skipped collection with `--strict` |
-| `2`       | the command line itself is wrong, such as a missing `--from-portolan`                                                                                 |
+| Exit code | When                                                                                                                                                                                        |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0`       | the resources were printed or written, even if some collections were skipped                                                                                                                |
+| `1`       | an error, and nothing was written: an unreadable root, a document that would not validate, a concurrent edit, or, with `--strict`, a skipped collection or a problem found by `--check-ids` |
+| `2`       | the command line itself is wrong, such as a missing `--from-portolan`                                                                                                                       |
 
 Writing a configuration does not put it into service. As with the
 [editor](configuration-editor.md), the command never calls the reload
@@ -156,6 +156,22 @@ asset, in its items and in their properties. When none fits, the
 collection is skipped and the reason names the option to pass. A
 partitioned collection with an item that does not conform is skipped as a
 whole, with the items named: serving half a dataset would be worse.
+
+A guessed id column may not be unique, and the provider then answers
+`/items/{id}` with one of the features that share the id. `--check-ids`
+reads only the id column of each GeoParquet collection and counts the rows
+that repeat an id or have none. A count above zero is a warning in the
+summary:
+
+```text
+warnings:
+  roads: the id column id is not unique: 2 rows repeat an id or have none
+```
+
+Data that cannot be read gets a warning too, with DuckDB's message. With
+`--strict` either one stops the command before it prints or writes. The
+option needs duckdb, which the `portolan` extra of fastgeoapi installs;
+with the portolan-cli plugin, run `pip install duckdb`.
 
 ### PMTiles collections
 
