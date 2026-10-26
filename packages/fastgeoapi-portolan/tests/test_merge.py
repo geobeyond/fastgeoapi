@@ -9,8 +9,8 @@ from ruamel.yaml import YAML
 
 from fastgeoapi_portolan.geoparquet import PROVIDER as GEOPARQUET
 from fastgeoapi_portolan.merge import merge, render
-from fastgeoapi_portolan.reader import Skipped
-from fastgeoapi_portolan.resources import Built
+from fastgeoapi_portolan.reader import SkippedDocument
+from fastgeoapi_portolan.resources import IngestedResource
 
 CATALOG = "https://example.org/cat/catalog.json"
 PORTOLAN = "https://schemas.portolan-sdi.org/portolan/v0.2.0/schema.json"
@@ -86,7 +86,7 @@ def _built(collection, *, catalog=CATALOG, title=None, resource_id=None):
             "schema": PORTOLAN,
         },
     }
-    return Built(resource_id or collection, resource, ())
+    return IngestedResource(resource_id or collection, resource, ())
 
 
 def _resources(text):
@@ -151,7 +151,9 @@ def test_a_hand_written_resource_with_the_same_id_is_left_alone():
 
     assert merged.text == DOCUMENT
     assert merged.skipped == [
-        Skipped("lakes", "the configuration has a resource lakes written by hand: left alone")
+        SkippedDocument(
+            "lakes", "the configuration has a resource lakes written by hand: left alone"
+        )
     ]
 
 
@@ -165,7 +167,9 @@ def test_a_resource_from_another_catalog_with_the_same_id_is_left_alone():
 
     assert second.text == first.text
     assert second.skipped == [
-        Skipped("roads", f"the resource roads comes from {other}, collection roads: left alone")
+        SkippedDocument(
+            "roads", f"the resource roads comes from {other}, collection roads: left alone"
+        )
     ]
 
 

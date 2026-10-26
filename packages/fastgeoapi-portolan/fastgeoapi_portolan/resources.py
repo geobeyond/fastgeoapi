@@ -13,13 +13,22 @@ from dataclasses import dataclass
 from typing import Any
 
 from fastgeoapi_portolan.catalog.locations import resolve
-from fastgeoapi_portolan.geoparquet import geoparquet
-from fastgeoapi_portolan.handlers import Handler, Overrides, Provided, Refused
-from fastgeoapi_portolan.reader import Catalog, Collection, Finding, Nonconforming, Skipped
-from fastgeoapi_portolan.tiles import pmtiles
+from fastgeoapi_portolan.geoparquet import geoparquet_provider
+from fastgeoapi_portolan.handlers import Handler, IngestOptions, ProviderMatch, Refusal
+from fastgeoapi_portolan.reader import (
+    Catalog,
+    Collection,
+    Finding,
+    NonconformingDocument,
+    SkippedDocument,
+)
+from fastgeoapi_portolan.tiles import pmtiles_provider
 
 # In the order their providers appear in a resource.
-HANDLERS: tuple[tuple[str, Handler], ...] = (("geoparquet", geoparquet), ("pmtiles", pmtiles))
+HANDLERS: tuple[tuple[str, Handler], ...] = (
+    ("geoparquet", geoparquet_provider),
+    ("pmtiles", pmtiles_provider),
+)
 CRS84 = "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
 _LINK_RELS = ("describedby", "via", "license")
 _LINK_TITLES = {"describedby": "README", "via": "Source"}
@@ -32,7 +41,7 @@ class DuplicateCollectionIdError(ValueError):
 
 
 @dataclass(frozen=True)
-class Built:
+class IngestedResource:
     """A resource for the configuration, and where its values came from."""
 
     id: str
@@ -130,38 +139,38 @@ def _not_conforming(findings: tuple[Finding, ...]) -> str:
     return f"does not conform to {first.schema}: {where}{more}"
 
 
-def _rejected(entry: Nonconforming) -> Skipped:
+def _rejected(entry: NonconformingDocument) -> SkippedDocument:
     identifier = entry.document.get("id")
     name = identifier if isinstance(identifier, str) and identifier else entry.href
-    return Skipped(name, _not_conforming(entry.findings))
+    return SkippedDocument(name, _not_conforming(entry.findings))
 
 
 async def _resource(
-    collection: Collection, catalog: Catalog, overrides: Overrides, prefix: str
-) -> Built | Skipped:
+    collection: Collection, catalog: Catalog, ingest_options: IngestOptions, prefix: str
+) -> IngestedResource | SkippedDocument:
     document = collection.document
     title, description = _text(document, "title"), _text(document, "description")
     if title is None:
-        return Skipped(collection.id, "the collection has no title")
+        return SkippedDocument(collection.id, "the collection has no title")
     if description is None:
-        return Skipped(collection.id, "the collection has no description")
+        return SkippedDocument(collection.id, "the collection has no description")
     extents = _extents(document)
     if extents is None:
-        return Skipped(collection.id, "the collection has no spatial extent")
+        return SkippedDocument(collection.id, "the collection has no spatial extent")
 
     providers: list[dict[str, Any]] = []
     choices: list[str] = []
     refusals: list[tuple[str, str]] = []
     for name, handler in HANDLERS:
-        result = await handler(collection, overrides)
-        if isinstance(result, Provided):
+        result = await handler(collection, ingest_options)
+        if isinstance(result, ProviderMatch):
             providers.append(result.provider)
             choices.extend(result.choices)
-        elif isinstance(result, Refused):
+        elif isinstance(result, Refusal):
             refusals.append((name, result.reason))
     if not providers:
         reason = "; ".join(why for _, why in refusals) if refusals else _unhandled(document)
-        return Skipped(collection.id, reason)
+        return SkippedDocument(collection.id, reason)
     choices.extend(f"{name} left out: {why}" for name, why in refusals)
 
     keywords = document.get("keywords")
@@ -182,12 +191,12 @@ async def _resource(
     if catalog.portolan_schema:
         ingest["schema"] = catalog.portolan_schema
     resource["ingest"] = ingest
-    return Built(f"{prefix}{collection.id}", resource, tuple(choices))
+    return IngestedResource(f"{prefix}{collection.id}", resource, tuple(choices))
 
 
 async def build(
-    catalog: Catalog, overrides: Overrides, *, prefix: str = ""
-) -> tuple[list[Built], list[Skipped]]:
+    catalog: Catalog, ingest_options: IngestOptions, *, prefix: str = ""
+) -> tuple[list[IngestedResource], list[SkippedDocument]]:
     """The resources for the collections of ``catalog``, and the ones left out.
 
     ``prefix`` goes before every resource id. Two collections that would
@@ -205,10 +214,10 @@ async def build(
 
     skipped = list(catalog.skipped)
     skipped += [_rejected(entry) for entry in catalog.nonconforming if entry.kind == "Collection"]
-    built: list[Built] = []
+    built: list[IngestedResource] = []
     for collection in catalog.collections:
-        result = await _resource(collection, catalog, overrides, prefix)
-        if isinstance(result, Built):
+        result = await _resource(collection, catalog, ingest_options, prefix)
+        if isinstance(result, IngestedResource):
             built.append(result)
         else:
             skipped.append(result)

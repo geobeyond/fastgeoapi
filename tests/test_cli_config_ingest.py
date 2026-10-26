@@ -188,8 +188,8 @@ def test_without_the_package_the_command_names_the_extra(monkeypatch):
 
 
 def test_the_plugin_finds_the_editor_validator():
-    from fastgeoapi_portolan.command import discovered_validator
+    from fastgeoapi_portolan.command import find_validator
 
     from app.editor.inspect import validation_problems
 
-    assert discovered_validator() is validation_problems
+    assert find_validator() is validation_problems

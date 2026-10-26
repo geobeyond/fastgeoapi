@@ -27,11 +27,11 @@ from pmtiles.tile import (
 
 from fastgeoapi_portolan.catalog.locations import (
     LOCAL_FROM_REMOTE,
+    is_local_from_remote,
     is_url,
-    local_from_remote,
     resolve,
 )
-from fastgeoapi_portolan.handlers import Overrides, Provided, Refused, unreadable
+from fastgeoapi_portolan.handlers import IngestOptions, ProviderMatch, Refusal, describe_read_error
 from fastgeoapi_portolan.reader import Collection
 from fastgeoapi_portolan.storage import read_bytes, read_range
 
@@ -122,19 +122,22 @@ def _gunzip(data: bytes, limit: int) -> bytes:
 
 
 async def _zoom(
-    location: str, header: Mapping[str, Any], overrides: Overrides
+    location: str, header: Mapping[str, Any], ingest_options: IngestOptions
 ) -> tuple[dict[str, int], str]:
     """The zoom span of the ``vector_layers`` in the metadata, or else the header's.
 
     The header gives the size of the metadata, so it is read and
     decompressed only within the document cap.
     """
-    limit = overrides.max_document_bytes
+    limit = ingest_options.max_document_bytes
     try:
         if header["metadata_length"] > limit:
             raise ValueError(f"the metadata is larger than {limit} bytes")
         raw = await read_range(
-            location, header["metadata_offset"], header["metadata_length"], overrides.store_options
+            location,
+            header["metadata_offset"],
+            header["metadata_length"],
+            ingest_options.store_options,
         )
         if header["internal_compression"] == Compression.GZIP:
             raw = _gunzip(raw, limit)
@@ -157,7 +160,7 @@ async def _zoom(
 
 
 async def _styles(
-    collection: Collection, archive: str, overrides: Overrides
+    collection: Collection, archive: str, ingest_options: IngestOptions
 ) -> tuple[dict[str, Any], list[str]]:
     """The style options for the provider, and the choices behind them."""
     named: list[tuple[str, str, bool]] = []
@@ -180,16 +183,18 @@ async def _styles(
         if name in sources:
             choices.append(f"styles: {name} left out: another style has the name")
             continue
-        if local_from_remote(collection.href, href):
+        if is_local_from_remote(collection.href, href):
             choices.append(f"styles: {name} left out: it {LOCAL_FROM_REMOTE}")
             continue
         try:
             raw = await read_bytes(
-                href, overrides.store_options, max_bytes=overrides.max_document_bytes
+                href, ingest_options.store_options, max_bytes=ingest_options.max_document_bytes
             )
             style = json.loads(raw)
         except (OSError, BaseError) as error:
-            choices.append(f"styles: {name} left out: it could not be read: {unreadable(error)}")
+            choices.append(
+                f"styles: {name} left out: it could not be read: {describe_read_error(error)}"
+            )
             continue
         except ValueError:
             choices.append(f"styles: {name} left out: it is not JSON")
@@ -221,29 +226,31 @@ async def _styles(
     return options, choices
 
 
-async def pmtiles(collection: Collection, overrides: Overrides) -> Provided | Refused | None:
+async def pmtiles_provider(
+    collection: Collection, ingest_options: IngestOptions
+) -> ProviderMatch | Refusal | None:
     """The tile provider for the PMTiles archive of ``collection``."""
     found = _archive(collection)
     if found is None:
         return None
     location, origin = found
-    if local_from_remote(collection.href, location):
-        return Refused(f"the archive {location} {LOCAL_FROM_REMOTE}")
+    if is_local_from_remote(collection.href, location):
+        return Refusal(f"the archive {location} {LOCAL_FROM_REMOTE}")
     try:
-        raw = await read_range(location, 0, HEADER_LENGTH, overrides.store_options)
+        raw = await read_range(location, 0, HEADER_LENGTH, ingest_options.store_options)
     except (OSError, BaseError) as error:
-        return Refused(f"the archive could not be read: {unreadable(error)}")
+        return Refusal(f"the archive could not be read: {describe_read_error(error)}")
     try:
         header = deserialize_header(raw)
     except (MagicNumberNotFound, SpecVersionUnsupported, ValueError, IndexError) as error:
-        return Refused(f"the archive header could not be read: {unreadable(error)}")
+        return Refusal(f"the archive header could not be read: {describe_read_error(error)}")
     tile_type = header["tile_type"]
     tile_format = FORMATS.get(tile_type)
     if tile_format is None:
-        return Refused(f"tile type {TileType(tile_type).name} is not served by the provider")
+        return Refusal(f"tile type {TileType(tile_type).name} is not served by the provider")
 
-    zoom, zoom_origin = await _zoom(location, header, overrides)
-    style_options, style_choices = await _styles(collection, location, overrides)
+    zoom, zoom_origin = await _zoom(location, header, ingest_options)
+    style_options, style_choices = await _styles(collection, location, ingest_options)
     provider: dict[str, Any] = {
         "type": "tile",
         "name": PROVIDER,
@@ -251,12 +258,12 @@ async def pmtiles(collection: Collection, overrides: Overrides) -> Provided | Re
         "options": {"zoom": zoom, "schemes": ["WebMercatorQuad"], **style_options},
         "format": dict(tile_format),
     }
-    if overrides.store_options:
-        provider["store_options"] = dict(overrides.store_options)
+    if ingest_options.store_options:
+        provider["store_options"] = dict(ingest_options.store_options)
     choices = (
         f"data: {origin}",
         f"zoom: {zoom['min']}-{zoom['max']} ({zoom_origin})",
         f"format: {tile_format['name']} (tile type {TileType(tile_type).name})",
         *style_choices,
     )
-    return Provided(provider, choices)
+    return ProviderMatch(provider, choices)

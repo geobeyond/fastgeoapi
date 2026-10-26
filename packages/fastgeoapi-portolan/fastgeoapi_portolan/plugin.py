@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import click
 
-from fastgeoapi_portolan.command import discovered_validator, ingest_command
+from fastgeoapi_portolan.command import find_validator, ingest_command
 
 
 @click.group(name="fastgeoapi")
@@ -16,4 +16,4 @@ def command() -> None:
     """Write fastgeoapi configurations from Portolan catalogs."""
 
 
-command.add_command(ingest_command(validator=discovered_validator))
+command.add_command(ingest_command(validator=find_validator))

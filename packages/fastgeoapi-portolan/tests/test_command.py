@@ -11,7 +11,7 @@ from ruamel.yaml import YAML
 
 from fastgeoapi_portolan import command
 from fastgeoapi_portolan.catalog.walk import NO_PORTOLAN_SCHEMA
-from fastgeoapi_portolan.command import discovered_validator, ingest_command
+from fastgeoapi_portolan.command import find_validator, ingest_command
 
 PARQUET = "application/vnd.apache.parquet"
 COG = "image/tiff; application=geotiff; profile=cloud-optimized"
@@ -465,14 +465,14 @@ def test_the_validator_is_discovered_from_the_entry_points(monkeypatch):
 
     monkeypatch.setattr(command, "entry_points", entry_points)
 
-    assert discovered_validator() is json.dumps
+    assert find_validator() is json.dumps
     assert groups == ["fastgeoapi_portolan.validators"]
 
 
 def test_without_an_entry_point_there_is_no_validator(monkeypatch):
     monkeypatch.setattr(command, "entry_points", lambda *, group: [])
 
-    assert discovered_validator() is None
+    assert find_validator() is None
 
 
 def test_prune_keeps_a_collection_the_catalog_still_lists(base, config):

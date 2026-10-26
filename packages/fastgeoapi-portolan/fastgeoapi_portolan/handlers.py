@@ -12,10 +12,11 @@ from fastgeoapi_portolan.reader import Collection
 
 
 @dataclass(frozen=True)
-class Overrides:
-    """What the command line says in place of the catalog.
+class IngestOptions:
+    """What the command line adds to the catalog: storage, columns and reading limits.
 
-    ``id_fields`` and ``geometry_columns`` map a collection id to a column.
+    ``id_fields`` and ``geometry_columns`` map a collection id to a column,
+    for the collections whose catalog names none.
     ``max_documents`` bounds the items read for a collection, and
     ``max_document_bytes`` the size of each document a handler reads.
     """
@@ -28,7 +29,7 @@ class Overrides:
 
 
 @dataclass(frozen=True)
-class Provided:
+class ProviderMatch:
     """A provider for the resource, and where each of its values came from."""
 
     provider: dict[str, Any]
@@ -36,13 +37,13 @@ class Provided:
 
 
 @dataclass(frozen=True)
-class Refused:
+class Refusal:
     """The collection has assets of the handler's kind, and the reason no provider fits."""
 
     reason: str
 
 
-def unreadable(error: Exception) -> str:
+def describe_read_error(error: Exception) -> str:
     """Why a document could not be read, in one line for a summary."""
     if isinstance(error, FileNotFoundError):
         return "it does not exist"
@@ -54,7 +55,7 @@ class Handler(Protocol):
     """Reads one kind of asset; ``None`` when the collection has none of that kind."""
 
     async def __call__(
-        self, collection: Collection, overrides: Overrides
-    ) -> Provided | Refused | None:
+        self, collection: Collection, ingest_options: IngestOptions
+    ) -> ProviderMatch | Refusal | None:
         """The provider for ``collection``, or the reason there is none."""
         ...

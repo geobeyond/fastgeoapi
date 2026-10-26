@@ -15,9 +15,9 @@ from pmtiles.tile import Compression, TileType, zxy_to_tileid
 from pmtiles.writer import Writer
 
 from fastgeoapi_portolan.catalog.testing import PORTOLAN
-from fastgeoapi_portolan.handlers import Overrides, Refused
+from fastgeoapi_portolan.handlers import IngestOptions, Refusal
 from fastgeoapi_portolan.reader import Collection
-from fastgeoapi_portolan.tiles import PROVIDER, pmtiles, style_name
+from fastgeoapi_portolan.tiles import PROVIDER, pmtiles_provider, style_name
 
 ARCHIVE = "boston-open-space.pmtiles"
 PMTILES = "application/vnd.pmtiles"
@@ -84,9 +84,11 @@ def _write_styles(folder, styles):
 
 @pytest.mark.asyncio
 async def test_the_visual_asset_or_the_pmtiles_link_is_the_data(folder):
-    from_asset = await pmtiles(_collection(folder), Overrides())
+    from_asset = await pmtiles_provider(_collection(folder), IngestOptions())
     link = {"rel": "pmtiles", "href": f"./{ARCHIVE}", "type": PMTILES}
-    from_link = await pmtiles(_collection(folder, assets={}, links=[link]), Overrides())
+    from_link = await pmtiles_provider(
+        _collection(folder, assets={}, links=[link]), IngestOptions()
+    )
 
     assert from_asset.provider["type"] == "tile"
     assert from_asset.provider["name"] == PROVIDER
@@ -106,7 +108,7 @@ async def test_a_collection_without_an_archive_is_not_this_handlers(folder):
         }
     }
 
-    assert await pmtiles(_collection(folder, assets=parquet), Overrides()) is None
+    assert await pmtiles_provider(_collection(folder, assets=parquet), IngestOptions()) is None
 
 
 @pytest.mark.asyncio
@@ -117,7 +119,7 @@ async def test_zoom_comes_from_the_vector_layers_before_the_header(folder):
         metadata={"vector_layers": [{"id": "parks", "minzoom": 14, "maxzoom": 14}]},
     )
 
-    provided = await pmtiles(_collection(folder), Overrides())
+    provided = await pmtiles_provider(_collection(folder), IngestOptions())
 
     assert provided.provider["options"]["zoom"] == {"min": 14, "max": 14}
     assert "zoom: 14-14 (vector_layers)" in provided.choices
@@ -127,7 +129,7 @@ async def test_zoom_comes_from_the_vector_layers_before_the_header(folder):
 async def test_without_vector_layers_the_zoom_comes_from_the_header(folder):
     _write_archive(folder / ARCHIVE, zooms=(2, 9), metadata={"name": "parks"})
 
-    provided = await pmtiles(_collection(folder), Overrides())
+    provided = await pmtiles_provider(_collection(folder), IngestOptions())
 
     assert provided.provider["options"]["zoom"] == {"min": 2, "max": 9}
     assert "zoom: 2-9 (header)" in provided.choices
@@ -144,7 +146,7 @@ async def test_without_vector_layers_the_zoom_comes_from_the_header(folder):
 async def test_the_format_follows_the_tile_type(folder, tile_type, expected):
     _write_archive(folder / ARCHIVE, tile_type=tile_type)
 
-    provided = await pmtiles(_collection(folder), Overrides())
+    provided = await pmtiles_provider(_collection(folder), IngestOptions())
 
     assert provided.provider["format"] == expected
 
@@ -153,15 +155,15 @@ async def test_the_format_follows_the_tile_type(folder, tile_type, expected):
 async def test_a_tile_type_the_provider_does_not_serve_is_refused(folder):
     _write_archive(folder / ARCHIVE, tile_type=TileType.MLT)
 
-    refused = await pmtiles(_collection(folder), Overrides())
+    refused = await pmtiles_provider(_collection(folder), IngestOptions())
 
-    assert isinstance(refused, Refused)
+    assert isinstance(refused, Refusal)
     assert "MLT" in refused.reason
 
 
 @pytest.mark.asyncio
 async def test_schemes_are_web_mercator(folder):
-    provided = await pmtiles(_collection(folder), Overrides())
+    provided = await pmtiles_provider(_collection(folder), IngestOptions())
 
     assert provided.provider["options"]["schemes"] == ["WebMercatorQuad"]
 
@@ -184,7 +186,7 @@ async def test_every_style_asset_is_named_and_the_default_leads(folder):
         "night": _style_asset("./styles/night.json", title="Night"),
     }
 
-    provided = await pmtiles(_collection(folder, assets=assets), Overrides())
+    provided = await pmtiles_provider(_collection(folder, assets=assets), IngestOptions())
 
     options = provided.provider["options"]
     assert list(options["styles"]) == ["default", "by-subtype", "Night"]
@@ -230,7 +232,7 @@ async def test_style_hrefs_are_made_absolute(folder, served):
     }
     collection = _collection(folder, assets=assets, href=f"{served}/roads/collection.json")
 
-    provided = await pmtiles(collection, Overrides())
+    provided = await pmtiles_provider(collection, IngestOptions())
 
     assert provided.provider["data"] == f"{served}/roads/{ARCHIVE}"
     assert provided.provider["options"]["styles"] == {
@@ -246,7 +248,7 @@ async def test_the_style_source_is_the_source_that_points_at_the_archive(folder)
         "default-style": _style_asset("./styles/default.json", "default"),
     }
 
-    provided = await pmtiles(_collection(folder, assets=assets), Overrides())
+    provided = await pmtiles_provider(_collection(folder, assets=assets), IngestOptions())
 
     assert provided.provider["options"]["style_source"] == "boston"
 
@@ -260,7 +262,7 @@ async def test_a_style_naming_the_archive_differently_is_left_out_with_the_reaso
         "style-other": _style_asset("./styles/other.json"),
     }
 
-    provided = await pmtiles(_collection(folder, assets=assets), Overrides())
+    provided = await pmtiles_provider(_collection(folder, assets=assets), IngestOptions())
 
     assert list(provided.provider["options"]["styles"]) == ["default"]
     (left_out,) = [choice for choice in provided.choices if "left out" in choice]
@@ -273,13 +275,13 @@ async def test_a_style_naming_the_archive_differently_is_left_out_with_the_reaso
 async def test_an_unreadable_archive_header_is_refused_with_the_reason(folder):
     (folder / ARCHIVE).write_bytes(b"not an archive" * 20)
 
-    refused = await pmtiles(_collection(folder), Overrides())
+    refused = await pmtiles_provider(_collection(folder), IngestOptions())
     (folder / ARCHIVE).unlink()
-    missing = await pmtiles(_collection(folder), Overrides())
+    missing = await pmtiles_provider(_collection(folder), IngestOptions())
 
-    assert isinstance(refused, Refused)
+    assert isinstance(refused, Refusal)
     assert "header" in refused.reason
-    assert isinstance(missing, Refused)
+    assert isinstance(missing, Refusal)
     assert "does not exist" in missing.reason
 
 
@@ -295,7 +297,7 @@ async def test_styles_that_cannot_draw_the_archive_are_left_out_with_the_reason(
         "basemap-style": _style_asset("./styles/basemap.json"),
     }
 
-    provided = await pmtiles(_collection(folder, assets=assets), Overrides())
+    provided = await pmtiles_provider(_collection(folder, assets=assets), IngestOptions())
 
     assert list(provided.provider["options"]["styles"]) == ["default"]
     assert "styles: missing left out: it could not be read: it does not exist" in provided.choices
@@ -312,7 +314,7 @@ async def test_two_styles_with_one_name_keep_the_first(folder):
         "b": _style_asset("./styles/b.json", title="Day"),
     }
 
-    provided = await pmtiles(_collection(folder, assets=assets), Overrides())
+    provided = await pmtiles_provider(_collection(folder, assets=assets), IngestOptions())
 
     assert provided.provider["options"]["styles"] == {"Day": str(folder / "styles" / "a.json")}
     assert "styles: Day left out: another style has the name" in provided.choices
@@ -320,7 +322,9 @@ async def test_two_styles_with_one_name_keep_the_first(folder):
 
 @pytest.mark.asyncio
 async def test_store_options_reach_the_provider(folder):
-    provided = await pmtiles(_collection(folder), Overrides(store_options={"region": "eu-west-1"}))
+    provided = await pmtiles_provider(
+        _collection(folder), IngestOptions(store_options={"region": "eu-west-1"})
+    )
 
     assert provided.provider["store_options"] == {"region": "eu-west-1"}
 
@@ -333,7 +337,9 @@ async def test_a_style_over_the_document_cap_is_left_out(folder):
         "default-style": _style_asset("./styles/default.json", "default"),
     }
 
-    provided = await pmtiles(_collection(folder, assets=assets), Overrides(max_document_bytes=10))
+    provided = await pmtiles_provider(
+        _collection(folder, assets=assets), IngestOptions(max_document_bytes=10)
+    )
 
     assert "styles" not in provided.provider["options"]
     assert any(
@@ -353,9 +359,9 @@ async def test_a_remote_collection_cannot_point_at_a_local_archive(folder):
         folder, assets=assets, href="https://example.org/cat/roads/collection.json"
     )
 
-    refused = await pmtiles(collection, Overrides())
+    refused = await pmtiles_provider(collection, IngestOptions())
 
-    assert refused == Refused(f"the archive {archive} {LOCAL_FROM_REMOTE}")
+    assert refused == Refusal(f"the archive {archive} {LOCAL_FROM_REMOTE}")
 
 
 @pytest.mark.asyncio
@@ -367,7 +373,7 @@ async def test_a_remote_collection_cannot_point_at_a_local_style(folder, served)
     }
     collection = _collection(folder, assets=assets, href=f"{served}/roads/collection.json")
 
-    provided = await pmtiles(collection, Overrides())
+    provided = await pmtiles_provider(collection, IngestOptions())
 
     assert "styles" not in provided.provider["options"]
     assert f"styles: default left out: it {LOCAL_FROM_REMOTE}" in provided.choices
@@ -386,7 +392,7 @@ async def test_metadata_over_the_document_cap_is_not_read(folder, monkeypatch):
 
     monkeypatch.setattr(tiles, "read_range", recording)
 
-    provided = await pmtiles(_collection(folder), Overrides(max_document_bytes=10))
+    provided = await pmtiles_provider(_collection(folder), IngestOptions(max_document_bytes=10))
 
     assert reads == [(0, tiles.HEADER_LENGTH)]
     assert "zoom: 0-14 (header)" in provided.choices
@@ -401,6 +407,8 @@ async def test_metadata_that_inflates_past_the_cap_is_not_read(folder):
     }
     _write_archive(folder / ARCHIVE, metadata=metadata)
 
-    provided = await pmtiles(_collection(folder), Overrides(max_document_bytes=100_000))
+    provided = await pmtiles_provider(
+        _collection(folder), IngestOptions(max_document_bytes=100_000)
+    )
 
     assert "zoom: 0-14 (header)" in provided.choices

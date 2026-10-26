@@ -18,8 +18,8 @@ from fastgeoapi_portolan.catalog.results import (
     Collection,
     Finding,
     Items,
-    Nonconforming,
-    Skipped,
+    NonconformingDocument,
+    SkippedDocument,
     Validation,
 )
 from fastgeoapi_portolan.catalog.walk import MAX_DOCUMENTS
@@ -31,8 +31,8 @@ __all__ = [
     "Collection",
     "Finding",
     "Items",
-    "Nonconforming",
-    "Skipped",
+    "NonconformingDocument",
+    "SkippedDocument",
     "Validation",
     "read_catalog",
     "read_items",

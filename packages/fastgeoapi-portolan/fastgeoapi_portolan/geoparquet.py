@@ -15,11 +15,11 @@ from typing import Any
 
 from fastgeoapi_portolan.catalog.locations import (
     LOCAL_FROM_REMOTE,
+    is_local_from_remote,
     is_url,
-    local_from_remote,
     resolve,
 )
-from fastgeoapi_portolan.handlers import Overrides, Provided, Refused, unreadable
+from fastgeoapi_portolan.handlers import IngestOptions, ProviderMatch, Refusal, describe_read_error
 from fastgeoapi_portolan.reader import Collection, read_items
 
 PROVIDER = "app.provider.geoparquet.GeoParquetProvider"
@@ -89,34 +89,34 @@ def _by_name(columns: list[str], names: tuple[str, ...]) -> str | None:
 
 
 def _id_field(
-    collection: Collection, columns: list[str], overrides: Overrides
-) -> tuple[str, str] | Refused:
+    collection: Collection, columns: list[str], ingest_options: IngestOptions
+) -> tuple[str, str] | Refusal:
     key = collection.document.get("table:primary_key")
     if isinstance(key, list) and len(key) == 1 and isinstance(key[0], str):
         return key[0], "table:primary_key"
     named = _by_name(columns, ID_NAMES)
     if named is not None:
         return named, "column name"
-    if collection.id in overrides.id_fields:
-        return overrides.id_fields[collection.id], "option"
+    if collection.id in ingest_options.id_fields:
+        return ingest_options.id_fields[collection.id], "option"
     # The provider takes a single column.
     composite = isinstance(key, list) and len(key) > 1
     why = f"table:primary_key {key} is composite" if composite else "no column to use as id"
-    return Refused(f"{why}: pass --id-field {collection.id}=<column>")
+    return Refusal(f"{why}: pass --id-field {collection.id}=<column>")
 
 
 def _geometry_column(
-    collection: Collection, columns: list[str], overrides: Overrides
-) -> tuple[str, str] | Refused:
+    collection: Collection, columns: list[str], ingest_options: IngestOptions
+) -> tuple[str, str] | Refusal:
     declared = collection.document.get("table:primary_geometry")
     if isinstance(declared, str) and declared:
         return declared, "table:primary_geometry"
     named = _by_name(columns, GEOMETRY_NAMES)
     if named is not None:
         return named, "column name"
-    if collection.id in overrides.geometry_columns:
-        return overrides.geometry_columns[collection.id], "option"
-    return Refused(f"no geometry column: pass --geometry-column {collection.id}=<column>")
+    if collection.id in ingest_options.geometry_columns:
+        return ingest_options.geometry_columns[collection.id], "option"
+    return Refusal(f"no geometry column: pass --geometry-column {collection.id}=<column>")
 
 
 def _listed(locations: list[str], limit: int = 3) -> str:
@@ -125,7 +125,9 @@ def _listed(locations: list[str], limit: int = 3) -> str:
     return f"{shown} and {rest} more" if rest > 0 else shown
 
 
-async def geoparquet(collection: Collection, overrides: Overrides) -> Provided | Refused | None:
+async def geoparquet_provider(
+    collection: Collection, ingest_options: IngestOptions
+) -> ProviderMatch | Refusal | None:
     """The feature provider for the GeoParquet data of ``collection``.
 
     The items are read when the data is in them or partitioned. A
@@ -144,12 +146,12 @@ async def geoparquet(collection: Collection, overrides: Overrides) -> Provided |
         try:
             items = await read_items(
                 collection,
-                overrides.store_options,
-                max_items=overrides.max_documents,
-                max_bytes=overrides.max_document_bytes,
+                ingest_options.store_options,
+                max_items=ingest_options.max_documents,
+                max_bytes=ingest_options.max_document_bytes,
             )
         except (OSError, ValueError) as error:
-            return Refused(f"the items could not be read: {unreadable(error)}")
+            return Refusal(f"the items could not be read: {describe_read_error(error)}")
         documents = [
             *items.items,
             *(entry.document for entry in items.nonconforming),
@@ -158,7 +160,7 @@ async def geoparquet(collection: Collection, overrides: Overrides) -> Provided |
             return None
         if items.nonconforming:
             rejected = [entry.href for entry in items.nonconforming]
-            return Refused(f"{len(rejected)} items do not conform: {_listed(rejected)}")
+            return Refusal(f"{len(rejected)} items do not conform: {_listed(rejected)}")
         parts = [
             (href, found)
             for href, item in zip(collection.item_hrefs, items.items, strict=True)
@@ -169,7 +171,7 @@ async def geoparquet(collection: Collection, overrides: Overrides) -> Provided |
         if glob is None:
             folders = sorted({_folder(resolve(href, found["href"])) for href, found in parts})
             if len(folders) > 1:
-                return Refused(
+                return Refusal(
                     f"the data of the items is in {len(folders)} folders, a glob takes one: "
                     f"{_listed(folders)}"
                 )
@@ -190,22 +192,22 @@ async def geoparquet(collection: Collection, overrides: Overrides) -> Provided |
             choices.append("data: collection asset")
     if data is None:
         return None
-    if local_from_remote(collection.href, data):
-        return Refused(f"the data {data} {LOCAL_FROM_REMOTE}")
+    if is_local_from_remote(collection.href, data):
+        return Refusal(f"the data {data} {LOCAL_FROM_REMOTE}")
 
     store_options: dict[str, Any] = {}
     rewritten = s3_from_https(data)
     if rewritten is not None:
         data, store_options = rewritten
         choices.append("data: s3 URL from the https one")
-    store_options.update(overrides.store_options)
+    store_options.update(ingest_options.store_options)
 
     columns = _columns(described)
-    id_field = _id_field(collection, columns, overrides)
-    if isinstance(id_field, Refused):
+    id_field = _id_field(collection, columns, ingest_options)
+    if isinstance(id_field, Refusal):
         return id_field
-    geometry = _geometry_column(collection, columns, overrides)
-    if isinstance(geometry, Refused):
+    geometry = _geometry_column(collection, columns, ingest_options)
+    if isinstance(geometry, Refusal):
         return geometry
     choices.append(f"id_field: {id_field[0]} ({id_field[1]})")
     choices.append(f"geometry_column: {geometry[0]} ({geometry[1]})")
@@ -219,4 +221,4 @@ async def geoparquet(collection: Collection, overrides: Overrides) -> Provided |
     }
     if store_options:
         provider["store_options"] = store_options
-    return Provided(provider, tuple(choices))
+    return ProviderMatch(provider, tuple(choices))

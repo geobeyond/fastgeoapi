@@ -23,8 +23,8 @@ from ruamel.yaml.util import load_yaml_guess_indent
 
 from fastgeoapi_portolan import geoparquet, tiles
 from fastgeoapi_portolan.catalog.locations import root_document
-from fastgeoapi_portolan.reader import Skipped
-from fastgeoapi_portolan.resources import Built
+from fastgeoapi_portolan.reader import SkippedDocument
+from fastgeoapi_portolan.resources import IngestedResource
 
 # The keys of a resource the ingest owns; any other key is kept as written.
 GENERATED = ("type", "title", "description", "keywords", "links", "extents", "providers", "ingest")
@@ -42,13 +42,13 @@ _Representer.add_representer(
 
 
 @dataclass
-class Merged:
+class MergeResult:
     """The merged document, and what the merge did to its resources."""
 
     text: str
     added: list[str] = field(default_factory=list)
     updated: list[str] = field(default_factory=list)
-    skipped: list[Skipped] = field(default_factory=list)
+    skipped: list[SkippedDocument] = field(default_factory=list)
     missing: list[str] = field(default_factory=list)
     pruned: list[str] = field(default_factory=list)
 
@@ -96,7 +96,7 @@ def _render(yaml: YAML, resources: Mapping[str, Any]) -> list[str]:
     return out.getvalue().splitlines(keepends=True)
 
 
-def render(built: Sequence[Built]) -> str:
+def render(built: Sequence[IngestedResource]) -> str:
     """A YAML document holding the ``resources`` of ``built`` and nothing else."""
     return "".join(_render(_yaml(), {entry.id: entry.resource for entry in built}))
 
@@ -173,13 +173,13 @@ class _Layout:
 
 def merge(
     text: str,
-    built: Sequence[Built],
+    built: Sequence[IngestedResource],
     *,
     catalog: str,
     selected: frozenset[str] | None,
     prune: bool,
     still_listed: frozenset[str] = frozenset(),
-) -> Merged:
+) -> MergeResult:
     """Merge the resources of ``built``, ingested from ``catalog``, into the document ``text``.
 
     A resource ingested from the same catalog and collection is updated
@@ -193,7 +193,7 @@ def merge(
     lines = text.splitlines(keepends=True)
     layout = _Layout(yaml.load(text) if text.strip() else None, lines)
     root = root_document(catalog)
-    merged = Merged(text)
+    merged = MergeResult(text)
     edits: list[tuple[int, int, list[str]]] = []
     added: dict[str, Any] = {}
 
@@ -206,7 +206,7 @@ def merge(
         ingest = current.get("ingest") if isinstance(current, dict) else None
         if not isinstance(ingest, dict):
             reason = f"the configuration has a resource {entry.id} written by hand: left alone"
-            merged.skipped.append(Skipped(entry.id, reason))
+            merged.skipped.append(SkippedDocument(entry.id, reason))
             continue
         if (
             _ours(current, root) is None
@@ -216,7 +216,7 @@ def merge(
                 f"the resource {entry.id} comes from {ingest.get('catalog')}, "
                 f"collection {ingest.get('collection')}: left alone"
             )
-            merged.skipped.append(Skipped(entry.id, reason))
+            merged.skipped.append(SkippedDocument(entry.id, reason))
             continue
         updated = _updated(current, entry.resource)
         if updated != current:

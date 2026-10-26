@@ -23,7 +23,7 @@ def is_local(location: str) -> bool:
     return not is_url(location) or urlsplit(location).scheme == "file"
 
 
-def local_from_remote(document: str, location: str) -> bool:
+def is_local_from_remote(document: str, location: str) -> bool:
     """Whether ``location``, named in ``document``, is on the local disk while ``document`` is not.
 
     A remote document reaches the local disk only through a ``file:`` URL,

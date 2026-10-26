@@ -21,8 +21,8 @@ from typing import Any, Literal, TypeVar, cast
 
 from fastgeoapi_portolan.catalog.locations import (
     LOCAL_FROM_REMOTE,
+    is_local_from_remote,
     is_url,
-    local_from_remote,
     resolve,
     root_document,
 )
@@ -31,8 +31,8 @@ from fastgeoapi_portolan.catalog.results import (
     Catalog,
     Collection,
     Items,
-    Nonconforming,
-    Skipped,
+    NonconformingDocument,
+    SkippedDocument,
 )
 from fastgeoapi_portolan.catalog.types import CollectionDocument, ItemDocument
 
@@ -147,8 +147,8 @@ class _Walk:
         self.profile = declared_profile(document)
         self.seen = {root}
         self.collections: list[Collection] = []
-        self.nonconforming: list[Nonconforming] = []
-        self.skipped: list[Skipped] = []
+        self.nonconforming: list[NonconformingDocument] = []
+        self.skipped: list[SkippedDocument] = []
         # A dict keeps the warnings in order, each one once.
         self.warnings: dict[str, None] = {}
         if self.profile is None:
@@ -170,7 +170,9 @@ class _Walk:
             self.collection(href, document)
             return []
         if kind != "Catalog":
-            self.skipped.append(Skipped(href, "the document is neither a catalog nor a collection"))
+            self.skipped.append(
+                SkippedDocument(href, "the document is neither a catalog nor a collection")
+            )
             return []
         self.declared(href, document)
         self.check(href, "Catalog", document)
@@ -188,7 +190,7 @@ class _Walk:
         if not self.check(href, "Collection", document):
             return
         if identifier is None:
-            self.skipped.append(Skipped(href, "the collection has no id"))
+            self.skipped.append(SkippedDocument(href, "the collection has no id"))
             return
         items = tuple(
             item
@@ -223,7 +225,9 @@ class _Walk:
         for schema in validation.unverified:
             self.warn(f"{schema} is not bundled: not checked")
         if validation.findings:
-            self.nonconforming.append(Nonconforming(href, kind, document, validation.findings))
+            self.nonconforming.append(
+                NonconformingDocument(href, kind, document, validation.findings)
+            )
             return False
         return True
 
@@ -241,7 +245,7 @@ class _Walk:
 
     def local(self, href: str) -> bool:
         """Whether ``href`` is a file on the local disk linked from a remote catalog."""
-        if local_from_remote(self.root, href):
+        if is_local_from_remote(self.root, href):
             self.warn(f"{href} {LOCAL_FROM_REMOTE}: not followed")
             return True
         return False
@@ -299,7 +303,7 @@ def walk(
             try:
                 child = _document(replies[href])
             except _UnusableError as error:
-                state.skipped.append(Skipped(href, error.reason))
+                state.skipped.append(SkippedDocument(href, error.reason))
                 continue
             pending.extend(state.visit(href, child))
     # The driver takes the result from StopIteration.
@@ -327,13 +331,15 @@ def walk_items(
         )
     replies = yield collection.item_hrefs
     items: list[ItemDocument] = []
-    nonconforming: list[Nonconforming] = []
+    nonconforming: list[NonconformingDocument] = []
     for href in collection.item_hrefs:
         document = _required(href, replies[href])
         if validator is not None:
             validation = validator.validate(document, root_profile=collection.profile)
             if validation.findings:
-                nonconforming.append(Nonconforming(href, "Item", document, validation.findings))
+                nonconforming.append(
+                    NonconformingDocument(href, "Item", document, validation.findings)
+                )
                 continue
         items.append(cast(ItemDocument, document))
     return Items(tuple(items), tuple(nonconforming))  # ruff: ignore[return-in-generator]

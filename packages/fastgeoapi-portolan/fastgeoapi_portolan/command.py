@@ -21,10 +21,10 @@ from ruamel.yaml import YAMLError
 from fastgeoapi_portolan.catalog.protocols import MAX_DOCUMENT_BYTES
 from fastgeoapi_portolan.catalog.walk import MAX_DOCUMENTS, STOPPED_AT_LIMIT
 from fastgeoapi_portolan.document import ConcurrentEditError, read_document, write_document
-from fastgeoapi_portolan.handlers import Overrides, unreadable
-from fastgeoapi_portolan.merge import Merged, merge, render
-from fastgeoapi_portolan.reader import Catalog, Skipped, read_catalog
-from fastgeoapi_portolan.resources import Built, DuplicateCollectionIdError, build
+from fastgeoapi_portolan.handlers import IngestOptions, describe_read_error
+from fastgeoapi_portolan.merge import MergeResult, merge, render
+from fastgeoapi_portolan.reader import Catalog, SkippedDocument, read_catalog
+from fastgeoapi_portolan.resources import DuplicateCollectionIdError, IngestedResource, build
 
 # Takes the text of a configuration document and returns its problems.
 Validator = Callable[[str], list[str]]
@@ -33,7 +33,7 @@ NOT_VALIDATED = "the document was not validated: no configuration validator is i
 NOT_PRUNED = "nothing pruned: the walk did not read the whole catalog"
 
 
-def discovered_validator() -> Validator | None:
+def find_validator() -> Validator | None:
     """The validator the first entry point of ``fastgeoapi_portolan.validators`` names.
 
     Nothing is imported until this is called; ``None`` when no installed
@@ -51,7 +51,7 @@ class _Request:
     into: str | None
     selected: frozenset[str] | None
     prefix: str
-    overrides: Overrides
+    ingest_options: IngestOptions
     prune: bool
     strict: bool
     as_json: bool
@@ -62,10 +62,10 @@ class _Outcome:
     """What the ingest did, for the summary."""
 
     catalog: Catalog
-    built: list[Built]
-    skipped: list[Skipped]
+    built: list[IngestedResource]
+    skipped: list[SkippedDocument]
     warnings: list[str]
-    merged: Merged | None = None
+    merged: MergeResult | None = None
 
 
 def _fail(message: str) -> NoReturn:
@@ -73,13 +73,13 @@ def _fail(message: str) -> NoReturn:
     raise click.exceptions.Exit(1)
 
 
-def _value(text: str) -> str | bool:
+def _parse_value(text: str) -> str | bool:
     """``true`` and ``false`` as booleans, as a configuration writes them; anything else as is."""
     lowered = text.lower()
     return lowered == "true" if lowered in ("true", "false") else text
 
 
-def _pairs(
+def _parse_pairs(
     values: Sequence[str],
     option: str,
     form: str,
@@ -144,7 +144,7 @@ def _report(request: _Request, outcome: _Outcome) -> None:
     click.echo(text, err=request.into is None)
 
 
-def _complete(catalog: Catalog) -> bool:
+def _is_complete(catalog: Catalog) -> bool:
     """Whether the walk read every document the catalog links."""
     return not catalog.skipped and not any(
         warning.startswith(STOPPED_AT_LIMIT) for warning in catalog.warnings
@@ -153,21 +153,21 @@ def _complete(catalog: Catalog) -> bool:
 
 def _ingest(request: _Request) -> _Outcome:
     """Read the catalog and build its resources; an unreadable root or an id clash fails."""
-    overrides = request.overrides
+    ingest_options = request.ingest_options
     try:
         catalog = asyncio.run(
             read_catalog(
                 request.catalog,
-                overrides.store_options,
+                ingest_options.store_options,
                 only=request.selected,
-                max_documents=overrides.max_documents,
-                max_bytes=overrides.max_document_bytes,
+                max_documents=ingest_options.max_documents,
+                max_bytes=ingest_options.max_document_bytes,
             )
         )
     except (OSError, ValueError) as error:
-        _fail(f"{request.catalog} could not be read: {unreadable(error)}")
+        _fail(f"{request.catalog} could not be read: {describe_read_error(error)}")
     try:
-        built, skipped = asyncio.run(build(catalog, overrides, prefix=request.prefix))
+        built, skipped = asyncio.run(build(catalog, ingest_options, prefix=request.prefix))
     except DuplicateCollectionIdError as error:
         _fail(str(error))
     return _Outcome(catalog, built, skipped, list(catalog.warnings))
@@ -184,13 +184,13 @@ def _merge_into(
     request: _Request, outcome: _Outcome, validator: Callable[[], Validator | None]
 ) -> None:
     into = str(request.into)
-    store_options = request.overrides.store_options
+    store_options = request.ingest_options.store_options
     try:
         document = read_document(into, store_options)
     except (OSError, ValueError) as error:
-        _fail(f"{into} could not be read: {unreadable(error)}")
+        _fail(f"{into} could not be read: {describe_read_error(error)}")
     # A collection the walk could not read may still be in the catalog.
-    complete = _complete(outcome.catalog)
+    complete = _is_complete(outcome.catalog)
     try:
         merged = merge(
             document.text,
@@ -317,10 +317,12 @@ def ingest_command(*, validator: Callable[[], Validator | None]) -> click.Comman
         """Read a Portolan catalog and write pygeoapi resources for its collections."""
         if check_ids:
             _fail("--check-ids needs duckdb: pip install duckdb")
-        overrides = Overrides(
-            store_options=_pairs(store_options, "--store-option", "key=value", _value),
-            id_fields=_pairs(id_fields, "--id-field", "collection=column"),
-            geometry_columns=_pairs(geometry_columns, "--geometry-column", "collection=column"),
+        ingest_options = IngestOptions(
+            store_options=_parse_pairs(store_options, "--store-option", "key=value", _parse_value),
+            id_fields=_parse_pairs(id_fields, "--id-field", "collection=column"),
+            geometry_columns=_parse_pairs(
+                geometry_columns, "--geometry-column", "collection=column"
+            ),
             max_documents=max_documents,
             max_document_bytes=max_document_bytes,
         )
@@ -329,7 +331,7 @@ def ingest_command(*, validator: Callable[[], Validator | None]) -> click.Comman
             into=into,
             selected=frozenset(collections) if collections else None,
             prefix=prefix,
-            overrides=overrides,
+            ingest_options=ingest_options,
             prune=prune,
             strict=strict,
             as_json=as_json,

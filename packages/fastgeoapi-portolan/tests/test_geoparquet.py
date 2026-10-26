@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 
 from fastgeoapi_portolan.catalog.testing import PORTOLAN
-from fastgeoapi_portolan.geoparquet import PROVIDER, geoparquet, s3_from_https
-from fastgeoapi_portolan.handlers import Overrides, Provided, Refused
+from fastgeoapi_portolan.geoparquet import PROVIDER, geoparquet_provider, s3_from_https
+from fastgeoapi_portolan.handlers import IngestOptions, ProviderMatch, Refusal
 from fastgeoapi_portolan.reader import Collection
 
 PARQUET = "application/vnd.apache.parquet"
@@ -63,9 +63,9 @@ def _collection(base, *, assets=None, items=None, **fields):
 async def test_a_collection_level_data_asset_is_the_data(base):
     collection = _collection(base, assets={"data": _parquet("./roads.parquet")})
 
-    provided = await geoparquet(collection, Overrides())
+    provided = await geoparquet_provider(collection, IngestOptions())
 
-    assert provided == Provided(
+    assert provided == ProviderMatch(
         {
             "type": "feature",
             "name": PROVIDER,
@@ -85,7 +85,7 @@ async def test_a_collection_level_data_asset_is_the_data(base):
 async def test_items_in_one_folder_give_a_glob(base):
     items = {f"items/part-{n}.json": _item(f"part-{n}", f"./part-{n}.parquet") for n in range(3)}
 
-    provided = await geoparquet(_collection(base, items=items), Overrides())
+    provided = await geoparquet_provider(_collection(base, items=items), IngestOptions())
 
     assert provided.provider["data"] == f"{base / 'roads' / 'items'}/*.parquet"
     assert "data: glob of 3 items" in provided.choices
@@ -98,9 +98,9 @@ async def test_items_in_different_folders_are_refused(base):
         "b/part-1.json": _item("part-1", "./part-1.parquet"),
     }
 
-    refused = await geoparquet(_collection(base, items=items), Overrides())
+    refused = await geoparquet_provider(_collection(base, items=items), IngestOptions())
 
-    assert isinstance(refused, Refused)
+    assert isinstance(refused, Refusal)
     assert str(base / "roads" / "a") in refused.reason
     assert str(base / "roads" / "b") in refused.reason
 
@@ -130,7 +130,9 @@ def test_other_urls_are_not_rewritten(url):
 
 @pytest.mark.asyncio
 async def test_an_s3_https_data_url_is_read_from_s3(base):
-    provided = await geoparquet(_collection(base, assets={"data": _parquet(OVERTURE)}), Overrides())
+    provided = await geoparquet_provider(
+        _collection(base, assets={"data": _parquet(OVERTURE)}), IngestOptions()
+    )
 
     assert provided.provider["data"] == "s3://overturemaps-us-west-2/release/x/part-0.parquet"
     assert provided.provider["store_options"] == {"region": "us-west-2", "skip_signature": True}
@@ -140,7 +142,9 @@ async def test_an_s3_https_data_url_is_read_from_s3(base):
 async def test_store_options_given_by_the_user_win(base):
     collection = _collection(base, assets={"data": _parquet(OVERTURE)})
 
-    provided = await geoparquet(collection, Overrides(store_options={"region": "eu-central-1"}))
+    provided = await geoparquet_provider(
+        collection, IngestOptions(store_options={"region": "eu-central-1"})
+    )
 
     assert provided.provider["store_options"] == {"region": "eu-central-1", "skip_signature": True}
 
@@ -159,7 +163,7 @@ async def test_store_options_given_by_the_user_win(base):
             {"roads": "code"},
             "code (option)",
         ),
-        ({"table:columns": [{"name": "name"}]}, {}, Refused),
+        ({"table:columns": [{"name": "name"}]}, {}, Refusal),
         (
             {"table:primary_key": ["a", "b"], "table:columns": [{"name": "a"}, {"name": "b"}]},
             {},
@@ -172,13 +176,13 @@ async def test_the_id_field_follows_the_order_of_preference(base, fields, id_fie
     fields["table:columns"] = [*fields["table:columns"], {"name": "geometry"}]
     collection = _collection(base, assets={"data": _parquet("./roads.parquet")}, **fields)
 
-    result = await geoparquet(collection, Overrides(id_fields=id_fields))
+    result = await geoparquet_provider(collection, IngestOptions(id_fields=id_fields))
 
-    if expected is Refused:
-        assert isinstance(result, Refused)
+    if expected is Refusal:
+        assert isinstance(result, Refusal)
         assert "--id-field roads=<column>" in result.reason
     elif expected == "composite":
-        assert isinstance(result, Refused)
+        assert isinstance(result, Refusal)
         assert "composite" in result.reason
     else:
         assert f"id_field: {expected}" in result.choices
@@ -198,7 +202,7 @@ async def test_the_id_field_follows_the_order_of_preference(base, fields, id_fie
         ),
         ({"table:columns": [{"name": "wkb_geometry"}, {"name": "geom"}]}, {}, "geom (column name)"),
         ({"table:columns": [{"name": "the_geom"}]}, {"roads": "the_geom"}, "the_geom (option)"),
-        ({"table:columns": [{"name": "name"}]}, {}, Refused),
+        ({"table:columns": [{"name": "name"}]}, {}, Refusal),
     ],
 )
 @pytest.mark.asyncio
@@ -208,10 +212,10 @@ async def test_the_geometry_column_follows_the_order_of_preference(
     fields["table:columns"] = [{"name": "id"}, *fields["table:columns"]]
     collection = _collection(base, assets={"data": _parquet("./roads.parquet")}, **fields)
 
-    result = await geoparquet(collection, Overrides(geometry_columns=geometry_columns))
+    result = await geoparquet_provider(collection, IngestOptions(geometry_columns=geometry_columns))
 
-    if expected is Refused:
-        assert isinstance(result, Refused)
+    if expected is Refusal:
+        assert isinstance(result, Refusal)
         assert "--geometry-column roads=<column>" in result.reason
     else:
         assert f"geometry_column: {expected}" in result.choices
@@ -225,15 +229,15 @@ async def test_a_collection_without_parquet_is_not_this_handlers(base):
     }
     scenes = {"scenes/a.json": _item("a", "./a.tif", "image/tiff; application=geotiff")}
 
-    assert await geoparquet(_collection(base, assets=tiles), Overrides()) is None
-    assert await geoparquet(_collection(base, items=scenes), Overrides()) is None
+    assert await geoparquet_provider(_collection(base, assets=tiles), IngestOptions()) is None
+    assert await geoparquet_provider(_collection(base, items=scenes), IngestOptions()) is None
 
 
 @pytest.mark.asyncio
 async def test_a_declared_partition_glob_is_the_data(base):
     collection = _collection(base, **{"partition:glob": "part=*/*.parquet"})
 
-    provided = await geoparquet(collection, Overrides())
+    provided = await geoparquet_provider(collection, IngestOptions())
 
     assert provided.provider["data"] == f"{base / 'roads'}/part=*/*.parquet"
     assert "data: partition:glob" in provided.choices
@@ -243,7 +247,7 @@ async def test_a_declared_partition_glob_is_the_data(base):
 async def test_an_s3_alternate_is_the_data_url(base):
     data = _parquet(OVERTURE, alternate={"s3": {"href": "s3://bucket/x.parquet"}})
 
-    provided = await geoparquet(_collection(base, assets={"data": data}), Overrides())
+    provided = await geoparquet_provider(_collection(base, assets={"data": data}), IngestOptions())
 
     assert provided.provider["data"] == "s3://bucket/x.parquet"
     assert "data: s3 alternate" in provided.choices
@@ -257,9 +261,9 @@ async def test_a_partitioned_collection_with_a_nonconforming_item_is_refused(bas
     items = {"part=0/part-0.json": _item("part-0", "./part-0.parquet"), "part=1/part-1.json": bad}
     collection = _collection(base, items=items, **{"partition:glob": "part=*/*.parquet"})
 
-    refused = await geoparquet(collection, Overrides())
+    refused = await geoparquet_provider(collection, IngestOptions())
 
-    assert isinstance(refused, Refused)
+    assert isinstance(refused, Refusal)
     assert str(base / "roads" / "part=1" / "part-1.json") in refused.reason
     assert str(base / "roads" / "part=0" / "part-0.json") not in refused.reason
 
@@ -269,7 +273,7 @@ async def test_column_names_match_whatever_their_case(base):
     columns = {"table:columns": [{"name": "OBJECTID"}, {"name": "Geometry"}]}
     collection = _collection(base, assets={"data": _parquet("./roads.parquet")}, **columns)
 
-    provided = await geoparquet(collection, Overrides())
+    provided = await geoparquet_provider(collection, IngestOptions())
 
     assert (provided.provider["id_field"], provided.provider["geometry_column"]) == (
         "OBJECTID",
@@ -283,7 +287,7 @@ async def test_the_columns_of_the_items_are_read_from_their_properties(base):
     item["properties"]["table:columns"] = [{"name": "gid"}, {"name": "geom"}]
     collection = _collection(base, items={"items/part-0.json": item}, **{"table:columns": []})
 
-    provided = await geoparquet(collection, Overrides())
+    provided = await geoparquet_provider(collection, IngestOptions())
 
     assert (provided.provider["id_field"], provided.provider["geometry_column"]) == ("gid", "geom")
 
@@ -292,16 +296,16 @@ async def test_the_columns_of_the_items_are_read_from_their_properties(base):
 async def test_a_parquet_media_type_with_parameters_is_parquet(base):
     asset = {**_parquet("./roads.parquet"), "type": f"{PARQUET}; profile=geoparquet"}
 
-    provided = await geoparquet(_collection(base, assets={"data": asset}), Overrides())
+    provided = await geoparquet_provider(_collection(base, assets={"data": asset}), IngestOptions())
 
-    assert isinstance(provided, Provided)
+    assert isinstance(provided, ProviderMatch)
 
 
 @pytest.mark.asyncio
 async def test_many_folders_are_named_in_short(base):
     items = {f"f{n}/part-{n}.json": _item(f"part-{n}", f"./part-{n}.parquet") for n in range(5)}
 
-    refused = await geoparquet(_collection(base, items=items), Overrides())
+    refused = await geoparquet_provider(_collection(base, items=items), IngestOptions())
 
     assert refused.reason.endswith("and 2 more")
     assert "5 folders" in refused.reason
@@ -312,14 +316,14 @@ async def test_the_item_limits_come_from_the_overrides(base):
     items = {f"items/part-{n}.json": _item(f"part-{n}", f"./part-{n}.parquet") for n in range(3)}
     collection = _collection(base, items=items)
 
-    too_many = await geoparquet(collection, Overrides(max_documents=2))
-    too_large = await geoparquet(collection, Overrides(max_document_bytes=100))
+    too_many = await geoparquet_provider(collection, IngestOptions(max_documents=2))
+    too_large = await geoparquet_provider(collection, IngestOptions(max_document_bytes=100))
 
-    assert isinstance(too_many, Refused)
+    assert isinstance(too_many, Refusal)
     assert too_many.reason == (
         "the items could not be read: the collection links 3 items, more than the 2 the reader reads"
     )
-    assert isinstance(too_large, Refused)
+    assert isinstance(too_large, Refusal)
     assert "larger than 100 bytes" in too_large.reason
 
 
@@ -340,9 +344,9 @@ async def test_a_remote_collection_cannot_point_at_local_data(fields):
     document = {"type": "Collection", "id": "roads", "table:columns": columns, **fields}
     collection = Collection("roads", REMOTE, document, (), PORTOLAN)
 
-    refused = await geoparquet(collection, Overrides())
+    refused = await geoparquet_provider(collection, IngestOptions())
 
-    assert isinstance(refused, Refused)
+    assert isinstance(refused, Refusal)
     assert refused.reason.startswith("the data file:///srv/data/")
     assert refused.reason.endswith(LOCAL_FROM_REMOTE)
 
@@ -355,9 +359,9 @@ async def test_a_remote_collection_cannot_point_at_local_data_through_its_items(
     # Plain STAC: the Portolan profile already wants https asset hrefs in items.
     collection = Collection("roads", REMOTE, on_disk.document, on_disk.item_hrefs, None)
 
-    refused = await geoparquet(collection, Overrides())
+    refused = await geoparquet_provider(collection, IngestOptions())
 
-    assert isinstance(refused, Refused)
+    assert isinstance(refused, Refusal)
     assert refused.reason == f"the data file:///srv/data/*.parquet {LOCAL_FROM_REMOTE}"
 
 
@@ -366,9 +370,9 @@ async def test_items_that_cannot_be_read_refuse_the_collection(base):
     collection = _collection(base, items={"items/part-0.json": _item("part-0", "./part-0.parquet")})
     Path(collection.item_hrefs[0]).unlink()
 
-    refused = await geoparquet(collection, Overrides())
+    refused = await geoparquet_provider(collection, IngestOptions())
 
-    assert isinstance(refused, Refused)
+    assert isinstance(refused, Refusal)
     assert refused.reason == "the items could not be read: it does not exist"
 
 
@@ -377,7 +381,7 @@ async def test_an_item_that_is_not_json_refuses_the_collection(base):
     collection = _collection(base, items={"items/part-0.json": _item("part-0", "./part-0.parquet")})
     Path(collection.item_hrefs[0]).write_text("not JSON")
 
-    refused = await geoparquet(collection, Overrides())
+    refused = await geoparquet_provider(collection, IngestOptions())
 
-    assert isinstance(refused, Refused)
+    assert isinstance(refused, Refusal)
     assert refused.reason.endswith("the document is not JSON")

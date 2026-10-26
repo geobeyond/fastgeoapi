@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from fastgeoapi_portolan.catalog.locations import local_from_remote, resolve, root_document
+from fastgeoapi_portolan.catalog.locations import is_local_from_remote, resolve, root_document
 
 
 @pytest.mark.parametrize(
@@ -126,4 +126,4 @@ def test_a_fragment_in_a_local_href_is_dropped(tmp_path):
     ],
 )
 def test_a_remote_document_cannot_name_the_local_disk(document, location, crosses):
-    assert local_from_remote(document, location) is crosses
+    assert is_local_from_remote(document, location) is crosses

@@ -7,8 +7,14 @@ from pmtiles.tile import Compression, TileType, zxy_to_tileid
 from pmtiles.writer import Writer
 
 from fastgeoapi_portolan.catalog.testing import PORTOLAN
-from fastgeoapi_portolan.handlers import Overrides
-from fastgeoapi_portolan.reader import Catalog, Collection, Finding, Nonconforming, Skipped
+from fastgeoapi_portolan.handlers import IngestOptions
+from fastgeoapi_portolan.reader import (
+    Catalog,
+    Collection,
+    Finding,
+    NonconformingDocument,
+    SkippedDocument,
+)
 from fastgeoapi_portolan.resources import DuplicateCollectionIdError, build
 
 PARQUET = "application/vnd.apache.parquet"
@@ -79,7 +85,9 @@ def _archive(path):
 
 @pytest.mark.asyncio
 async def test_metadata_and_extents_follow_the_collection(base):
-    built, skipped = await build(_catalog(base, _collection(base, _document("roads"))), Overrides())
+    built, skipped = await build(
+        _catalog(base, _collection(base, _document("roads"))), IngestOptions()
+    )
 
     (roads,) = built
     resource = roads.resource
@@ -111,7 +119,7 @@ async def test_license_readme_and_source_become_links(base):
     ]
     document = _document("roads", links=links)
 
-    (roads,), _ = await build(_catalog(base, _collection(base, document)), Overrides())
+    (roads,), _ = await build(_catalog(base, _collection(base, document)), IngestOptions())
 
     assert roads.resource["links"] == [
         {
@@ -146,7 +154,7 @@ async def test_a_license_link_of_the_collection_wins_over_the_identifier(base):
     # The identifier would give an SPDX link; the collection's own link wins.
     document = _document("roads", links=[link])
 
-    (roads,), _ = await build(_catalog(base, _collection(base, document)), Overrides())
+    (roads,), _ = await build(_catalog(base, _collection(base, document)), IngestOptions())
 
     assert [entry for entry in roads.resource["links"] if entry["rel"] == "license"] == [
         {
@@ -171,7 +179,7 @@ async def test_a_collection_with_both_assets_has_both_providers(base):
     }
 
     (roads,), _ = await build(
-        _catalog(base, _collection(base, _document("roads", assets=assets))), Overrides()
+        _catalog(base, _collection(base, _document("roads", assets=assets))), IngestOptions()
     )
 
     assert [provider["type"] for provider in roads.resource["providers"]] == ["feature", "tile"]
@@ -192,7 +200,7 @@ async def test_a_refused_provider_is_named_when_another_one_serves(base):
     }
     document = _document("roads", assets=assets, **{"table:columns": [{"name": "name"}]})
 
-    (roads,), skipped = await build(_catalog(base, _collection(base, document)), Overrides())
+    (roads,), skipped = await build(_catalog(base, _collection(base, document)), IngestOptions())
 
     assert [provider["type"] for provider in roads.resource["providers"]] == ["tile"]
     assert any(
@@ -207,17 +215,17 @@ async def test_a_collection_no_handler_serves_is_skipped(base):
         "roads", assets={"data": {"href": "./roads.tif", "type": COG, "roles": ["data"]}}
     )
 
-    built, skipped = await build(_catalog(base, _collection(base, document)), Overrides())
+    built, skipped = await build(_catalog(base, _collection(base, document)), IngestOptions())
 
     assert built == []
-    assert skipped == [Skipped("roads", f"format not handled yet: {COG}")]
+    assert skipped == [SkippedDocument("roads", f"format not handled yet: {COG}")]
 
 
 @pytest.mark.asyncio
 async def test_a_collection_every_handler_refuses_is_skipped_with_the_reasons(base):
     document = _document("roads", **{"table:columns": [{"name": "name"}]})
 
-    built, skipped = await build(_catalog(base, _collection(base, document)), Overrides())
+    built, skipped = await build(_catalog(base, _collection(base, document)), IngestOptions())
 
     assert built == []
     (entry,) = skipped
@@ -233,7 +241,7 @@ async def test_two_collections_with_one_id_stop_before_anything_is_built(base):
     )
 
     with pytest.raises(DuplicateCollectionIdError, match=r"--prefix.*--collection"):
-        await build(_catalog(base, first, second), Overrides())
+        await build(_catalog(base, first, second), IngestOptions())
 
 
 @pytest.mark.asyncio
@@ -242,7 +250,7 @@ async def test_the_prefix_goes_before_every_id(base):
         base, _collection(base, _document("roads")), _collection(base, _document("rivers"))
     )
 
-    built, _ = await build(catalog, Overrides(), prefix="overture-")
+    built, _ = await build(catalog, IngestOptions(), prefix="overture-")
 
     assert [entry.id for entry in built] == ["overture-roads", "overture-rivers"]
     assert [entry.resource["ingest"]["collection"] for entry in built] == ["roads", "rivers"]
@@ -250,7 +258,9 @@ async def test_the_prefix_goes_before_every_id(base):
 
 @pytest.mark.asyncio
 async def test_provenance_names_the_root_catalog(base):
-    (roads,), _ = await build(_catalog(base, _collection(base, _document("roads"))), Overrides())
+    (roads,), _ = await build(
+        _catalog(base, _collection(base, _document("roads"))), IngestOptions()
+    )
 
     assert roads.resource["ingest"] == {
         "from": "portolan",
@@ -265,7 +275,7 @@ async def test_a_plain_stac_catalog_leaves_the_schema_out_of_the_provenance(base
     catalog = _catalog(base, _collection(base, _document("roads")))
     plain = Catalog(catalog.root, None, catalog.collections, (), (), (), True)
 
-    (roads,), _ = await build(plain, Overrides())
+    (roads,), _ = await build(plain, IngestOptions())
 
     assert "schema" not in roads.resource["ingest"]
 
@@ -275,10 +285,10 @@ async def test_a_collection_without_a_title_is_skipped_with_the_reason(base):
     document = _document("roads")
     del document["title"]
 
-    built, skipped = await build(_catalog(base, _collection(base, document)), Overrides())
+    built, skipped = await build(_catalog(base, _collection(base, document)), IngestOptions())
 
     assert built == []
-    assert skipped == [Skipped("roads", "the collection has no title")]
+    assert skipped == [SkippedDocument("roads", "the collection has no title")]
 
 
 @pytest.mark.asyncio
@@ -288,33 +298,37 @@ async def test_nonconforming_collections_are_reported_as_skipped(base):
         Finding("", "'title' is a required property", PORTOLAN),
     )
     rejected = (
-        Nonconforming(
+        NonconformingDocument(
             str(base / "roads" / "collection.json"), "Collection", {"id": "roads"}, findings
         ),
-        Nonconforming(
+        NonconformingDocument(
             str(base / "rivers" / "collection.json"), "Collection", {"id": "rivers"}, findings[1:]
         ),
-        Nonconforming(str(base / "data" / "catalog.json"), "Catalog", {"id": "data"}, findings[1:]),
+        NonconformingDocument(
+            str(base / "data" / "catalog.json"), "Catalog", {"id": "data"}, findings[1:]
+        ),
     )
 
-    _, skipped = await build(_catalog(base, nonconforming=rejected), Overrides())
+    _, skipped = await build(_catalog(base, nonconforming=rejected), IngestOptions())
 
     assert skipped == [
-        Skipped(
+        SkippedDocument(
             "roads",
             f"does not conform to {PORTOLAN}: /stac_extensions [] should be non-empty (+1 more)",
         ),
-        Skipped("rivers", f"does not conform to {PORTOLAN}: 'title' is a required property"),
+        SkippedDocument(
+            "rivers", f"does not conform to {PORTOLAN}: 'title' is a required property"
+        ),
     ]
 
 
 @pytest.mark.asyncio
 async def test_documents_the_walk_skipped_are_reported_too(base):
-    unread = Skipped(
+    unread = SkippedDocument(
         str(base / "gone" / "collection.json"), "the document could not be read: it does not exist"
     )
 
-    _, skipped = await build(_catalog(base, skipped=[unread]), Overrides())
+    _, skipped = await build(_catalog(base, skipped=[unread]), IngestOptions())
 
     assert skipped == [unread]
 
@@ -331,17 +345,17 @@ async def test_a_collection_without_what_pygeoapi_needs_is_skipped(base, change,
     document = _document("roads")
     change(document)
 
-    built, skipped = await build(_catalog(base, _collection(base, document)), Overrides())
+    built, skipped = await build(_catalog(base, _collection(base, document)), IngestOptions())
 
     assert built == []
-    assert skipped == [Skipped("roads", reason)]
+    assert skipped == [SkippedDocument("roads", reason)]
 
 
 @pytest.mark.asyncio
 async def test_a_license_that_is_not_an_spdx_identifier_gives_no_link(base):
     document = _document("roads", license="proprietary")
 
-    (roads,), _ = await build(_catalog(base, _collection(base, document)), Overrides())
+    (roads,), _ = await build(_catalog(base, _collection(base, document)), IngestOptions())
 
     assert "links" not in roads.resource
 
@@ -349,11 +363,11 @@ async def test_a_license_that_is_not_an_spdx_identifier_gives_no_link(base):
 @pytest.mark.asyncio
 async def test_a_collection_without_data_says_so(base):
     built, skipped = await build(
-        _catalog(base, _collection(base, _document("roads", assets={}))), Overrides()
+        _catalog(base, _collection(base, _document("roads", assets={}))), IngestOptions()
     )
 
     assert built == []
-    assert skipped == [Skipped("roads", "format not handled yet: no data or visual asset")]
+    assert skipped == [SkippedDocument("roads", "format not handled yet: no data or visual asset")]
 
 
 @pytest.mark.asyncio
@@ -363,7 +377,7 @@ async def test_a_collection_whose_items_cannot_be_read_is_skipped(base):
     gone = str(base / "roads" / "items" / "part-0.json")
     collection = Collection("roads", href, document, (gone,), PORTOLAN)
 
-    built, skipped = await build(_catalog(base, collection), Overrides())
+    built, skipped = await build(_catalog(base, collection), IngestOptions())
 
     assert built == []
-    assert skipped == [Skipped("roads", "the items could not be read: it does not exist")]
+    assert skipped == [SkippedDocument("roads", "the items could not be read: it does not exist")]

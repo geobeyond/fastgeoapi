@@ -26,7 +26,7 @@ class Validation:
 
 
 @dataclass(frozen=True)
-class Nonconforming:
+class NonconformingDocument:
     """A document a validator rejected, kept as it was read."""
 
     href: str
@@ -51,7 +51,7 @@ class Collection:
 
 
 @dataclass(frozen=True)
-class Skipped:
+class SkippedDocument:
     """A document left out, and why.
 
     ``collection`` is the id, or the href when there is no id to give.
@@ -72,8 +72,8 @@ class Catalog:
     root: str
     portolan_schema: str | None
     collections: tuple[Collection, ...]
-    nonconforming: tuple[Nonconforming, ...]
-    skipped: tuple[Skipped, ...]
+    nonconforming: tuple[NonconformingDocument, ...]
+    skipped: tuple[SkippedDocument, ...]
     warnings: tuple[str, ...]
     validated: bool
 
@@ -83,4 +83,4 @@ class Items:
     """The items of a collection, in the order it links them, and the ones rejected."""
 
     items: tuple[ItemDocument, ...]
-    nonconforming: tuple[Nonconforming, ...]
+    nonconforming: tuple[NonconformingDocument, ...]

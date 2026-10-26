@@ -43,7 +43,7 @@ def _virtual_hosted(endpoint: str, base: str) -> str:
     return f"{scheme}://{bucket}.{host}" if scheme else f"{bucket}.{host}"
 
 
-def obstore_config(store_options: Mapping[str, Any] | None, base: str = "") -> dict[str, Any]:
+def to_obstore_config(store_options: Mapping[str, Any] | None, base: str = "") -> dict[str, Any]:
     """``store_options`` spelled the way obstore expects them.
 
     obstore refuses a key it does not know, so an untranslated
@@ -109,7 +109,7 @@ def store_and_key(location: str, store_options: Mapping[str, Any] | None) -> tup
         return from_url(base, client_options={"allow_http": location.startswith("http://")}), key
     if not store_options:
         return from_url(base), key
-    config = obstore_config(store_options, base)
+    config = to_obstore_config(store_options, base)
     # An endpoint written with `use_ssl: false` is plain http on purpose.
     plain_http = str(config.get("endpoint", "")).startswith("http://")
     client_options = {"allow_http": True} if plain_http else None

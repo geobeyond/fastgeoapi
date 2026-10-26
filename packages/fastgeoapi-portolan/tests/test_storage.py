@@ -10,7 +10,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import pytest
 
 from fastgeoapi_portolan.catalog.protocols import MAX_DOCUMENT_BYTES
-from fastgeoapi_portolan.storage import ObstoreTransport, obstore_config, read_bytes, read_range
+from fastgeoapi_portolan.storage import ObstoreTransport, read_bytes, read_range, to_obstore_config
 
 
 @pytest.fixture
@@ -25,7 +25,7 @@ def served(tmp_path):
 
 
 def test_store_options_are_spelled_for_obstore():
-    config = obstore_config(
+    config = to_obstore_config(
         {"region": "us-west-2", "endpoint": "minio.local:9000", "use_ssl": False, "key_id": "k"},
         "s3://bucket",
     )
@@ -38,7 +38,7 @@ def test_store_options_are_spelled_for_obstore():
 
 
 def test_a_virtual_hosted_endpoint_is_given_the_bucket():
-    config = obstore_config(
+    config = to_obstore_config(
         {"endpoint": "fly.storage.tigris.dev", "url_style": "vhost"}, "s3://demo/cat/"
     )
 
