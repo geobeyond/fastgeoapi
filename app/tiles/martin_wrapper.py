@@ -37,6 +37,7 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from app.config.logging import create_logger
+from app.provider.storage.factory import _for_obstore
 
 logger = create_logger("app.tiles.martin_wrapper")
 
@@ -102,6 +103,66 @@ def _geoparquet_location(data: str) -> str:
     return f"{data.rstrip('/')}/**/*.parquet"
 
 
+def _layer_id_from_data(data: str, fallback: str) -> str:
+    """The GeoParquet location's basename, without ``.parquet``, as layer id.
+
+    ``s3://bucket/overture/transportation-lazio.parquet`` and a directory
+    ``s3://bucket/overture/transportation-lazio/`` both give
+    ``transportation-lazio``. A last segment that is a glob (``*.parquet``)
+    names nothing, so ``fallback`` is used then.
+
+    Parameters
+    ----------
+    data : str
+        A GeoParquet provider's ``data``: file, glob or directory.
+    fallback : str
+        The id to use when the basename names nothing (the resource id).
+
+    Returns
+    -------
+    str
+        The layer id to give martin.
+    """
+    basename = data.split("://", 1)[-1].rstrip("/").rpartition("/")[2]
+    stem = basename.removesuffix(".parquet")
+    if not stem or any(char in stem for char in "*?["):
+        return fallback
+    return stem
+
+
+def _martin_store_options(store_options: dict | None, data: str) -> dict[str, Any]:
+    """A provider's ``store_options`` as martin's per-source object-store keys.
+
+    ``store_options`` are written in DuckDB's secret vocabulary; martin, like
+    obstore, takes object_store's (``virtual_hosted_style_request``, an
+    ``endpoint`` URL that, virtual-hosted, names the bucket) and turns them
+    back into the DuckDB S3 secret it creates on each connection. So the
+    translation the obstore reader already uses is reused here. ``scope``
+    is dropped: martin's secret lives on the source's own connections and
+    needs none, and an unknown key would only be warned about. A plain
+    ``http`` endpoint is refused by martin unless ``allow_http`` says so.
+
+    Parameters
+    ----------
+    store_options : dict | None
+        The provider's ``store_options``, if any.
+    data : str
+        The provider's ``data``, whose bucket a virtual-hosted endpoint names.
+
+    Returns
+    -------
+    dict
+        Keys to merge into the martin ``duckdb`` source entry; empty for a
+        local file or a provider without ``store_options``.
+    """
+    if not store_options or "://" not in data:
+        return {}
+    options = _for_obstore({k: v for k, v in store_options.items() if k != "scope"}, data)
+    if str(options.get("endpoint", "")).startswith("http://"):
+        options["allow_http"] = True
+    return options
+
+
 def _martin_config_from_pygeoapi(pygeoapi_config: dict) -> dict[str, Any]:
     """Derive a martin-py config from an already-loaded pygeoapi config.
 
@@ -160,9 +221,10 @@ def _martin_config_from_pygeoapi(pygeoapi_config: dict) -> dict[str, Any]:
                 duckdb_sources.append(
                     {
                         "geoparquet": _geoparquet_location(data),
-                        "layer_id": resource_id,
+                        "layer_id": _layer_id_from_data(data, resource_id),
                         "geometry_column": provider.get("geometry_column", "geom"),
                         "srid": _srid_from_storage_crs(provider),
+                        **_martin_store_options(provider.get("store_options"), data),
                     }
                 )
 
@@ -210,8 +272,6 @@ def build_martin_wrapper_app_from_pygeoapi(pygeoapi_config: dict) -> Starlette |
     fd, tmp_path = tempfile.mkstemp(prefix="martin-wrapper-", suffix=".yaml")
     try:
         with os.fdopen(fd, "w") as f:
-            print(f"------------Writing martin config to temporary file: {tmp_path}")
-            print(f"------------Martin config content:\n{yaml.safe_dump(martin_config)}")
             yaml.safe_dump(martin_config, f)
         return build_martin_wrapper_app(tmp_path)
     finally:
@@ -243,7 +303,6 @@ def build_martin_wrapper_app(config_path: str) -> Starlette:
     logger.info(f"martin-wrapper: loaded {len(server.list_sources())} source(s) from {config_path}")
 
     async def get_tile(request: Request) -> Response:
-        print(f"------------Received tile request: {request.url}")
         source_ids = request.path_params["source_ids"]
         z = request.path_params["z"]
         x = request.path_params["x"]
@@ -255,7 +314,6 @@ def build_martin_wrapper_app(config_path: str) -> Starlette:
                 server.get_tile, source_ids, z, x, y, query=request.url.query or None
             )
         except Exception as e:
-            print(f"------------Tile fetch failed for {source_ids}/{z}/{x}/{y}: {e}")
             logger.warning(f"martin-wrapper: tile fetch failed for {source_ids}/{z}/{x}/{y}: {e}")
             return JSONResponse({"code": "NotFound", "description": str(e)}, status_code=404)
         headers = {"Content-Encoding": content_encoding} if content_encoding else {}
