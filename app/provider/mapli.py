@@ -8,7 +8,10 @@ import hashlib
 import json
 import math
 import threading
-from collections.abc import Callable, Sequence
+from collections.abc import (
+    Callable,
+    Sequence,
+)
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
@@ -48,14 +51,17 @@ from app.provider.storage.ranges import ObjectRanges
 if TYPE_CHECKING:
     from app.maps.contract import SourceContent
     from app.provider.storage import CachedRanges
-    from app.provider.storage.base import ObjectMeta, ObjectStore
+    from app.provider.storage.base import (
+        ObjectMeta,
+        ObjectStore,
+    )
     from app.provider.storage.ranges import ByteRanges
 
 logger = create_logger("app.provider.mapli")
 
 CRS_84 = "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
 
-# The highest latitude mapli draws: the north edge of web mercator
+# north edge of web mercator
 MAX_LATITUDE = 85.05112877980659
 
 # URL scheme under which mapli reads bucket data through this module's handler
@@ -63,15 +69,20 @@ MAPLI_SCHEME = "fastgeoapi"
 
 
 class _UncachedObject:
-    """Gives the scheme handler access to a bucket object when the range cache is off.
+    """Used to access a bucket object when the range cache is disabled.
 
     This offers the same relevant methods as ``CachedRanges``, but reads every byte
-    range directly from the provider's store (authenticated with its ``store_options``),
-    without any caching.
+    range directly from the provider's store, without any caching.
     """
 
+    store: "ObjectStore"
+    key: str
+    source: str
+    _lock: threading.Lock
+    _meta: "ObjectMeta | None"
+
     def __init__(self, store: "ObjectStore", key: str, *, source: str) -> None:
-        """Prepare access to the object at ``key`` in ``store``, without any I/O yet.
+        """Prepare access to object at ``key`` in ``store``.
 
         ``source`` is the provider's ``data``. Its digest becomes this object's
         ``source`` attribute, which identifies the object in the URLs the scheme
@@ -84,9 +95,8 @@ class _UncachedObject:
         self._lock = threading.Lock()
 
     def meta(self) -> "ObjectMeta":
-        """Return the object's metadata, fetching it with a HEAD request on first use."""
-        meta = self.known_meta()
-        if meta is not None:
+        """Return the object's metadata."""
+        if (meta := self.known_meta()) is not None:
             return meta
         return self._register_metadata(self.store.head(self.key))
 
@@ -97,8 +107,7 @@ class _UncachedObject:
         before each render. Here, only the first call waits for the store, since
         the metadata is never refreshed afterwards.
         """
-        meta = self.known_meta()
-        if meta is not None:
+        if (meta := self.known_meta()) is not None:
             return meta
         return self._register_metadata(await self.store.ahead(self.key))
 
@@ -151,14 +160,13 @@ class _MapliSchemeHandler:
 
     - data in private buckets can only be accessed by using authentication, and
       the fastgeoapi store already knows how to provide auth details, while
-      vanilla mapli (which uses MapLibre Native) does not
+      vanilla mapli (which uses MapLibre Native) does not.
 
-    - data stored in remote object stores benefits from being cached. The
-      fastgeoapi store itself does not cache anything, but when the range cache
-      is enabled the handler reads through it (``CachedRanges``), so that a byte
+    - data stored in remote object stores benefits from being cached. When the
+      range cache is enabled, the handler reads through it, so that a byte
       range fetched from the bucket is reused until it is evicted from the cache
       or the data changes. With the range cache turned off, every byte range is
-      fetched from the bucket (``_UncachedObject``)
+      fetched from the bucket.
     """
 
     _sources: dict[str, _SchemeObject]
@@ -171,11 +179,6 @@ class _MapliSchemeHandler:
 
         ``source`` gives access to a provider's data, either through the range
         cache (``CachedRanges``) or straight from the store (``_UncachedObject``).
-        It is stored under its ``source`` attribute, the digest of the provider's
-        ``data``, which is the key that appears in the URLs built by
-        :meth:`generate_scheme_url`. When mapli requests one of those URLs,
-        :meth:`__call__` uses that key to find this object and read the requested
-        bytes from it.
         """
         self._sources[source.source] = source
 
@@ -185,9 +188,7 @@ class _MapliSchemeHandler:
         The URL has the form ``fastgeoapi://<source>/<version>``, where ``source``
         is the digest of the provider's ``data`` and ``version`` is derived from
         the ETag in ``meta``. It names the data without revealing its real
-        location or any credentials. The provider puts this URL in the dataset
-        source of the styles it registers with mapli (prefixed with
-        ``pmtiles://`` for PMTiles archives).
+        location or any credentials.
         """
         return f"{MAPLI_SCHEME}://{scheme_object.source}/{version_of(meta)}"
 
@@ -230,10 +231,7 @@ mapli.register_scheme_handler(MAPLI_SCHEME, _SCHEME_HANDLER)
 
 @dataclasses.dataclass(frozen=True)
 class MapliMapProviderConfig:
-    """Configuration for mapli provider.
-
-    This only contains the configuration parameters that the MapliMapProvider actually needs.
-    """
+    """Configuration for mapli provider."""
 
     _supported_dem_encodings: ClassVar[list[str]] = ["mapbox", "terrarium"]
 
@@ -340,9 +338,7 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
     cached_ranges: "CachedRanges | None"
 
     _DEFAULT_STYLE_NAME = "default"
-
     _DATASET_SOURCE_NAME = "dataset"
-
     _config: MapliMapProviderConfig
 
     def __init__(self, provider_def: dict) -> None:
@@ -456,7 +452,16 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
     @functools.cached_property
     def _render_pool(self) -> mapli.RenderPool:
-        """Create the pool on the first map, so that building the provider starts no GL threads."""
+        """Create mapli render pool.
+
+        This is implemented as a cached property in order to ensure the render
+        pool is not created during provider initialization, as that could cause
+        unneeded slowdowns - providers may be initialized multiple times
+        during the app lifecycle (ex: generating the openapi document), and
+        not always in order to render maps.
+
+        A mapli render pool starts some additional GL threads.
+        """
         return mapli.RenderPool(
             workers=self._config.num_workers,
             max_renderers_per_worker=self._config.max_renderers_per_worker,
@@ -464,11 +469,10 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
     @functools.cached_property
     def _map_styles(self) -> dict[str, str | dict]:
-        """The styles this provider draws with, by name: the default one and the configured ones.
+        """Styles used to draw maps.
 
         The default style is generated from what the archive holds, which means
-        reading its header and metadata. This is why the styles are computed at
-        the first map rather than in the constructor, which must not do any I/O.
+        reading its header and metadata.
         """
         map_source = PMTilesSource(
             # PMTilesSource needs a location, but reading its content does not use it
@@ -489,7 +493,7 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
     @functools.cached_property
     def _scheme_object(self) -> _SchemeObject | None:
-        """The object mapli reads through the scheme handler; None when it reads by URL.
+        """The object mapli reads through the scheme handler.
 
         mapli (and thus MapLibre Native) has no bucket credentials, so data in a
         bucket is read through the handler, with the store and its store_options:
