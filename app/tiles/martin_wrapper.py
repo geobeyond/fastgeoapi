@@ -104,12 +104,13 @@ def _geoparquet_location(data: str) -> str:
 
 
 def _layer_id_from_data(data: str, fallback: str) -> str:
-    """The GeoParquet location's basename, without ``.parquet``, as layer id.
+    """The GeoParquet file's basename, without its extension, as layer id.
 
-    ``s3://bucket/overture/transportation-lazio.parquet`` and a directory
-    ``s3://bucket/overture/transportation-lazio/`` both give
-    ``transportation-lazio``. A last segment that is a glob (``*.parquet``)
-    names nothing, so ``fallback`` is used then.
+    ``s3://bucket/overture/transportation-lazio.parquet`` (or
+    ``.geoparquet``) gives ``transportation-lazio``. Any location not
+    ending in ``.parquet`` or ``.geoparquet`` (a directory, a bucket
+    prefix) and a last segment that is a glob (``*.parquet``) name no
+    single file, so ``fallback`` is used then.
 
     Parameters
     ----------
@@ -123,8 +124,10 @@ def _layer_id_from_data(data: str, fallback: str) -> str:
     str
         The layer id to give martin.
     """
-    basename = data.split("://", 1)[-1].rstrip("/").rpartition("/")[2]
-    stem = basename.removesuffix(".parquet")
+    if not data.endswith((".geoparquet", ".parquet")):
+        return fallback
+    basename = data.split("://", 1)[-1].rpartition("/")[2]
+    stem = basename.removesuffix(".geoparquet").removesuffix(".parquet")
     if not stem or any(char in stem for char in "*?["):
         return fallback
     return stem
