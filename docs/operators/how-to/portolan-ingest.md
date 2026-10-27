@@ -141,7 +141,8 @@ The handler looks for the data in this order:
 
 An `https://` URL of an S3 bucket, virtual-hosted or path-style, is
 rewritten as an `s3://` URL with the bucket's region and unsigned reads, so
-DuckDB reads it as a bucket.
+DuckDB reads it as a bucket. An `s3` alternate in the bucket of the asset's
+`https://` URL gets the same region and unsigned reads.
 
 The id column and the geometry column come from the first source that
 names them:

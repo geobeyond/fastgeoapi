@@ -78,6 +78,10 @@ def _data_asset(document: Mapping[str, Any]) -> Mapping[str, Any] | None:
     return next((asset for asset in assets.values() if _is_parquet_data(asset)), None)
 
 
+def _bucket(url: str) -> str:
+    return url.split("://", 1)[-1].split("/", 1)[0]
+
+
 def _folder(location: str) -> str:
     return location.rsplit("/", 1)[0] if is_url(location) else str(Path(location).parent)
 
@@ -152,6 +156,7 @@ async def geoparquet_provider(
     described: list[Mapping[str, Any]] = [document, *([asset] if asset else [])]
     choices: list[str] = []
     data: str | None = None
+    derived: dict[str, Any] = {}
 
     if collection.item_hrefs and (glob or asset is None):
         try:
@@ -198,6 +203,12 @@ async def geoparquet_provider(
         if isinstance(s3, Mapping) and str(s3.get("href", "")).startswith("s3://"):
             data = str(s3["href"])
             choices.append("data: s3 alternate")
+            linked = s3_from_https(resolve(collection.href, asset["href"]))
+            # The https URL names the same bucket, so the region is the same,
+            # and the catalog expects anyone to read the object.
+            if linked is not None and _bucket(linked[0]) == _bucket(data):
+                derived = linked[1]
+                choices.append("data: s3 options from the https URL")
         else:
             data = resolve(collection.href, asset["href"])
             choices.append("data: collection asset")
@@ -206,7 +217,7 @@ async def geoparquet_provider(
     if is_local_from_remote(collection.href, data):
         return Refusal(f"the data {data} {LOCAL_FROM_REMOTE}")
 
-    store_options: dict[str, Any] = {}
+    store_options = dict(derived)
     rewritten = s3_from_https(data)
     if rewritten is not None:
         data, store_options = rewritten

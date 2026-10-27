@@ -7,10 +7,20 @@ import threading
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
+import obstore
 import pytest
+from obstore.store import HTTPStore, S3Store
 
 from fastgeoapi_portolan.catalog.protocols import MAX_DOCUMENT_BYTES
-from fastgeoapi_portolan.storage import ObstoreTransport, read_bytes, read_range, to_obstore_config
+from fastgeoapi_portolan.storage import (
+    ObstoreTransport,
+    read_bytes,
+    read_range,
+    store_and_key,
+    to_obstore_config,
+)
+
+EXTRAS = "https://overturemaps-extras-us-west-2.s3.us-west-2.amazonaws.com"
 
 
 @pytest.fixture
@@ -60,6 +70,27 @@ async def test_bucket_options_do_not_reach_an_https_store(tmp_path, served):
     data = await read_bytes(f"{served}/style.json", {"region": "us-west-2", "skip_signature": True})
 
     assert data == b"{}"
+
+
+def test_an_https_url_of_a_bucket_is_read_over_plain_https():
+    """obstore takes an amazonaws.com URL for a bucket, and a bucket store signs every request."""
+    store, key = store_and_key(f"{EXTRAS}/tiles/x/divisions.pmtiles", None)
+
+    assert isinstance(store, HTTPStore)
+    assert key == "divisions.pmtiles"
+
+
+@pytest.mark.network
+@pytest.mark.asyncio
+async def test_a_public_archive_in_a_bucket_is_read_over_https_without_credentials(monkeypatch):
+    for name in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "AWS_PROFILE"):
+        monkeypatch.delenv(name, raising=False)
+    bucket = S3Store("overturemaps-extras-us-west-2", region="us-west-2", skip_signature=True)
+    releases = obstore.list_with_delimiter(bucket, "tiles/")["common_prefixes"]
+
+    header = await read_range(f"{EXTRAS}/{max(releases)}/divisions.pmtiles", 0, 7)
+
+    assert header == b"PMTiles"
 
 
 @pytest.mark.asyncio

@@ -255,6 +255,35 @@ async def test_an_s3_alternate_is_the_data_url(base):
 
 
 @pytest.mark.asyncio
+async def test_an_s3_alternate_in_the_bucket_of_the_https_url_is_read_like_it(base):
+    alternate = "s3://overturemaps-us-west-2/release/x/part-0.parquet"
+    data = _parquet(OVERTURE, alternate={"s3": {"href": alternate}})
+
+    provided = await geoparquet_provider(_collection(base, assets={"data": data}), IngestOptions())
+
+    assert provided.provider["data"] == alternate
+    assert provided.provider["store_options"] == {"region": "us-west-2", "skip_signature": True}
+    assert "data: s3 options from the https URL" in provided.choices
+
+
+@pytest.mark.asyncio
+async def test_a_relative_href_is_resolved_before_its_bucket_is_compared():
+    catalog = "https://overturemaps-us-west-2.s3.us-west-2.amazonaws.com/catalog"
+    alternate = "s3://overturemaps-us-west-2/catalog/roads/part-0.parquet"
+    document = {
+        "type": "Collection",
+        "id": "roads",
+        "table:columns": [{"name": "id"}, {"name": "geometry"}],
+        "assets": {"data": _parquet("./part-0.parquet", alternate={"s3": {"href": alternate}})},
+    }
+    collection = Collection("roads", f"{catalog}/roads/collection.json", document, (), PORTOLAN)
+
+    provided = await geoparquet_provider(collection, IngestOptions())
+
+    assert provided.provider["store_options"] == {"region": "us-west-2", "skip_signature": True}
+
+
+@pytest.mark.asyncio
 async def test_a_partitioned_collection_with_a_nonconforming_item_is_refused(base):
     bad = _item("part-1", "./part-1.parquet")
     bad["bbox"] = [12.5, 41.9, 200.0, 41.9]

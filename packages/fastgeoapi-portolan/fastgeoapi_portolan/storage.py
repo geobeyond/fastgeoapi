@@ -18,7 +18,7 @@ from typing import Any
 
 import obstore
 from obstore.exceptions import BaseError
-from obstore.store import LocalStore, from_url
+from obstore.store import HTTPStore, LocalStore, from_url
 
 from fastgeoapi_portolan.catalog.locations import is_url
 from fastgeoapi_portolan.catalog.protocols import MAX_DOCUMENT_BYTES
@@ -100,13 +100,16 @@ def store_and_key(location: str, store_options: Mapping[str, Any] | None) -> tup
     Bucket options never reach an http(s) store, which refuses any; a
     catalog in a bucket may well link a style at an https URL. A plain
     ``http://`` location was written that way on purpose, so the store
-    accepts it.
+    accepts it. An https URL of a bucket is read over https as well:
+    ``from_url`` would make a bucket store of it, and that signs every
+    request, even for a public object.
     """
     if not is_url(location):
         return LocalStore(), str(Path(location).absolute())
     base, _, key = location.rpartition("/")
     if location.startswith(_HTTP):
-        return from_url(base, client_options={"allow_http": location.startswith("http://")}), key
+        allow_http = location.startswith("http://")
+        return HTTPStore.from_url(base, client_options={"allow_http": allow_http}), key
     if not store_options:
         return from_url(base), key
     config = to_obstore_config(store_options, base)
