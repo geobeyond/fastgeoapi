@@ -303,6 +303,9 @@ def ty(session: Session) -> None:
         # The blocking-call guard (ADR-0010) lives in the `dev` group;
         # the unlocked lanes need it by name.
         "blockbuster>=1.5,<2",
+        # The mapli extra: app/provider/mapli.py imports mapli at module level.
+        # ty only reads its stubs, so the EGL it loads at runtime is not needed.
+        "mapli>=0.4.1; sys_platform == 'linux'",
     )
     session.run("ty", *args)
 
@@ -416,10 +419,10 @@ def maps(session: Session) -> None:
         "sync",
         "--group",
         "maps",
-        "--group",
-        "mapli",
         "--extra",
         "pmtiles",
+        "--extra",
+        "mapli",
         env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
     )
     session.run("pytest", "-m", "renderer", "-rs", *session.posargs)

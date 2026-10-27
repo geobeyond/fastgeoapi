@@ -1,8 +1,9 @@
 FROM ghcr.io/osgeo/gdal:ubuntu-small-3.11.0 AS builder
 
 # Install security updates and system dependencies, then clean up. The
-# libraries after git are for the map renderer: those the MapLibre Native
-# binary links, and Vulkan with lavapipe to draw without a GPU.
+# libraries after git are for the map renderers: those the MapLibre Native
+# binary links, Vulkan with lavapipe to draw without a GPU, and for mapli
+# Mesa's EGL with llvmpipe plus Xvfb for the display EGL needs.
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update && \
     apt-get --yes upgrade && \
@@ -12,7 +13,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
         tini \
         git \
         libuv1 libvulkan1 mesa-vulkan-drivers libicu74 libcurl4t64 \
-        libpng16-16t64 libjpeg-turbo8 libwebp7 && \
+        libpng16-16t64 libjpeg-turbo8 libwebp7 \
+        libegl1 libegl-mesa0 libgl1-mesa-dri xvfb && \
     apt-get --yes clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -35,7 +37,7 @@ COPY pyproject.toml uv.lock pygeoapi-config.yml ./
 # fails if a release asset of the mlnative fork is replaced under its URL.
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv export --frozen --no-dev --group maps --no-emit-project \
-    --extra geoparquet --extra pmtiles -o /tmp/requirements.lock && \
+    --extra geoparquet --extra pmtiles --extra mapli -o /tmp/requirements.lock && \
     uv pip install --system --break-system-packages --require-hashes -r /tmp/requirements.lock
 
 # Create a normal non-root user to run the app
@@ -59,7 +61,11 @@ ENV PATH="$PATH:/home/appuser/.local/bin" \
     PYTHONFAULTHANDLER=1 \
     PYTHONUNBUFFERED=1 \
     UV_SYSTEM_PYTHON=1 \
-    UV_BREAK_SYSTEM_PACKAGES=1
+    UV_BREAK_SYSTEM_PACKAGES=1 \
+    # mapli draws on the Xvfb display started by CMD, with Mesa's software
+    # renderer since Fly machines have no GPU
+    DISPLAY=:99 \
+    LIBGL_ALWAYS_SOFTWARE=1
 
 # Trust X-Forwarded-* from the Fly proxy only. fly-proxy reaches the
 # machine from the host bridge network (172.16.0.0/16, observed live),
@@ -91,5 +97,5 @@ ENTRYPOINT ["tini", "-g", "--"]
 
 # Run using the fastapi CLI directly, with one worker. The worker count is
 # stated here because nothing in .flyio.env can set it (see the note at
-# the top of that file).
-CMD ["fastapi", "run", "app/main.py", "--app", "app", "--host", "0.0.0.0", "--port", "5000", "--proxy-headers", "--workers", "1"]
+# the top of that file). Xvfb is started first, as the display mapli draws on.
+CMD ["sh", "-c", "Xvfb :99 -screen 0 1280x1024x24 -nolisten tcp & exec fastapi run app/main.py --app app --host 0.0.0.0 --port 5000 --proxy-headers --workers 1"]
