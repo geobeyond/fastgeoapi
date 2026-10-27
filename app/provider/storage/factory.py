@@ -149,7 +149,8 @@ def load_store(base: str, store_options: dict | None = None) -> ObjectStore:
     environment). They are meaningless for a local path and for an
     http(s) URL, and ignored there: a provider's style at an https URL
     shares the options of its data in a bucket, and the HTTP store
-    refuses any.
+    refuses any. An http(s) URL is read unsigned, even one that names a
+    bucket; an object that needs credentials is named by its bucket URL.
     """
     if base.startswith(_URL_SCHEMES):
         from obstore.store import HTTPStore, from_url
