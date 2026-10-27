@@ -166,6 +166,11 @@ def safety(session: Session) -> None:
     Requires SAFETY_API_KEY environment variable to be set.
     Get a free API key at https://safetycli.com
     """
+    # Empty on pull requests from forks, which GitHub gives no secrets: skip
+    # before installing anything, as safety would only stop at a login prompt
+    key = os.environ.get("SAFETY_API_KEY")
+    if not key:
+        session.skip("SAFETY_API_KEY is not set: skipping safety scan")
     _install_project(session)
     # safety is deliberately NOT in the dev dependency-group: inside the
     # project's resolution universe its typer caps (3.3+ wants
@@ -183,15 +188,7 @@ def safety(session: Session) -> None:
     # unlocked venv does. Pin here, in the tool venv only, until safety
     # moves to httpx2 (tracked in .claude/TODO.md).
     session.install("safety>=3.8,<4", "typer>=0.16,<0.26", "authlib<1.8")
-    # Build command with API key if available
-    cmd = ["safety"]
-    if "SAFETY_API_KEY" in os.environ:
-        cmd.extend(["--key", os.environ["SAFETY_API_KEY"]])
-    else:
-        session.warn(
-            "SAFETY_API_KEY not set. Running locally may prompt for confirmation. "
-            "Set the environment variable or run: safety auth login"
-        )
+    cmd = ["safety", "--key", key]
     # Use explicit `--output screen` (a string from the CLI Choice) instead of
     # `--detailed-output`. `--detailed-output` leaves `--output` at its enum
     # default `ScanOutput.SCREEN`, which safety 3.8.x then fails to validate
