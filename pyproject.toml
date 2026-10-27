@@ -70,6 +70,10 @@ pmtiles = [
 html = [
     "fastgeoapi-html==0.4.0",
 ]
+# The mapli map provider
+mapli = [
+    "mapli>=0.4.1; sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')",
+]
 
 [dependency-groups]
 dev = [

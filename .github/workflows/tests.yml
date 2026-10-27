@@ -85,11 +85,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install python3-gdal libgdal-dev
 
-      - name: Install the MapLibre Native runtime
+      - name: Install the MapLibre Native and mapli runtimes
         if: matrix.session == 'maps'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libuv1 libvulkan1 mesa-vulkan-drivers libicu74 libcurl4t64 libpng16-16t64 libjpeg-turbo8 libwebp7
+          sudo apt-get install -y --no-install-recommends libuv1 libvulkan1 mesa-vulkan-drivers libicu74 libcurl4t64 libpng16-16t64 libjpeg-turbo8 libwebp7 libegl1 libegl-mesa0 libgl1-mesa-dri xvfb
+          # the mapli map provider draws through EGL, and needs a display: start a virtual
+          Xvfb :99 -screen 0 1280x1024x24 -nolisten tcp &
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+          echo "LIBGL_ALWAYS_SOFTWARE=1" >> "$GITHUB_ENV"
 
       - name: Compute pre-commit cache key
         if: matrix.session == 'pre-commit'

@@ -300,6 +300,9 @@ def ty(session: Session) -> None:
         # The blocking-call guard (ADR-0010) lives in the `dev` group;
         # the unlocked lanes need it by name.
         "blockbuster>=1.5,<2",
+        # The mapli extra: app/provider/mapli.py imports mapli at module level.
+        # ty only reads its stubs, so the EGL it loads at runtime is not needed.
+        "mapli>=0.4.1; sys_platform == 'linux'",
     )
     session.run("ty", *args)
 
@@ -407,9 +410,7 @@ def typeguard(session: Session) -> None:
 
 @session(python=python_versions)
 def maps(session: Session) -> None:
-    """Run the tests that draw with the real MapLibre Native renderer (Linux)."""
-    # Always from the lock: the mlnative fork is reachable only through the
-    # wheel URLs in [tool.uv.sources], never from PyPI.
+    """Run the tests that draw with MapLibre Native, through mlnative and mapli (Linux)."""
     session.run_install(
         "uv",
         "sync",
@@ -417,9 +418,13 @@ def maps(session: Session) -> None:
         "maps",
         "--extra",
         "pmtiles",
+        "--extra",
+        "mapli",
         env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
     )
     session.run("pytest", "-m", "renderer", "-rs", *session.posargs)
+    # The mapli provider's other tests need the wheel too, which no other session installs
+    session.run("pytest", "tests/test_mapli_provider.py", "-rs", *session.posargs)
 
 
 @session(python=python_versions)
