@@ -280,6 +280,15 @@ def test_a_document_without_resources_gets_them_at_the_end():
     assert list(_resources(merged.text)) == ["roads"]
 
 
+def test_a_document_without_a_final_newline_gets_the_new_resources_on_their_own_lines():
+    document = "resources:\n  lakes:\n    type: collection\n    title: Lakes"
+
+    merged = merge(document, [_built("roads")], catalog=CATALOG, selected=None, prune=False)
+
+    assert merged.text.startswith(document + "\n  roads:\n")
+    assert list(_resources(merged.text)) == ["lakes", "roads"]
+
+
 @pytest.mark.parametrize("section", ["resources:\n", "resources: {}\n"])
 def test_an_empty_resources_section_is_filled(section):
     document = "server:\n  url: ${PYGEOAPI_BASEURL}\n" + section

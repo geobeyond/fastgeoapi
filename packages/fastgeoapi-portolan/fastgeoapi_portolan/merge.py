@@ -243,9 +243,10 @@ def merge(
 
     if added:
         rendered = _render(yaml, added)
+        # Without a final newline, the first new line would join the last one.
+        if lines and not lines[-1].endswith("\n"):
+            lines[-1] += "\n"
         if layout.key_line is None:
-            if lines and not lines[-1].endswith("\n"):
-                lines[-1] += "\n"
             edits.append((len(lines), len(lines), rendered))
         elif not layout.resources:
             edits.append((layout.key_line, layout.key_line + 1, rendered))
