@@ -325,6 +325,24 @@ async def test_catalog_text_that_the_configuration_would_read_as_a_variable_is_s
 
 
 @pytest.mark.asyncio
+async def test_a_profile_url_that_holds_a_variable_is_skipped(base):
+    catalog = _catalog(base, _collection(base, _document("roads")))
+    catalog = Catalog(
+        **{
+            **catalog.__dict__,
+            "portolan_schema": "https://schemas.portolan-sdi.org/portolan/${X}/schema.json",
+        }
+    )
+
+    built, skipped = await build(catalog, IngestOptions())
+
+    assert built == []
+    assert (
+        skipped[0].reason == "ingest.schema holds '${', which the configuration reads as a variable"
+    )
+
+
+@pytest.mark.asyncio
 async def test_a_collection_id_that_holds_a_variable_is_skipped(base):
     document = _document("roads", id="${ROADS}")
 

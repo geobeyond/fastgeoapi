@@ -216,13 +216,15 @@ async def _resource(
         resource["links"] = links
     resource["extents"] = extents
     resource["providers"] = providers
-    where = _variable_at({"id": collection.id, **resource}, "")
-    if where is not None:
-        reason = f"{where} holds '${{', which the configuration reads as a variable"
-        return SkippedDocument(collection.id, reason)
     ingest = {"from": "portolan", "catalog": catalog.root, "collection": collection.id}
     if catalog.portolan_schema:
         ingest["schema"] = catalog.portolan_schema
+    # The root is the one given on the command line; the rest comes from the catalog.
+    from_catalog = {key: value for key, value in ingest.items() if key != "catalog"}
+    where = _variable_at({"id": collection.id, **resource, "ingest": from_catalog}, "")
+    if where is not None:
+        reason = f"{where} holds '${{', which the configuration reads as a variable"
+        return SkippedDocument(collection.id, reason)
     resource["ingest"] = ingest
     return IngestedResource(f"{prefix}{collection.id}", resource, tuple(choices))
 
