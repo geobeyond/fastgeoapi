@@ -147,6 +147,19 @@ jobs:
         if: steps.check-version.outputs.tag || github.ref == 'refs/heads/develop'
         run: python -m build packages/fastgeoapi-portolan --outdir dist-portolan
 
+      # Without its schemas the package still installs, and then checks no
+      # catalog document: every schema would be reported as not bundled.
+      - name: Refuse to publish a portolan wheel with no schemas in it
+        if: steps.check-version.outputs.tag || github.ref == 'refs/heads/develop'
+        run: |
+          set -euo pipefail
+          wheel=$(ls dist-portolan/*.whl)
+          if ! python -m zipfile -l "$wheel" | grep -q "fastgeoapi_portolan/catalog/schemas/portolan/v0.2.0/schema.json"; then
+            echo "::error::$wheel carries no catalog schemas"
+            exit 1
+          fi
+          echo "The schemas are in $wheel"
+
       # The two packages first: fastgeoapi[html] and fastgeoapi[portolan]
       # pin them, so fastgeoapi never names a version that is not there yet.
       - name: Publish the pages package on PyPI

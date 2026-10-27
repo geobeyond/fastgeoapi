@@ -36,6 +36,15 @@ def test_the_portolan_package_is_built_in_a_directory_of_its_own():
     assert _running("python -m build packages/fastgeoapi-portolan --outdir dist-portolan")
 
 
+def test_a_portolan_wheel_without_its_schemas_is_refused():
+    ((index, step),) = _running("fastgeoapi_portolan/catalog/schemas/")
+    (build,) = [i for i, _ in _running("--outdir dist-portolan")]
+
+    assert "dist-portolan/" in step["run"]
+    assert "exit 1" in step["run"]
+    assert index > build
+
+
 def test_the_packages_are_published_before_fastgeoapi():
     """Both extras pin these packages, so they go out first and no pin names a version not there yet."""
     publishing = [step for step in _steps() if "gh-action-pypi-publish" in (step.get("uses") or "")]
