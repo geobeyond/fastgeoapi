@@ -176,7 +176,7 @@ class _Walk:
             return []
         self.declared(href, document)
         self.check(href, "Catalog", document)
-        return [child for child in _links(document, "child", href) if self.unseen(child)]
+        return [child for child in _links(document, "child", href) if self.unseen(child, href)]
 
     def collection(self, href: str, document: dict[str, Any]) -> None:
         identifier = document.get("id")
@@ -195,7 +195,7 @@ class _Walk:
         items = tuple(
             item
             for item in _links(document, "item", href)
-            if not self.translated(item) and not self.local(item)
+            if not self.translated(item) and not self.local(item, href)
         )
         self.collections.append(
             Collection(
@@ -231,11 +231,11 @@ class _Walk:
             return False
         return True
 
-    def unseen(self, href: str) -> bool:
+    def unseen(self, href: str, linker: str) -> bool:
         if href in self.seen:
             return False
         self.seen.add(href)
-        if self.translated(href) or self.local(href):
+        if self.translated(href) or self.local(href, linker):
             return False
         if self.queued >= self.max_documents:
             self.capped += 1
@@ -243,9 +243,9 @@ class _Walk:
         self.queued += 1
         return True
 
-    def local(self, href: str) -> bool:
-        """Whether ``href`` is a file on the local disk linked from a remote catalog."""
-        if is_local_from_remote(self.root, href):
+    def local(self, href: str, linker: str) -> bool:
+        """Whether ``href`` is a file on the local disk linked from a remote document."""
+        if is_local_from_remote(linker, href):
             self.warn(f"{href} {LOCAL_FROM_REMOTE}: not followed")
             return True
         return False

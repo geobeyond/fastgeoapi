@@ -378,6 +378,29 @@ def test_a_remote_catalog_cannot_link_a_local_file(served_fixtures):
         assert warning in catalog.warnings
 
 
+def test_a_remote_catalog_under_a_local_root_cannot_link_a_local_file(served_fixtures):
+    fixtures, url = served_fixtures
+    local_collection = fixtures.translated.parent / "roads" / "collection.json"
+    local_item = fixtures.nested.parent / "data" / "roads" / "collection.json"
+    child = {"rel": "child", "href": local_collection.as_uri(), "type": "application/json"}
+    item = {"rel": "item", "href": local_item.as_uri(), "type": "application/geo+json"}
+    _rewrite(fixtures.partitioned, lambda document: document["links"].append(child))
+    buildings = fixtures.partitioned.parent / "buildings" / "collection.json"
+    _rewrite(buildings, lambda document: document["links"].append(item))
+    remote = f"{url}/{fixtures.partitioned.parent.name}/catalog.json"
+    link = {"rel": "child", "href": remote, "type": "application/json"}
+    _rewrite(fixtures.nested, lambda document: document["links"].append(link))
+
+    catalog = read_catalog(str(fixtures.nested), TRANSPORT)
+
+    collections = {collection.id: collection for collection in catalog.collections}
+    assert local_collection.as_uri() not in [c.href for c in catalog.collections]
+    assert local_item.as_uri() not in collections["buildings"].item_hrefs
+    for href in (local_collection.as_uri(), local_item.as_uri()):
+        warning = f"{href} is on the local disk, linked from a remote catalog: not followed"
+        assert warning in catalog.warnings
+
+
 def test_a_local_catalog_still_follows_its_local_links(fixtures):
     local_collection = fixtures.translated.parent / "roads" / "collection.json"
     child = {"rel": "child", "href": local_collection.as_uri(), "type": "application/json"}
