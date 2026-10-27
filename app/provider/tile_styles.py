@@ -5,14 +5,19 @@ takes as a source as it is. The styles come, in this order, from the
 collection's map provider, from the ``styles`` or the ``style`` option of
 its tile provider, or from the tiles themselves, as the maps draw a
 collection that has no style of its own.
+
+A style document is kept for ``STYLE_TTL_SECONDS`` after it is read, so a
+page does not fetch it from its store on every request.
 """
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Iterator
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import PurePosixPath
+from time import monotonic
 from typing import Any
 
 from app.config.logging import create_logger
@@ -29,6 +34,13 @@ _SOURCE_TYPES = {"vector": "vector", "map": "raster", "coverage": "raster-dem"}
 
 # Keys of a declared source that say where its tiles are: the TileJSON replaces them.
 _ADDRESS_KEYS = ("url", "tiles")
+
+STYLE_TTL_SECONDS = 60
+"""How long a style document is used before it is read again."""
+
+# (location, store options) -> (when it was read, the document read).
+_styles: dict[tuple[str, frozenset], tuple[float, Any]] = {}
+_styles_lock = threading.Lock()
 
 
 @dataclass(frozen=True)
@@ -115,9 +127,26 @@ def _named_styles(provider: dict) -> Iterator[tuple[str, dict, str]]:
             yield name, document, source_id
 
 
+def _read_kept(location: str, store_options: dict | None) -> Any:
+    """The style document at ``location``, read again once it is older than the TTL.
+
+    A read that fails raises and is not kept.
+    """
+    key = (location, frozenset((store_options or {}).items()))
+    now = monotonic()
+    with _styles_lock:
+        kept = _styles.get(key)
+    if kept is not None and now - kept[0] < STYLE_TTL_SECONDS:
+        return kept[1]
+    document = read_style(location, store_options)
+    with _styles_lock:
+        _styles[key] = (now, document)
+    return document
+
+
 def _read(name: str, location: str, store_options: dict | None) -> dict | None:
     try:
-        document = read_style(location, store_options)
+        document = _read_kept(location, store_options)
     except Exception as error:
         # The type only: the message of a store error may name the object.
         logger.warning(f"style {name} could not be read: {type(error).__name__}")
