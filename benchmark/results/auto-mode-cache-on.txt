@@ -1,0 +1,11 @@
+100 tiles, zooms [10, 11, 12, 13, 14], bbox 11.4,41.2,14.1,42.9, seed 42
+
+[wrapper] http://127.0.0.1:5999/geoapi/martin-wrapper/transportation-lazio/{z}/{x}/{y}
+  first pass, c=1          p50     331 ms  p95    1240 ms  p99    2414 ms |    2.3 req/s |   19.72 MB | 200:100 errors:0
+  warm c=1 #1              p50       1 ms  p95       2 ms  p99       5 ms |  965.4 req/s |   19.72 MB | 200:100 errors:0
+  warm c=4 #1              p50       2 ms  p95      11 ms  p99      18 ms | 1138.3 req/s |   19.72 MB | 200:100 errors:0
+  warm c=16 #1             p50      14 ms  p95      41 ms  p99      73 ms |  857.0 req/s |   19.72 MB | 200:100 errors:0
+
+[martin] http://127.0.0.1:3999/transportation-lazio/{z}/{x}/{y}
+  first pass, c=1          p50     327 ms  p95     931 ms  p99    2030 ms |    2.4 req/s |   19.72 MB | 200:100 errors:0
+  warm c=1 #1              p50     324 ms  p95     368 ms  p99     640 ms |    3.0 req/s |   19.72 MB | 200:100 errors:0
