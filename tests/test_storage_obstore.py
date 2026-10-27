@@ -1,6 +1,7 @@
 """obstore backend: real LocalStore on tmp_path, remote schemes at construction only."""
 
 import pytest
+from obstore.store import HTTPStore
 
 from app.provider.storage import load_store, split_source
 from app.provider.storage.base import ObjectMeta, ObjectStore
@@ -91,6 +92,13 @@ def test_an_http_store_ignores_the_options_of_a_bucket():
         "https://example.org/styles/", {"region": "us-west-2", "skip_signature": True}
     )
     assert isinstance(store, ObjectStore)
+
+
+def test_an_https_url_of_a_bucket_is_read_over_plain_https():
+    """obstore takes an amazonaws.com URL for a bucket, and a bucket store signs every request."""
+    store = load_store("https://overturemaps-extras-us-west-2.s3.us-west-2.amazonaws.com/tiles/x/")
+
+    assert isinstance(store.backend, HTTPStore)
 
 
 def test_put_roundtrip(tmp_path):
