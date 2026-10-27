@@ -12,14 +12,14 @@ from typing import BinaryIO
 from urllib.parse import urlsplit
 
 from fastgeoapi_portolan.catalog.locations import is_url
-from fastgeoapi_portolan.catalog.protocols import MAX_DOCUMENT_BYTES
+from fastgeoapi_portolan.catalog.protocols import MAX_DOCUMENT_BYTES, DocumentTooLargeError
 
 
 def _capped(location: str, stream: BinaryIO) -> bytes:
     limit = MAX_DOCUMENT_BYTES
     body = stream.read(limit + 1)
     if len(body) > limit:
-        raise OSError(f"{location} is larger than {limit} bytes")
+        raise DocumentTooLargeError(f"{location} is larger than {limit} bytes")
     return body
 
 

@@ -11,7 +11,7 @@ import obstore
 import pytest
 from obstore.store import HTTPStore, S3Store
 
-from fastgeoapi_portolan.catalog.protocols import MAX_DOCUMENT_BYTES
+from fastgeoapi_portolan.catalog.protocols import MAX_DOCUMENT_BYTES, DocumentTooLargeError
 from fastgeoapi_portolan.storage import (
     ObstoreTransport,
     read_bytes,
@@ -166,7 +166,7 @@ async def test_a_store_failure_reaches_the_walk_as_an_oserror():
 async def test_a_document_over_the_cap_is_refused(tmp_path):
     (tmp_path / "big.json").write_bytes(b"x" * 20)
 
-    with pytest.raises(OSError, match="larger than 10 bytes"):
+    with pytest.raises(DocumentTooLargeError, match="larger than 10 bytes"):
         await ObstoreTransport(max_bytes=10).read(str(tmp_path / "big.json"))
     assert await ObstoreTransport(max_bytes=20).read(str(tmp_path / "big.json")) == b"x" * 20
     assert ObstoreTransport().max_bytes == MAX_DOCUMENT_BYTES

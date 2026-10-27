@@ -9,6 +9,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import pytest
 
 from fastgeoapi_portolan.catalog import urllib_transport
+from fastgeoapi_portolan.catalog.protocols import DocumentTooLargeError
 from fastgeoapi_portolan.catalog.urllib_transport import UrllibTransport
 
 
@@ -51,9 +52,9 @@ def test_a_document_over_the_cap_is_refused(tmp_path, served, monkeypatch):
     (tmp_path / "big.json").write_bytes(b"x" * 20)
     monkeypatch.setattr(urllib_transport, "MAX_DOCUMENT_BYTES", 10)
 
-    with pytest.raises(OSError, match="larger than 10 bytes"):
+    with pytest.raises(DocumentTooLargeError, match="larger than 10 bytes"):
         UrllibTransport().read(str(tmp_path / "big.json"))
-    with pytest.raises(OSError, match="larger than 10 bytes"):
+    with pytest.raises(DocumentTooLargeError, match="larger than 10 bytes"):
         UrllibTransport().read(f"{served}/big.json")
 
 

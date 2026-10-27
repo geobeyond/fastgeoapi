@@ -21,7 +21,7 @@ from obstore.exceptions import BaseError
 from obstore.store import HTTPStore, LocalStore, from_url
 
 from fastgeoapi_portolan.catalog.locations import is_url
-from fastgeoapi_portolan.catalog.protocols import MAX_DOCUMENT_BYTES
+from fastgeoapi_portolan.catalog.protocols import MAX_DOCUMENT_BYTES, DocumentTooLargeError
 
 _HTTP = ("http://", "https://")
 # The variables obstore reads an endpoint from, in every constructor.
@@ -138,7 +138,7 @@ async def read_bytes(
     result = await obstore.get_async(store, key)
     if max_bytes is None:
         return bytes(await result.bytes_async())
-    too_large = OSError(f"{location} is larger than {max_bytes} bytes")
+    too_large = DocumentTooLargeError(f"{location} is larger than {max_bytes} bytes")
     if result.meta["size"] > max_bytes:
         raise too_large
     body = bytearray()

@@ -14,6 +14,8 @@ import pytest
 from pmtiles.tile import Compression, TileType, zxy_to_tileid
 from pmtiles.writer import Writer
 
+import fastgeoapi_portolan.tiles as tiles_module
+from fastgeoapi_portolan import storage
 from fastgeoapi_portolan.catalog.testing import PORTOLAN
 from fastgeoapi_portolan.handlers import IngestOptions, Refusal
 from fastgeoapi_portolan.reader import Collection
@@ -327,6 +329,66 @@ async def test_store_options_reach_the_provider(folder):
     )
 
     assert provided.provider["store_options"] == {"region": "eu-west-1"}
+
+
+def _answering(real, reads):
+    """``real`` for the first ``reads`` calls, then a store that does not answer."""
+    calls = []
+
+    async def read(*args, **kwargs):
+        calls.append(args)
+        if len(calls) > reads:
+            raise OSError("HTTP 503 Service Unavailable")
+        return await real(*args, **kwargs)
+
+    return read
+
+
+@pytest.mark.asyncio
+async def test_an_archive_that_does_not_answer_is_refused_for_now(folder, monkeypatch):
+    monkeypatch.setattr(tiles_module, "read_range", _answering(storage.read_range, 0))
+
+    refused = await pmtiles_provider(_collection(folder), IngestOptions())
+
+    assert refused == Refusal(
+        "the archive could not be read: HTTP 503 Service Unavailable", transient=True
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_missing_archive_is_refused_for_good(folder):
+    (folder / ARCHIVE).unlink()
+
+    refused = await pmtiles_provider(_collection(folder), IngestOptions())
+
+    assert refused == Refusal("the archive could not be read: it does not exist")
+
+
+@pytest.mark.asyncio
+async def test_metadata_that_does_not_answer_refuses_the_archive_for_now(folder, monkeypatch):
+    monkeypatch.setattr(tiles_module, "read_range", _answering(storage.read_range, 1))
+
+    refused = await pmtiles_provider(_collection(folder), IngestOptions())
+
+    assert refused == Refusal(
+        "the archive metadata could not be read: HTTP 503 Service Unavailable", transient=True
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_style_that_does_not_answer_refuses_the_archive_for_now(folder, monkeypatch):
+    _write_styles(folder, {"default.json": _style()})
+    assets = {
+        "tiles": {"href": f"./{ARCHIVE}", "type": PMTILES, "roles": ["visual"]},
+        "default-style": _style_asset("./styles/default.json", "default"),
+    }
+    monkeypatch.setattr(tiles_module, "read_bytes", _answering(storage.read_bytes, 0))
+
+    refused = await pmtiles_provider(_collection(folder, assets=assets), IngestOptions())
+
+    assert refused == Refusal(
+        "the style default could not be read: HTTP 503 Service Unavailable", transient=True
+    )
 
 
 @pytest.mark.asyncio

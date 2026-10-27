@@ -245,6 +245,16 @@ quotes and `${VAR}` placeholders included.
     be read or the walk stopped at its limit, a collection may still be
     there, so nothing is pruned and a warning says why. A collection the
     catalog still lists but this run skipped is never missing.
+- A collection whose archive, style, metadata or items do not answer
+  (anything but a missing or oversized object) is skipped with the
+  reason, and its resource stays as it was: a second ingest during an
+  outage does not drop a provider or a style. The next run reads it again.
+
+pygeoapi reads `${NAME}` anywhere in the configuration as a variable of
+the server's environment. A collection whose text would carry one into
+the document, in its id, title, description, keywords, links, style names
+or columns, is skipped, and the reason names the field. The
+`--store-option` values are yours and are written as given.
 
 ### The save rule
 

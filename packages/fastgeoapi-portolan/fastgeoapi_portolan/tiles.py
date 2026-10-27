@@ -31,7 +31,13 @@ from fastgeoapi_portolan.catalog.locations import (
     is_url,
     resolve,
 )
-from fastgeoapi_portolan.handlers import IngestOptions, ProviderMatch, Refusal, describe_read_error
+from fastgeoapi_portolan.handlers import (
+    IngestOptions,
+    ProviderMatch,
+    Refusal,
+    describe_read_error,
+    is_transient,
+)
 from fastgeoapi_portolan.reader import Collection
 from fastgeoapi_portolan.storage import read_bytes, read_range
 
@@ -123,11 +129,12 @@ def _gunzip(data: bytes, limit: int) -> bytes:
 
 async def _zoom(
     location: str, header: Mapping[str, Any], ingest_options: IngestOptions
-) -> tuple[dict[str, int], str]:
+) -> tuple[dict[str, int], str] | Refusal:
     """The zoom span of the ``vector_layers`` in the metadata, or else the header's.
 
     The header gives the size of the metadata, so it is read and
-    decompressed only within the document cap.
+    decompressed only within the document cap. Metadata that cannot be read
+    now refuses the archive for now.
     """
     limit = ingest_options.max_document_bytes
     try:
@@ -149,7 +156,12 @@ async def _zoom(
             for layer in layers
             if isinstance(layer.get("minzoom"), int) and isinstance(layer.get("maxzoom"), int)
         ]
-    except (OSError, BaseError, ValueError, AttributeError, TypeError, zlib.error):
+    except (OSError, BaseError) as error:
+        if is_transient(error):
+            reason = f"the archive metadata could not be read: {describe_read_error(error)}"
+            return Refusal(reason, transient=True)
+        spans = []
+    except (ValueError, AttributeError, TypeError, zlib.error):
         spans = []
     if spans:
         return {
@@ -161,8 +173,12 @@ async def _zoom(
 
 async def _styles(
     collection: Collection, archive: str, ingest_options: IngestOptions
-) -> tuple[dict[str, Any], list[str]]:
-    """The style options for the provider, and the choices behind them."""
+) -> tuple[dict[str, Any], list[str]] | Refusal:
+    """The style options for the provider, and the choices behind them.
+
+    A style that cannot be read now refuses the archive for now, so a
+    second ingest does not drop it from the provider.
+    """
     named: list[tuple[str, str, bool]] = []
     for key, asset in _assets(collection.document):
         roles = _roles(asset)
@@ -192,9 +208,10 @@ async def _styles(
             )
             style = json.loads(raw)
         except (OSError, BaseError) as error:
-            choices.append(
-                f"styles: {name} left out: it could not be read: {describe_read_error(error)}"
-            )
+            why = describe_read_error(error)
+            if is_transient(error):
+                return Refusal(f"the style {name} could not be read: {why}", transient=True)
+            choices.append(f"styles: {name} left out: it could not be read: {why}")
             continue
         except ValueError:
             choices.append(f"styles: {name} left out: it is not JSON")
@@ -239,7 +256,8 @@ async def pmtiles_provider(
     try:
         raw = await read_range(location, 0, HEADER_LENGTH, ingest_options.store_options)
     except (OSError, BaseError) as error:
-        return Refusal(f"the archive could not be read: {describe_read_error(error)}")
+        reason = f"the archive could not be read: {describe_read_error(error)}"
+        return Refusal(reason, transient=is_transient(error))
     try:
         header = deserialize_header(raw)
     except (MagicNumberNotFound, SpecVersionUnsupported, ValueError, IndexError) as error:
@@ -249,8 +267,14 @@ async def pmtiles_provider(
     if tile_format is None:
         return Refusal(f"tile type {TileType(tile_type).name} is not served by the provider")
 
-    zoom, zoom_origin = await _zoom(location, header, ingest_options)
-    style_options, style_choices = await _styles(collection, location, ingest_options)
+    zoomed = await _zoom(location, header, ingest_options)
+    if isinstance(zoomed, Refusal):
+        return zoomed
+    styled = await _styles(collection, location, ingest_options)
+    if isinstance(styled, Refusal):
+        return styled
+    zoom, zoom_origin = zoomed
+    style_options, style_choices = styled
     provider: dict[str, Any] = {
         "type": "tile",
         "name": PROVIDER,

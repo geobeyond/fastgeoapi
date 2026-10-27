@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import fastgeoapi_portolan.geoparquet as geoparquet_module
 from fastgeoapi_portolan.catalog.testing import PORTOLAN
 from fastgeoapi_portolan.geoparquet import PROVIDER, geoparquet_provider, s3_from_https
 from fastgeoapi_portolan.handlers import IngestOptions, ProviderMatch, Refusal
@@ -401,8 +402,23 @@ async def test_items_that_cannot_be_read_refuse_the_collection(base):
 
     refused = await geoparquet_provider(collection, IngestOptions())
 
-    assert isinstance(refused, Refusal)
-    assert refused.reason == "the items could not be read: it does not exist"
+    assert refused == Refusal("the items could not be read: it does not exist")
+
+
+@pytest.mark.asyncio
+async def test_items_that_do_not_answer_refuse_the_collection_for_now(base, monkeypatch):
+    collection = _collection(base, items={"items/part-0.json": _item("part-0", "./part-0.parquet")})
+
+    async def unavailable(*args, **kwargs):
+        raise OSError("HTTP 503 Service Unavailable")
+
+    monkeypatch.setattr(geoparquet_module, "read_items", unavailable)
+
+    refused = await geoparquet_provider(collection, IngestOptions())
+
+    assert refused == Refusal(
+        "the items could not be read: HTTP 503 Service Unavailable", transient=True
+    )
 
 
 @pytest.mark.asyncio

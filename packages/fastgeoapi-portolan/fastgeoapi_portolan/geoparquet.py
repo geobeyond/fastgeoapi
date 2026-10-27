@@ -20,7 +20,13 @@ from fastgeoapi_portolan.catalog.locations import (
     is_url,
     resolve,
 )
-from fastgeoapi_portolan.handlers import IngestOptions, ProviderMatch, Refusal, describe_read_error
+from fastgeoapi_portolan.handlers import (
+    IngestOptions,
+    ProviderMatch,
+    Refusal,
+    describe_read_error,
+    is_transient,
+)
 from fastgeoapi_portolan.reader import Collection, read_items
 
 PROVIDER = "app.provider.geoparquet.GeoParquetProvider"
@@ -167,7 +173,8 @@ async def geoparquet_provider(
                 max_bytes=ingest_options.max_document_bytes,
             )
         except (OSError, ValueError) as error:
-            return Refusal(f"the items could not be read: {describe_read_error(error)}")
+            reason = f"the items could not be read: {describe_read_error(error)}"
+            return Refusal(reason, transient=is_transient(error))
         documents = [
             *items.items,
             *(entry.document for entry in items.nonconforming),

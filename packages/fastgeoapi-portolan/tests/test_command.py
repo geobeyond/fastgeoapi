@@ -7,8 +7,11 @@ from importlib.metadata import EntryPoint
 
 import pytest
 from click.testing import CliRunner
+from pmtiles.tile import Compression, TileType, zxy_to_tileid
+from pmtiles.writer import Writer
 from ruamel.yaml import YAML
 
+import fastgeoapi_portolan.tiles as tiles_module
 from fastgeoapi_portolan import command
 from fastgeoapi_portolan.catalog.walk import NO_PORTOLAN_SCHEMA
 from fastgeoapi_portolan.command import find_validator, ingest_command
@@ -442,6 +445,52 @@ def test_max_document_bytes_bounds_each_document(base):
 
     assert result.exit_code == 1
     assert "larger than 100 bytes" in result.stderr
+
+
+def _write_archive(path):
+    header = {
+        "tile_type": TileType.MVT,
+        "tile_compression": Compression.NONE,
+        "min_lon_e7": 123000000,
+        "min_lat_e7": 418000000,
+        "max_lon_e7": 126000000,
+        "max_lat_e7": 420000000,
+        "center_zoom": 0,
+        "center_lon_e7": 124500000,
+        "center_lat_e7": 419000000,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("wb") as handle:
+        writer = Writer(handle)
+        writer.write_tile(zxy_to_tileid(0, 0, 0), b"tile")
+        writer.finalize(header, {"vector_layers": [{"id": "roads", "minzoom": 0, "maxzoom": 0}]})
+
+
+def test_a_provider_that_does_not_answer_is_kept_by_a_second_ingest(base, config, monkeypatch):
+    assets = {
+        "data": {"href": "./roads.parquet", "type": PARQUET, "roles": ["data"]},
+        "tiles": {
+            "href": "./roads.pmtiles",
+            "type": "application/vnd.pmtiles",
+            "roles": ["visual"],
+        },
+    }
+    root = _write_catalog(base / "cat", _collection("roads", assets=assets))
+    _write_archive(base / "cat" / "roads" / "roads.pmtiles")
+    first = _run("--from-portolan", str(root), "--into", str(config))
+    written = config.read_text()
+
+    async def unavailable(*args, **kwargs):
+        raise OSError("HTTP 503 Service Unavailable")
+
+    monkeypatch.setattr(tiles_module, "read_range", unavailable)
+    second = _run("--from-portolan", str(root), "--into", str(config))
+
+    assert first.exit_code == 0, first.output
+    assert [p["type"] for p in _resources(written)["roads"]["providers"]] == ["feature", "tile"]
+    assert second.exit_code == 0, second.output
+    assert config.read_text() == written
+    assert "roads: pmtiles: the archive could not be read: HTTP 503" in second.stdout
 
 
 def test_the_validator_is_discovered_from_the_entry_points(monkeypatch):

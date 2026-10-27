@@ -34,6 +34,8 @@ _LINK_RELS = ("describedby", "via", "license")
 _LINK_TITLES = {"describedby": "README", "via": "Source"}
 # License values that are not an SPDX identifier.
 _NOT_SPDX = frozenset({"other", "proprietary", "various"})
+# pygeoapi reads ${NAME} in a configuration as a variable of the server's environment.
+_VARIABLE = "${"
 
 
 class DuplicateCollectionIdError(ValueError):
@@ -139,6 +141,29 @@ def _not_conforming(findings: tuple[Finding, ...]) -> str:
     return f"does not conform to {first.schema}: {where}{more}"
 
 
+def _variable_at(value: Any, path: str) -> str | None:
+    """Where a string or a key in ``value`` holds ``${``; ``store_options`` are left out.
+
+    The store options are the user's, and a variable there can be meant.
+    """
+    if isinstance(value, str):
+        return path if _VARIABLE in value else None
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            where = f"{path}.{key}" if path else str(key)
+            if _VARIABLE in str(key):
+                return where
+            found = None if key == "store_options" else _variable_at(item, where)
+            if found is not None:
+                return found
+    if isinstance(value, list):
+        for index, item in enumerate(value):
+            found = _variable_at(item, f"{path}[{index}]")
+            if found is not None:
+                return found
+    return None
+
+
 def _rejected(entry: NonconformingDocument) -> SkippedDocument:
     identifier = entry.document.get("id")
     name = identifier if isinstance(identifier, str) and identifier else entry.href
@@ -166,6 +191,10 @@ async def _resource(
         if isinstance(result, ProviderMatch):
             providers.append(result.provider)
             choices.extend(result.choices)
+        elif isinstance(result, Refusal) and result.transient:
+            # Half a resource would replace the whole one already configured.
+            reason = f"{name}: {result.reason}; nothing changes until it can be read"
+            return SkippedDocument(collection.id, reason)
         elif isinstance(result, Refusal):
             refusals.append((name, result.reason))
     if not providers:
@@ -187,6 +216,10 @@ async def _resource(
         resource["links"] = links
     resource["extents"] = extents
     resource["providers"] = providers
+    where = _variable_at({"id": collection.id, **resource}, "")
+    if where is not None:
+        reason = f"{where} holds '${{', which the configuration reads as a variable"
+        return SkippedDocument(collection.id, reason)
     ingest = {"from": "portolan", "catalog": catalog.root, "collection": collection.id}
     if catalog.portolan_schema:
         ingest["schema"] = catalog.portolan_schema

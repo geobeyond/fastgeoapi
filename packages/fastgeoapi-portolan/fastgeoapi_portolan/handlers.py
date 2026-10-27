@@ -6,7 +6,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from fastgeoapi_portolan.catalog.protocols import MAX_DOCUMENT_BYTES
+from obstore.exceptions import BaseError
+
+from fastgeoapi_portolan.catalog.protocols import MAX_DOCUMENT_BYTES, DocumentTooLargeError
 from fastgeoapi_portolan.catalog.walk import MAX_DOCUMENTS
 from fastgeoapi_portolan.reader import Collection
 
@@ -38,9 +40,20 @@ class ProviderMatch:
 
 @dataclass(frozen=True)
 class Refusal:
-    """The collection has assets of the handler's kind, and the reason no provider fits."""
+    """The collection has assets of the handler's kind, and the reason no provider fits.
+
+    ``transient`` marks a read that failed for a reason the next ingest may
+    not meet, such as a server that does not answer.
+    """
 
     reason: str
+    transient: bool = False
+
+
+def is_transient(error: BaseException) -> bool:
+    """Whether a read failed for a reason other than a missing or an oversized object."""
+    lasting = isinstance(error, (FileNotFoundError, DocumentTooLargeError))
+    return isinstance(error, (OSError, BaseError)) and not lasting
 
 
 def describe_read_error(error: Exception) -> str:

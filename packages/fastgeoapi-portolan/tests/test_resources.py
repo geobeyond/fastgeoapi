@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from pmtiles.tile import Compression, TileType, zxy_to_tileid
 from pmtiles.writer import Writer
 
+import fastgeoapi_portolan.resources as resources_module
 from fastgeoapi_portolan.catalog.testing import PORTOLAN
-from fastgeoapi_portolan.handlers import IngestOptions
+from fastgeoapi_portolan.handlers import IngestOptions, Refusal
 from fastgeoapi_portolan.reader import (
     Catalog,
     Collection,
@@ -289,6 +292,109 @@ async def test_a_collection_without_a_title_is_skipped_with_the_reason(base):
 
     assert built == []
     assert skipped == [SkippedDocument("roads", "the collection has no title")]
+
+
+@pytest.mark.parametrize(
+    ("fields", "where"),
+    [
+        ({"title": "Roads ${HOME}"}, "title"),
+        ({"description": "Tiles at {z}/${x}/{y}."}, "description"),
+        ({"keywords": ["transport", "${AWS_SECRET_ACCESS_KEY}"]}, "keywords[1]"),
+        ({"table:primary_key": ["${USER}"]}, "providers[0].id_field"),
+        (
+            {"links": [{"rel": "license", "href": "https://example.org/${TOKEN:-x}"}]},
+            "links[0].href",
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_catalog_text_that_the_configuration_would_read_as_a_variable_is_skipped(
+    base, fields, where
+):
+    """pygeoapi replaces a ${NAME} in the configuration with the variable of the server."""
+    document = _document("roads", **fields)
+
+    built, skipped = await build(_catalog(base, _collection(base, document)), IngestOptions())
+
+    assert built == []
+    assert skipped == [
+        SkippedDocument(
+            "roads", f"{where} holds '${{', which the configuration reads as a variable"
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_collection_id_that_holds_a_variable_is_skipped(base):
+    document = _document("roads", id="${ROADS}")
+
+    built, skipped = await build(_catalog(base, _collection(base, document)), IngestOptions())
+
+    assert built == []
+    assert skipped[0].reason == "id holds '${', which the configuration reads as a variable"
+
+
+@pytest.mark.asyncio
+async def test_a_style_named_with_a_variable_is_skipped(base):
+    _archive(base / "roads" / "roads.pmtiles")
+    style = {
+        "version": 8,
+        "sources": {"roads": {"type": "vector", "url": "pmtiles://./roads.pmtiles"}},
+        "layers": [],
+    }
+    (base / "roads" / "night.json").write_text(json.dumps(style))
+    assets = {
+        "tiles": {
+            "href": "./roads.pmtiles",
+            "type": "application/vnd.pmtiles",
+            "roles": ["visual"],
+        },
+        "night": {
+            "href": "./night.json",
+            "type": "application/json",
+            "roles": ["style"],
+            "title": "${NIGHT}",
+        },
+    }
+    document = _document("roads", assets=assets)
+
+    built, skipped = await build(_catalog(base, _collection(base, document)), IngestOptions())
+
+    assert built == []
+    assert skipped[0].reason == (
+        "providers[0].options.styles.${NIGHT} holds '${', which the configuration reads as a variable"
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_provider_refused_for_now_leaves_the_whole_collection_as_it_is(base, monkeypatch):
+    async def unavailable(collection, ingest_options):
+        return Refusal("the archive could not be read: HTTP 503", transient=True)
+
+    handlers = dict(resources_module.HANDLERS)
+    handlers["pmtiles"] = unavailable
+    monkeypatch.setattr(resources_module, "HANDLERS", tuple(handlers.items()))
+
+    built, skipped = await build(
+        _catalog(base, _collection(base, _document("roads"))), IngestOptions()
+    )
+
+    assert built == []
+    assert skipped == [
+        SkippedDocument(
+            "roads",
+            "pmtiles: the archive could not be read: HTTP 503; nothing changes until it can be read",
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_variables_in_the_store_options_given_by_the_user_are_kept(base):
+    options = IngestOptions(store_options={"endpoint": "${S3_ENDPOINT}"})
+
+    (roads,), _ = await build(_catalog(base, _collection(base, _document("roads"))), options)
+
+    assert roads.resource["providers"][0]["store_options"] == {"endpoint": "${S3_ENDPOINT}"}
 
 
 @pytest.mark.asyncio
