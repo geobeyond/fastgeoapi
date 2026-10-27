@@ -171,3 +171,6 @@ packages/fastgeoapi-html/fastgeoapi_html/static/
 .clarc/
 # cogit
 /.cogit/
+
+# pycharm IDE
+.idea
