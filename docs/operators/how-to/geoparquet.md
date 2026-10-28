@@ -90,6 +90,12 @@ credentials come exclusively from each provider's standard environment
 variables. See [Config from cloud object storage](cloud-config.md); the
 same rules apply here.
 
+A single `.parquet` file can also sit at an `https://` URL, such as a
+public bucket served by its own domain. DuckDB reads it by range, with no
+credentials and no `store_options`. HTTP has no listing, so a glob or a
+folder there is refused when the provider starts: read those from the
+bucket URL instead.
+
 Bucket data is read by DuckDB itself — `httpfs` for S3-compatible
 stores and GCS, the `azure` extension for Azure — with the per-dataset
 settings carried in a DuckDB secret. Without explicit keys the secret

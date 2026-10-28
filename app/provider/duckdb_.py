@@ -42,6 +42,7 @@ logger = create_logger("app.provider.duckdb")
 # those natively and a local dataset needs no filesystem at all.
 # `tests/test_duckdb_session.py` guards both invariants.
 _CLOUD_SCHEMES = frozenset({"s3", "s3a", "gs", "gcs", "az", "azure", "abfs", "abfss", "adl"})
+_HTTP_SCHEMES = frozenset({"http", "https"})
 
 
 # Engine option names reach SQL as identifiers (`SET <name>=…`), so they
@@ -81,9 +82,20 @@ class DuckDBUnavailableError(RuntimeError):
 
 
 def protocol_for(source: str) -> str | None:
-    """The protocol to register for a source, or None when it is local."""
+    """The protocol to register for a source, or None when DuckDB reads it alone.
+
+    That is a local path, or one file at an http(s) URL, which DuckDB reads
+    by range. HTTP has no listing, so a glob or a folder there is refused.
+    """
     scheme, separator, _ = source.partition("://")
     if not separator:
+        return None
+    if scheme in _HTTP_SCHEMES:
+        if "*" in source or not source.endswith(".parquet"):
+            raise DuckDBUnavailableError(
+                f"{source} needs a listing, and HTTP cannot list: name a .parquet file, "
+                "or read the folder from its bucket URL"
+            )
         return None
     if scheme not in _CLOUD_SCHEMES:
         raise DuckDBUnavailableError(
