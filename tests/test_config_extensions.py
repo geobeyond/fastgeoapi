@@ -101,6 +101,11 @@ def test_a_collection_with_an_ingest_key_is_accepted(config, ingest):
         ({"from": "portolan", "catalog": CATALOG}, "resources.obs.ingest"),
         ({"from": "stac", "catalog": CATALOG, "collection": "b"}, "resources.obs.ingest.from"),
         ({"from": "portolan", "catalog": "", "collection": "b"}, "resources.obs.ingest.catalog"),
+        ({"from": "portolan", "catalog": "  ", "collection": "b"}, "resources.obs.ingest.catalog"),
+        (
+            {"from": "portolan", "catalog": CATALOG, "collection": "  "},
+            "resources.obs.ingest.collection",
+        ),
         (
             {"from": "portolan", "catalog": CATALOG, "collection": "b", "schema": "v0.1.1"},
             "resources.obs.ingest.schema",
@@ -115,6 +120,8 @@ def test_a_collection_with_an_ingest_key_is_accepted(config, ingest):
         "no collection",
         "unknown source",
         "empty catalog",
+        "blank catalog",
+        "blank collection",
         "schema not a URL",
         "unknown key",
         "not an object",

@@ -89,6 +89,14 @@ Two things to expect the first time, both measured rather than guessed:
   guide](pmtiles.md#performance-what-a-tile-costs) explains why a global
   box would open on an empty map.
 
+## Ingest a Portolan catalog
+
+A [Portolan catalog](portolan-ingest.md) already says where its GeoParquet
+and PMTiles data are and what they hold. `fastgeoapi config ingest` turns
+its collections into resources for those two providers, prints them or
+merges them into your configuration, and runs again when the catalog
+changes, leaving what you wrote by hand alone.
+
 ## Serve fastgeoapi's own HTML pages
 
 pygeoapi's pages are the default. The [native HTML pages](html-pages.md) replace them on the same URLs. They draw their maps with MapLibre, come in English and Italian, and take your own templates one file at a time.

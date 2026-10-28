@@ -280,3 +280,52 @@ def config_edit(
     typer.echo(f"  curl -H '{EDITOR_TOKEN_HEADER}: {token}' {base}/editor/config")
 
     uvicorn.run(editor, host=host, port=port)
+
+
+NEEDS_PORTOLAN = (
+    'fastgeoapi config ingest needs the portolan extra: pip install "fastgeoapi[portolan]"'
+)
+# Every argument goes to the command of fastgeoapi-portolan, --help included.
+_FORWARDED = {"allow_extra_args": True, "ignore_unknown_options": True}
+
+
+def _editor_validator():
+    from app.editor.inspect import validation_problems
+
+    return validation_problems
+
+
+def add_config_ingest(config: typer.Typer) -> None:
+    """Register ``ingest`` on ``config``.
+
+    The command belongs to fastgeoapi-portolan and is written with click,
+    so that portolan-cli can load it too; typer hands it the arguments as
+    they came, and its options, help and exit codes are the same in both.
+    Without the package, a stub names the extra to install.
+    """
+    try:
+        from fastgeoapi_portolan.command import ingest_command
+    except ImportError:
+
+        @config.command(name="ingest", context_settings=_FORWARDED, add_help_option=False)
+        def ingest_needs_the_extra() -> None:
+            """Ingest a Portolan catalog into the configuration (needs the portolan extra)."""
+            typer.echo(NEEDS_PORTOLAN, err=True)
+            raise typer.Exit(1)
+
+        return
+
+    command = ingest_command(validator=_editor_validator)
+
+    # The arguments come in as one list: typeguard rejects a typer.Context
+    # here, since typer passes the context of its own click.
+    @config.command(
+        name="ingest", context_settings=_FORWARDED, add_help_option=False, help=command.help
+    )
+    def ingest(
+        arguments: Annotated[list[str] | None, typer.Argument(hidden=True)] = None,
+    ) -> None:
+        command.main(args=arguments or [], prog_name="fastgeoapi config ingest")
+
+
+add_config_ingest(config_app)

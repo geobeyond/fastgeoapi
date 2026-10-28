@@ -74,6 +74,25 @@ def _tile_provider(**options) -> dict:
     return {"type": "tile", "name": "app.provider.pmtiles.PMTilesProvider", "options": options}
 
 
+@pytest.fixture(autouse=True)
+def _no_style_kept_from_another_test(monkeypatch):
+    monkeypatch.setattr(tile_styles_module, "_styles", {}, raising=False)
+
+
+def _counted_reads(monkeypatch, tmp_path, failures=0):
+    """Replace the style reader with one that records each location it reads."""
+    reads = []
+
+    def read_style(location, store_options):
+        reads.append(location)
+        if len(reads) <= failures:
+            raise OSError("the store did not answer")
+        return json.loads(Path(_style(tmp_path / "day.json")).read_text())
+
+    monkeypatch.setattr(tile_styles_module, "read_style", read_style)
+    return reads
+
+
 def test_vector_tiles_are_read_through_the_tilejson():
     assert tile_source(TILEJSON, _content()) == {"type": "vector", "url": TILEJSON}
 
@@ -254,6 +273,54 @@ def test_a_tile_provider_style_is_read_with_its_store_options(tmp_path, monkeypa
     assert seen == [
         ("s3://bucket/styles/day.json", {"region": "us-west-2", "skip_signature": True})
     ]
+
+
+def test_a_style_is_read_once_within_the_ttl(tmp_path, monkeypatch):
+    reads = _counted_reads(monkeypatch, tmp_path)
+    collection = _collection(_tile_provider(styles={"day": "s3://bucket/styles/day.json"}))
+
+    for _ in range(3):
+        (style,) = tile_styles(collection, TILEJSON, _content())
+
+    assert style.name == "day"
+    assert reads == ["s3://bucket/styles/day.json"]
+
+
+def test_a_style_is_read_again_after_the_ttl(tmp_path, monkeypatch):
+    reads = _counted_reads(monkeypatch, tmp_path)
+    collection = _collection(_tile_provider(styles={"day": "s3://bucket/styles/day.json"}))
+    now = [1000.0]
+    monkeypatch.setattr(tile_styles_module, "monotonic", lambda: now[0], raising=False)
+
+    tile_styles(collection, TILEJSON, _content())
+    now[0] += tile_styles_module.STYLE_TTL_SECONDS - 1
+    tile_styles(collection, TILEJSON, _content())
+    now[0] += 2
+    tile_styles(collection, TILEJSON, _content())
+
+    assert len(reads) == 2
+
+
+def test_a_read_that_fails_is_not_kept(tmp_path, monkeypatch):
+    reads = _counted_reads(monkeypatch, tmp_path, failures=1)
+    collection = _collection(_tile_provider(styles={"day": "s3://bucket/styles/day.json"}))
+
+    (first,) = tile_styles(collection, TILEJSON, _content())
+    (second,) = tile_styles(collection, TILEJSON, _content())
+
+    assert (first.name, second.name) == (None, "day")
+    assert len(reads) == 2
+
+
+def test_the_same_style_with_other_store_options_is_read_on_its_own(tmp_path, monkeypatch):
+    reads = _counted_reads(monkeypatch, tmp_path)
+    provider = _tile_provider(styles={"day": "s3://bucket/styles/day.json"})
+    tile_styles(_collection(provider), TILEJSON, _content())
+    provider["store_options"] = {"region": "us-west-2"}
+
+    tile_styles(_collection(provider), TILEJSON, _content())
+
+    assert len(reads) == 2
 
 
 def test_without_a_style_one_is_made_from_the_vector_layers():

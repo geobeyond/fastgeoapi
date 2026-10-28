@@ -149,17 +149,19 @@ def load_store(base: str, store_options: dict | None = None) -> ObjectStore:
     environment). They are meaningless for a local path and for an
     http(s) URL, and ignored there: a provider's style at an https URL
     shares the options of its data in a bucket, and the HTTP store
-    refuses any.
+    refuses any. An http(s) URL is read unsigned, even one that names a
+    bucket; an object that needs credentials is named by its bucket URL.
     """
     if base.startswith(_URL_SCHEMES):
-        from obstore.store import from_url
+        from obstore.store import HTTPStore, from_url
 
-        http = base.startswith(("http://", "https://"))
-        if http:
+        if base.startswith(("http://", "https://")):
             # The HTTP store adds its own slash before the key: a base ending in
             # one asks for `prefix//key`, which some servers answer with 404.
-            base = base.rstrip("/")
-        if store_options and not http:
+            # `from_url` would make a bucket store of an amazonaws.com URL, and
+            # that signs every request, even for a public object.
+            return ObstoreStore(HTTPStore.from_url(base.rstrip("/")))
+        if store_options:
             config = _for_obstore(store_options, base)
             with _explicit_endpoint_wins(config):
                 # ty: `from_url` is overloaded per provider-specific config

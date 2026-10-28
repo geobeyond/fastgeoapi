@@ -14,6 +14,7 @@ resolution-markers = [
 members = [
     "fastgeoapi",
     "fastgeoapi-html",
+    "fastgeoapi-portolan",
 ]
 
 [[package]]
@@ -926,6 +927,12 @@ html = [
 pmtiles = [
     { name = "pmtiles" },
 ]
+portolan = [
+    { name = "duckdb" },
+    { name = "fastgeoapi-portolan" },
+    { name = "fsspec" },
+    { name = "pmtiles" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -972,7 +979,9 @@ requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.141,<1.0" },
     { name = "fastapi-key-auth", specifier = ">=0.15.4,<0.16.0" },
     { name = "fastapi-opa", specifier = ">=2.0.3,<3" },
+    { name = "fastgeoapi", extras = ["geoparquet", "pmtiles"], marker = "extra == 'portolan'" },
     { name = "fastgeoapi-html", marker = "extra == 'html'", editable = "packages/fastgeoapi-html" },
+    { name = "fastgeoapi-portolan", marker = "extra == 'portolan'", editable = "packages/fastgeoapi-portolan" },
     { name = "fastmcp", specifier = ">=4.0.10,<5" },
     { name = "fsspec", marker = "extra == 'geoparquet'", specifier = ">=2024.6" },
     { name = "geoalchemy2", specifier = ">=0.18.1,<0.19" },
@@ -997,7 +1006,7 @@ requires-dist = [
     { name = "starlette", specifier = ">=1.3.1,<2.0" },
     { name = "typer", specifier = ">=0.15.3,<0.28" },
 ]
-provides-extras = ["geoparquet", "pmtiles", "html"]
+provides-extras = ["geoparquet", "pmtiles", "html", "portolan"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1040,6 +1049,36 @@ maps = [
 name = "fastgeoapi-html"
 version = "0.4.0"
 source = { editable = "packages/fastgeoapi-html" }
+
+[[package]]
+name = "fastgeoapi-portolan"
+version = "0.4.0"
+source = { editable = "packages/fastgeoapi-portolan" }
+dependencies = [
+    { name = "click" },
+    { name = "jsonschema" },
+    { name = "obstore" },
+    { name = "pmtiles" },
+    { name = "referencing" },
+    { name = "ruamel-yaml" },
+]
+
+[package.optional-dependencies]
+models = [
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "click", specifier = ">=8.2" },
+    { name = "jsonschema", specifier = ">=4.18" },
+    { name = "obstore", specifier = ">=0.11" },
+    { name = "pmtiles", specifier = ">=3.7,<4" },
+    { name = "pydantic", marker = "extra == 'models'", specifier = ">=2.7" },
+    { name = "referencing", specifier = ">=0.30" },
+    { name = "ruamel-yaml", specifier = ">=0.18" },
+]
+provides-extras = ["models"]
 
 [[package]]
 name = "fastmcp"
