@@ -143,6 +143,9 @@ An `https://` URL of an S3 bucket, virtual-hosted or path-style, is
 rewritten as an `s3://` URL with the bucket's region and unsigned reads, so
 DuckDB reads it as a bucket. An `s3` alternate in the bucket of the asset's
 `https://` URL gets the same region and unsigned reads.
+Data at any other `https://` URL is written as it is when it names one
+`.parquet` file; a glob or a folder there is skipped with the reason,
+since HTTP cannot list the files.
 
 The id column and the geometry column come from the first source that
 names them:

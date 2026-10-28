@@ -229,6 +229,14 @@ async def geoparquet_provider(
     if rewritten is not None:
         data, store_options = rewritten
         choices.append("data: s3 URL from the https one")
+    # An http(s) URL names one file: HTTP has no listing for a glob or a folder.
+    if data.split("://", 1)[0] in ("http", "https") and (
+        "*" in data or not data.endswith(".parquet")
+    ):
+        return Refusal(
+            f"the data {data} needs a listing, and HTTP cannot list: "
+            "link the files from their bucket"
+        )
     store_options.update(ingest_options.store_options)
 
     columns = _columns(described)

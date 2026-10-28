@@ -284,6 +284,38 @@ async def test_a_relative_href_is_resolved_before_its_bucket_is_compared():
     assert provided.provider["store_options"] == {"region": "us-west-2", "skip_signature": True}
 
 
+def _globbed(href):
+    document = {
+        "type": "Collection",
+        "id": "roads",
+        "table:columns": [{"name": "id"}, {"name": "geometry"}],
+        "partition:glob": "part=*/*.parquet",
+        "assets": {},
+    }
+    return Collection("roads", href, document, (), PORTOLAN)
+
+
+@pytest.mark.asyncio
+async def test_a_glob_at_an_https_url_that_is_no_bucket_is_refused():
+    collection = _globbed("https://data.example.org/cat/roads/collection.json")
+
+    refused = await geoparquet_provider(collection, IngestOptions())
+
+    assert refused == Refusal(
+        "the data https://data.example.org/cat/roads/part=*/*.parquet needs a listing, "
+        "and HTTP cannot list: link the files from their bucket"
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_glob_at_an_https_url_of_a_bucket_is_read_from_the_bucket():
+    collection = _globbed("https://bucket.s3.eu-west-1.amazonaws.com/cat/roads/collection.json")
+
+    provided = await geoparquet_provider(collection, IngestOptions())
+
+    assert provided.provider["data"] == "s3://bucket/cat/roads/part=*/*.parquet"
+
+
 @pytest.mark.asyncio
 async def test_a_partitioned_collection_with_a_nonconforming_item_is_refused(base):
     bad = _item("part-1", "./part-1.parquet")
