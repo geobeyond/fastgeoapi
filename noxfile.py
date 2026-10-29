@@ -228,7 +228,7 @@ def models(session: Session) -> None:
     # can write the same models in another form, which would fail the check
     # on branches that change nothing of the kind. Upgrade it on purpose,
     # with the regenerated module in the same change.
-    session.install("datamodel-code-generator==0.85.0")
+    session.install("datamodel-code-generator==0.87.0")
     session.install(".")
     session.run("python", "scripts/generate_config_models.py", *session.posargs)
 
@@ -247,7 +247,7 @@ def models_check(session: Session) -> None:
     schema could notice.
     """
     # The version `models` pins: see the comment there.
-    session.install("datamodel-code-generator==0.85.0")
+    session.install("datamodel-code-generator==0.87.0")
     session.install(".")
     session.run("python", "scripts/generate_config_models.py", "--check")
 
@@ -260,14 +260,14 @@ def portolan_types(session: Session) -> None:
     reference; only generation goes to the network, the reader never does.
     """
     # The version `models` pins: see the comment there.
-    session.install("datamodel-code-generator[http]==0.85.0")
+    session.install("datamodel-code-generator[http]==0.87.0")
     session.run("python", "packages/fastgeoapi-portolan/scripts/generate_types.py")
 
 
 @session(name="portolan-types-check", python="3.12")
 def portolan_types_check(session: Session) -> None:
     """Fail when the committed types of the Portolan reader no longer match its schemas."""
-    session.install("datamodel-code-generator[http]==0.85.0")
+    session.install("datamodel-code-generator[http]==0.87.0")
     session.run("python", "packages/fastgeoapi-portolan/scripts/generate_types.py", "--check")
 
 
@@ -295,11 +295,6 @@ def ty(session: Session) -> None:
         # Mirror the `tests` session test deps so ty can resolve imports
         # in tests/test_mcp_oauth_e2e.py (pytest-iam pulls in portpicker).
         "pytest-iam",
-        "canaille[sqlite]",
-        # joserfc >= 1.7 rejects canaille's signing key ("Invalid key_op
-        # 'sign' for public key") and 500s the test IdP token endpoint;
-        # pin until the canaille/joserfc incompatibility is fixed upstream.
-        "joserfc>=1.6,<1.7",
         "faker",
         # The `geoparquet` extra: the suite imports the provider directly,
         # so both lanes need the engine and obstore's fsspec layer (the
@@ -339,11 +334,6 @@ def tests(session: Session) -> None:
         "schemathesis>=4.26",
         "pytest-asyncio",
         "pytest-iam",
-        "canaille[sqlite]",
-        # joserfc >= 1.7 rejects canaille's signing key ("Invalid key_op
-        # 'sign' for public key") and 500s the test IdP token endpoint;
-        # pin until the canaille/joserfc incompatibility is fixed upstream.
-        "joserfc>=1.6,<1.7",
         "faker",
         # The `geoparquet` extra: the suite imports the provider directly,
         # so both lanes need the engine and obstore's fsspec layer (the
@@ -398,11 +388,6 @@ def typeguard(session: Session) -> None:
         "schemathesis>=4.26",
         "pytest-asyncio",
         "pytest-iam",
-        "canaille[sqlite]",
-        # joserfc >= 1.7 rejects canaille's signing key ("Invalid key_op
-        # 'sign' for public key") and 500s the test IdP token endpoint;
-        # pin until the canaille/joserfc incompatibility is fixed upstream.
-        "joserfc>=1.6,<1.7",
         "faker",
         # The `geoparquet` extra: the suite imports the provider directly,
         # so both lanes need the engine and obstore's fsspec layer (the

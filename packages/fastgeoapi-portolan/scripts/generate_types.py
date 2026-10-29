@@ -99,11 +99,36 @@ def _generate(schema: Path, target: Path, flags: list[str]) -> None:
     )
 
 
+class _Unquoted(ast.NodeTransformer):
+    """A type with its quoted forward references as names, and ``Union`` written with ``|``.
+
+    The whole type becomes one string anyway. Strings inside a ``Literal``
+    are values, so they stay.
+    """
+
+    def visit_Constant(self, node: ast.Constant) -> ast.expr:
+        if isinstance(node.value, str):
+            return ast.parse(node.value, mode="eval").body
+        return node
+
+    def visit_Subscript(self, node: ast.Subscript) -> ast.expr:
+        if ast.unparse(node.value) == "Literal":
+            return node
+        self.generic_visit(node)
+        if ast.unparse(node.value) == "Union" and isinstance(node.slice, ast.Tuple):
+            members = iter(node.slice.elts)
+            union = next(members)
+            for member in members:
+                union = ast.BinOp(union, ast.BitOr(), member)
+            return union
+        return node
+
+
 def _field_type(value: ast.expr) -> str:
     """The type of a functional field as a string, without its ``NotRequired``."""
     if isinstance(value, ast.Subscript) and ast.unparse(value.value) == "NotRequired":
         value = value.slice
-    return repr(ast.unparse(value))
+    return repr(ast.unparse(_Unquoted().visit(value)))
 
 
 def _functional_with_string_types(source: str) -> str:
