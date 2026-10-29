@@ -91,7 +91,10 @@ async def get_collection_map(
     except KeyError:
         query_args["bbox-crs"] = DEFAULT_CRS
 
-    query_args["transparent"] = request.params.get("transparent", True)
+    with_transparency = request.params.get("transparent", "true").lower()
+    if with_transparency not in ("true", "false"):
+        return _bad(api, headers, "'transparent' must be either true or false")
+    query_args["transparent"] = with_transparency == "true"
     try:
         query_args["width"] = int(request.params.get("width", 500))
         query_args["height"] = int(request.params.get("height", 300))
