@@ -4,64 +4,13 @@
         <loc>https://geobeyond.github.io/fastgeoapi/</loc>
       </url>
       <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/operators/</loc>
-      </url>
-      <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/operators/tutorials/getting-started/</loc>
-      </url>
-      <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/operators/tutorials/protecting-pygeoapi/</loc>
-      </url>
-      <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/</loc>
-      </url>
-      <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/cloud-config/</loc>
-      </url>
-      <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/geoparquet/</loc>
-      </url>
-      <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/pmtiles/</loc>
-      </url>
-      <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/maplibre/</loc>
-      </url>
-      <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/html-pages/</loc>
-      </url>
-      <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/configuration-editor/</loc>
-      </url>
-      <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/portolan-ingest/</loc>
-      </url>
-      <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/enabling-mcp/</loc>
-      </url>
-      <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/operators/reference/configuration/</loc>
-      </url>
-      <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/operators/reference/cli/</loc>
-      </url>
-      <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/operators/explanation/why-fastgeoapi/</loc>
-      </url>
-      <url>
         <loc>https://geobeyond.github.io/fastgeoapi/consumers/</loc>
       </url>
       <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/consumers/tutorials/connecting-an-mcp-client/</loc>
-      </url>
-      <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/consumers/tutorials/using-qgis/</loc>
+        <loc>https://geobeyond.github.io/fastgeoapi/consumers/explanation/mcp-server/</loc>
       </url>
       <url>
         <loc>https://geobeyond.github.io/fastgeoapi/consumers/how-to/mcp-inspector/</loc>
-      </url>
-      <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/consumers/reference/openapi/</loc>
       </url>
       <url>
         <loc>https://geobeyond.github.io/fastgeoapi/consumers/reference/interoperability/</loc>
@@ -70,10 +19,22 @@
         <loc>https://geobeyond.github.io/fastgeoapi/consumers/reference/mcp-specifications/</loc>
       </url>
       <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/consumers/explanation/mcp-server/</loc>
+        <loc>https://geobeyond.github.io/fastgeoapi/consumers/reference/openapi/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/consumers/tutorials/connecting-an-mcp-client/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/consumers/tutorials/using-qgis/</loc>
       </url>
       <url>
         <loc>https://geobeyond.github.io/fastgeoapi/contributors/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/contributors/explanation/architecture/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/contributors/explanation/async-providers/</loc>
       </url>
       <url>
         <loc>https://geobeyond.github.io/fastgeoapi/contributors/how-to/development-setup/</loc>
@@ -88,9 +49,48 @@
         <loc>https://geobeyond.github.io/fastgeoapi/contributors/reference/</loc>
       </url>
       <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/contributors/explanation/architecture/</loc>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/</loc>
       </url>
       <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/contributors/explanation/async-providers/</loc>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/explanation/why-fastgeoapi/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/cloud-config/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/configuration-editor/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/enabling-mcp/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/geoparquet/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/html-pages/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/maplibre/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/pmtiles/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/how-to/portolan-ingest/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/reference/cli/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/reference/configuration/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/tutorials/getting-started/</loc>
+      </url>
+      <url>
+        <loc>https://geobeyond.github.io/fastgeoapi/operators/tutorials/protecting-pygeoapi/</loc>
       </url>
 </urlset>
