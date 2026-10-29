@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel
@@ -16,7 +16,7 @@ class StacExtensions(BaseModel):
     stac_extensions: list[Any]
 
 
-class FileByteOrder(Enum):
+class FileByteOrder(StrEnum):
     big_endian = 'big-endian'
     little_endian = 'little-endian'
 
