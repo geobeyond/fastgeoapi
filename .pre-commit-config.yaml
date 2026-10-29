@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.4
+    rev: v0.17.3
     hooks:
       # The generated configuration models are machine-produced; letting
       # a formatter rewrite them makes `nox -s models-check` fail, because
@@ -11,6 +11,10 @@ repos:
         args: [--fix]
         exclude: '^(app/pygeoapi/config_models/(_generated\.py|pygeoapi-config-schema\.yml)|packages/fastgeoapi-portolan/fastgeoapi_portolan/(catalog/_generated/[^/]+|models/(?!__init__\.py)[^/]+)\.py)$'
       - id: ruff-format
+        # From 0.17 the hook also formats the Python blocks of Markdown files.
+        # The guides quote methods without their class and align comments,
+        # and the formatter would turn those methods into module functions.
+        types_or: [python, pyi]
         exclude: '^(app/pygeoapi/config_models/(_generated\.py|pygeoapi-config-schema\.yml)|packages/fastgeoapi-portolan/fastgeoapi_portolan/(catalog/_generated/[^/]+|models/(?!__init__\.py)[^/]+)\.py)$'
   - repo: local
     hooks:

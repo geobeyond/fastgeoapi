@@ -14,7 +14,7 @@ dependencies = [
     "click>=8.2",
     # With referencing, for the schema validator; the core of the reader imports neither.
     "jsonschema>=4.18",
-    "obstore>=0.11",
+    "obstore>=0.12",
     "pmtiles>=3.7,<4",
     "referencing>=0.30",
     "ruamel.yaml>=0.18",

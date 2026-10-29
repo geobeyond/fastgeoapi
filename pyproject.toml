@@ -20,8 +20,8 @@ dependencies = [
     "httpx2>=2.12,<3", # direct dependency: the client FastMCP 4's OpenAPI provider expects
     "typer>=0.15.3,<0.28",
     "fastapi-key-auth>=0.15.4,<0.16.0",
-    "sqlalchemy>=2.0.40,<2.1",
-    "geoalchemy2>=0.18.1,<0.19",
+    "sqlalchemy>=2.1,<2.2",
+    "geoalchemy2>=0.20,<0.21",
     "shapely>=2.0,<3",
     "psycopg2-binary>=2.9.10,<3",
     "openapi-pydantic>=0.5.1,<=1.0",
@@ -40,7 +40,7 @@ dependencies = [
     # on `fastmcp-slim[client, server]` at the same version, so naming it
     # alone is enough.
     "fastmcp>=4.0.10,<5",
-    "obstore>=0.11.1,<0.12",
+    "obstore>=0.12.1,<0.13",
     "h11>=0.16,<0.17", # direct dependency: the loopback server of byte ranges speaks HTTP/1.1 through it
 ]
 
@@ -97,19 +97,14 @@ dev = [
     "pre-commit-hooks>=6,<7",
     "termynal>=0.13.0",
     "bandit>=1.9.2,<2",
-    "ipython<9.12",
+    "ipython<9.18",
     "ty>=0.0.8",
     "commitizen>=4.11,<5",
     "openapi-resolver>=0.0.6,<0.0.7",
     "schemathesis>=4.26",
-    "pytest-asyncio>=1.3,<1.4",
+    "pytest-asyncio>=1.4,<1.5",
     "nox[uv]>=2025.11.12",
     "pytest-iam>=0.2.0",
-    "canaille[sqlite]>=0.0.74",
-    # joserfc >= 1.7 rejects canaille's signing key ("Invalid key_op 'sign'
-    # for public key") and 500s the test IdP token endpoint; pin until the
-    # canaille/joserfc incompatibility is fixed upstream.
-    "joserfc>=1.6,<1.7",
     "blockbuster>=1.5,<2",
     "ogcapi-registry==0.4.0",
     # Pillow decodes PNGs in the map tests; the renderer gets it from the maps group.
