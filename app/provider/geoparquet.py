@@ -29,6 +29,7 @@ from app.config.logging import create_logger
 from app.provider import geoparquet_schema
 from app.provider.base import AsyncProviderMixin
 from app.provider.duckdb_ import connect, scan_expression
+from app.provider.interrupts import on_interrupt
 from app.provider.storage import is_remote
 
 logger = create_logger("app.provider.geoparquet")
@@ -156,8 +157,14 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         (measured: 4 of 24 with 6 workers). ``cursor()`` is DuckDB's
         documented pattern for concurrent use — it shares the database
         while keeping the result state per operation.
+
+        DuckDB interrupts a query on the cursor that runs it, not on the
+        connection the cursor came from, so each cursor is registered
+        with the request on its own.
         """
-        return self._connection.cursor()
+        cursor = self._connection.cursor()
+        on_interrupt(cursor.interrupt)
+        return cursor
 
     def _rows(self, sql: str, parameters: list | None = None) -> list:
         """The rows of ``sql``; a store that does not answer in time raises a 504."""

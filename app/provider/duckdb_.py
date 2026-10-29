@@ -31,6 +31,7 @@ import re
 import tempfile
 
 from app.config.logging import create_logger
+from app.provider.interrupts import on_interrupt
 
 logger = create_logger("app.provider.duckdb")
 
@@ -171,6 +172,7 @@ def connect(
         ) from e
 
     con = duckdb.connect()
+    on_interrupt(con.interrupt)
     con.execute(f"SET temp_directory='{_writable_temp_directory()}'")
     extension_directory = os.environ.get("DUCKDB_EXTENSION_DIRECTORY")
     if extension_directory:

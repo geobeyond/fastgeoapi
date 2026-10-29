@@ -40,6 +40,7 @@ from starlette.staticfiles import StaticFiles
 
 from app.html.assets import ImmutableFiles
 from app.html.pages import NativePages
+from app.provider.interrupts import Interrupts
 from app.pygeoapi.api import patch_validate_datetime_overflow
 from app.pygeoapi.api.collections import describe_collections, item_provider_type
 from app.pygeoapi.api_async import maps as async_maps
@@ -231,9 +232,15 @@ async def execute(
         headers, status, content = api.get_format_exception(api_request)
     else:
         loop = asyncio.get_running_loop()
-        headers, status, content = await loop.run_in_executor(
-            None, _call_threadsafe, loop, api_function, api, api_request, *args
-        )
+        interrupts = Interrupts()
+        try:
+            headers, status, content = await loop.run_in_executor(
+                None, interrupts.run, _call_threadsafe, loop, api_function, api, api_request, *args
+            )
+        except asyncio.CancelledError:
+            # The thread carries on after the request is cancelled: stop what it started.
+            interrupts.interrupt()
+            raise
         if status != HTTPStatus.NO_CONTENT:
             content = apply_gzip(headers, content)
     return _to_response(headers, status, content)
