@@ -16,7 +16,7 @@ DATA = Path(__file__).parent / "data"
 
 
 def test_the_core_imports_without_typing_extensions():
-    # Python 3.10 has no NotRequired in typing; the core must not need the backport.
+    # The core needs only the standard library at runtime, not the backport.
     code = (
         "import sys; sys.modules['typing_extensions'] = None; "
         "import fastgeoapi_portolan.catalog.types"

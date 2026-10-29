@@ -32,8 +32,9 @@ portolan fastgeoapi ingest --from-portolan ./catalog
 ```
 
 Both run the code of `fastgeoapi-portolan`, so their options, messages and
-exit codes are the same. The package supports Python 3.10 and later, as
-portolan-cli does; fastgeoapi itself needs 3.12. portolan-cli loads it
+exit codes are the same. The package supports Python 3.11 and later, and
+fastgeoapi itself needs 3.12; portolan-cli also runs on 3.10, where the
+plugin cannot be installed. portolan-cli loads it
 only in a version with command plugins, which the releases up to 1.0.0b0
 do not have.
 

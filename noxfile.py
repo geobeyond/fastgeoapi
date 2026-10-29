@@ -443,10 +443,10 @@ def maps(session: Session) -> None:
     session.run("pytest", "-m", "renderer", "-rs", *session.posargs)
 
 
-@session(python=["3.10", "3.12"])
+@session(python=["3.11", "3.12"])
 def portolan(session: Session) -> None:
     """Run the tests of the package that ingests Portolan catalogs."""
-    # The package supports Python 3.10 for the users of portolan-cli, so its
+    # The package supports Python 3.11 for the users of portolan-cli, so its
     # lane runs there as well; fastgeoapi itself needs 3.12.
     session.install(
         # With its Pydantic models, so their round trip runs on both Pythons.
@@ -465,7 +465,7 @@ def portolan(session: Session) -> None:
     session.run("pytest", *session.posargs)
 
 
-@session(name="portolan-rashid", python=["3.10", "3.12"])
+@session(name="portolan-rashid", python=["3.11", "3.12"])
 def portolan_rashid(session: Session) -> None:
     """Check the conformance kit against rashid, the Portolan validator."""
     # portolan-cli 0.8 pins rashid below 0.2, and the schemas come from 0.3,
