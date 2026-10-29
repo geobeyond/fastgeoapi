@@ -1,4 +1,4 @@
-"""The package that ingests Portolan catalogs has its own lane, on Python 3.10 and 3.12."""
+"""The package that ingests Portolan catalogs has its own lane, on Python 3.11 and 3.12."""
 
 import ast
 import re
@@ -13,8 +13,8 @@ def _rows() -> list[dict]:
     return workflow["jobs"]["tests"]["strategy"]["matrix"]["include"]
 
 
-def test_ci_runs_the_portolan_session_on_3_10_and_3_12():
-    for python in ("3.10", "3.12"):
+def test_ci_runs_the_portolan_session_on_3_11_and_3_12():
+    for python in ("3.11", "3.12"):
         assert {"python": python, "os": "ubuntu-22.04", "session": "portolan"} in _rows()
 
 
@@ -27,7 +27,15 @@ def test_nox_has_a_portolan_session_on_both_pythons():
     ]
     decorators = [ast.unparse(decorator) for decorator in function.decorator_list]
 
-    assert "session(python=['3.10', '3.12'])" in decorators
+    assert "session(python=['3.11', '3.12'])" in decorators
+
+
+def test_the_lane_starts_at_the_oldest_python_the_package_supports():
+    package = tomllib.loads(Path("packages/fastgeoapi-portolan/pyproject.toml").read_text())
+    oldest = package["project"]["requires-python"].removeprefix(">=")
+    lanes = {row["python"] for row in _rows() if row["session"] in ("portolan", "portolan-rashid")}
+
+    assert min(lanes, key=lambda version: tuple(map(int, version.split(".")))) == oldest
 
 
 def test_ci_runs_the_portolan_types_check():
@@ -55,8 +63,8 @@ def test_the_root_suite_collects_only_tests():
     assert config["tool"]["pytest"]["ini_options"]["testpaths"] == ["tests"]
 
 
-def test_ci_runs_the_rashid_agreement_on_3_10_and_3_12():
-    for python in ("3.10", "3.12"):
+def test_ci_runs_the_rashid_agreement_on_3_11_and_3_12():
+    for python in ("3.11", "3.12"):
         assert {"python": python, "os": "ubuntu-22.04", "session": "portolan-rashid"} in _rows()
 
 
@@ -70,7 +78,7 @@ def test_nox_has_a_portolan_rashid_session_on_both_pythons():
     ]
     decorators = [ast.unparse(decorator) for decorator in function.decorator_list]
 
-    assert "session(name='portolan-rashid', python=['3.10', '3.12'])" in decorators
+    assert "session(name='portolan-rashid', python=['3.11', '3.12'])" in decorators
 
 
 def test_the_portolan_session_installs_portolan_cli_with_command_plugins():

@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Annotated, Any, Literal
 
 from pydantic import AnyUrl, BaseModel, ConfigDict, Field, RootModel
@@ -70,7 +70,7 @@ class Datetime(BaseModel):
     ] = None
 
 
-class DataType(Enum):
+class DataType(StrEnum):
     int8 = 'int8'
     int16 = 'int16'
     int32 = 'int32'
@@ -89,7 +89,7 @@ class DataType(Enum):
     other = 'other'
 
 
-class Nodata(Enum):
+class Nodata(StrEnum):
     nan = 'nan'
     inf = 'inf'
     field_inf = '-inf'
@@ -150,7 +150,7 @@ class Licensing(BaseModel):
     license: Annotated[str | None, Field(pattern='^[\\w\\-\\.\\+]+$')] = None
 
 
-class Role(Enum):
+class Role(StrEnum):
     producer = 'producer'
     licensor = 'licensor'
     processor = 'processor'
@@ -241,11 +241,11 @@ class Properties31(BaseModel):
     datetime: Any
 
 
-class Type(Enum):
+class Type(StrEnum):
     Feature = 'Feature'
 
 
-class Type1(Enum):
+class Type1(StrEnum):
     Point = 'Point'
 
 
@@ -258,7 +258,7 @@ class Geometry1(BaseModel):
     bbox: Annotated[list[float] | None, Field(min_length=4)] = None
 
 
-class Type2(Enum):
+class Type2(StrEnum):
     LineString = 'LineString'
 
 
@@ -275,7 +275,7 @@ class Geometry2(BaseModel):
     bbox: Annotated[list[float] | None, Field(min_length=4)] = None
 
 
-class Type3(Enum):
+class Type3(StrEnum):
     Polygon = 'Polygon'
 
 
@@ -296,7 +296,7 @@ class Geometry3(BaseModel):
     bbox: Annotated[list[float] | None, Field(min_length=4)] = None
 
 
-class Type4(Enum):
+class Type4(StrEnum):
     MultiPoint = 'MultiPoint'
 
 
@@ -313,7 +313,7 @@ class Geometry4(BaseModel):
     bbox: Annotated[list[float] | None, Field(min_length=4)] = None
 
 
-class Type5(Enum):
+class Type5(StrEnum):
     MultiLineString = 'MultiLineString'
 
 
@@ -334,7 +334,7 @@ class Geometry5(BaseModel):
     bbox: Annotated[list[float] | None, Field(min_length=4)] = None
 
 
-class Type6(Enum):
+class Type6(StrEnum):
     MultiPolygon = 'MultiPolygon'
 
 
@@ -355,11 +355,11 @@ class Geometry6(BaseModel):
     bbox: Annotated[list[float] | None, Field(min_length=4)] = None
 
 
-class Type7(Enum):
+class Type7(StrEnum):
     GeometryCollection = 'GeometryCollection'
 
 
-class Type8(Enum):
+class Type8(StrEnum):
     Point = 'Point'
 
 
@@ -372,7 +372,7 @@ class Geometries(BaseModel):
     bbox: Annotated[list[float] | None, Field(min_length=4)] = None
 
 
-class Type9(Enum):
+class Type9(StrEnum):
     LineString = 'LineString'
 
 
@@ -389,7 +389,7 @@ class Geometries1(BaseModel):
     bbox: Annotated[list[float] | None, Field(min_length=4)] = None
 
 
-class Type10(Enum):
+class Type10(StrEnum):
     Polygon = 'Polygon'
 
 
@@ -410,7 +410,7 @@ class Geometries2(BaseModel):
     bbox: Annotated[list[float] | None, Field(min_length=4)] = None
 
 
-class Type11(Enum):
+class Type11(StrEnum):
     MultiPoint = 'MultiPoint'
 
 
@@ -427,7 +427,7 @@ class Geometries3(BaseModel):
     bbox: Annotated[list[float] | None, Field(min_length=4)] = None
 
 
-class Type12(Enum):
+class Type12(StrEnum):
     MultiLineString = 'MultiLineString'
 
 
@@ -448,7 +448,7 @@ class Geometries4(BaseModel):
     bbox: Annotated[list[float] | None, Field(min_length=4)] = None
 
 
-class Type13(Enum):
+class Type13(StrEnum):
     MultiPolygon = 'MultiPolygon'
 
 
@@ -500,7 +500,7 @@ class Feature(BaseModel):
     bbox: Annotated[list[float] | None, Field(min_length=4)] = None
 
 
-class Type14(Enum):
+class Type14(StrEnum):
     Point = 'Point'
 
 
@@ -513,7 +513,7 @@ class Geometry8(BaseModel):
     bbox: Annotated[list[float] | None, Field(min_length=4)] = None
 
 
-class Type15(Enum):
+class Type15(StrEnum):
     LineString = 'LineString'
 
 
@@ -530,7 +530,7 @@ class Geometry9(BaseModel):
     bbox: Annotated[list[float] | None, Field(min_length=4)] = None
 
 
-class Type16(Enum):
+class Type16(StrEnum):
     Polygon = 'Polygon'
 
 
@@ -551,7 +551,7 @@ class Geometry10(BaseModel):
     bbox: Annotated[list[float] | None, Field(min_length=4)] = None
 
 
-class Type17(Enum):
+class Type17(StrEnum):
     MultiPoint = 'MultiPoint'
 
 
@@ -568,7 +568,7 @@ class Geometry11(BaseModel):
     bbox: Annotated[list[float] | None, Field(min_length=4)] = None
 
 
-class Type18(Enum):
+class Type18(StrEnum):
     MultiLineString = 'MultiLineString'
 
 
@@ -589,7 +589,7 @@ class Geometry12(BaseModel):
     bbox: Annotated[list[float] | None, Field(min_length=4)] = None
 
 
-class Type19(Enum):
+class Type19(StrEnum):
     MultiPolygon = 'MultiPolygon'
 
 

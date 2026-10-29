@@ -6,7 +6,7 @@ pygeoapi resources that serve its GeoParquet and PMTiles collections with
 merges them into an existing configuration and runs again when the catalog
 changes.
 
-It supports Python 3.10 and later, and comes with two commands that share
+It supports Python 3.11 and later, and comes with two commands that share
 options, messages and exit codes.
 
 From fastgeoapi, with the extra that also installs the providers the

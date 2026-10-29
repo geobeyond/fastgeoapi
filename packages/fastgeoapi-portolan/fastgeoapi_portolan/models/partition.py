@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel
@@ -16,12 +16,12 @@ class StacExtensions(BaseModel):
     stac_extensions: list[Any]
 
 
-class PartitionScheme(Enum):
+class PartitionScheme(StrEnum):
     hive = 'hive'
     directory = 'directory'
 
 
-class PartitionStrategy(Enum):
+class PartitionStrategy(StrEnum):
     kdtree = 'kdtree'
     h3 = 'h3'
     s2 = 's2'
@@ -31,7 +31,7 @@ class PartitionStrategy(Enum):
     attribute = 'attribute'
 
 
-class Type(Enum):
+class Type(StrEnum):
     string = 'string'
     int32 = 'int32'
     int64 = 'int64'

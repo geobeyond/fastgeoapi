@@ -47,6 +47,13 @@ def run(
         int,
         typer.Option("--workers", "-w", help="Number of worker processes"),
     ] = 1,
+    graceful_timeout: Annotated[
+        int,
+        typer.Option(
+            "--graceful-timeout",
+            help="Seconds a shutdown waits for the running requests before cancelling them",
+        ),
+    ] = 10,
 ) -> None:
     """Run the fastgeoapi server.
 
@@ -61,6 +68,7 @@ def run(
         fastgeoapi run --reload
         fastgeoapi run -h 0.0.0.0 -p 5000 -r
         fastgeoapi run --workers 4
+        fastgeoapi run --graceful-timeout 30
     """
     log_console.log(f"Starting fastgeoapi server on {host}:{port}")
 
@@ -79,6 +87,11 @@ def run(
         port=port,
         reload=reload,
         workers=workers if not reload else 1,  # reload doesn't work with multiple workers
+        # Without a limit, a Ctrl-C waits for every running request, and a
+        # slow query on a remote dataset can take minutes. Past the limit
+        # uvicorn cancels the requests, and cancelling one interrupts its
+        # DuckDB query.
+        timeout_graceful_shutdown=graceful_timeout,
     )
 
 
