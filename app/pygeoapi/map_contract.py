@@ -10,10 +10,40 @@ pygeoapi's route in the threadpool.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
 
 from app.interfaces.providers import NATIVE_MAP_MEMBERS
 from app.pygeoapi.plugin import resolve_provider_class
+
+
+def native_map_definitions(config: dict[str, Any]) -> Iterator[tuple[str, int, dict, type]]:
+    """The map provider definitions of a configuration whose class sets ``native_async``.
+
+    Entries of another shape and classes that do not import are skipped,
+    as are pygeoapi's short names.
+
+    Parameters
+    ----------
+    config
+        The pygeoapi configuration.
+
+    Yields
+    ------
+    tuple of (str, int, dict, type)
+        The collection's name, the provider's index in its ``providers``,
+        the provider's definition and its class.
+    """
+    resources = config.get("resources")
+    for name, resource in (resources if isinstance(resources, dict) else {}).items():
+        if not isinstance(resource, dict):
+            continue
+        for index, provider in enumerate(resource.get("providers") or []):
+            if not isinstance(provider, dict) or provider.get("type") != "map":
+                continue
+            cls = resolve_provider_class(str(provider.get("name", "")))
+            if cls is not None and getattr(cls, "native_async", False):
+                yield name, index, provider, cls
 
 
 def map_contract_problem(config: dict[str, Any]) -> tuple[str, str] | None:
@@ -36,21 +66,11 @@ def map_contract_problem(config: dict[str, Any]) -> tuple[str, str] | None:
         the class and the missing member; None when every native map
         provider has all the members.
     """
-    resources = config.get("resources")
-    for name, resource in (resources if isinstance(resources, dict) else {}).items():
-        if not isinstance(resource, dict):
-            continue
-        for index, provider in enumerate(resource.get("providers") or []):
-            if not isinstance(provider, dict) or provider.get("type") != "map":
-                continue
-            dotted = str(provider.get("name", ""))
-            cls = resolve_provider_class(dotted)
-            if cls is None or not getattr(cls, "native_async", False):
-                continue
-            for member in NATIVE_MAP_MEMBERS:
-                if not hasattr(cls, member):
-                    return (
-                        f"resources.{name}.providers.{index}",
-                        f"{dotted} sets native_async but has no {member}",
-                    )
+    for name, index, provider, cls in native_map_definitions(config):
+        for member in NATIVE_MAP_MEMBERS:
+            if not hasattr(cls, member):
+                return (
+                    f"resources.{name}.providers.{index}",
+                    f"{provider.get('name')} sets native_async but has no {member}",
+                )
     return None

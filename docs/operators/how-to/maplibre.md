@@ -168,6 +168,20 @@ it asks for ranges of the old version, the ones not cached any more
 answer 404, and the renderer gives the map up. The next map reads the new
 version.
 
+Three settings cap the map sizes the server publishes for every
+collection; a collection's `max_size` can lower them, never raise them:
+
+| Setting                      | Default | Meaning                                                                |
+| ---------------------------- | ------- | ---------------------------------------------------------------------- |
+| `FASTGEOAPI_MAPS_MAX_WIDTH`  | 2048    | The widest map, in pixels, for every collection.                       |
+| `FASTGEOAPI_MAPS_MAX_HEIGHT` | 2048    | The tallest map, in pixels, for every collection.                      |
+| `FASTGEOAPI_MAPS_MAX_PIXELS` | none    | The largest `width * height`; unset, there is no limit on the product. |
+
+The OpenAPI document publishes them as `x-OGC-limits.maps` in its `info`,
+and gives the `width` and `height` of each collection's map a `maximum`,
+the smaller of `max_size` and the server's value. A collection whose
+`max_size` is above the server's value is logged at startup.
+
 The collection page asks for an image as wide as its map, so `max_size`
 should stay above the widest map a browser will show: a wider map gets a
 413 and keeps its previous image.

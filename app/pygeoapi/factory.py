@@ -48,6 +48,7 @@ from app.pygeoapi.api_async import tiles as async_tiles
 from app.pygeoapi.api_async.caching import HttpCache, default_http_cache
 from app.pygeoapi.config_extensions import extension_problem
 from app.pygeoapi.map_contract import map_contract_problem
+from app.pygeoapi.map_limits import MapCeiling, default_map_ceiling, native_map_limits
 from app.pygeoapi.openapi import (
     describe_tilesets,
     drop_unfiltered_cql2_operations,
@@ -57,6 +58,7 @@ from app.pygeoapi.openapi import (
     fix_map_operations,
     fix_queryables_response_schema,
     fix_tileset_list_response,
+    publish_map_ceiling,
 )
 from app.pygeoapi.plugin import invalidate_plugin_cache, patch_load_plugin
 
@@ -165,11 +167,25 @@ def _default_to_the_items(providers: list[dict]) -> None:
     provider.setdefault("default", True)
 
 
-def build_openapi(config: dict) -> dict:
+def build_openapi(config: dict, *, map_ceiling: MapCeiling | None = None) -> dict:
     """Generate the OpenAPI in memory, with the fastgeoapi fixes at the source.
 
     The document goes through the openapi-pydantic model once: validated,
     corrected, dumped.
+
+    Parameters
+    ----------
+    config
+        The pygeoapi configuration.
+    map_ceiling
+        The server's ceiling on map sizes; None takes the one of the
+        settings. With a native map provider in the configuration, the
+        document publishes it and the limits of each collection.
+
+    Returns
+    -------
+    dict
+        The document, as a dict.
     """
     generated = get_oas(normalize_config(config))
     openapi = OpenAPI.model_validate(generated)
@@ -178,7 +194,11 @@ def build_openapi(config: dict) -> dict:
     drop_unfiltered_cql2_operations(openapi, config)
     fix_tileset_list_response(openapi)
     describe_tilesets(openapi)
-    fix_map_operations(openapi, config)
+    ceiling = map_ceiling if map_ceiling is not None else default_map_ceiling()
+    limits = native_map_limits(config, ceiling)
+    fix_map_operations(openapi, config, limits)
+    if limits:
+        publish_map_ceiling(openapi, ceiling)
     drop_unused_tags(openapi)
     return dump_openapi(openapi, like=generated)
 

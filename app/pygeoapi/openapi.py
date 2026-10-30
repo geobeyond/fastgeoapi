@@ -21,6 +21,8 @@ from pygeoapi.openapi import generate_openapi_document as _upstream_generate_ope
 
 from app.auth.models import unauthorized
 from app.config.logging import create_logger
+from app.interfaces.providers import MapLimits
+from app.pygeoapi.map_limits import MapCeiling
 from app.pygeoapi.models import not_found
 
 logger = create_logger("app.pygeoapi.openapi")
@@ -534,8 +536,8 @@ def describe_tilesets(openapi: OpenAPI) -> OpenAPI:
     return openapi
 
 
-def fix_map_operations(openapi: OpenAPI, config: dict) -> OpenAPI:
-    """Give each map path its own id, an image response and, with styles, its styled path.
+def fix_map_operations(openapi: OpenAPI, config: dict, limits: dict[str, MapLimits]) -> OpenAPI:
+    """Give each map path its own id, an image response, its size limits and its styled path.
 
     pygeoapi writes ``operationId: getMap`` for the map path of every
     collection (``api/maps.py``, ``get_oas_30``, 0.24), while OpenAPI
@@ -544,8 +546,24 @@ def fix_map_operations(openapi: OpenAPI, config: dict) -> OpenAPI:
     ``/collections/{id}/styles/{styleId}/map`` without writing it. The id
     follows pygeoapi's own ``get<Collection>Features`` form, the
     response takes the provider's format, and the styled path is written
-    only for a provider with ``options.styles``. Remove once fixed
-    upstream in pygeoapi.
+    only for a provider with ``options.styles``. These three go once
+    pygeoapi is fixed upstream.
+
+    Parameters
+    ----------
+    openapi
+        The document to correct.
+    config
+        The pygeoapi configuration the document was generated from.
+    limits
+        The limits of each collection whose map provider is native, by
+        collection name. The ``width`` and ``height`` of their maps get
+        ``minimum: 1`` and the collection's ``maximum``, on both paths.
+
+    Returns
+    -------
+    OpenAPI
+        The same document.
     """
     paths = openapi.paths or {}
     for name, resource in (config.get("resources") or {}).items():
@@ -558,6 +576,8 @@ def fix_map_operations(openapi: OpenAPI, config: dict) -> OpenAPI:
             continue
         operation = item.get
         operation.operationId = f"get{name.capitalize()}Map"
+        if name in limits:
+            _publish_sizes(operation, limits[name])
         mimetype = (provider.get("format") or {}).get("mimetype", "image/png")
         ok = operation.responses.get("200")
         if isinstance(ok, Response):
@@ -583,6 +603,41 @@ def fix_map_operations(openapi: OpenAPI, config: dict) -> OpenAPI:
                     responses=dict(operation.responses),
                 )
             )
+    return openapi
+
+
+def _publish_sizes(operation: Operation, limits: MapLimits) -> None:
+    largest = {"width": limits.max_width, "height": limits.max_height}
+    for parameter in operation.parameters or []:
+        if not isinstance(parameter, Parameter) or parameter.name not in largest:
+            continue
+        if isinstance(parameter.param_schema, Schema):
+            parameter.param_schema.minimum = 1
+            parameter.param_schema.maximum = largest[parameter.name]
+
+
+def publish_map_ceiling(openapi: OpenAPI, ceiling: MapCeiling) -> OpenAPI:
+    """Publish the server's largest map as ``x-OGC-limits.maps`` in the ``info``.
+
+    /rec/scaling/max-width-height names the keys; ``maxPixels`` is there
+    only when the ceiling sets it.
+
+    Parameters
+    ----------
+    openapi
+        The document to publish it in.
+    ceiling
+        The server's ceiling.
+
+    Returns
+    -------
+    OpenAPI
+        The same document.
+    """
+    maps: dict[str, int] = {"maxWidth": ceiling.max_width, "maxHeight": ceiling.max_height}
+    if ceiling.max_pixels is not None:
+        maps["maxPixels"] = ceiling.max_pixels
+    setattr(openapi.info, "x-OGC-limits", {"maps": maps})
     return openapi
 
 

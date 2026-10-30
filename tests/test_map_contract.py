@@ -63,7 +63,9 @@ class Explicit(BaseProvider):
 
     @property
     def limits(self):
-        return None
+        from app.interfaces.providers import MapLimits
+
+        return MapLimits(64, 64, None, 1, 8, 5.0)
 
     def close(self):
         """Nothing to release."""
