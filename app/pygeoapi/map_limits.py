@@ -1,14 +1,17 @@
-"""The server's ceiling on map sizes, and the limits of each collection cut to it.
+"""What each collection's native map provider accepts, and the server's ceiling on map sizes.
 
 The ceiling comes from the settings. A collection's provider may lower
-it, never raise it. The OpenAPI document publishes both: the ceiling in
-``x-OGC-limits.maps``, and each collection's limits on the ``width`` and
-``height`` of its map.
+it, never raise it, and declares the CRSs and formats it draws. The
+OpenAPI document publishes all of it: the ceiling in
+``x-OGC-limits.maps``, and on each collection's map the ``maximum`` of
+``width`` and ``height`` and the values of ``crs``, ``bbox-crs`` and
+``f``.
 """
 
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -16,7 +19,7 @@ from pygeoapi import plugin as pygeoapi_plugin
 from pygeoapi.provider.base import ProviderGenericError, ProviderTypeError
 
 from app.config.logging import create_logger
-from app.interfaces.providers import AsyncMapProvider, MapLimits
+from app.interfaces.providers import AsyncMapProvider, MapCapabilities, MapLimits
 from app.pygeoapi.map_contract import native_map_definitions
 
 logger = create_logger("app.pygeoapi.map_limits")
@@ -120,19 +123,63 @@ def native_map_limits(config: dict[str, Any], ceiling: MapCeiling) -> dict[str, 
         out: its map fails on the route as it would without limits.
     """
     limits: dict[str, MapLimits] = {}
-    for name, _, definition, _ in native_map_definitions(config):
-        try:
-            provider = pygeoapi_plugin.load_plugin("provider", definition)
-        except (KeyError, ProviderTypeError, ProviderGenericError):
-            continue
-        if not isinstance(provider, AsyncMapProvider):
-            continue
+    for name, _, provider in _native_map_providers(config):
         own = provider.limits
         cut = collection_limits(own, ceiling)
         if cut != own:
             logger.warning(f"{name}: maps up to {_size(own)} asked, {_size(cut)} served")
         limits[name] = cut
     return limits
+
+
+def native_map_capabilities(config: dict[str, Any]) -> dict[str, MapCapabilities]:
+    """The capabilities of every collection whose map provider is native.
+
+    Parameters
+    ----------
+    config
+        The pygeoapi configuration.
+
+    Returns
+    -------
+    dict of str to MapCapabilities
+        The capabilities by collection name. A provider that does not load
+        is left out, as in :func:`native_map_limits`.
+    """
+    return {name: provider.capabilities for name, _, provider in _native_map_providers(config)}
+
+
+def default_map_crs(provider_def: dict[str, Any], capabilities: MapCapabilities) -> str:
+    """The CRS of a map whose request names none.
+
+    Parameters
+    ----------
+    provider_def
+        The definition of the collection's map provider.
+    capabilities
+        The provider's capabilities.
+
+    Returns
+    -------
+    str
+        The ``storage_crs`` when the provider draws in it, written as the
+        provider writes it; otherwise the provider's first CRS.
+    """
+    storage = str(provider_def.get("storage_crs", "")).lower()
+    for crs in capabilities.crs:
+        if crs.lower() == storage:
+            return crs
+    return capabilities.crs[0]
+
+
+def _native_map_providers(config: dict[str, Any]) -> Iterator[tuple[str, dict, AsyncMapProvider]]:
+    for name, _, definition, _ in native_map_definitions(config):
+        try:
+            provider = pygeoapi_plugin.load_plugin("provider", definition)
+        except (KeyError, ProviderTypeError, ProviderGenericError):
+            continue
+        if isinstance(provider, AsyncMapProvider):
+            yield name, definition, provider
 
 
 def _size(limits: MapLimits) -> str:

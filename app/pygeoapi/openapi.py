@@ -17,12 +17,13 @@ from openapi_pydantic.v3.v3_0 import (
 )
 from pydantic import BaseModel
 from pydantic_core import ValidationError
+from pygeoapi.crs import DEFAULT_CRS
 from pygeoapi.openapi import generate_openapi_document as _upstream_generate_openapi_document
 
 from app.auth.models import unauthorized
 from app.config.logging import create_logger
-from app.interfaces.providers import MapLimits
-from app.pygeoapi.map_limits import MapCeiling
+from app.interfaces.providers import MapCapabilities, MapLimits
+from app.pygeoapi.map_limits import MapCeiling, default_map_crs
 from app.pygeoapi.models import not_found
 
 logger = create_logger("app.pygeoapi.openapi")
@@ -536,8 +537,13 @@ def describe_tilesets(openapi: OpenAPI) -> OpenAPI:
     return openapi
 
 
-def fix_map_operations(openapi: OpenAPI, config: dict, limits: dict[str, MapLimits]) -> OpenAPI:
-    """Give each map path its own id, an image response, its size limits and its styled path.
+def fix_map_operations(
+    openapi: OpenAPI,
+    config: dict,
+    limits: dict[str, MapLimits],
+    capabilities: dict[str, MapCapabilities],
+) -> OpenAPI:
+    """Give each map path its own id, an image response, its parameters and its styled path.
 
     pygeoapi writes ``operationId: getMap`` for the map path of every
     collection (``api/maps.py``, ``get_oas_30``, 0.24), while OpenAPI
@@ -559,6 +565,13 @@ def fix_map_operations(openapi: OpenAPI, config: dict, limits: dict[str, MapLimi
         The limits of each collection whose map provider is native, by
         collection name. The ``width`` and ``height`` of their maps get
         ``minimum: 1`` and the collection's ``maximum``, on both paths.
+    capabilities
+        The capabilities of each collection whose map provider is native,
+        by collection name. Their maps publish the parameters the route
+        applies, on both paths: ``bbox`` with four numbers, ``bbox-crs``
+        with CRS84 and the CRSs the provider draws, ``crs`` with those
+        CRSs, ``f`` with its formats, ``datetime`` only with a temporal extent, and ``subset``
+        only with an extent beyond ``spatial`` and ``temporal``.
 
     Returns
     -------
@@ -576,6 +589,8 @@ def fix_map_operations(openapi: OpenAPI, config: dict, limits: dict[str, MapLimi
             continue
         operation = item.get
         operation.operationId = f"get{name.capitalize()}Map"
+        if name in capabilities:
+            _publish_parameters(operation, resource, provider, capabilities[name])
         if name in limits:
             _publish_sizes(operation, limits[name])
         mimetype = (provider.get("format") or {}).get("mimetype", "image/png")
@@ -604,6 +619,86 @@ def fix_map_operations(openapi: OpenAPI, config: dict, limits: dict[str, MapLimi
                 )
             )
     return openapi
+
+
+def _publish_parameters(
+    operation: Operation, resource: dict, provider_def: dict, capabilities: MapCapabilities
+) -> None:
+    extents = resource.get("extents") or {}
+    additional = set(extents) - {"spatial", "temporal"}
+    bbox_crs = [DEFAULT_CRS, *(c for c in capabilities.crs if c.lower() != DEFAULT_CRS.lower())]
+    published: list[Parameter | Reference] = []
+    for parameter in operation.parameters or []:
+        if isinstance(parameter, Reference):
+            target = parameter.ref.rsplit("/", 1)[-1]
+            if target == "bbox":
+                published.append(_four_numbers_bbox())
+            elif target == "bbox-crs-epsg":
+                published.append(
+                    _crs_parameter(
+                        "bbox-crs", "The CRS of the bbox coordinates.", bbox_crs, DEFAULT_CRS
+                    )
+                )
+            elif target != "subset" or additional:
+                published.append(parameter)
+            continue
+        if parameter.name == "f" and isinstance(parameter.param_schema, Schema):
+            parameter.param_schema.enum = list(capabilities.formats)
+            if parameter.param_schema.default not in capabilities.formats:
+                parameter.param_schema.default = capabilities.formats[0]
+        published.append(parameter)
+    published.append(
+        _crs_parameter(
+            "crs",
+            "The CRS the map is drawn in.",
+            list(capabilities.crs),
+            default_map_crs(provider_def, capabilities),
+        )
+    )
+    if "temporal" in extents:
+        published.append(
+            Parameter(
+                name="datetime",
+                param_in=ParameterLocation.QUERY,
+                description=(
+                    "The time or the interval of the map, within the collection's temporal extent."
+                ),
+                required=False,
+                style="form",
+                explode=False,
+                param_schema=Schema(type=DataType.STRING),
+            )
+        )
+    operation.parameters = published
+
+
+def _four_numbers_bbox() -> Parameter:
+    return Parameter(
+        name="bbox",
+        param_in=ParameterLocation.QUERY,
+        description="The area of the map: minx,miny,maxx,maxy, in the CRS of bbox-crs.",
+        required=False,
+        style="form",
+        explode=False,
+        param_schema=Schema(
+            type=DataType.ARRAY,
+            minItems=4,
+            maxItems=4,
+            items=Schema(type=DataType.NUMBER),
+        ),
+    )
+
+
+def _crs_parameter(name: str, description: str, uris: list[str], default: str) -> Parameter:
+    return Parameter(
+        name=name,
+        param_in=ParameterLocation.QUERY,
+        description=description,
+        required=False,
+        style="form",
+        explode=False,
+        param_schema=Schema(type=DataType.STRING, schema_format="uri", enum=uris, default=default),
+    )
 
 
 def _publish_sizes(operation: Operation, limits: MapLimits) -> None:

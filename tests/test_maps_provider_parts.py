@@ -42,6 +42,12 @@ class PlainMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
         return MapLimits(32, 32, None, 1, 8, 5.0)
 
+    @property
+    def capabilities(self):
+        from app.interfaces.providers import MapCapabilities
+
+        return MapCapabilities(crs=(WEB_MERCATOR,), formats=("png",))
+
     async def arender_map(self, **kwargs):
         from app.provider.maps import draw_map, map_request
 

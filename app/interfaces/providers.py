@@ -96,6 +96,24 @@ class MapLimits:
     timeout: float
 
 
+@dataclass(frozen=True)
+class MapCapabilities:
+    """The CRSs a map provider draws in and the formats it encodes maps in.
+
+    Attributes
+    ----------
+    crs
+        The URIs of the CRSs, in the provider's order of preference: the
+        first is the default when the collection's ``storage_crs`` is not
+        among them (/req/crs/crs-definition).
+    formats
+        The values of ``f`` the provider answers, such as ``png``.
+    """
+
+    crs: tuple[str, ...]
+    formats: tuple[str, ...]
+
+
 @runtime_checkable
 class AsyncMapProvider(Protocol):
     """A map provider that can be awaited for a rendered map.
@@ -118,6 +136,11 @@ class AsyncMapProvider(Protocol):
     @property
     def limits(self) -> MapLimits:
         """The sizes it accepts and the maps it draws at once."""
+        ...
+
+    @property
+    def capabilities(self) -> MapCapabilities:
+        """The CRSs it draws in and the formats it encodes."""
         ...
 
     async def arender_map(
@@ -249,7 +272,13 @@ class AsyncMapProvider(Protocol):
         ...
 
 
-NATIVE_MAP_MEMBERS: tuple[str, ...] = ("arender_map", "aget_version", "limits", "close")
+NATIVE_MAP_MEMBERS: tuple[str, ...] = (
+    "arender_map",
+    "aget_version",
+    "limits",
+    "capabilities",
+    "close",
+)
 """The members a map provider class with ``native_async`` must define."""
 
 MAP_ARGUMENTS: tuple[str, ...] = (

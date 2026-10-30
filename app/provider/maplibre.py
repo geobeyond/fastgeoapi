@@ -21,13 +21,14 @@ from typing import Any, ClassVar
 
 from pygeoapi.provider.base import BaseProvider, ProviderGenericError
 
-from app.interfaces.providers import MAP_ARGUMENTS, MapLimits
+from app.interfaces.providers import MAP_ARGUMENTS, MapCapabilities, MapLimits
 from app.maps.contract import MapRequest, MapSource, MapStyles
 from app.maps.queue import RenderQueue
 from app.maps.sources import ObjectUrl, SourceContext
 from app.provider.base import AsyncProviderMixin, StorageBackedMixin
 from app.provider.maps import (
     MAPS_CONFORMANCE,
+    WEB_MERCATOR,
     StyleDocuments,
     build_renderer,
     build_styles,
@@ -124,6 +125,11 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             waiting=int(self.options["queue"]),
             timeout=float(self.options["timeout"]),
         )
+
+    @property
+    def capabilities(self) -> MapCapabilities:
+        """Web Mercator and PNG, the only CRS and format MapLibre Native draws here."""
+        return MapCapabilities(crs=(WEB_MERCATOR,), formats=("png",))
 
     @property
     def renderer_is_built(self) -> bool:

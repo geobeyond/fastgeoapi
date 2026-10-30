@@ -48,7 +48,12 @@ from app.pygeoapi.api_async import tiles as async_tiles
 from app.pygeoapi.api_async.caching import HttpCache, default_http_cache
 from app.pygeoapi.config_extensions import extension_problem
 from app.pygeoapi.map_contract import map_contract_problem
-from app.pygeoapi.map_limits import MapCeiling, default_map_ceiling, native_map_limits
+from app.pygeoapi.map_limits import (
+    MapCeiling,
+    default_map_ceiling,
+    native_map_capabilities,
+    native_map_limits,
+)
 from app.pygeoapi.openapi import (
     describe_tilesets,
     drop_unfiltered_cql2_operations,
@@ -196,7 +201,7 @@ def build_openapi(config: dict, *, map_ceiling: MapCeiling | None = None) -> dic
     describe_tilesets(openapi)
     ceiling = map_ceiling if map_ceiling is not None else default_map_ceiling()
     limits = native_map_limits(config, ceiling)
-    fix_map_operations(openapi, config, limits)
+    fix_map_operations(openapi, config, limits, native_map_capabilities(config))
     if limits:
         publish_map_ceiling(openapi, ceiling)
     drop_unused_tags(openapi)
