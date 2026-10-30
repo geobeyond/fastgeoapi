@@ -47,6 +47,7 @@ from app.pygeoapi.api_async import maps as async_maps
 from app.pygeoapi.api_async import tiles as async_tiles
 from app.pygeoapi.api_async.caching import HttpCache, default_http_cache
 from app.pygeoapi.config_extensions import extension_problem
+from app.pygeoapi.map_contract import map_contract_problem
 from app.pygeoapi.openapi import (
     describe_tilesets,
     drop_unfiltered_cql2_operations,
@@ -136,7 +137,7 @@ def normalize_config(config: dict) -> dict:
     bind.setdefault("port", int(os.environ.get("PORT", "5000")))
 
     _validate(config)
-    problem = extension_problem(config)
+    problem = extension_problem(config) or map_contract_problem(config)
     if problem is not None:
         where, message = problem
         raise ConfigValidationError(f"invalid fastgeoapi configuration at {where}: {message}")

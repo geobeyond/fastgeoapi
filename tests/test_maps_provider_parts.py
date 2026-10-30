@@ -36,11 +36,23 @@ class PlainMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             raise KeyError(name)
         return {"data": self.provider_def["data"]}
 
+    @property
+    def limits(self):
+        from app.interfaces.providers import MapLimits
+
+        return MapLimits(32, 32, None, 1, 8, 5.0)
+
     async def aquery(self, **kwargs):
         from app.provider.maps import draw_map, map_request
 
         request = map_request(self._style, max_size=32, **kwargs)
         return await draw_map(self._queue, request)
+
+    async def aversion(self, **kwargs):
+        return None
+
+    def close(self):
+        self._queue.close()
 
 
 def test_the_maplibre_provider_is_one_line_of_bases_like_the_others():

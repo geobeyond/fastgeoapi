@@ -20,6 +20,7 @@ from typing import Any, ClassVar
 
 from pygeoapi.provider.base import BaseProvider, ProviderGenericError
 
+from app.interfaces.providers import MapLimits
 from app.maps.contract import MapRequest, MapSource, MapStyles
 from app.maps.queue import RenderQueue
 from app.maps.sources import ObjectUrl, SourceContext
@@ -108,6 +109,19 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             size=int(self.options["queue"]),
             timeout=float(self.options["timeout"]),
             render_limit=render_limit(self.options),
+        )
+
+    @property
+    def limits(self) -> MapLimits:
+        """``max_size`` on both sides, no pixel limit, one map drawn at a time."""
+        size = int(self.options["max_size"])
+        return MapLimits(
+            max_width=size,
+            max_height=size,
+            max_pixels=None,
+            concurrent=1,
+            waiting=int(self.options["queue"]),
+            timeout=float(self.options["timeout"]),
         )
 
     @property
