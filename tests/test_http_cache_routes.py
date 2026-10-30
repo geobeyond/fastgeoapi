@@ -215,7 +215,7 @@ def test_a_version_that_cannot_be_known_lets_the_tile_through(client, monkeypatc
     async def unreachable(self, **kwargs):
         raise OSError("the store is unreachable")
 
-    monkeypatch.setattr(live, "aversion", unreachable)
+    monkeypatch.setattr(live, "aget_version", unreachable)
     r = _tile(client)
 
     assert (r.status_code, r.content) == (200, b"tile 2/1/3")
@@ -275,14 +275,14 @@ def test_a_map_carries_an_etag_and_how_long_to_keep_it(maps):
 def test_a_map_asked_with_its_etag_is_304_without_being_drawn(maps, monkeypatch):
     etag = _map(maps).headers["etag"]
     live = importlib.import_module("app.provider.maplibre").MapLibreMapProvider
-    original = live.aquery
+    original = live.arender_map
     drawn = []
 
     async def spy(self, *args, **kwargs):
         drawn.append(kwargs)
         return await original(self, *args, **kwargs)
 
-    monkeypatch.setattr(live, "aquery", spy)
+    monkeypatch.setattr(live, "arender_map", spy)
     r = _map(maps, headers={"If-None-Match": etag})
 
     assert (r.status_code, r.content, drawn) == (304, b"", [])
@@ -313,7 +313,7 @@ def test_a_version_that_cannot_be_known_lets_the_map_through(maps, monkeypatch):
     async def unreachable(self, **kwargs):
         raise OSError("the store is unreachable")
 
-    monkeypatch.setattr(live, "aversion", unreachable)
+    monkeypatch.setattr(live, "aget_version", unreachable)
     r = _map(maps)
 
     assert r.status_code == 200

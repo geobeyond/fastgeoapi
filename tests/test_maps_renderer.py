@@ -51,7 +51,7 @@ def _provider(definition):
 
 async def _map(provider, **kwargs):
     args = {"bbox": ROME, "width": 256, "height": 256, "crs": WEB_MERCATOR, "transparent": False}
-    return await provider.aquery(**{**args, **kwargs})
+    return await provider.arender_map(**{**args, **kwargs})
 
 
 def _request(archive, width, height, transparent=False):

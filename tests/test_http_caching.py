@@ -160,7 +160,7 @@ def test_the_code_digest_follows_the_sources_and_nothing_else(tmp_path):
 class _Unreachable:
     """A provider whose store fails while the version is asked."""
 
-    async def aversion(self, **kwargs):
+    async def aget_version(self, **kwargs):
         raise OSError("s3://bucket/roads.pmtiles?X-Amz-Signature=SECRET")
 
 

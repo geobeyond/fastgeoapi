@@ -13,6 +13,7 @@ import asyncio
 import hashlib
 import importlib.metadata
 import json
+from collections.abc import Sequence
 from copy import deepcopy
 from datetime import timedelta
 from functools import lru_cache
@@ -20,7 +21,7 @@ from typing import Any, ClassVar
 
 from pygeoapi.provider.base import BaseProvider, ProviderGenericError
 
-from app.interfaces.providers import MapLimits
+from app.interfaces.providers import MAP_ARGUMENTS, MapLimits
 from app.maps.contract import MapRequest, MapSource, MapStyles
 from app.maps.queue import RenderQueue
 from app.maps.sources import ObjectUrl, SourceContext
@@ -186,24 +187,26 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         drawn = style_digest(request.style, self.options["style_source"])
         return f"{drawn}|{renderer_version()}"
 
-    async def aversion(
+    async def aget_version(
         self,
+        *,
         style: str | None = None,
-        bbox: list[float] | None = None,
+        bbox: Sequence[float] | None = None,
         width: int = 500,
         height: int = 300,
         crs: str | None = None,
         transparent: Any = True,
         format_: str | None = "png",
-        **kwargs: Any,
+        datetime_: str | None = None,
+        subsets: dict[str, list[Any]] | None = None,
     ) -> str | None:
-        """The version of the map :meth:`aquery` would draw for these arguments, without drawing it.
+        """The version of the map :meth:`arender_map` would draw, without drawing it.
 
         It joins the archive's version, the definition's digest, the digest
         of the style the renderer would get and the renderer's version. The
-        request is built as :meth:`aquery` builds it, with the same checks:
-        a map that :meth:`aquery` refuses raises the same error here. None
-        when the archive's version is unknown.
+        request is built as :meth:`arender_map` builds it, with the same
+        checks: a map that :meth:`arender_map` refuses raises the same error
+        here. None when the archive's version is unknown.
         """
         data = await self.adata_version()
         if data is None:
@@ -211,7 +214,7 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         if self.cached_ranges is not None:
             # The style names the loopback server, which has an address only once started.
             self._range_server = await ensure_range_server()
-        # In a thread, as in aquery: the first call reads the style documents and the source.
+        # In a thread, as in arender_map: the first call reads the style documents and the source.
         drawn = await self.run_sync(
             self._drawn_version,
             style=style,
@@ -224,21 +227,25 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         )
         return f"{data}|{self.definition_digest()}|{drawn}"
 
-    async def aquery(
+    async def arender_map(
         self,
+        *,
         style: str | None = None,
-        bbox: list[float] | None = None,
+        bbox: Sequence[float] | None = None,
         width: int = 500,
         height: int = 300,
         crs: str | None = None,
         transparent: Any = True,
         format_: str | None = "png",
-        **kwargs: Any,
+        datetime_: str | None = None,
+        subsets: dict[str, list[Any]] | None = None,
     ) -> bytes:
         """The PNG of one map.
 
         :func:`~app.provider.maps.map_request` checks its parameters, and its
-        render waits in the :class:`~app.maps.queue.RenderQueue`.
+        render waits in the :class:`~app.maps.queue.RenderQueue`. An archive
+        has no time and no other dimension, so ``datetime_`` and ``subsets``
+        change nothing.
         """
         cached = self.cached_ranges
         if cached is not None:
@@ -271,7 +278,10 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             raise ProviderGenericError(
                 user_msg="maps are drawn on the async route; no event loop owns the renderer"
             )
-        return asyncio.run_coroutine_threadsafe(self.aquery(**kwargs), loop).result()
+        # pygeoapi passes more than the contract's arguments: `bbox-crs`, once
+        # the bbox is already in `crs`, and `select_properties`.
+        arguments = {name: kwargs[name] for name in MAP_ARGUMENTS if name in kwargs}
+        return asyncio.run_coroutine_threadsafe(self.arender_map(**arguments), loop).result()
 
     async def aclose(self) -> None:
         """The async twin of :meth:`close`, which also waits for the renderer to close.

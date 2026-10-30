@@ -39,7 +39,7 @@ def _provider(archive, **options):
 
 async def _map(provider, **kwargs):
     args = {"bbox": list(ROME), "width": 64, "height": 64, "crs": WEB_MERCATOR}
-    return await provider.aquery(**{**args, **kwargs})
+    return await provider.arender_map(**{**args, **kwargs})
 
 
 async def _until(condition, timeout=2.0):
@@ -539,6 +539,28 @@ async def test_the_sync_face_hands_the_map_to_the_loop(archive):
 
 
 @pytest.mark.asyncio
+async def test_the_sync_face_takes_the_arguments_pygeoapi_passes(archive):
+    provider = _provider(archive)
+    await _map(provider)
+    pygeoapi_arguments = {
+        "format_": "png",
+        "style": None,
+        "crs": WEB_MERCATOR,
+        "bbox-crs": WEB_MERCATOR,
+        "transparent": True,
+        "width": 32,
+        "height": 32,
+        "bbox": list(ROME),
+        "datetime_": None,
+        "select_properties": ["name"],
+    }
+
+    png = await asyncio.to_thread(provider.query, **pygeoapi_arguments)
+
+    assert png.startswith(b"\x89PNG")
+
+
+@pytest.mark.asyncio
 async def test_close_leaves_no_renderer_behind_the_queued_maps(archive):
     """A reload closes the provider while maps are still queued on it."""
     FakeRenderer.gate = asyncio.Event()
@@ -880,7 +902,7 @@ async def test_an_elevation_archive_is_drawn_as_a_hillshade_by_default(tmp_path)
 
 async def _version(provider, **kwargs):
     args = {"bbox": list(ROME), "width": 64, "height": 64, "crs": WEB_MERCATOR}
-    return await provider.aversion(**{**args, **kwargs})
+    return await provider.aget_version(**{**args, **kwargs})
 
 
 def _line_style(path, color):

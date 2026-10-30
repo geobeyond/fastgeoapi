@@ -42,13 +42,13 @@ class PlainMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
         return MapLimits(32, 32, None, 1, 8, 5.0)
 
-    async def aquery(self, **kwargs):
+    async def arender_map(self, **kwargs):
         from app.provider.maps import draw_map, map_request
 
         request = map_request(self._style, max_size=32, **kwargs)
         return await draw_map(self._queue, request)
 
-    async def aversion(self, **kwargs):
+    async def aget_version(self, **kwargs):
         return None
 
     def close(self):
@@ -70,7 +70,7 @@ async def test_another_family_draws_by_composing_the_same_parts(tmp_path):
 
     provider = PlainMapProvider(map_provider(tmp_path / "roads.bin"))
 
-    png = await provider.aquery(bbox=ROME, width=16, height=16, crs=WEB_MERCATOR)
+    png = await provider.arender_map(bbox=ROME, width=16, height=16, crs=WEB_MERCATOR)
 
     assert isinstance(provider, AsyncMapProvider)
     assert png.startswith(b"\x89PNG")
@@ -84,9 +84,9 @@ async def test_another_family_keeps_the_limits_and_errors_of_the_parts(tmp_path)
     provider = PlainMapProvider(map_provider(tmp_path / "roads.bin"))
 
     with pytest.raises(MapTooLargeError):
-        await provider.aquery(bbox=ROME, width=64, height=16, crs=WEB_MERCATOR)
+        await provider.arender_map(bbox=ROME, width=64, height=16, crs=WEB_MERCATOR)
     with pytest.raises(MapParameterError):
-        await provider.aquery(bbox=ROME, width=16, height=16, crs="EPSG:4326")
+        await provider.arender_map(bbox=ROME, width=16, height=16, crs="EPSG:4326")
 
 
 def test_the_maps_classes_declared_are_only_those_the_route_passes():

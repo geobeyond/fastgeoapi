@@ -137,7 +137,7 @@ async def cache_headers(
 ) -> dict[str, str]:
     """The cache headers of the answer to ``arguments``; empty when it gets none.
 
-    A provider without ``aversion``, or one that does not know its version,
+    A provider without ``aget_version``, or one that does not know its version,
     gives none. A provider error means the request fails, and the data
     call that follows reports it. Any other failure is logged, and the
     request goes on without cache headers. The content coding already in
@@ -149,7 +149,7 @@ async def cache_headers(
     if not isinstance(provider, VersionedProvider):
         return {}
     try:
-        version = await provider.aversion(**arguments)
+        version = await provider.aget_version(**arguments)
     except ProviderGenericError:
         return {}
     except Exception as error:

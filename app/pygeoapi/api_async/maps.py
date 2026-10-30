@@ -1,9 +1,10 @@
 """Maps served with ``await`` when the provider is natively async.
 
 Mirrors ``pygeoapi/api/maps.py::get_collection_map`` step by step: the
-same parameters, the same headers, the same errors. The one difference
-is that the provider is awaited on the event loop instead of being
-called in the threadpool.
+same parameters, the same headers, the same errors. Two things differ:
+the provider is awaited on the event loop instead of being called in the
+threadpool, and it gets the contract's arguments only. The route moves the
+bbox into ``crs`` and keeps ``bbox-crs`` for itself.
 """
 
 from __future__ import annotations
@@ -83,13 +84,14 @@ async def get_collection_map(
             query_args["crs"] = get_uri(request.params["crs"])
     except KeyError:
         query_args["crs"] = DEFAULT_CRS
+    # The bbox is moved into `crs` here, so `bbox-crs` never reaches the provider.
     try:
         if "bbox-crs" not in request.params:
-            query_args["bbox-crs"] = DEFAULT_CRS
+            bbox_crs = DEFAULT_CRS
         else:
-            query_args["bbox-crs"] = get_uri(request.params["bbox-crs"])
+            bbox_crs = get_uri(request.params["bbox-crs"])
     except KeyError:
-        query_args["bbox-crs"] = DEFAULT_CRS
+        bbox_crs = DEFAULT_CRS
 
     with_transparency = request.params.get("transparent", "true").lower()
     if with_transparency not in ("true", "false"):
@@ -111,9 +113,9 @@ async def get_collection_map(
         bbox = [float(c) for c in bbox]
     except ValueError:
         return _bad(api, headers, "bbox values must be numbers")
-    if query_args["bbox-crs"] != query_args["crs"]:
-        bbox = transform_bbox(bbox, query_args["bbox-crs"], query_args["crs"], always_xy=True)
-    query_args["bbox"] = bbox
+    if bbox_crs != query_args["crs"]:
+        bbox = transform_bbox(bbox, bbox_crs, query_args["crs"], always_xy=True)
+    query_args["bbox"] = tuple(bbox)
 
     datetime_ = request.params.get("datetime")
     try:
@@ -125,6 +127,7 @@ async def get_collection_map(
             HTTPStatus.BAD_REQUEST, headers, request.format, "InvalidParameterValue", str(err)
         )
 
+    query_args["subsets"] = None
     if "subset" in request.params:
         subsets = deepcopy(api.config["resources"][dataset]["extents"])
         subsets.pop("spatial", None)
@@ -158,7 +161,7 @@ async def get_collection_map(
         return not_modified_answer(headers, cached)
 
     try:
-        data = await provider.aquery(**query_args)
+        data = await provider.arender_map(**query_args)
     except (ProviderGenericError, ProviderInvalidDataError) as err:
         headers["Content-Type"] = FORMAT_TYPES[F_JSON]
         # A provider error may say when to try again, as a full queue does.

@@ -174,7 +174,7 @@ class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
         except TileSourceError as error:
             raise ProviderGenericError(user_msg=str(error)) from None
 
-    async def aversion(self, layer=None, tileset=None, z=None, y=None, x=None, format_=None):
+    async def aget_version(self, layer=None, tileset=None, z=None, y=None, x=None, format_=None):
         """The version of the tile ``aget_tiles`` would answer: the archive's and the definition's.
 
         Same signature as ``aget_tiles``. None when the archive's version is

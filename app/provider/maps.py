@@ -15,7 +15,7 @@ from __future__ import annotations
 import importlib
 import json
 import math
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from datetime import timedelta
 from http import HTTPStatus
 from pathlib import Path
@@ -279,7 +279,7 @@ def map_request(
     *,
     max_size: int,
     style: str | None = None,
-    bbox: list[float] | None = None,
+    bbox: Sequence[float] | None = None,
     width: int = 500,
     height: int = 300,
     crs: str | None = None,

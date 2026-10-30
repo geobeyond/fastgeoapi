@@ -5,22 +5,61 @@ are loaded by their dotted path, as a configuration names them.
 """
 
 import re
+from typing import ClassVar
 
 import pytest
 from pygeoapi.provider.base import BaseProvider
+from starlette.testclient import TestClient
 
-from tests.maps_fixtures import map_provider
+from tests.maps_fixtures import map_provider, tiny_png
 from tests.pmtiles_fixtures import TILE_BYTES, write_archive
 from tests.test_tiles_async_route import _collection, _config
 
 
 class NoVersion(BaseProvider):
-    """A native map provider without ``aversion``."""
+    """A native map provider without ``aget_version``."""
 
     native_async = True
 
-    async def aquery(self, **kwargs):
+    async def arender_map(self, **kwargs):
         return b""
+
+    @property
+    def limits(self):
+        return None
+
+    def close(self):
+        """Nothing to release."""
+
+
+class Explicit(BaseProvider):
+    """A native map provider that takes only the contract's arguments."""
+
+    native_async = True
+    received: ClassVar[list[dict]] = []
+
+    async def arender_map(
+        self, *, style, bbox, width, height, crs, transparent, format_, datetime_, subsets
+    ):
+        Explicit.received.append(
+            {
+                "style": style,
+                "bbox": bbox,
+                "width": width,
+                "height": height,
+                "crs": crs,
+                "transparent": transparent,
+                "format_": format_,
+                "datetime_": datetime_,
+                "subsets": subsets,
+            }
+        )
+        return tiny_png(width, height)
+
+    async def aget_version(
+        self, *, style, bbox, width, height, crs, transparent, format_, datetime_, subsets
+    ):
+        return None
 
     @property
     def limits(self):
@@ -37,12 +76,15 @@ class Threaded(BaseProvider):
         return b""
 
 
+WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
+
+
 def _definition(name: str) -> dict:
     return {
         "type": "map",
         "name": name,
         "data": "unused",
-        "storage_crs": "http://www.opengis.net/def/crs/EPSG/0/3857",
+        "storage_crs": WEB_MERCATOR,
         "format": {"name": "png", "mimetype": "image/png"},
     }
 
@@ -55,7 +97,7 @@ def _archive(tmp_path):
     )
 
 
-def test_a_native_map_provider_without_aversion_is_refused():
+def test_a_native_map_provider_without_aget_version_is_refused():
     from app.pygeoapi.factory import ConfigValidationError, normalize_config
 
     config = _config(
@@ -63,7 +105,7 @@ def test_a_native_map_provider_without_aversion_is_refused():
     )
     message = (
         "configuration at resources.lakes.providers.0: "
-        "tests.test_map_contract.NoVersion sets native_async but has no aversion"
+        "tests.test_map_contract.NoVersion sets native_async but has no aget_version"
     )
 
     with pytest.raises(ConfigValidationError, match=re.escape(message)):
@@ -80,6 +122,41 @@ def test_the_maplibre_provider_meets_the_contract(tmp_path):
     normalize_config(_config({"roads": _collection("Roads", [definition])}))
 
     assert isinstance(pygeoapi.plugin.load_plugin("provider", definition), AsyncMapProvider)
+
+
+def test_the_route_passes_the_contract_arguments_and_no_others():
+    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp, normalize_config
+
+    Explicit.received.clear()
+    config = _config(
+        {"lakes": _collection("Lakes", [_definition("tests.test_map_contract.Explicit")])}
+    )
+    normalize_config(config)
+    app = build_pygeoapi_subapp(config, build_openapi(config))
+
+    r = TestClient(app, raise_server_exceptions=False).get(
+        "/collections/lakes/map",
+        params={"bbox": "12.4,41.8,12.6,42.0", "width": 16, "height": 8},
+    )
+
+    assert r.status_code == 200
+    (received,) = Explicit.received
+    assert sorted(received) == sorted(
+        [
+            "style",
+            "bbox",
+            "width",
+            "height",
+            "crs",
+            "transparent",
+            "format_",
+            "datetime_",
+            "subsets",
+        ]
+    )
+    assert (received["width"], received["height"], received["crs"]) == (16, 8, WEB_MERCATOR)
+    assert isinstance(received["bbox"], tuple)
+    assert len(received["bbox"]) == 4
 
 
 def test_a_map_provider_that_is_not_native_is_left_to_pygeoapi():
