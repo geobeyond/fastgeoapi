@@ -109,8 +109,13 @@ def test_the_native_route_answers_like_pygeoapi(client, params):
     threaded = client.get("/collections/threaded/map", params=params)
 
     assert native.status_code == threaded.status_code
-    for header in ("content-type", "content-crs", "content-bbox"):
+    for header in ("content-type", "content-bbox"):
         assert native.headers.get(header) == threaded.headers.get(header)
+    # pygeoapi lowercases the URI it was given; the native route writes the
+    # provider's spelling of the same CRS.
+    assert (native.headers.get("content-crs") or "").lower() == (
+        threaded.headers.get("content-crs") or ""
+    ).lower()
 
 
 def test_a_map_past_max_size_answers_413(client):
@@ -124,6 +129,84 @@ def test_another_format_is_a_bad_parameter(client):
     response = client.get("/collections/native/map", params={"f": "jpeg"})
 
     assert response.status_code == 400
+
+
+WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
+CRS84 = "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+EDGE = "20037508.342789244"
+# pygeoapi's transform keeps latitudes within 85.0511 degrees of the equator.
+TOP = "20037471.205137067"
+
+
+def test_the_default_map_is_the_world_clipped(client):
+    response = client.get("/collections/native/map", params={"width": 32, "height": 32})
+
+    assert response.status_code == 200, response.text[:200]
+    assert response.headers["content-bbox"] == f"-{EDGE},-{TOP},{EDGE},{TOP}"
+
+
+def test_a_clipped_map_reports_the_clipped_bbox(client):
+    params = {"bbox": "-3e7,-1e6,3e7,1e6", "bbox-crs": WEB_MERCATOR, "width": 32, "height": 32}
+
+    response = client.get("/collections/native/map", params=params)
+
+    assert response.status_code == 200, response.text[:200]
+    assert response.headers["content-bbox"] == f"-{EDGE},-1000000.0,{EDGE},1000000.0"
+
+
+def test_a_map_entirely_outside_answers_204(client):
+    params = {"bbox": "-1e6,2.5e7,1e6,3e7", "bbox-crs": WEB_MERCATOR, "width": 32, "height": 32}
+
+    response = client.get("/collections/native/map", params=params)
+
+    assert (response.status_code, response.content) == (204, b"")
+
+
+def test_the_route_refuses_before_the_provider(client):
+    def drawn():
+        return sum(len(renderer.requests) for renderer in FakeRenderer.instances)
+
+    before = drawn()
+    statuses = [
+        client.get("/collections/native/map", params=params).status_code
+        for params in ({"width": 0}, {"crs": CRS84}, {"f": "jpeg"}, {"width": 4096})
+    ]
+
+    assert statuses == [400, 400, 400, 413]
+    assert drawn() == before
+
+
+def test_without_storage_crs_the_map_is_drawn_in_the_first_crs(tmp_path):
+    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
+
+    archive = write_archive(tmp_path / "roads.pmtiles", {(0, 0, 0): TILE_BYTES(0, 0, 0)})
+    definition = map_provider(archive)
+    del definition["storage_crs"]
+    config = _config({"roads": _collection("Roads", [definition])})
+    client = TestClient(build_pygeoapi_subapp(config, build_openapi(config)))
+
+    response = client.get("/collections/roads/map", params={"width": 16, "height": 16})
+
+    assert response.status_code == 200, response.text[:200]
+    assert response.headers["content-crs"] == WEB_MERCATOR
+
+
+def test_the_route_applies_the_ceiling(tmp_path):
+    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
+    from app.pygeoapi.map_limits import MapCeiling
+
+    archive = write_archive(tmp_path / "roads.pmtiles", {(0, 0, 0): TILE_BYTES(0, 0, 0)})
+    config = _config({"roads": _collection("Roads", [map_provider(archive)])})
+    ceiling = MapCeiling(1000, 1000)
+    app = build_pygeoapi_subapp(
+        config, build_openapi(config, map_ceiling=ceiling), map_ceiling=ceiling
+    )
+    client = TestClient(app, raise_server_exceptions=False)
+
+    def status(width):
+        return client.get("/collections/roads/map", params={"width": width, "height": 16})
+
+    assert (status(1000).status_code, status(1001).status_code) == (200, 413)
 
 
 def _gated_app(tmp_path, http_cache=None, **options):

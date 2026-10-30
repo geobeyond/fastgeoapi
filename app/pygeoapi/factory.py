@@ -376,7 +376,10 @@ def _gzip_without_timestamp(headers: dict, content):
 
 
 def build_routes(
-    api: API, specs: frozenset[str] | None = None, http_cache: HttpCache | None = None
+    api: API,
+    specs: frozenset[str] | None = None,
+    http_cache: HttpCache | None = None,
+    map_ceiling: MapCeiling | None = None,
 ) -> list[Route]:
     """The route table, closed over the ``api`` instance.
 
@@ -385,8 +388,24 @@ def build_routes(
     with its spec group (ADR-0005): ``specs=None`` returns the COMPLETE
     table — the coverage contract the parity test checks against
     upstream — while the sub-app mounts only the active groups.
-    ``http_cache`` gives the map and tile routes their cache headers;
-    None sends none.
+
+    Parameters
+    ----------
+    api
+        pygeoapi's API instance.
+    specs
+        The spec groups to mount; None for all of them.
+    http_cache
+        The cache policy of the map and tile routes; None sends no cache
+        headers.
+    map_ceiling
+        The server's ceiling on map sizes; None takes the one of the
+        settings.
+
+    Returns
+    -------
+    list of Route
+        The routes.
     """
 
     async def landing_page(request: Request) -> Response:
@@ -578,7 +597,13 @@ def build_routes(
             drawn = await _unless_disconnected(
                 request,
                 async_maps.get_collection_map(
-                    api, api_request, dataset, style, *probe, http_cache=http_cache
+                    api,
+                    api_request,
+                    dataset,
+                    style,
+                    *probe,
+                    http_cache=http_cache,
+                    map_ceiling=map_ceiling,
                 ),
             )
             if drawn is None:
@@ -879,15 +904,35 @@ def build_pygeoapi_subapp(
     *,
     http_cache: HttpCache | None = None,
     pages: NativePages | None = None,
+    map_ceiling: MapCeiling | None = None,
 ) -> Starlette:
     """Complete Starlette sub-app, same shape as the former APP import.
 
     Mounts only the spec groups the config activates (ADR-0005): the
     reload webhook rebuilds the sub-app, so the mounted set follows
-    every config update. ``http_cache`` defaults to the policy of
-    fastgeoapi's settings. ``pages`` serves fastgeoapi's own HTML pages
-    and their compiled assets under ``/_html``; None takes the choice of
-    the settings, which keep pygeoapi's pages by default.
+    every config update.
+
+    Parameters
+    ----------
+    config
+        The pygeoapi configuration.
+    openapi
+        The OpenAPI document of ``config``.
+    http_cache
+        The cache policy of the map and tile routes; None takes the policy
+        of fastgeoapi's settings.
+    pages
+        Serves fastgeoapi's own HTML pages and their compiled assets under
+        ``/_html``; None takes the choice of the settings, which keep
+        pygeoapi's pages by default.
+    map_ceiling
+        The server's ceiling on map sizes; None takes the one of the
+        settings.
+
+    Returns
+    -------
+    Starlette
+        The sub-app.
     """
     from app.html.activation import default_pages
     from app.pygeoapi.registry import active_specs
@@ -903,6 +948,7 @@ def build_pygeoapi_subapp(
         api,
         specs=active_specs(config),
         http_cache=http_cache if http_cache is not None else default_http_cache(),
+        map_ceiling=map_ceiling,
     )
     mounts = [Mount("/static", StaticFiles(directory=static_dir))]
     if pages is None:
