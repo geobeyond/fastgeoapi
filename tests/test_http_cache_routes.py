@@ -1,8 +1,10 @@
 """Cache headers and 304s on the tile and map routes.
 
-``app.*`` is imported at the top of this module, nowhere else; where a
-test patches a provider class or the settings, it looks the live one up
-with ``importlib``.
+``app.*`` is imported inside the two helpers that build a policy and a
+sub-app, so the sub-app and the providers pygeoapi loads by name come from
+the same modules after another test purges ``sys.modules``. Where a test
+patches a provider class or the settings, it looks the live one up with
+``importlib``.
 """
 
 import importlib
@@ -11,17 +13,26 @@ import pytest
 from pygeoapi.formats import FORMAT_TYPES
 from starlette.testclient import TestClient
 
-from app.pygeoapi.api_async.caching import HttpCache
-from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
 from tests.maps_fixtures import map_provider
 from tests.pmtiles_fixtures import TILE_BYTES, write_archive
 from tests.test_tiles_async_route import _collection, _config
 
 MVT = "application/vnd.mapbox-vector-tile"
-PUBLIC = HttpCache(max_age=300, protected=False, code="test")
 TILE = "/collections/places/tiles/WebMercatorQuad/2/3/1"
 ABSENT = "/collections/places/tiles/WebMercatorQuad/2/0/0"
 OUTSIDE = "/collections/places/tiles/WebMercatorQuad/5/0/0"
+
+
+def _policy(*, max_age=300, protected=False):
+    from app.pygeoapi.api_async.caching import HttpCache
+
+    return HttpCache(max_age=max_age, protected=protected, code="test")
+
+
+def _subapp(config, **policy):
+    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
+
+    return build_pygeoapi_subapp(config, build_openapi(config), **policy)
 
 
 def _tiles(path) -> dict:
@@ -41,11 +52,12 @@ def _tiles_app(folder, *, gzip=False, **policy):
     )
     config = _config({"places": _collection("Places", [_tiles(archive)])})
     config["server"]["gzip"] = gzip
-    return build_pygeoapi_subapp(config, build_openapi(config), **policy)
+    return _subapp(config, **policy)
 
 
-def _tiles_client(folder, http_cache=PUBLIC, *, gzip=False) -> TestClient:
-    app = _tiles_app(folder, gzip=gzip, http_cache=http_cache)
+def _tiles_client(folder, http_cache=None, *, gzip=False) -> TestClient:
+    policy = http_cache if http_cache is not None else _policy()
+    app = _tiles_app(folder, gzip=gzip, http_cache=policy)
     return TestClient(app, raise_server_exceptions=False)
 
 
@@ -164,13 +176,13 @@ def test_a_head_request_gets_the_etag_and_the_304(client):
 
 
 def test_a_protected_instance_marks_its_tiles_private(tmp_path):
-    client = _tiles_client(tmp_path, HttpCache(max_age=300, protected=True, code="test"))
+    client = _tiles_client(tmp_path, _policy(protected=True))
 
     assert _tile(client).headers["cache-control"] == "private, max-age=300"
 
 
 def test_a_max_age_of_zero_sends_no_cache_headers_and_no_304(tmp_path):
-    client = _tiles_client(tmp_path, HttpCache(max_age=0, protected=False, code="test"))
+    client = _tiles_client(tmp_path, _policy(max_age=0))
 
     r = _tile(client, headers={"If-None-Match": "*"})
 
@@ -201,7 +213,7 @@ def test_a_provider_without_a_version_gets_no_cache_headers(tmp_path):
         "format": {"name": "pbf", "mimetype": MVT},
     }
     config = _config({"native": _collection("Native", [native])})
-    app = build_pygeoapi_subapp(config, build_openapi(config), http_cache=PUBLIC)
+    app = _subapp(config, http_cache=_policy())
 
     r = _tile(TestClient(app), "/collections/native/tiles/WebMercatorQuad/0/0/0")
 
@@ -240,7 +252,7 @@ def _maps_app(folder, *, gzip=False):
     definition = map_provider(archive, styles={"night": str(night)})
     config = _config({"roads": _collection("Roads", [definition])})
     config["server"]["gzip"] = gzip
-    return build_pygeoapi_subapp(config, build_openapi(config), http_cache=PUBLIC)
+    return _subapp(config, http_cache=_policy())
 
 
 @pytest.fixture(scope="module")
