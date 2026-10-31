@@ -97,7 +97,8 @@ async def get_collection_map(
     http_cache
         The cache policy. With it, a provider that knows its version gives
         the map an ``ETag``, and a request that names it gets a 304 without
-        the map being drawn.
+        the map being drawn. The version is read again after the draw, and
+        a map whose version changed meanwhile gets no cache headers.
     map_ceiling
         The server's ceiling on map sizes; None takes the one of the
         settings. The map is held to the smaller of it and the provider's
@@ -139,6 +140,13 @@ async def get_collection_map(
         data = await get_admission(provider, limits).run(lambda: provider.arender_map(**arguments))
     except (ProviderGenericError, ProviderInvalidDataError) as error:
         return _answer_error(api, request, headers, error)
+    if cached:
+        # The data may change while the map is drawn. An ETag must name the
+        # version the map was drawn from, so a map whose version moved goes
+        # without cache headers.
+        after = await get_cache_headers(http_cache, provider, dataset, "map", arguments, headers)
+        if after.get("ETag") != cached["ETag"]:
+            cached = {}
 
     headers["Content-Crs"] = parameters.crs
     headers["Content-Bbox"] = ",".join(map(str, parameters.bbox))
