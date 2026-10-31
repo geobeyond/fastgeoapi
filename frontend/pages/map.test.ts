@@ -844,7 +844,12 @@ describe("startMap", () => {
 });
 
 describe("the worker", () => {
-  it("points MapLibre at the worker the build emits", () => {
+  it("points MapLibre at the worker the build emits", async () => {
+    // The module calls it when it loads, and vitest clears the calls of
+    // every mock before each test: the test loads the module again.
+    vi.resetModules();
+    await import("./map");
+
     expect(maplibre.setWorkerUrl).toHaveBeenCalledTimes(1);
     expect(String(maplibre.setWorkerUrl.mock.calls[0][0])).toContain(
       "maplibre-gl-worker",
