@@ -27,9 +27,7 @@ class PlainMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         from app.maps.queue import RenderQueue
 
         super().__init__(provider_def)
-        self._queue = RenderQueue(
-            lambda: create_fake_renderer({}), size=8, timeout=5.0, render_limit=20.0
-        )
+        self._queue = RenderQueue(lambda: create_fake_renderer({}), render_limit=20.0)
 
     def _style(self, name, transparent):
         if name is not None:

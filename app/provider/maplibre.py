@@ -107,10 +107,7 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         self._map_styles: MapStyles | None = None
         self._range_server: RangeServer | None = None
         self._queue = RenderQueue(
-            lambda: build_renderer(self.options),
-            size=int(self.options["queue"]),
-            timeout=float(self.options["timeout"]),
-            render_limit=render_limit(self.options),
+            lambda: build_renderer(self.options), render_limit=render_limit(self.options)
         )
 
     @property

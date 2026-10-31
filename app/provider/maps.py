@@ -33,7 +33,7 @@ from app.maps.contract import (
     RenderError,
     SourceNotDrawableError,
 )
-from app.maps.queue import DrawTimeoutError, QueueFullError, RenderQueue
+from app.maps.queue import DrawTimeoutError, RenderQueue
 from app.maps.sources import ObjectUrl, SourceFormat, source_for
 from app.provider.dem import check_dem
 from app.provider.storage import cache as range_caches
@@ -337,8 +337,6 @@ async def draw_map(queue: RenderQueue, request: MapRequest) -> bytes:
     """The PNG of ``request`` from ``queue``, with its outcomes as pygeoapi errors."""
     try:
         return await queue.draw(request)
-    except QueueFullError:
-        raise MapRendererBusyError() from None
     except DrawTimeoutError:
         raise MapRenderTimeoutError() from None
     except RenderError:

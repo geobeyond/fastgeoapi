@@ -18,7 +18,7 @@ def _fresh_fakes():
 def _queue(fake="ok", **limits):
     from app.maps.queue import RenderQueue
 
-    limits = {"size": 8, "timeout": 5.0, "render_limit": 20.0, **limits}
+    limits = {"render_limit": 20.0, **limits}
     return RenderQueue(lambda: create_fake_renderer({"fake": fake}), **limits)
 
 
@@ -47,55 +47,10 @@ async def test_the_renderer_is_built_at_the_first_map_only():
 
 
 @pytest.mark.asyncio
-async def test_a_full_queue_refuses_the_next_map():
-    from app.maps.queue import QueueFullError
-
-    FakeRenderer.gate = asyncio.Event()
-    queue = _queue("gate", size=1)
-    drawing = asyncio.create_task(queue.draw(_request()))
-    waiting = asyncio.create_task(queue.draw(_request()))
-    await _until(lambda: queue.waiting == 2)
-
-    with pytest.raises(QueueFullError):
-        await queue.draw(_request())
-    FakeRenderer.gate.set()
-    await asyncio.gather(drawing, waiting)
-
-
-@pytest.mark.asyncio
-async def test_a_cancelled_wait_gives_its_place_back():
-    FakeRenderer.gate = asyncio.Event()
-    queue = _queue("gate", size=1)
-    drawing = asyncio.create_task(queue.draw(_request()))
-    waiting = asyncio.create_task(queue.draw(_request()))
-    await _until(lambda: queue.waiting == 2)
-
-    waiting.cancel()
-    await _until(lambda: queue.waiting == 1)
-    FakeRenderer.gate.set()
-    await drawing
-
-
-@pytest.mark.asyncio
-async def test_a_slow_map_times_out_and_its_render_goes_on():
-    from app.maps.queue import DrawTimeoutError
-
-    FakeRenderer.gate = asyncio.Event()
-    queue = _queue("gate", timeout=0.05, render_limit=5.0)
-
-    with pytest.raises(DrawTimeoutError):
-        await queue.draw(_request())
-    (renderer,) = FakeRenderer.instances
-    FakeRenderer.gate.set()
-    await _until(lambda: len(renderer.requests) == 1 and queue.waiting == 0)
-    assert not renderer.closed and queue.renderer_is_built
-
-
-@pytest.mark.asyncio
 async def test_a_render_past_its_limit_replaces_the_renderer():
     from app.maps.queue import DrawTimeoutError
 
-    queue = _queue("slow", timeout=1.0, render_limit=0.1)
+    queue = _queue("slow", render_limit=0.1)
 
     with pytest.raises(DrawTimeoutError):
         await queue.draw(_request())

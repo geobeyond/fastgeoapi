@@ -406,43 +406,6 @@ async def test_a_named_style_is_used(archive, tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_a_full_queue_answers_503(archive):
-    from app.provider.maps import MapRendererBusyError
-
-    FakeRenderer.gate = asyncio.Event()
-    provider = _provider(archive, fake="gate", queue=1)
-    rendering = asyncio.create_task(_map(provider))
-    waiting = asyncio.create_task(_map(provider))
-    await _until(lambda: provider.waiting == 2)
-
-    with pytest.raises(MapRendererBusyError) as error:
-        await _map(provider)
-    assert error.value.http_status_code == HTTPStatus.SERVICE_UNAVAILABLE
-
-    FakeRenderer.gate.set()
-    await asyncio.gather(rendering, waiting)
-
-
-@pytest.mark.asyncio
-async def test_a_slow_render_answers_504_and_keeps_drawing_for_the_cache(archive):
-    from app.provider.maps import MapRenderTimeoutError
-
-    FakeRenderer.gate = asyncio.Event()
-    provider = _provider(archive, fake="gate", timeout=0.05, render_limit=5)
-    with pytest.raises(MapRenderTimeoutError) as error:
-        await _map(provider)
-    assert error.value.http_status_code == HTTPStatus.GATEWAY_TIMEOUT
-
-    # The render goes on, so the tiles it reads stay cached for the next maps.
-    (renderer,) = FakeRenderer.instances
-    assert not renderer.closed and provider.renderer_is_built
-    FakeRenderer.gate.set()
-    await _map(provider)
-    assert FakeRenderer.instances == [renderer]
-    assert renderer.calls == 2
-
-
-@pytest.mark.asyncio
 async def test_a_render_past_its_limit_replaces_the_renderer(archive):
     from app.provider.maps import MapRenderTimeoutError
 
@@ -453,23 +416,6 @@ async def test_a_render_past_its_limit_replaces_the_renderer(archive):
 
     await _until(lambda: FakeRenderer.instances[0].closed, timeout=0.5)
     assert provider.renderer_is_built is False
-
-
-@pytest.mark.asyncio
-async def test_a_map_waiting_behind_a_long_render_answers_504_in_time(archive):
-    from app.provider.maps import MapRenderTimeoutError
-
-    FakeRenderer.gate = asyncio.Event()
-    provider = _provider(archive, fake="gate", timeout=0.05, render_limit=5)
-    with pytest.raises(MapRenderTimeoutError):
-        await _map(provider)
-
-    loop = asyncio.get_running_loop()
-    started = loop.time()
-    with pytest.raises(MapRenderTimeoutError):
-        await _map(provider)
-    assert loop.time() - started < 1
-    FakeRenderer.gate.set()
 
 
 @pytest.mark.asyncio

@@ -258,6 +258,12 @@ async def _get(app, left: asyncio.Event | None = None) -> dict:
     return next(message for message in sent if message["type"] == "http.response.start")
 
 
+def _occupied(provider) -> int:
+    from app.pygeoapi.api_async.admission import admission_for
+
+    return admission_for(provider, provider.limits).occupied
+
+
 async def _until(condition, timeout=2.0):
     loop = asyncio.get_running_loop()
     deadline = loop.time() + timeout
@@ -277,12 +283,12 @@ async def test_a_map_whose_client_left_gives_its_place_in_the_queue_back(tmp_pat
     try:
         drawing = asyncio.create_task(_get(app))
         abandoned = asyncio.create_task(_get(app, left))
-        await _until(lambda: provider.waiting == 2)
+        await _until(lambda: _occupied(provider) == 2)
 
         left.set()
-        await _until(lambda: provider.waiting == 1)
+        await _until(lambda: _occupied(provider) == 1)
         later = asyncio.create_task(_get(app))
-        await _until(lambda: provider.waiting == 2)
+        await _until(lambda: _occupied(provider) == 2)
     finally:
         FakeRenderer.gate.set()
     first, gone, second = await asyncio.gather(drawing, abandoned, later)
@@ -305,7 +311,7 @@ async def test_a_full_queue_answers_503_with_retry_after_and_no_cache_headers(tm
     try:
         drawing = asyncio.create_task(_get(app))
         waiting = asyncio.create_task(_get(app))
-        await _until(lambda: provider.waiting == 2)
+        await _until(lambda: _occupied(provider) == 2)
         busy = await _get(app)
     finally:
         FakeRenderer.gate.set()
@@ -315,6 +321,28 @@ async def test_a_full_queue_answers_503_with_retry_after_and_no_cache_headers(tm
     assert dict(busy["headers"]).get(b"retry-after") == b"5"
     assert b"etag" in dict(drawn["headers"])
     assert b"etag" not in dict(busy["headers"])
+
+
+@pytest.mark.asyncio
+async def test_a_slow_map_answers_504_and_its_render_goes_on(tmp_path):
+    import pygeoapi.plugin
+
+    app, definition = _gated_app(tmp_path, timeout=0.05, render_limit=5)
+    provider = pygeoapi.plugin.load_plugin("provider", definition)
+    FakeRenderer.gate = asyncio.Event()
+    try:
+        slow = await _get(app)
+        renderer = FakeRenderer.instances[-1]
+        # The render goes on, so the tiles it reads stay cached for the next maps.
+        assert not renderer.closed and provider.renderer_is_built
+    finally:
+        FakeRenderer.gate.set()
+    await _until(lambda: _occupied(provider) == 0)
+    again = await _get(app)
+
+    assert (slow["status"], again["status"]) == (504, 200)
+    assert FakeRenderer.instances[-1] is renderer
+    assert renderer.calls == 2
 
 
 def _behind_opa_and_the_proxy(app):

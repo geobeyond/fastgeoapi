@@ -27,6 +27,7 @@ from pygeoapi.util import filter_dict_by_key_value, get_from_headers
 
 from app.interfaces.providers import AsyncMapProvider
 from app.provider.maps import MapParameterError
+from app.pygeoapi.api_async.admission import admission_for
 from app.pygeoapi.api_async.caching import (
     HttpCache,
     cache_headers,
@@ -38,7 +39,22 @@ from app.pygeoapi.map_limits import MapCeiling, collection_limits, default_map_c
 
 
 def native_map_provider(api: API, dataset: str) -> tuple[dict, AsyncMapProvider] | None:
-    """The collection's map provider definition and instance, when native async."""
+    """The map provider of a collection, when it is native async.
+
+    Parameters
+    ----------
+    api
+        pygeoapi's API instance.
+    dataset
+        The collection's name.
+
+    Returns
+    -------
+    tuple of (dict, AsyncMapProvider) or None
+        The provider's definition and its instance. None when the collection
+        does not exist, or its map provider does not load or is not native;
+        pygeoapi's route then serves the map.
+    """
     collections = filter_dict_by_key_value(api.config["resources"], "type", "collection")
     if dataset not in collections:
         return None
@@ -92,16 +108,18 @@ async def get_collection_map(
     tuple of (dict, int, Any)
         The headers, the status and the content: 400 for a parameter the
         route cannot read or the provider does not draw, 413 above the
-        limits, 204 for a bbox entirely outside the CRS of the map.
+        limits, 204 for a bbox entirely outside the CRS of the map, 503
+        when the provider's slots are all taken, 504 past its timeout.
     """
     headers = request.get_response_headers(**api.api_headers)
     ceiling = map_ceiling if map_ceiling is not None else default_map_ceiling()
+    limits = collection_limits(provider.limits, ceiling)
     try:
         parameters = parse_map_parameters(
             request,
             collection_def,
             api.config["resources"][dataset]["extents"],
-            collection_limits(provider.limits, ceiling),
+            limits,
             provider.capabilities,
             style,
         )
@@ -118,7 +136,7 @@ async def get_collection_map(
         return not_modified_answer(headers, cached)
 
     try:
-        data = await provider.arender_map(**arguments)
+        data = await admission_for(provider, limits).run(lambda: provider.arender_map(**arguments))
     except (ProviderGenericError, ProviderInvalidDataError) as error:
         return _error(api, request, headers, error)
 
