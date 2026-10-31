@@ -70,12 +70,22 @@ def test_a_range_request_is_parsed():
         ("GET", "/tok/src/ver", "bytes=5-", 416),
         ("GET", "/tok/src/ver", "bytes=0-1,4-5", 416),
         ("GET", "/tok/src/ver", "bytes=9-3", 416),
+        # One byte over 64 MiB: a renderer never asks that much, and the read would be in memory.
+        ("GET", "/tok/src/ver", "bytes=0-67108864", 416),
     ],
 )
 def test_what_the_server_refuses(method, target, header, status):
     from app.provider.storage.loopback import Refusal, parse_request
 
     assert parse_request(method, target, header, token="tok") == Refusal(status)
+
+
+def test_a_range_of_64_mib_is_served():
+    from app.provider.storage.loopback import RangeRequest, parse_request
+
+    asked = parse_request("GET", "/tok/src/ver", "bytes=0-67108863", token="tok")
+
+    assert asked == RangeRequest("src", "ver", 0, 67108863)
 
 
 def test_a_range_past_the_end_is_cut_or_refused():
@@ -86,9 +96,9 @@ def test_a_range_past_the_end_is_cut_or_refused():
 
 
 def test_the_partial_headers_describe_the_range():
-    from app.provider.storage.loopback import partial_headers
+    from app.provider.storage.loopback import build_partial_headers
 
-    headers = dict(partial_headers(10, 5, 100))
+    headers = dict(build_partial_headers(10, 5, 100))
     assert headers["content-range"] == "bytes 10-14/100"
     assert headers["content-length"] == "5"
 
@@ -141,6 +151,20 @@ async def test_a_wrong_token_an_unknown_source_and_an_unknown_version_get_the_sa
         await server.aclose()
 
     assert [(response.status_code, response.content) for response in responses] == [(404, b"")] * 3
+
+
+@pytest.mark.asyncio
+async def test_a_method_other_than_get_answers_405_with_allow():
+    server, cached, _ = await _serve()
+    url = server.url_for(cached, await cached.ameta())
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, headers={"Range": "bytes=0-9"})
+    finally:
+        await server.aclose()
+
+    assert response.status_code == 405
+    assert response.headers["allow"] == "GET"
 
 
 @pytest.mark.asyncio

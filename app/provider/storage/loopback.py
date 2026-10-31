@@ -27,6 +27,9 @@ from app.provider.storage.cache import CachedRanges, version_of
 logger = create_logger("app.provider.storage.loopback")
 
 _RANGE = re.compile(r"bytes=(\d+)-(\d+)")
+# The largest range served: the bytes are read into memory before they are
+# sent, and a renderer reads headers, directories and tiles far smaller.
+MAX_RANGE_BYTES = 64 << 20
 
 
 @dataclass(frozen=True)
@@ -52,8 +55,28 @@ def parse_request(
     """What a request asks for, or the status that refuses it.
 
     Only ``GET /<token>/<source>/<version>`` with a single ``bytes=a-b``
-    range is answered. A wrong token gets the same 404 as an unknown
-    object, so the answer does not tell which part was wrong.
+    range of at most :data:`MAX_RANGE_BYTES` is answered. A wrong token
+    gets the same 404 as an unknown object, so the answer does not tell
+    which part was wrong.
+
+    Parameters
+    ----------
+    method
+        The method of the request; only ``GET`` is served.
+    target
+        The target of the request, ``/<token>/<source>/<version>``.
+    range_header
+        The ``Range`` header, or None when the request has none.
+    token
+        The token of the server.
+
+    Returns
+    -------
+    RangeRequest or Refusal
+        What to read; or 405 for another method (RFC 9110, section 15.5.6),
+        404 for a wrong path or token, and 416 for a range that is missing,
+        malformed, multiple, reversed or larger than :data:`MAX_RANGE_BYTES`
+        (RFC 9110, section 15.5.17).
     """
     if method != "GET":
         return Refusal(405)
@@ -62,6 +85,9 @@ def parse_request(
         return Refusal(404)
     match = _RANGE.fullmatch(range_header or "")
     if match is None or int(match[2]) < int(match[1]):
+        return Refusal(416)
+    # RFC 9110, section 15.5.17: 416 also rejects a range the server will not serve.
+    if int(match[2]) - int(match[1]) + 1 > MAX_RANGE_BYTES:
         return Refusal(416)
     return RangeRequest(parts[2], parts[3], int(match[1]), int(match[2]))
 
@@ -73,7 +99,7 @@ def clamp(request: RangeRequest, size: int) -> tuple[int, int] | None:
     return request.start, min(request.end, size - 1) - request.start + 1
 
 
-def partial_headers(offset: int, length: int, size: int) -> list[tuple[str, str]]:
+def build_partial_headers(offset: int, length: int, size: int) -> list[tuple[str, str]]:
     """The headers of a 206 response carrying ``length`` bytes from ``offset``."""
     return [
         ("content-type", "application/octet-stream"),
@@ -111,7 +137,9 @@ SOURCES = RangeSources()
 """The registrations of this process."""
 
 
-def _empty(status: int, *headers: tuple[str, str]) -> tuple[int, list[tuple[str, str]], bytes]:
+def _answer_empty(
+    status: int, *headers: tuple[str, str]
+) -> tuple[int, list[tuple[str, str]], bytes]:
     return status, [("content-length", "0"), *headers], b""
 
 
@@ -161,7 +189,7 @@ class RangeServer:
         connection = h11.Connection(h11.SERVER)
         try:
             while True:
-                request = await _next_request(connection, reader)
+                request = await _read_next_request(connection, reader)
                 if request is None:
                     return
                 status, headers, body = await self._answer(request)
@@ -192,27 +220,28 @@ class RangeServer:
             token=self.token,
         )
         if isinstance(asked, Refusal):
-            return _empty(asked.status)
+            # RFC 9110, section 15.5.6: a 405 names the methods the target allows.
+            return _answer_empty(asked.status, *([("allow", "GET")] if asked.status == 405 else []))
         cached = self._sources.get(asked.source)
-        meta = cached.known(asked.version) if cached is not None else None
+        meta = cached.find_known(asked.version) if cached is not None else None
         if cached is None or meta is None:
-            return _empty(404)
+            return _answer_empty(404)
         window = clamp(asked, meta.size)
         if window is None:
-            return _empty(416, ("content-range", f"bytes */{meta.size}"))
+            return _answer_empty(416, ("content-range", f"bytes */{meta.size}"))
         offset, length = window
         try:
             data = await cached.at(meta).aread(offset, length)
         except ObjectChangedError:
             # The object changed under a version a reader still holds.
-            return _empty(404)
+            return _answer_empty(404)
         except Exception as error:
             logger.warning(f"loopback range read failed with {type(error).__name__}")
-            return _empty(502)
-        return 206, partial_headers(offset, len(data), meta.size), data
+            return _answer_empty(502)
+        return 206, build_partial_headers(offset, len(data), meta.size), data
 
 
-async def _next_request(
+async def _read_next_request(
     connection: h11.Connection, reader: asyncio.StreamReader
 ) -> h11.Request | None:
     """The next request on the connection once it is complete; None when the peer has gone."""
