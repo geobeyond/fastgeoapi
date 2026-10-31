@@ -46,6 +46,9 @@ jobs:
       # explicitly. `--strict` turns every warning into a failure, which
       # is what catches a broken link before a reader does — the site
       # builds clean today, so it costs nothing to demand it stays so.
+      # The pages of the example API reference are generated, not versioned.
+      - name: Write the API reference pages
+        run: uv run python scripts/generate_api_reference.py
       - name: Build the site
         run: uv run zensical build --strict
 
