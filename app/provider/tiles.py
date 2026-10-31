@@ -43,7 +43,7 @@ _KINDS = {"vector": "vector", "map": "map", "coverage": "elevation"}
 """The word the link titles use for the tiles of each data type."""
 
 
-def _service_url(server_url: str, dataset: str, tileset: str, parameter: str) -> str:
+def _build_service_url(server_url: str, dataset: str, tileset: str, parameter: str) -> str:
     return url_join(
         server_url,
         f"collections/{dataset}/tiles/{tileset}/"
@@ -51,7 +51,7 @@ def _service_url(server_url: str, dataset: str, tileset: str, parameter: str) ->
     )
 
 
-def _xyz_url(server_url: str, dataset: str, tileset: str, parameter: str) -> str:
+def _build_xyz_url(server_url: str, dataset: str, tileset: str, parameter: str) -> str:
     # The same route with the placeholders MapLibre, Leaflet and QGIS substitute.
     return url_join(
         server_url, f"collections/{dataset}/tiles/{tileset}/{{z}}/{{y}}/{{x}}?f={parameter}"
@@ -152,7 +152,7 @@ class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
 
     def get_tiles(self, layer=None, tileset=None, z=None, y=None, x=None, format_=None):
         """The tile bytes, decompressed; pygeoapi's synchronous contract."""
-        z, x, y = self._within_limits(z, x, y)
+        z, x, y = self._check_limits(z, x, y)
         try:
             return self.source.tile(z, x, y)
         except TileOutsideError as error:
@@ -166,7 +166,7 @@ class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
         Same signature as ``get_tiles``, defaults included, so
         ``async_view`` can call either face with the same keywords.
         """
-        z, x, y = self._within_limits(z, x, y)
+        z, x, y = self._check_limits(z, x, y)
         try:
             return await self.source.atile(z, x, y)
         except TileOutsideError as error:
@@ -182,13 +182,13 @@ class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
         whatever the version.
         """
         try:
-            self._within_limits(z, x, y)
+            self._check_limits(z, x, y)
         except ProviderTileNotFoundError:
             return None
         data = await self.adata_version()
         return None if data is None else f"{data}|{self.definition_digest()}"
 
-    def _within_limits(self, z: Any, x: Any, y: Any) -> tuple[int, int, int]:
+    def _check_limits(self, z: Any, x: Any, y: Any) -> tuple[int, int, int]:
         """Pygeoapi's semantics: a tile outside the configured limits is 404.
 
         Non-numeric coordinates (a URL template pasted literally) count as
@@ -300,7 +300,7 @@ class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
             ),
             LinkType(
                 **{
-                    "href": _service_url(
+                    "href": _build_service_url(
                         server_url, dataset, tileset, format_parameter(self.mimetype)
                     ),
                     "rel": "item",
@@ -321,8 +321,8 @@ class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
             raise ProviderGenericError(user_msg=str(error)) from None
         zoom = self.options.get("zoom") or {}
         if content.data_type == "vector":
-            return _vector_tilejson(content, dataset, server_url, tileset, zoom)
-        return _raster_tilejson(content, dataset, server_url, tileset, zoom)
+            return _build_vector_tilejson(content, dataset, server_url, tileset, zoom)
+        return _build_raster_tilejson(content, dataset, server_url, tileset, zoom)
 
     def get_html_metadata(
         self, dataset, server_url, layer, tileset, title, description, keywords, **kwargs
@@ -333,7 +333,7 @@ class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
             "id": dataset,
             "title": title,
             "tileset": tileset,
-            "collections_path": _service_url(
+            "collections_path": _build_service_url(
                 server_url, dataset, tileset, format_parameter(self.mimetype)
             ),
             "json_url": f"{metadata_url}?f=json",
@@ -344,16 +344,16 @@ class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
         }
 
 
-def _tilejson(
+def _build_tilejson(
     content: TileContent, dataset: str, server_url: str, tileset: str, zoom: dict[str, int]
 ) -> dict[str, Any]:
     """The TileJSON 3.0.0 keys of every tileset, in the shape MapLibre reads as a source."""
-    low, high = _zooms(content, zoom)
+    low, high = _read_zooms(content, zoom)
     lon, lat, center_zoom = content.center
     tilejson: dict[str, Any] = {
         "tilejson": "3.0.0",
         "name": content.name or dataset,
-        "tiles": [_xyz_url(server_url, dataset, tileset, content.format_parameter)],
+        "tiles": [_build_xyz_url(server_url, dataset, tileset, content.format_parameter)],
         "minzoom": low,
         "maxzoom": high,
         "bounds": list(content.bounds),
@@ -367,7 +367,7 @@ def _tilejson(
     return tilejson
 
 
-def _zooms(content: TileContent, zoom: dict[str, int]) -> tuple[int, int]:
+def _read_zooms(content: TileContent, zoom: dict[str, int]) -> tuple[int, int]:
     """The zooms a client can ask: the data's, within the configured ``zoom``.
 
     Past the last one a client such as MapLibre enlarges the deepest tiles it
@@ -380,16 +380,16 @@ def _zooms(content: TileContent, zoom: dict[str, int]) -> tuple[int, int]:
     )
 
 
-def _vector_tilejson(
+def _build_vector_tilejson(
     content: TileContent, dataset: str, server_url: str, tileset: str, zoom: dict[str, int]
 ) -> dict:
     """TileJSON 3.0.0 for a vector source, with its layers."""
-    tilejson = _tilejson(content, dataset, server_url, tileset, zoom)
-    tilejson["vector_layers"] = [_vector_layer(layer) for layer in content.layers]
+    tilejson = _build_tilejson(content, dataset, server_url, tileset, zoom)
+    tilejson["vector_layers"] = [_describe_vector_layer(layer) for layer in content.layers]
     return tilejson
 
 
-def _vector_layer(layer: VectorLayer) -> dict[str, Any]:
+def _describe_vector_layer(layer: VectorLayer) -> dict[str, Any]:
     """One entry of ``vector_layers``: ``id`` and ``fields`` always, the rest when known."""
     entry: dict[str, Any] = {"id": layer.id, "fields": dict(layer.fields or {})}
     if layer.description:
@@ -401,11 +401,11 @@ def _vector_layer(layer: VectorLayer) -> dict[str, Any]:
     return entry
 
 
-def _raster_tilejson(
+def _build_raster_tilejson(
     content: TileContent, dataset: str, server_url: str, tileset: str, zoom: dict[str, int]
 ) -> dict:
     """TileJSON 3.0.0 for a raster or raster-dem source, with the tile size and the encoding."""
-    tilejson = _tilejson(content, dataset, server_url, tileset, zoom)
+    tilejson = _build_tilejson(content, dataset, server_url, tileset, zoom)
     if content.tile_size:
         tilejson["tileSize"] = content.tile_size
     if content.dem is not None:

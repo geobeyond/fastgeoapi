@@ -259,9 +259,9 @@ async def _get(app, left: asyncio.Event | None = None) -> dict:
 
 
 def _occupied(provider) -> int:
-    from app.pygeoapi.api_async.admission import admission_for
+    from app.pygeoapi.api_async.admission import get_admission
 
-    return admission_for(provider, provider.limits).occupied
+    return get_admission(provider, provider.limits).occupied
 
 
 async def _until(condition, timeout=2.0):

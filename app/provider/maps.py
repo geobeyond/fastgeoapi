@@ -148,7 +148,7 @@ def check_definition(provider_def: dict, options: dict[str, Any]) -> SourceForma
     return source_format
 
 
-def object_url(
+def build_object_url(
     data: str, *, public_url: str | None, sign: Callable[[timedelta], str], ttl: timedelta
 ) -> ObjectUrl:
     """The URL of the data object for a renderer: public, local, or signed by ``sign``."""
@@ -159,14 +159,14 @@ def object_url(
     if not is_bucket(data):
         return ObjectUrl(local_path=Path(data.removeprefix("file://")))
 
-    def signer(expires_in: timedelta) -> str:
+    def sign_url(expires_in: timedelta) -> str:
         try:
             return sign(expires_in)
         except Exception as error:
             logger.warning(f"could not sign the data URL: {type(error).__name__}")
             raise ProviderGenericError(user_msg="the data URL could not be signed") from None
 
-    return ObjectUrl(signer=signer, ttl=ttl)
+    return ObjectUrl(signer=sign_url, ttl=ttl)
 
 
 def read_style(location: str, store_options: dict | None) -> dict:
@@ -262,7 +262,7 @@ def build_styles(
     return factory(source, documents, options)
 
 
-def _flag(value: Any) -> bool:
+def _parse_flag(value: Any) -> bool:
     if isinstance(value, str):
         return value.strip().lower() not in ("false", "0", "no")
     return bool(value)
@@ -274,7 +274,7 @@ def _clamp(value: float) -> float:
     return max(-HALF_WORLD, min(HALF_WORLD, value))
 
 
-def map_request(
+def build_map_request(
     style_for: Callable[[str | None, bool], Any],
     *,
     max_size: int,
@@ -303,7 +303,7 @@ def map_request(
         raise MapParameterError(user_msg="width and height must be at least 1")
     if int(width) > max_size or int(height) > max_size:
         raise MapTooLargeError(user_msg=f"width and height must be at most {max_size}")
-    transparent = _flag(transparent)
+    transparent = _parse_flag(transparent)
     try:
         chosen = style_for(style, transparent)
     except KeyError as error:

@@ -23,7 +23,7 @@ from pygeoapi.openapi import generate_openapi_document as _upstream_generate_ope
 from app.auth.models import unauthorized
 from app.config.logging import create_logger
 from app.interfaces.providers import MapCapabilities, MapLimits
-from app.pygeoapi.map_limits import MapCeiling, default_map_crs
+from app.pygeoapi.map_limits import MapCeiling, choose_default_map_crs
 from app.pygeoapi.models import not_found
 
 logger = create_logger("app.pygeoapi.openapi")
@@ -307,20 +307,20 @@ def allow_unlocated_features(openapi: OpenAPI) -> OpenAPI:
 _FLOAT_FIELDS = ("minimum", "maximum", "multipleOf")
 
 
-def _whole_numbers_back(node) -> None:
+def _restore_whole_numbers(node) -> None:
     """Give the float fields of every schema under a node their integers back."""
     if isinstance(node, dict):
         for key, value in node.items():
             if key in _FLOAT_FIELDS and isinstance(value, float) and value.is_integer():
                 node[key] = int(value)
             else:
-                _whole_numbers_back(value)
+                _restore_whole_numbers(value)
     elif isinstance(node, list):
         for value in node:
-            _whole_numbers_back(value)
+            _restore_whole_numbers(value)
 
 
-def _ordered_like(node, original):
+def _order_like(node, original):
     """Put the keys of every mapping in the order the original has them.
 
     Keys the original does not have come last, in the order of the model.
@@ -328,9 +328,9 @@ def _ordered_like(node, original):
     if isinstance(node, dict) and isinstance(original, dict):
         keys = [key for key in original if key in node]
         keys += [key for key in node if key not in original]
-        return {key: _ordered_like(node[key], original.get(key)) for key in keys}
+        return {key: _order_like(node[key], original.get(key)) for key in keys}
     if isinstance(node, list) and isinstance(original, list) and len(node) == len(original):
-        return [_ordered_like(value, before) for value, before in zip(node, original, strict=True)]
+        return [_order_like(value, before) for value, before in zip(node, original, strict=True)]
     return node
 
 
@@ -346,8 +346,8 @@ def dump_openapi(openapi: OpenAPI, like: dict | None = None) -> dict:
     document to take the order of the keys from.
     """
     doc = openapi.model_dump(mode="json", by_alias=True, exclude_unset=True)
-    _whole_numbers_back(doc)
-    return doc if like is None else _ordered_like(doc, like)
+    _restore_whole_numbers(doc)
+    return doc if like is None else _order_like(doc, like)
 
 
 def _unset(model: BaseModel, field: str) -> None:
@@ -360,7 +360,7 @@ def _unset(model: BaseModel, field: str) -> None:
     model.model_fields_set.discard(field)
 
 
-def _references(node):
+def _find_references(node):
     """Every ``$ref`` under a node, whether the node is a model or plain data.
 
     openapi-pydantic has no visitor of its own. Iterating a model yields
@@ -371,16 +371,16 @@ def _references(node):
         yield node.ref
     elif isinstance(node, BaseModel):
         for _, value in node:
-            yield from _references(value)
+            yield from _find_references(value)
     elif isinstance(node, dict):
         for key, value in node.items():
             if key == "$ref" and isinstance(value, str):
                 yield value
             else:
-                yield from _references(value)
+                yield from _find_references(value)
     elif isinstance(node, list):
         for value in node:
-            yield from _references(value)
+            yield from _find_references(value)
 
 
 def fix_resolved_document(doc: dict) -> dict:
@@ -415,7 +415,7 @@ CQL2_FILTERING_PROVIDERS = frozenset(
 )
 
 
-def _provider_filters_cql2(name: str) -> bool:
+def _does_provider_filter_cql2(name: str) -> bool:
     """Say whether the configured provider applies a CQL2 filter.
 
     The name is resolved the way pygeoapi's ``load_plugin`` does: a short
@@ -441,7 +441,7 @@ def _provider_filters_cql2(name: str) -> bool:
     )
 
 
-def _items_provider(resource: dict) -> dict | None:
+def _find_items_provider(resource: dict) -> dict | None:
     """The provider pygeoapi uses for the items of a collection.
 
     ``get_oas_30`` takes the first ``record`` provider when there is one,
@@ -474,10 +474,10 @@ def drop_unfiltered_cql2_operations(openapi: OpenAPI, config: dict) -> OpenAPI:
         item = paths.get(f"/collections/{name}/items")
         if item is None or item.post is None:
             continue
-        provider = _items_provider(resource)
+        provider = _find_items_provider(resource)
         if provider is None or provider.get("editable", False):
             continue
-        if not _provider_filters_cql2(str(provider.get("name", ""))):
+        if not _does_provider_filter_cql2(str(provider.get("name", ""))):
             _unset(item, "post")
     return openapi
 
@@ -632,10 +632,10 @@ def _publish_parameters(
         if isinstance(parameter, Reference):
             target = parameter.ref.rsplit("/", 1)[-1]
             if target == "bbox":
-                published.append(_four_numbers_bbox())
+                published.append(_build_bbox_parameter())
             elif target == "bbox-crs-epsg":
                 published.append(
-                    _crs_parameter(
+                    _build_crs_parameter(
                         "bbox-crs", "The CRS of the bbox coordinates.", bbox_crs, DEFAULT_CRS
                     )
                 )
@@ -648,11 +648,11 @@ def _publish_parameters(
                 parameter.param_schema.default = capabilities.formats[0]
         published.append(parameter)
     published.append(
-        _crs_parameter(
+        _build_crs_parameter(
             "crs",
             "The CRS the map is drawn in.",
             list(capabilities.crs),
-            default_map_crs(provider_def, capabilities),
+            choose_default_map_crs(provider_def, capabilities),
         )
     )
     if "temporal" in extents:
@@ -672,7 +672,7 @@ def _publish_parameters(
     operation.parameters = published
 
 
-def _four_numbers_bbox() -> Parameter:
+def _build_bbox_parameter() -> Parameter:
     return Parameter(
         name="bbox",
         param_in=ParameterLocation.QUERY,
@@ -689,7 +689,7 @@ def _four_numbers_bbox() -> Parameter:
     )
 
 
-def _crs_parameter(name: str, description: str, uris: list[str], default: str) -> Parameter:
+def _build_crs_parameter(name: str, description: str, uris: list[str], default: str) -> Parameter:
     return Parameter(
         name=name,
         param_in=ParameterLocation.QUERY,
@@ -775,7 +775,7 @@ def fix_tileset_list_response(openapi: OpenAPI) -> OpenAPI:
     ):
         entries = getattr(openapi.components, section, None) if openapi.components else None
         pointer = f"#/components/{section}/{name}"
-        if entries and name in entries and pointer not in set(_references(openapi)):
+        if entries and name in entries and pointer not in set(_find_references(openapi)):
             del entries[name]
     return openapi
 

@@ -21,7 +21,7 @@ from pyproj.exceptions import CRSError
 
 from app.interfaces.providers import MapCapabilities, MapLimits
 from app.provider.maps import WEB_MERCATOR, MapParameterError, MapTooLargeError
-from app.pygeoapi.map_limits import default_map_crs
+from app.pygeoapi.map_limits import choose_default_map_crs
 
 WEB_MERCATOR_EDGE = 20037508.342789244
 """How far Web Mercator goes from its origin, in metres, on both axes."""
@@ -99,7 +99,12 @@ def clip_bbox(
         crossing and xmin >= edge and xmax <= -edge
     ):
         return None
-    return (_within(xmin, edge), _within(ymin, edge), _within(xmax, edge), _within(ymax, edge))
+    return (
+        _clamp_to_edge(xmin, edge),
+        _clamp_to_edge(ymin, edge),
+        _clamp_to_edge(xmax, edge),
+        _clamp_to_edge(ymax, edge),
+    )
 
 
 def parse_map_parameters(
@@ -142,18 +147,20 @@ def parse_map_parameters(
         For a map above the collection's limits; the route answers 413.
     """
     params = request.params
-    width = _positive_integer(params.get("width", 500), "width")
-    height = _positive_integer(params.get("height", 300), "height")
+    width = _parse_positive_integer(params.get("width", 500), "width")
+    height = _parse_positive_integer(params.get("height", 300), "height")
     if width > limits.max_width or height > limits.max_height:
         largest = f"width must be at most {limits.max_width}"
         raise MapTooLargeError(user_msg=f"{largest} and height at most {limits.max_height}")
     if limits.max_pixels is not None and width * height > limits.max_pixels:
         raise MapTooLargeError(user_msg=f"width * height must be at most {limits.max_pixels}")
 
-    crs = _declared(params.get("crs"), capabilities.crs, "crs") or default_map_crs(
+    crs = _match_declared_crs(params.get("crs"), capabilities.crs, "crs") or choose_default_map_crs(
         collection_def, capabilities
     )
-    bbox_crs = _declared(params.get("bbox-crs"), (DEFAULT_CRS, *capabilities.crs), "bbox-crs")
+    bbox_crs = _match_declared_crs(
+        params.get("bbox-crs"), (DEFAULT_CRS, *capabilities.crs), "bbox-crs"
+    )
     bbox_crs = bbox_crs or DEFAULT_CRS
 
     transparent = str(params.get("transparent", "true")).lower()
@@ -165,7 +172,7 @@ def parse_map_parameters(
     if asked is not None and asked != "html" and asked not in capabilities.formats:
         raise MapParameterError(user_msg=f"maps are drawn as {', '.join(capabilities.formats)}")
 
-    bbox = _bbox(params.get("bbox"))
+    bbox = _parse_bbox(params.get("bbox"))
     if bbox[1] > bbox[3]:
         raise MapParameterError(user_msg="the bbox has its minimum y above its maximum y")
     if bbox[0] == bbox[2] or bbox[1] == bbox[3]:
@@ -191,7 +198,7 @@ def parse_map_parameters(
         transparent=transparent == "true",
         format_=format_ if format_ is not None else capabilities.formats[0],
         datetime_=datetime_,
-        subsets=_subsets(params, extents),
+        subsets=_parse_subsets(params, extents),
     )
 
 
@@ -213,7 +220,7 @@ def format_content_datetime(extents: dict[str, Any]) -> str | None:
         end; None when the collection has no temporal extent.
     """
     temporal = extents.get("temporal") or {}
-    begin, end = _instant(temporal.get("begin")), _instant(temporal.get("end"))
+    begin, end = _format_instant(temporal.get("begin")), _format_instant(temporal.get("end"))
     if begin is None and end is None:
         return None
     if begin == end:
@@ -221,7 +228,7 @@ def format_content_datetime(extents: dict[str, Any]) -> str | None:
     return f"{begin or '..'}/{end or '..'}"
 
 
-def _instant(value: Any) -> str | None:
+def _format_instant(value: Any) -> str | None:
     if value is None:
         return None
     if isinstance(value, datetime):
@@ -232,11 +239,11 @@ def _instant(value: Any) -> str | None:
     return str(value)
 
 
-def _within(value: float, edge: float) -> float:
+def _clamp_to_edge(value: float, edge: float) -> float:
     return max(-edge, min(edge, value))
 
 
-def _positive_integer(value: Any, name: str) -> int:
+def _parse_positive_integer(value: Any, name: str) -> int:
     try:
         number = int(value)
     except (TypeError, ValueError):
@@ -246,7 +253,7 @@ def _positive_integer(value: Any, name: str) -> int:
     return number
 
 
-def _declared(value: str | None, declared: tuple[str, ...], name: str) -> str | None:
+def _match_declared_crs(value: str | None, declared: tuple[str, ...], name: str) -> str | None:
     """The declared URI ``value`` names, regardless of case and of URI or CURIE."""
     if value is None:
         return None
@@ -260,7 +267,7 @@ def _declared(value: str | None, declared: tuple[str, ...], name: str) -> str | 
     raise MapParameterError(user_msg=f"{name} must be one of {', '.join(declared)}")
 
 
-def _bbox(value: str | None) -> tuple[float, float, float, float]:
+def _parse_bbox(value: str | None) -> tuple[float, float, float, float]:
     if value is None:
         xmin, ymin, xmax, ymax = maps_api.DEFAULT_BBOX
         return (float(xmin), float(ymin), float(xmax), float(ymax))
@@ -276,7 +283,7 @@ def _bbox(value: str | None) -> tuple[float, float, float, float]:
     return (numbers[0], numbers[1], numbers[2], numbers[3])
 
 
-def _subsets(params: Any, extents: dict[str, Any]) -> dict[str, list[Any]] | None:
+def _parse_subsets(params: Any, extents: dict[str, Any]) -> dict[str, list[Any]] | None:
     if "subset" not in params:
         return None
     dimensions = deepcopy(extents)

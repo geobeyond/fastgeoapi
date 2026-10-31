@@ -22,9 +22,9 @@ from pygeoapi.util import filter_dict_by_key_value, get_from_headers
 from app.interfaces.providers import AsyncTileProvider
 from app.pygeoapi.api_async.caching import (
     HttpCache,
-    cache_headers,
-    not_modified,
-    not_modified_answer,
+    answer_not_modified,
+    get_cache_headers,
+    is_not_modified,
 )
 
 
@@ -83,10 +83,10 @@ async def get_collection_tiles_data(
             "x": x,
             "format_": format_,
         }
-        cached = await cache_headers(http_cache, provider, dataset, "tile", arguments, headers)
+        cached = await get_cache_headers(http_cache, provider, dataset, "tile", arguments, headers)
         asked = get_from_headers(request.headers, "if-none-match")
-        if cached and not_modified(asked, cached["ETag"]):
-            return not_modified_answer(headers, cached)
+        if cached and is_not_modified(asked, cached["ETag"]):
+            return answer_not_modified(headers, cached)
         content = await provider.aget_tiles(**arguments)
     except KeyError:
         return api.get_exception(

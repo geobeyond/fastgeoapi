@@ -20,7 +20,7 @@ from pygeoapi.provider.base import ProviderGenericError, ProviderTypeError
 
 from app.config.logging import create_logger
 from app.interfaces.providers import AsyncMapProvider, MapCapabilities, MapLimits
-from app.pygeoapi.map_contract import native_map_definitions
+from app.pygeoapi.map_contract import iter_native_map_definitions
 
 logger = create_logger("app.pygeoapi.map_limits")
 
@@ -67,7 +67,7 @@ class MapCeiling:
         )
 
 
-def default_map_ceiling() -> MapCeiling:
+def get_default_map_ceiling() -> MapCeiling:
     """The ceiling of fastgeoapi's settings, or the defaults without them."""
     # Imported here: building the settings needs a configured fastgeoapi, and
     # the document is also built by tools that only have pygeoapi.
@@ -78,7 +78,7 @@ def default_map_ceiling() -> MapCeiling:
     return MapCeiling.from_settings(configuration)
 
 
-def collection_limits(limits: MapLimits, ceiling: MapCeiling) -> MapLimits:
+def cut_limits_to_ceiling(limits: MapLimits, ceiling: MapCeiling) -> MapLimits:
     """The limits of a collection: its provider's, cut to the ceiling.
 
     Parameters
@@ -103,7 +103,7 @@ def collection_limits(limits: MapLimits, ceiling: MapCeiling) -> MapLimits:
     )
 
 
-def native_map_limits(config: dict[str, Any], ceiling: MapCeiling) -> dict[str, MapLimits]:
+def collect_native_map_limits(config: dict[str, Any], ceiling: MapCeiling) -> dict[str, MapLimits]:
     """The limits of every collection whose map provider is native, cut to the ceiling.
 
     A collection whose provider asks for more than the ceiling is logged
@@ -123,16 +123,18 @@ def native_map_limits(config: dict[str, Any], ceiling: MapCeiling) -> dict[str, 
         out: its map fails on the route as it would without limits.
     """
     limits: dict[str, MapLimits] = {}
-    for name, _, provider in _native_map_providers(config):
+    for name, _, provider in _iter_native_map_providers(config):
         own = provider.limits
-        cut = collection_limits(own, ceiling)
+        cut = cut_limits_to_ceiling(own, ceiling)
         if cut != own:
-            logger.warning(f"{name}: maps up to {_size(own)} asked, {_size(cut)} served")
+            logger.warning(
+                f"{name}: maps up to {_describe_size(own)} asked, {_describe_size(cut)} served"
+            )
         limits[name] = cut
     return limits
 
 
-def native_map_capabilities(config: dict[str, Any]) -> dict[str, MapCapabilities]:
+def collect_native_map_capabilities(config: dict[str, Any]) -> dict[str, MapCapabilities]:
     """The capabilities of every collection whose map provider is native.
 
     Parameters
@@ -144,12 +146,12 @@ def native_map_capabilities(config: dict[str, Any]) -> dict[str, MapCapabilities
     -------
     dict of str to MapCapabilities
         The capabilities by collection name. A provider that does not load
-        is left out, as in :func:`native_map_limits`.
+        is left out, as in :func:`collect_native_map_limits`.
     """
-    return {name: provider.capabilities for name, _, provider in _native_map_providers(config)}
+    return {name: provider.capabilities for name, _, provider in _iter_native_map_providers(config)}
 
 
-def default_map_crs(provider_def: dict[str, Any], capabilities: MapCapabilities) -> str:
+def choose_default_map_crs(provider_def: dict[str, Any], capabilities: MapCapabilities) -> str:
     """The CRS of a map whose request names none.
 
     Parameters
@@ -172,8 +174,10 @@ def default_map_crs(provider_def: dict[str, Any], capabilities: MapCapabilities)
     return capabilities.crs[0]
 
 
-def _native_map_providers(config: dict[str, Any]) -> Iterator[tuple[str, dict, AsyncMapProvider]]:
-    for name, _, definition, _ in native_map_definitions(config):
+def _iter_native_map_providers(
+    config: dict[str, Any],
+) -> Iterator[tuple[str, dict, AsyncMapProvider]]:
+    for name, _, definition, _ in iter_native_map_definitions(config):
         try:
             provider = pygeoapi_plugin.load_plugin("provider", definition)
         except (KeyError, ProviderTypeError, ProviderGenericError):
@@ -182,6 +186,6 @@ def _native_map_providers(config: dict[str, Any]) -> Iterator[tuple[str, dict, A
             yield name, definition, provider
 
 
-def _size(limits: MapLimits) -> str:
+def _describe_size(limits: MapLimits) -> str:
     size = f"{limits.max_width}x{limits.max_height}"
     return size if limits.max_pixels is None else f"{size} and {limits.max_pixels} pixels"

@@ -45,14 +45,14 @@ from app.pygeoapi.api import patch_validate_datetime_overflow
 from app.pygeoapi.api.collections import describe_collections, item_provider_type
 from app.pygeoapi.api_async import maps as async_maps
 from app.pygeoapi.api_async import tiles as async_tiles
-from app.pygeoapi.api_async.caching import HttpCache, default_http_cache
+from app.pygeoapi.api_async.caching import HttpCache, get_default_http_cache
 from app.pygeoapi.config_extensions import extension_problem
-from app.pygeoapi.map_contract import map_contract_problem
+from app.pygeoapi.map_contract import find_map_contract_problem
 from app.pygeoapi.map_limits import (
     MapCeiling,
-    default_map_ceiling,
-    native_map_capabilities,
-    native_map_limits,
+    collect_native_map_capabilities,
+    collect_native_map_limits,
+    get_default_map_ceiling,
 )
 from app.pygeoapi.openapi import (
     describe_tilesets,
@@ -144,7 +144,7 @@ def normalize_config(config: dict) -> dict:
     bind.setdefault("port", int(os.environ.get("PORT", "5000")))
 
     _validate(config)
-    problem = extension_problem(config) or map_contract_problem(config)
+    problem = extension_problem(config) or find_map_contract_problem(config)
     if problem is not None:
         where, message = problem
         raise ConfigValidationError(f"invalid fastgeoapi configuration at {where}: {message}")
@@ -199,9 +199,9 @@ def build_openapi(config: dict, *, map_ceiling: MapCeiling | None = None) -> dic
     drop_unfiltered_cql2_operations(openapi, config)
     fix_tileset_list_response(openapi)
     describe_tilesets(openapi)
-    ceiling = map_ceiling if map_ceiling is not None else default_map_ceiling()
-    limits = native_map_limits(config, ceiling)
-    fix_map_operations(openapi, config, limits, native_map_capabilities(config))
+    ceiling = map_ceiling if map_ceiling is not None else get_default_map_ceiling()
+    limits = collect_native_map_limits(config, ceiling)
+    fix_map_operations(openapi, config, limits, collect_native_map_capabilities(config))
     if limits:
         publish_map_ceiling(openapi, ceiling)
     drop_unused_tags(openapi)
@@ -233,7 +233,7 @@ def _call_threadsafe(loop: asyncio.AbstractEventLoop, api_call: Callable, *args)
     return api_call(*args)
 
 
-def _to_response(headers: dict, status: int, content) -> Response:
+def _convert_to_response(headers: dict, status: int, content) -> Response:
     if headers["Content-Type"] == "text/html":
         response: Response = HTMLResponse(content=content, status_code=status)
     elif isinstance(content, dict):
@@ -269,10 +269,10 @@ async def execute(
             raise
         if status != HTTPStatus.NO_CONTENT:
             content = apply_gzip(headers, content)
-    return _to_response(headers, status, content)
+    return _convert_to_response(headers, status, content)
 
 
-def _path_param(request: Request, name: str):
+def _get_path_param(request: Request, name: str):
     return request.path_params.get(name)
 
 
@@ -280,7 +280,7 @@ CLIENT_CLOSED_REQUEST = 499
 """Nginx's status for a request whose client left; no client is there to read it."""
 
 
-async def _disconnected(request: Request) -> None:
+async def _wait_for_disconnect(request: Request) -> None:
     """Return once the client of ``request`` has gone.
 
     Past the body, only a disconnect should arrive. A receive that hands the
@@ -297,7 +297,7 @@ async def _disconnected(request: Request) -> None:
         body_done = not message.get("more_body", False)
 
 
-async def _unless_disconnected[T](request: Request, work: Awaitable[T]) -> T | None:
+async def _run_unless_disconnected[T](request: Request, work: Awaitable[T]) -> T | None:
     """The result of ``work``, or None once the client has gone and ``work`` is cancelled.
 
     Starlette runs a handler to its end even when the client leaves. A map
@@ -307,7 +307,7 @@ async def _unless_disconnected[T](request: Request, work: Awaitable[T]) -> T | N
     the client's state is unknown and ``work`` runs to its end.
     """
     task = asyncio.ensure_future(work)
-    gone = asyncio.ensure_future(_disconnected(request))
+    gone = asyncio.ensure_future(_wait_for_disconnect(request))
     try:
         await asyncio.wait({task, gone}, return_when=asyncio.FIRST_COMPLETED)
     except BaseException:
@@ -325,7 +325,7 @@ async def _unless_disconnected[T](request: Request, work: Awaitable[T]) -> T | N
     return None
 
 
-def _collection_tiles_metadata(
+def _get_collection_tiles_metadata(
     api: API, request: APIRequest, dataset: str | None, matrix_id: str | None
 ) -> tuple:
     """pygeoapi's tileset description, in JSON when the request asks for no format.
@@ -428,7 +428,7 @@ def build_routes(
             api,
             tiles_api.tilematrixset,
             request,
-            _path_param(request, "tileMatrixSetId"),
+            _get_path_param(request, "tileMatrixSetId"),
         )
 
     async def tilematrixsets(request: Request) -> Response:
@@ -439,7 +439,7 @@ def build_routes(
             api,
             core_api.get_collection_schema,
             request,
-            _path_param(request, "collection_id"),
+            _get_path_param(request, "collection_id"),
         )
 
     async def collection_queryables(request: Request) -> Response:
@@ -447,7 +447,7 @@ def build_routes(
             api,
             itemtypes_api.get_collection_queryables,
             request,
-            _path_param(request, "collection_id"),
+            _get_path_param(request, "collection_id"),
         )
 
     async def collection_tiles(request: Request) -> Response:
@@ -455,16 +455,16 @@ def build_routes(
             api,
             tiles_api.get_collection_tiles,
             request,
-            _path_param(request, "collection_id"),
+            _get_path_param(request, "collection_id"),
         )
 
     async def collection_tiles_metadata(request: Request) -> Response:
         return await execute(
             api,
-            _collection_tiles_metadata,
+            _get_collection_tiles_metadata,
             request,
-            _path_param(request, "collection_id"),
-            _path_param(request, "tileMatrixSetId"),
+            _get_path_param(request, "collection_id"),
+            _get_path_param(request, "tileMatrixSetId"),
             skip_valid_check=True,
         )
 
@@ -476,11 +476,11 @@ def build_routes(
 
     async def collection_items_tiles(request: Request) -> Response:
         args = (
-            _path_param(request, "collection_id"),
-            _path_param(request, "tileMatrixSetId"),
-            _path_param(request, "tile_matrix"),
-            _path_param(request, "tileRow"),
-            _path_param(request, "tileCol"),
+            _get_path_param(request, "collection_id"),
+            _get_path_param(request, "tileMatrixSetId"),
+            _get_path_param(request, "tile_matrix"),
+            _get_path_param(request, "tileRow"),
+            _get_path_param(request, "tileCol"),
         )
         dataset = args[0]
         if dataset in natives:
@@ -497,7 +497,7 @@ def build_routes(
             )
             if status not in _BODILESS:
                 content = _gzip_without_timestamp(headers, content)
-            return _to_response(headers, status, content)
+            return _convert_to_response(headers, status, content)
         return await execute(
             api,
             tiles_api.get_collection_tiles_data,
@@ -507,8 +507,8 @@ def build_routes(
         )
 
     async def collection_items(request: Request) -> Response:
-        collection_id = _path_param(request, "collection_id")
-        item_id = _path_param(request, "item_id")
+        collection_id = _get_path_param(request, "collection_id")
+        item_id = _get_path_param(request, "item_id")
         if item_id is None:
             if request.method == "POST":
                 if request.headers.get("content-type") == "application/geo+json":
@@ -571,7 +571,7 @@ def build_routes(
             api,
             coverages_api.get_collection_coverage,
             request,
-            _path_param(request, "collection_id"),
+            _get_path_param(request, "collection_id"),
             skip_valid_check=True,
         )
 
@@ -580,12 +580,12 @@ def build_routes(
     map_natives: dict[str, tuple | None] = {}
 
     async def collection_map(request: Request) -> Response:
-        dataset = _path_param(request, "collection_id")
-        style = _path_param(request, "style_id")
+        dataset = _get_path_param(request, "collection_id")
+        style = _get_path_param(request, "style_id")
         if dataset in map_natives:
             probe = map_natives[dataset]
         else:
-            probe = await asyncio.to_thread(async_maps.native_map_provider, api, dataset)
+            probe = await asyncio.to_thread(async_maps.find_native_map_provider, api, dataset)
             if dataset in api.config["resources"]:
                 map_natives[dataset] = probe
         if probe is None:
@@ -594,7 +594,7 @@ def build_routes(
         if not api_request.is_valid():
             headers, status, content = api.get_format_exception(api_request)
         else:
-            drawn = await _unless_disconnected(
+            drawn = await _run_unless_disconnected(
                 request,
                 async_maps.get_collection_map(
                     api,
@@ -611,18 +611,18 @@ def build_routes(
             headers, status, content = drawn
         if status not in _BODILESS:
             content = _gzip_without_timestamp(headers, content)
-        return _to_response(headers, status, content)
+        return _convert_to_response(headers, status, content)
 
     async def get_processes(request: Request) -> Response:
         return await execute(
             api,
             processes_api.describe_processes,
             request,
-            _path_param(request, "process_id"),
+            _get_path_param(request, "process_id"),
         )
 
     async def get_jobs(request: Request) -> Response:
-        job_id = _path_param(request, "job_id")
+        job_id = _get_path_param(request, "job_id")
         if job_id is None:
             return await execute(api, processes_api.get_jobs, request)
         if request.method == "DELETE":
@@ -634,7 +634,7 @@ def build_routes(
             api,
             processes_api.execute_process,
             request,
-            _path_param(request, "process_id"),
+            _get_path_param(request, "process_id"),
         )
 
     async def get_job_result(request: Request) -> Response:
@@ -645,13 +645,13 @@ def build_routes(
             api,
             processes_api.get_job_result,
             request,
-            _path_param(request, "job_id"),
+            _get_path_param(request, "job_id"),
         )
         return patch_response(response=response)
 
     async def edr_query(request: Request) -> Response:
-        collection_id = _path_param(request, "collection_id")
-        instance_id = _path_param(request, "instance_id")
+        collection_id = _get_path_param(request, "collection_id")
+        instance_id = _get_path_param(request, "instance_id")
         if collection_id and "/instances/" in collection_id:
             collection_id, _, instance_id = collection_id.partition("/instances/")
         if request.url.path.endswith("instances") or (
@@ -664,7 +664,7 @@ def build_routes(
                 collection_id,
                 instance_id,
             )
-        location_id = _path_param(request, "location_id")
+        location_id = _get_path_param(request, "location_id")
         query_type = "locations" if location_id is not None else request["path"].split("/")[-1]
         return await execute(
             api,
@@ -683,14 +683,14 @@ def build_routes(
             api,
             describe_collections,
             request,
-            _path_param(request, "collection_id"),
+            _get_path_param(request, "collection_id"),
         )
 
     async def stac_catalog_root(request: Request) -> Response:
         return await execute(api, stac_api.get_stac_root, request)
 
     async def stac_catalog_path(request: Request) -> Response:
-        return await execute(api, stac_api.get_stac_path, request, _path_param(request, "path"))
+        return await execute(api, stac_api.get_stac_path, request, _get_path_param(request, "path"))
 
     async def stac_landing_page(request: Request) -> Response:
         return await execute(api, stac_api.landing_page, request)
@@ -947,7 +947,7 @@ def build_pygeoapi_subapp(
     routes = build_routes(
         api,
         specs=active_specs(config),
-        http_cache=http_cache if http_cache is not None else default_http_cache(),
+        http_cache=http_cache if http_cache is not None else get_default_http_cache(),
         map_ceiling=map_ceiling,
     )
     mounts = [Mount("/static", StaticFiles(directory=static_dir))]

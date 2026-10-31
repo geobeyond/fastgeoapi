@@ -27,18 +27,18 @@ from pygeoapi.util import filter_dict_by_key_value, get_from_headers
 
 from app.interfaces.providers import AsyncMapProvider
 from app.provider.maps import MapParameterError
-from app.pygeoapi.api_async.admission import admission_for
+from app.pygeoapi.api_async.admission import get_admission
 from app.pygeoapi.api_async.caching import (
     HttpCache,
-    cache_headers,
-    not_modified,
-    not_modified_answer,
+    answer_not_modified,
+    get_cache_headers,
+    is_not_modified,
 )
 from app.pygeoapi.api_async.map_parameters import format_content_datetime, parse_map_parameters
-from app.pygeoapi.map_limits import MapCeiling, collection_limits, default_map_ceiling
+from app.pygeoapi.map_limits import MapCeiling, cut_limits_to_ceiling, get_default_map_ceiling
 
 
-def native_map_provider(api: API, dataset: str) -> tuple[dict, AsyncMapProvider] | None:
+def find_native_map_provider(api: API, dataset: str) -> tuple[dict, AsyncMapProvider] | None:
     """The map provider of a collection, when it is native async.
 
     Parameters
@@ -112,8 +112,8 @@ async def get_collection_map(
         when the provider's slots are all taken, 504 past its timeout.
     """
     headers = request.get_response_headers(**api.api_headers)
-    ceiling = map_ceiling if map_ceiling is not None else default_map_ceiling()
-    limits = collection_limits(provider.limits, ceiling)
+    ceiling = map_ceiling if map_ceiling is not None else get_default_map_ceiling()
+    limits = cut_limits_to_ceiling(provider.limits, ceiling)
     try:
         parameters = parse_map_parameters(
             request,
@@ -124,21 +124,21 @@ async def get_collection_map(
             style,
         )
     except MapParameterError as error:
-        return _error(api, request, headers, error)
+        return _answer_error(api, request, headers, error)
     if parameters is None:
         return headers, HTTPStatus.NO_CONTENT, b""
     arguments = asdict(parameters)
 
-    cached = await cache_headers(http_cache, provider, dataset, "map", arguments, headers)
+    cached = await get_cache_headers(http_cache, provider, dataset, "map", arguments, headers)
     asked = get_from_headers(request.headers, "if-none-match")
-    if cached and not_modified(asked, cached["ETag"]):
+    if cached and is_not_modified(asked, cached["ETag"]):
         headers["Content-Type"] = collection_def["format"]["mimetype"]
-        return not_modified_answer(headers, cached)
+        return answer_not_modified(headers, cached)
 
     try:
-        data = await admission_for(provider, limits).run(lambda: provider.arender_map(**arguments))
+        data = await get_admission(provider, limits).run(lambda: provider.arender_map(**arguments))
     except (ProviderGenericError, ProviderInvalidDataError) as error:
-        return _error(api, request, headers, error)
+        return _answer_error(api, request, headers, error)
 
     headers["Content-Crs"] = parameters.crs
     headers["Content-Bbox"] = ",".join(map(str, parameters.bbox))
@@ -150,7 +150,7 @@ async def get_collection_map(
     return headers, HTTPStatus.OK, data
 
 
-def _error(
+def _answer_error(
     api: API,
     request: APIRequest,
     headers: dict,

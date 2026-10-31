@@ -72,7 +72,7 @@ def test_each_map_operation_publishes_the_limits_of_its_collection(tmp_path):
 def test_a_collection_above_the_ceiling_is_cut_to_it(tmp_path):
     from app.interfaces.providers import MapLimits
     from app.pygeoapi.factory import build_openapi
-    from app.pygeoapi.map_limits import MapCeiling, collection_limits
+    from app.pygeoapi.map_limits import MapCeiling, cut_limits_to_ceiling
 
     messages: list[str] = []
     sink = logger.add(lambda message: messages.append(str(message)), level="WARNING")
@@ -82,21 +82,21 @@ def test_a_collection_above_the_ceiling_is_cut_to_it(tmp_path):
         logger.remove(sink)
 
     assert _size_schemas(document, MAP)["width"]["maximum"] == 2048
-    assert collection_limits(MapLimits(4096, 4096, None, 1, 8, 30.0), MapCeiling()) == MapLimits(
-        2048, 2048, None, 1, 8, 30.0
-    )
+    assert cut_limits_to_ceiling(
+        MapLimits(4096, 4096, None, 1, 8, 30.0), MapCeiling()
+    ) == MapLimits(2048, 2048, None, 1, 8, 30.0)
     assert any("roads: maps up to 4096x4096 asked, 2048x2048 served" in m for m in messages)
 
 
 def test_the_smaller_pixel_limit_wins():
     from app.interfaces.providers import MapLimits
-    from app.pygeoapi.map_limits import MapCeiling, collection_limits
+    from app.pygeoapi.map_limits import MapCeiling, cut_limits_to_ceiling
 
     limits = MapLimits(1024, 1024, 500_000, 1, 8, 30.0)
 
-    assert collection_limits(limits, MapCeiling(2048, 2048, 1_000_000)).max_pixels == 500_000
-    assert collection_limits(limits, MapCeiling(2048, 2048, 100_000)).max_pixels == 100_000
-    assert collection_limits(limits, MapCeiling()).max_pixels == 500_000
+    assert cut_limits_to_ceiling(limits, MapCeiling(2048, 2048, 1_000_000)).max_pixels == 500_000
+    assert cut_limits_to_ceiling(limits, MapCeiling(2048, 2048, 100_000)).max_pixels == 100_000
+    assert cut_limits_to_ceiling(limits, MapCeiling()).max_pixels == 500_000
 
 
 def test_the_settings_reach_the_ceiling(monkeypatch):

@@ -890,7 +890,7 @@ async def test_a_new_renderer_gives_another_version(archive, monkeypatch):
     provider = _provider(archive)
     before = await _version(provider)
 
-    monkeypatch.setattr(maplibre, "renderer_version", lambda: "9.9.9")
+    monkeypatch.setattr(maplibre, "get_renderer_version", lambda: "9.9.9")
 
     assert await _version(provider) != before
 
@@ -934,21 +934,21 @@ def _digest_style(url, color="#000000", basemap="https://tiles.example/{z}/{x}/{
 
 
 def test_the_address_of_the_data_does_not_count_in_the_style_digest():
-    from app.provider.maplibre import style_digest
+    from app.provider.maplibre import digest_style
 
     one_process = _digest_style("pmtiles://http://127.0.0.1:50123/token-a/source/version")
     another = _digest_style("pmtiles://http://127.0.0.1:50999/token-b/source/version")
 
-    assert style_digest(one_process, "archive") == style_digest(another, "archive")
+    assert digest_style(one_process, "archive") == digest_style(another, "archive")
     assert one_process["sources"]["archive"]["url"].endswith("/token-a/source/version")
 
 
 def test_the_layers_and_the_other_sources_count_in_the_style_digest():
-    from app.provider.maplibre import style_digest
+    from app.provider.maplibre import digest_style
 
-    base = style_digest(_digest_style("pmtiles://x"), "archive")
+    base = digest_style(_digest_style("pmtiles://x"), "archive")
     recoloured = _digest_style("pmtiles://x", color="#ffffff")
     other_basemap = _digest_style("pmtiles://x", basemap="https://other/{z}/{x}/{y}.png")
 
-    assert style_digest(recoloured, "archive") != base
-    assert style_digest(other_basemap, "archive") != base
+    assert digest_style(recoloured, "archive") != base
+    assert digest_style(other_basemap, "archive") != base

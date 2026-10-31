@@ -212,7 +212,7 @@ def test_the_route_passes_the_contract_arguments_and_no_others():
 
 
 def test_a_map_provider_that_is_not_native_is_left_to_pygeoapi():
-    from app.pygeoapi.api_async.maps import native_map_provider
+    from app.pygeoapi.api_async.maps import find_native_map_provider
     from app.pygeoapi.factory import build_api, build_openapi, normalize_config
 
     config = _config(
@@ -220,7 +220,7 @@ def test_a_map_provider_that_is_not_native_is_left_to_pygeoapi():
     )
     normalize_config(config)
 
-    assert native_map_provider(build_api(config, build_openapi(config)), "lakes") is None
+    assert find_native_map_provider(build_api(config, build_openapi(config)), "lakes") is None
 
 
 def test_the_maplibre_limits_come_from_its_options(tmp_path):

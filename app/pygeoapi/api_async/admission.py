@@ -82,7 +82,7 @@ class MapAdmission:
         except BaseException:
             self._occupied -= 1
             raise
-        task = loop.create_task(_awaited(draw))
+        task = loop.create_task(_await_draw(draw))
         self._draws.add(task)
         task.add_done_callback(self._release)
         try:
@@ -100,11 +100,11 @@ class MapAdmission:
             task.exception()
 
 
-async def _awaited(draw: Callable[[], Awaitable[bytes]]) -> bytes:
+async def _await_draw(draw: Callable[[], Awaitable[bytes]]) -> bytes:
     return await draw()
 
 
-def admission_for(provider: object, limits: MapLimits) -> MapAdmission:
+def get_admission(provider: object, limits: MapLimits) -> MapAdmission:
     """The admission of one provider instance, made with ``limits`` the first time.
 
     A reload builds new provider instances, so they start with empty

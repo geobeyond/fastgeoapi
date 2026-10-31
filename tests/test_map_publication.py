@@ -128,11 +128,11 @@ def test_a_collection_that_is_not_native_keeps_pygeoapis_parameters():
 
 def test_the_default_crs_is_the_storage_crs_or_the_first_one():
     from app.interfaces.providers import MapCapabilities
-    from app.pygeoapi.map_limits import default_map_crs
+    from app.pygeoapi.map_limits import choose_default_map_crs
 
     capabilities = MapCapabilities(crs=(WEB_MERCATOR, CRS84), formats=("png",))
 
-    assert default_map_crs({"storage_crs": CRS84}, capabilities) == CRS84
-    assert default_map_crs({"storage_crs": CRS84.lower()}, capabilities) == CRS84
-    assert default_map_crs({}, capabilities) == WEB_MERCATOR
-    assert default_map_crs({"storage_crs": "EPSG:32633"}, capabilities) == WEB_MERCATOR
+    assert choose_default_map_crs({"storage_crs": CRS84}, capabilities) == CRS84
+    assert choose_default_map_crs({"storage_crs": CRS84.lower()}, capabilities) == CRS84
+    assert choose_default_map_crs({}, capabilities) == WEB_MERCATOR
+    assert choose_default_map_crs({"storage_crs": "EPSG:32633"}, capabilities) == WEB_MERCATOR

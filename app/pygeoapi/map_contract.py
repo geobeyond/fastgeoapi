@@ -17,7 +17,7 @@ from app.interfaces.providers import NATIVE_MAP_MEMBERS
 from app.pygeoapi.plugin import resolve_provider_class
 
 
-def native_map_definitions(config: dict[str, Any]) -> Iterator[tuple[str, int, dict, type]]:
+def iter_native_map_definitions(config: dict[str, Any]) -> Iterator[tuple[str, int, dict, type]]:
     """The map provider definitions of a configuration whose class sets ``native_async``.
 
     Entries of another shape and classes that do not import are skipped,
@@ -46,7 +46,7 @@ def native_map_definitions(config: dict[str, Any]) -> Iterator[tuple[str, int, d
                 yield name, index, provider, cls
 
 
-def map_contract_problem(config: dict[str, Any]) -> tuple[str, str] | None:
+def find_map_contract_problem(config: dict[str, Any]) -> tuple[str, str] | None:
     """Where the first native map provider misses a member, and which.
 
     The check reads the classes and builds no provider. Providers without
@@ -66,7 +66,7 @@ def map_contract_problem(config: dict[str, Any]) -> tuple[str, str] | None:
         the class and the missing member; None when every native map
         provider has all the members.
     """
-    for name, index, provider, cls in native_map_definitions(config):
+    for name, index, provider, cls in iter_native_map_definitions(config):
         for member in NATIVE_MAP_MEMBERS:
             if not hasattr(cls, member):
                 return (

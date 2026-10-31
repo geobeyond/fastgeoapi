@@ -9,7 +9,7 @@ import pytest
 
 from app.interfaces.providers import MapLimits
 from app.provider.maps import MapRendererBusyError, MapRenderTimeoutError
-from app.pygeoapi.api_async.admission import MapAdmission, admission_for
+from app.pygeoapi.api_async.admission import MapAdmission, get_admission
 
 
 class _Gate:
@@ -110,10 +110,10 @@ async def test_each_provider_instance_has_its_own_admission():
     limits = MapLimits(64, 64, None, 1, 1, 5.0)
     old, new = Provider(), Provider()
     gate = _Gate()
-    drawing = asyncio.create_task(admission_for(old, limits).run(gate.draw))
-    await _until(lambda: admission_for(old, limits).occupied == 1)
+    drawing = asyncio.create_task(get_admission(old, limits).run(gate.draw))
+    await _until(lambda: get_admission(old, limits).occupied == 1)
 
-    assert admission_for(old, limits) is admission_for(old, limits)
-    assert admission_for(new, limits).occupied == 0
+    assert get_admission(old, limits) is get_admission(old, limits)
+    assert get_admission(new, limits).occupied == 0
     gate.event.set()
     await drawing
