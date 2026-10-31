@@ -380,3 +380,25 @@ def test_the_native_provider_blocks_nothing_on_the_loop(client):
         response = client.get("/collections/native/map", params={"width": 16, "height": 16})
 
     assert response.status_code == 200
+
+
+def test_a_map_of_a_collection_with_time_has_content_datetime(tmp_path):
+    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
+
+    archive = write_archive(tmp_path / "roads.pmtiles", {(0, 0, 0): TILE_BYTES(0, 0, 0)})
+    collection = _collection("Roads", [map_provider(archive)])
+    collection["extents"]["temporal"] = {"begin": "2020-01-01T00:00:00Z", "end": None}
+    config = _config({"roads": collection})
+    client = TestClient(build_pygeoapi_subapp(config, build_openapi(config)))
+
+    response = client.get("/collections/roads/map", params={"width": 16, "height": 16})
+
+    assert response.status_code == 200, response.text[:200]
+    assert response.headers["content-datetime"] == "2020-01-01T00:00:00Z/.."
+
+
+def test_a_map_without_time_has_no_content_datetime(client):
+    response = client.get("/collections/native/map", params={"width": 16, "height": 16})
+
+    assert response.status_code == 200, response.text[:200]
+    assert "content-datetime" not in response.headers

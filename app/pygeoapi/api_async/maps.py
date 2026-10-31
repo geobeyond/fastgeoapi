@@ -34,7 +34,7 @@ from app.pygeoapi.api_async.caching import (
     not_modified,
     not_modified_answer,
 )
-from app.pygeoapi.api_async.map_parameters import parse_map_parameters
+from app.pygeoapi.api_async.map_parameters import format_content_datetime, parse_map_parameters
 from app.pygeoapi.map_limits import MapCeiling, collection_limits, default_map_ceiling
 
 
@@ -142,6 +142,9 @@ async def get_collection_map(
 
     headers["Content-Crs"] = parameters.crs
     headers["Content-Bbox"] = ",".join(map(str, parameters.bbox))
+    datetime_ = format_content_datetime(api.config["resources"][dataset]["extents"])
+    if datetime_ is not None:
+        headers["Content-Datetime"] = datetime_
     headers["Content-Type"] = collection_def["format"]["mimetype"]
     headers.update(cached)
     return headers, HTTPStatus.OK, data

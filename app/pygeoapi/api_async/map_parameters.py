@@ -11,6 +11,7 @@ from __future__ import annotations
 import math
 from copy import deepcopy
 from dataclasses import dataclass
+from datetime import UTC, date, datetime
 from typing import Any
 
 import pygeoapi.api.maps as maps_api
@@ -192,6 +193,43 @@ def parse_map_parameters(
         datetime_=datetime_,
         subsets=_subsets(params, extents),
     )
+
+
+def format_content_datetime(extents: dict[str, Any]) -> str | None:
+    """The ``Content-Datetime`` of a map of a collection, from its temporal extent.
+
+    No native provider filters by time, so a map covers the whole temporal
+    extent of its collection (/req/core/map-response).
+
+    Parameters
+    ----------
+    extents
+        The collection's extents.
+
+    Returns
+    -------
+    str or None
+        The instant, or the interval in RFC 3339 with ``..`` for an open
+        end; None when the collection has no temporal extent.
+    """
+    temporal = extents.get("temporal") or {}
+    begin, end = _instant(temporal.get("begin")), _instant(temporal.get("end"))
+    if begin is None and end is None:
+        return None
+    if begin == end:
+        return begin
+    return f"{begin or '..'}/{end or '..'}"
+
+
+def _instant(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        moment = value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+        return moment.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    if isinstance(value, date):
+        return value.isoformat()
+    return str(value)
 
 
 def _within(value: float, edge: float) -> float:

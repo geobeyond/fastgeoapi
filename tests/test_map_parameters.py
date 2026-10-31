@@ -3,6 +3,7 @@
 ``app.*`` is imported at the top of this module, nowhere else.
 """
 
+from datetime import UTC, datetime
 from urllib.parse import urlencode
 
 import pytest
@@ -11,7 +12,11 @@ from starlette.requests import Request
 
 from app.interfaces.providers import MapCapabilities, MapLimits
 from app.provider.maps import MapParameterError, MapTooLargeError
-from app.pygeoapi.api_async.map_parameters import clip_bbox, parse_map_parameters
+from app.pygeoapi.api_async.map_parameters import (
+    clip_bbox,
+    format_content_datetime,
+    parse_map_parameters,
+)
 
 CRS84 = "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
 WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
@@ -130,3 +135,19 @@ def test_a_bbox_crs_outside_the_published_ones_is_refused():
 def test_a_format_outside_the_capabilities_is_refused():
     with pytest.raises(MapParameterError):
         _parse(f="jpeg")
+
+
+def test_content_datetime_spans_the_temporal_extent():
+    begin, end = "2020-01-01T00:00:00Z", "2021-06-30T12:00:00Z"
+
+    assert format_content_datetime({"temporal": {"begin": begin, "end": None}}) == f"{begin}/.."
+    assert format_content_datetime({"temporal": {"begin": None, "end": end}}) == f"../{end}"
+    assert format_content_datetime({"temporal": {"begin": begin, "end": end}}) == f"{begin}/{end}"
+    assert format_content_datetime({"temporal": {"begin": begin, "end": begin}}) == begin
+    parsed = datetime(2020, 1, 1, tzinfo=UTC)
+    assert format_content_datetime({"temporal": {"begin": parsed, "end": None}}) == f"{begin}/.."
+
+
+def test_a_collection_without_time_has_no_content_datetime():
+    assert format_content_datetime(EXTENTS) is None
+    assert format_content_datetime({**EXTENTS, "temporal": {"begin": None, "end": None}}) is None
