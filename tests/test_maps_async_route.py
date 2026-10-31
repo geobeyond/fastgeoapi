@@ -142,7 +142,10 @@ def test_the_default_map_is_the_world_clipped(client):
     response = client.get("/collections/native/map", params={"width": 32, "height": 32})
 
     assert response.status_code == 200, response.text[:200]
-    assert response.headers["content-bbox"] == f"-{EDGE},-{TOP},{EDGE},{TOP}"
+    xmin, ymin, xmax, ymax = map(float, response.headers["content-bbox"].split(","))
+    assert (xmin, xmax) == (-float(EDGE), float(EDGE))
+    # The latitude comes from pyproj, whose last digits differ from one PROJ build to another.
+    assert (ymin, ymax) == pytest.approx((-float(TOP), float(TOP)), abs=1e-6)
 
 
 def test_a_clipped_map_reports_the_clipped_bbox(client):
