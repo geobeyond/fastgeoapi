@@ -282,6 +282,9 @@ async def test_a_map_whose_client_left_gives_its_place_in_the_queue_back(tmp_pat
     left = asyncio.Event()
     try:
         drawing = asyncio.create_task(_get(app))
+        # The first map takes the slot before the second one arrives, so the map
+        # whose client leaves is the one waiting, not the one being drawn.
+        await _until(lambda: _occupied(provider) == 1)
         abandoned = asyncio.create_task(_get(app, left))
         await _until(lambda: _occupied(provider) == 2)
 
