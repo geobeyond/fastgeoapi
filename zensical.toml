@@ -20,11 +20,11 @@ edit_uri = "edit/develop/docs/"
 docs_dir = "docs"
 site_dir = "docs_build/site"
 copyright = "© Copyright 2025 Geobeyond team."
-extra_css = ["stylesheets/extra.css"]
+extra_css = ["stylesheets/extra.css", "stylesheets/mkdocs-openapi.css"]
 # The <mcp-install-button> web component, vendored with one declared
 # patch (see the file header and scripts/vendor_install_button.py):
 # what runs on these pages is pinned, the chooser it opens is not ours.
-extra_javascript = ["javascripts/mcp-install-button.js"]
+extra_javascript = ["javascripts/mcp-install-button.js", "javascripts/mkdocs-openapi.js"]
 
 nav = [
   { "Home" = "index.md" },
@@ -64,6 +64,17 @@ nav = [
     ] },
     { "Reference" = [
       { "OpenAPI" = "consumers/reference/openapi.md" },
+      # Written by scripts/generate_api_reference.py before the build, from
+      # pygeoapi-config.yml: one entry per tag, the operations are linked
+      # from their tag's page.
+      { "API reference (example)" = [
+        { "Overview" = "consumers/reference/api/index.md" },
+        { "server" = "consumers/reference/api/server/index.md" },
+        { "obs" = "consumers/reference/api/obs/index.md" },
+        { "lakes" = "consumers/reference/api/lakes/index.md" },
+        { "hello-world" = "consumers/reference/api/hello-world/index.md" },
+        { "Models" = "consumers/reference/api/models/index.md" },
+      ] },
       { "Interoperability notes" = "consumers/reference/interoperability.md" },
       { "MCP specifications" = "consumers/reference/mcp-specifications.md" },
     ] },

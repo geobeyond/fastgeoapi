@@ -962,6 +962,7 @@ dev = [
     { name = "xdoctest", extra = ["colors"] },
 ]
 docs = [
+    { name = "mkdocs-openapi" },
     { name = "mkdocstrings-python" },
     { name = "zensical" },
 ]
@@ -1035,6 +1036,7 @@ dev = [
     { name = "xdoctest", extras = ["colors"], specifier = ">=1.3,<1.4" },
 ]
 docs = [
+    { name = "mkdocs-openapi", specifier = ">=0.3.3" },
     { name = "mkdocstrings-python", specifier = ">=2.0.7" },
     { name = "zensical", specifier = ">=0.0.58" },
 ]
@@ -2007,6 +2009,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ce/25/b3cccb187655b9393572bde9b09261d267c3bf2f2cdabe347673be5976a6/mkdocs_get_deps-0.2.2.tar.gz", hash = "sha256:8ee8d5f316cdbbb2834bc1df6e69c08fe769a83e040060de26d3c19fad3599a1", size = 11047, upload-time = "2026-03-10T02:46:33.632Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/88/29/744136411e785c4b0b744d5413e56555265939ab3a104c6a4b719dad33fd/mkdocs_get_deps-0.2.2-py3-none-any.whl", hash = "sha256:e7878cbeac04860b8b5e0ca31d3abad3df9411a75a32cde82f8e44b6c16ff650", size = 9555, upload-time = "2026-03-10T02:46:32.256Z" },
+]
+
+[[package]]
+name = "mkdocs-openapi"
+version = "0.3.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "mkdocs" },
+    { name = "pymdown-extensions" },
+    { name = "pyyaml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/59/6b/08c881a1ba8d4619868d05a74b02577303ba8e62970baf0263c705c987e9/mkdocs_openapi-0.3.3.tar.gz", hash = "sha256:ff6e213e7d69f7923bd98807eff88a5e2785dbcd5316be502da18b782320c1a2", size = 257019, upload-time = "2026-10-21T01:03:57.61Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7b/68/31a131cd3613ddc7ba7ea07e5069ae31d374517873d61a4e1021e7a4f555/mkdocs_openapi-0.3.3-py3-none-any.whl", hash = "sha256:8aedcf0d013dc1b09b75d2c3d2a1ab8f3c34f013c124f1b46332b3155fd8ce26", size = 30991, upload-time = "2026-10-21T01:03:55.98Z" },
 ]
 
 [[package]]
