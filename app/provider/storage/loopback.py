@@ -99,7 +99,7 @@ def clamp(request: RangeRequest, size: int) -> tuple[int, int] | None:
     return request.start, min(request.end, size - 1) - request.start + 1
 
 
-def partial_headers(offset: int, length: int, size: int) -> list[tuple[str, str]]:
+def build_partial_headers(offset: int, length: int, size: int) -> list[tuple[str, str]]:
     """The headers of a 206 response carrying ``length`` bytes from ``offset``."""
     return [
         ("content-type", "application/octet-stream"),
@@ -137,7 +137,9 @@ SOURCES = RangeSources()
 """The registrations of this process."""
 
 
-def _empty(status: int, *headers: tuple[str, str]) -> tuple[int, list[tuple[str, str]], bytes]:
+def _answer_empty(
+    status: int, *headers: tuple[str, str]
+) -> tuple[int, list[tuple[str, str]], bytes]:
     return status, [("content-length", "0"), *headers], b""
 
 
@@ -187,7 +189,7 @@ class RangeServer:
         connection = h11.Connection(h11.SERVER)
         try:
             while True:
-                request = await _next_request(connection, reader)
+                request = await _read_next_request(connection, reader)
                 if request is None:
                     return
                 status, headers, body = await self._answer(request)
@@ -219,27 +221,27 @@ class RangeServer:
         )
         if isinstance(asked, Refusal):
             # RFC 9110, section 15.5.6: a 405 names the methods the target allows.
-            return _empty(asked.status, *([("allow", "GET")] if asked.status == 405 else []))
+            return _answer_empty(asked.status, *([("allow", "GET")] if asked.status == 405 else []))
         cached = self._sources.get(asked.source)
-        meta = cached.known(asked.version) if cached is not None else None
+        meta = cached.find_known(asked.version) if cached is not None else None
         if cached is None or meta is None:
-            return _empty(404)
+            return _answer_empty(404)
         window = clamp(asked, meta.size)
         if window is None:
-            return _empty(416, ("content-range", f"bytes */{meta.size}"))
+            return _answer_empty(416, ("content-range", f"bytes */{meta.size}"))
         offset, length = window
         try:
             data = await cached.at(meta).aread(offset, length)
         except ObjectChangedError:
             # The object changed under a version a reader still holds.
-            return _empty(404)
+            return _answer_empty(404)
         except Exception as error:
             logger.warning(f"loopback range read failed with {type(error).__name__}")
-            return _empty(502)
-        return 206, partial_headers(offset, len(data), meta.size), data
+            return _answer_empty(502)
+        return 206, build_partial_headers(offset, len(data), meta.size), data
 
 
-async def _next_request(
+async def _read_next_request(
     connection: h11.Connection, reader: asyncio.StreamReader
 ) -> h11.Request | None:
     """The next request on the connection once it is complete; None when the peer has gone."""

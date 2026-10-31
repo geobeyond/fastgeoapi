@@ -52,7 +52,7 @@ async def test_an_entry_of_the_wrong_length_is_a_miss_and_is_deleted():
 def test_a_key_names_the_source_the_version_and_the_range():
     from app.provider.storage import RangeCache
 
-    assert RangeCache.key("src", "ver", 127, 42) == "src/ver/127-42"
+    assert RangeCache.build_key("src", "ver", 127, 42) == "src/ver/127-42"
 
 
 def test_digests_are_short_and_path_safe():
@@ -68,7 +68,7 @@ def _entry(index: int) -> str:
     from app.provider.storage import RangeCache
     from app.provider.storage.cache import digest
 
-    return RangeCache.key(digest("s"), digest("v"), 100 + index, 10)
+    return RangeCache.build_key(digest("s"), digest("v"), 100 + index, 10)
 
 
 @pytest.mark.asyncio

@@ -96,9 +96,9 @@ def test_a_range_past_the_end_is_cut_or_refused():
 
 
 def test_the_partial_headers_describe_the_range():
-    from app.provider.storage.loopback import partial_headers
+    from app.provider.storage.loopback import build_partial_headers
 
-    headers = dict(partial_headers(10, 5, 100))
+    headers = dict(build_partial_headers(10, 5, 100))
     assert headers["content-range"] == "bytes 10-14/100"
     assert headers["content-length"] == "5"
 
