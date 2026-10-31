@@ -30,6 +30,7 @@ from pygeoapi.provider.base import ProviderQueryError
 from app.provider.pmtiles_types import MEDIA_TYPES, tile_width, tiles_problem
 from app.provider.sansio import Core, drive, drive_sync
 from app.provider.storage import ByteRanges, ObjectChangedError
+from app.provider.storage.base import ObjectMeta
 from app.provider.tiles import TilesProvider
 from app.tiles.contract import (
     TileContent,
@@ -92,11 +93,41 @@ class Archive:
 
 @dataclass(frozen=True)
 class _Opened:
-    """An archive read at one version of its object, with the reads pinned to that version."""
+    """An archive read at one version of its object, with the reads pinned to that version.
+
+    Attributes
+    ----------
+    archive
+        The header, the root directory and the metadata read at that version.
+    ranges
+        The reads pinned to that version.
+    version
+        The version, from :func:`get_object_version`.
+    """
 
     archive: Archive
     ranges: ByteRanges
-    etag: str | None
+    version: str
+
+
+def get_object_version(meta: ObjectMeta) -> str:
+    """The version of an object: its ETag, or its size and modification time without one.
+
+    Parameters
+    ----------
+    meta
+        The object's metadata, from a HEAD.
+
+    Returns
+    -------
+    str
+        The ETag, or ``<size>:<modification time in ISO 8601>``, with an
+        empty time when the store gives none.
+    """
+    if meta.etag:
+        return meta.etag
+    modified = meta.last_modified.isoformat() if meta.last_modified is not None else ""
+    return f"{meta.size}:{modified}"
 
 
 def inflate(data: bytes, compression: Compression) -> bytes:
@@ -211,6 +242,8 @@ class PMTilesTiles:
         self._archive: Archive | None = None
         self._opened: _Opened | None = None
         self._lock = threading.Lock()
+        # Held while a thread opens a version, so the others take it instead.
+        self._opening = threading.Lock()
 
     # -- the archive, known once ---------------------------------------------
 
@@ -247,12 +280,15 @@ class PMTilesTiles:
             return self._checked(self._archive_sync()), self._shared_ranges()
         meta = cached.meta()
         opened = self._opened
-        if opened is None or opened.etag != meta.etag:
-            ranges = cached.at(meta)
-            archive = drive_sync(open_archive(self._fresh_leaves()), ranges)
-            opened = _Opened(archive, ranges, meta.etag)
-            with self._lock:
-                self._opened = opened
+        if opened is None or opened.version != get_object_version(meta):
+            with self._opening:
+                opened = self._opened
+                if opened is None or opened.version != get_object_version(meta):
+                    ranges = cached.at(meta)
+                    archive = drive_sync(open_archive(self._fresh_leaves()), ranges)
+                    opened = _Opened(archive, ranges, get_object_version(meta))
+                    with self._lock:
+                        self._opened = opened
         return self._checked(opened.archive), opened.ranges
 
     async def _open_async(self) -> tuple[Archive, ByteRanges]:
@@ -262,10 +298,10 @@ class PMTilesTiles:
             return self._checked(await self._archive_async()), self._shared_ranges()
         meta = await cached.ameta()
         opened = self._opened
-        if opened is None or opened.etag != meta.etag:
+        if opened is None or opened.version != get_object_version(meta):
             ranges = cached.at(meta)
             archive = await drive(open_archive(self._fresh_leaves()), ranges)
-            opened = _Opened(archive, ranges, meta.etag)
+            opened = _Opened(archive, ranges, get_object_version(meta))
             with self._lock:
                 self._opened = opened
         return self._checked(opened.archive), opened.ranges
