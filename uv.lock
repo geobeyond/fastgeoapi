@@ -899,6 +899,7 @@ dependencies = [
     { name = "h11" },
     { name = "httpx" },
     { name = "httpx2" },
+    { name = "joserfc" },
     { name = "json-ref-dict" },
     { name = "loguru" },
     { name = "mangum" },
@@ -972,7 +973,7 @@ maps = [
 
 [package.metadata]
 requires-dist = [
-    { name = "authlib", specifier = ">=1.7.2,<2" },
+    { name = "authlib", specifier = ">=1.9.1,<2" },
     { name = "cachetools", specifier = ">=7,<8" },
     { name = "duckdb", marker = "extra == 'geoparquet'", specifier = ">=1.5,<2" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.141,<1.0" },
@@ -987,6 +988,7 @@ requires-dist = [
     { name = "h11", specifier = ">=0.16,<0.17" },
     { name = "httpx", specifier = ">=0.28,<0.29" },
     { name = "httpx2", specifier = ">=2.12,<3" },
+    { name = "joserfc", specifier = ">=1.7.6,<2" },
     { name = "json-ref-dict", specifier = ">=0.7.2,<=1.0" },
     { name = "loguru", specifier = ">=0.7.3,<1.0" },
     { name = "mangum", specifier = ">=0.19,<1.0" },
