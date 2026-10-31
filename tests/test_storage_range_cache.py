@@ -52,7 +52,7 @@ async def test_an_entry_of_the_wrong_length_is_a_miss_and_is_deleted():
 def test_a_key_names_the_source_the_version_and_the_range():
     from app.provider.storage import RangeCache
 
-    assert RangeCache.key("src", "ver", 127, 42) == "src/ver/127-42"
+    assert RangeCache.build_key("src", "ver", 127, 42) == "src/ver/127-42"
 
 
 def test_digests_are_short_and_path_safe():
@@ -68,7 +68,7 @@ def _entry(index: int) -> str:
     from app.provider.storage import RangeCache
     from app.provider.storage.cache import digest
 
-    return RangeCache.key(digest("s"), digest("v"), 100 + index, 10)
+    return RangeCache.build_key(digest("s"), digest("v"), 100 + index, 10)
 
 
 @pytest.mark.asyncio
@@ -81,6 +81,34 @@ async def test_a_sweep_deletes_the_entries_written_first_down_to_nine_tenths_of_
 
     kept = sorted(entry.path for entry in store.entries())
     assert kept == [_entry(index) for index in range(3, 12)]  # 90 bytes left
+
+
+class SlowListing(CountingStore):
+    """A store whose listing waits until the test lets it go."""
+
+    def __init__(self, inner):
+        super().__init__(inner)
+        self.listed = threading.Event()
+
+    def entries(self, prefix: str = ""):
+        self.listed.wait(timeout=5)
+        return super().entries(prefix)
+
+
+@pytest.mark.asyncio
+async def test_a_sync_write_leaves_its_sweep_to_another_thread():
+    store = SlowListing(memory_store())
+    for index in range(12):
+        store.put(_entry(index), bytes(10))
+    cache = range_cache(store, max_bytes=100)
+
+    cache.put(_entry(12), bytes(10))  # the first write is due for a sweep
+    swept_before = len(store.inner.entries())
+    store.listed.set()
+    await cache.drain()
+
+    assert swept_before == 13
+    assert len(store.inner.entries()) < 13
 
 
 @pytest.mark.asyncio
@@ -170,6 +198,19 @@ def test_a_local_cache_directory_is_created_private_at_its_first_use(tmp_path):
     cache.put("s/v/0-3", b"abc")
     assert stat.S_IMODE(location.stat().st_mode) == 0o700
     assert cache.get("s/v/0-3", 3) == b"abc"
+
+
+def test_an_existing_cache_directory_is_made_private_at_its_first_use(tmp_path):
+    from app.provider.storage import RangeCache
+
+    location = tmp_path / "ranges"
+    location.mkdir(mode=0o755)
+    location.chmod(0o755)
+    cache = RangeCache.at(str(location), max_bytes=1 << 20)
+
+    cache.put("s/v/0-3", b"abc")
+
+    assert stat.S_IMODE(location.stat().st_mode) == 0o700
 
 
 def test_concurrent_writes_of_one_entry_never_show_a_partial_entry(tmp_path):

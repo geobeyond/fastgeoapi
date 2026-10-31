@@ -41,7 +41,7 @@ from app.middleware.proxy import (
 )
 from app.middleware.pygeoapi import OpenapiSecurityMiddleware
 from app.provider.storage import loopback
-from app.provider.storage.cache import cache_base_dir
+from app.provider.storage.cache import get_cache_base_dir
 from app.pygeoapi.holder import PygeoapiHolder
 from app.utils.app_exceptions import AppExceptionError, app_exception_handler
 from app.utils.pygeoapi_exceptions import (
@@ -240,7 +240,7 @@ def _openapi_cache_dir() -> Path:
     no hardcoded cwd dependency in containerized layouts); defaults to
     the historical ``<cwd>/.cache`` root.
     """
-    return cache_base_dir(cfg) / "openapi_refs"
+    return get_cache_base_dir(cfg) / "openapi_refs"
 
 
 #: Identifies this process. A control plane sampling the reload status
