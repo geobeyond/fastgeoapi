@@ -139,7 +139,7 @@ def inflate(data: bytes, compression: Compression) -> bytes:
     raise ProviderQueryError(f"PMTiles compression {compression.name} is not supported")
 
 
-def zoom_limits(archive: Archive) -> tuple[int, int]:
+def get_zoom_limits(archive: Archive) -> tuple[int, int]:
     """Zoom range from the metadata's vector layers, the header as a fallback.
 
     Overture's ``places`` header says 0-14 while the archive holds zoom
@@ -195,7 +195,7 @@ def read_tile(archive: Archive, entry: Entry) -> Core[bytes]:
     return (yield (archive.header["tile_data_offset"] + entry.offset, entry.length))  # ruff: ignore[return-in-generator]
 
 
-def first_tile(archive: Archive) -> Core[bytes | None]:
+def find_first_tile(archive: Archive) -> Core[bytes | None]:
     """The stored bytes of the archive's first tile, descending leaves as :func:`locate` does."""
     entries = archive.root
     for _ in range(MAX_DIRECTORY_DEPTH):
@@ -216,7 +216,7 @@ INLINE_INFLATE_LIMIT = 256 * 1024
 """Compressed bytes above which the async face inflates in a worker thread."""
 
 
-def _degrees(e7: int) -> float:
+def _to_degrees(e7: int) -> float:
     return e7 / 1e7
 
 
@@ -247,7 +247,7 @@ class PMTilesTiles:
 
     # -- the archive, known once ---------------------------------------------
 
-    def _shared_ranges(self) -> ByteRanges:
+    def _get_shared_ranges(self) -> ByteRanges:
         # Concurrent identical reads (a cold burst wanting the same
         # directories) share one fetch through these.
         if self._ranges is None:
@@ -256,18 +256,18 @@ class PMTilesTiles:
                     self._ranges = self._context.ranges()
         return self._ranges
 
-    def _archive_sync(self) -> Archive:
+    def _load_archive_sync(self) -> Archive:
         if self._archive is None:
-            # Taken before the lock: _shared_ranges takes the same lock.
-            ranges = self._shared_ranges()
+            # Taken before the lock: _get_shared_ranges takes the same lock.
+            ranges = self._get_shared_ranges()
             with self._lock:
                 if self._archive is None:
                     self._archive = drive_sync(open_archive(self._leaves), ranges)
         return self._archive
 
-    async def _archive_async(self) -> Archive:
+    async def _load_archive_async(self) -> Archive:
         if self._archive is None:
-            archive = await drive(open_archive(self._leaves), self._shared_ranges())
+            archive = await drive(open_archive(self._leaves), self._get_shared_ranges())
             with self._lock:
                 if self._archive is None:
                     self._archive = archive
@@ -277,7 +277,7 @@ class PMTilesTiles:
         """The archive and the reads that match it, opened again when the object changes."""
         cached = self._context.cached()
         if cached is None:
-            return self._checked(self._archive_sync()), self._shared_ranges()
+            return self._check_archive(self._load_archive_sync()), self._get_shared_ranges()
         meta = cached.meta()
         opened = self._opened
         if opened is None or opened.version != get_object_version(meta):
@@ -285,32 +285,32 @@ class PMTilesTiles:
                 opened = self._opened
                 if opened is None or opened.version != get_object_version(meta):
                     ranges = cached.at(meta)
-                    archive = drive_sync(open_archive(self._fresh_leaves()), ranges)
+                    archive = drive_sync(open_archive(self._make_fresh_leaves()), ranges)
                     opened = _Opened(archive, ranges, get_object_version(meta))
                     with self._lock:
                         self._opened = opened
-        return self._checked(opened.archive), opened.ranges
+        return self._check_archive(opened.archive), opened.ranges
 
     async def _open_async(self) -> tuple[Archive, ByteRanges]:
         """Async twin of :meth:`_open_sync`."""
         cached = self._context.cached()
         if cached is None:
-            return self._checked(await self._archive_async()), self._shared_ranges()
+            return self._check_archive(await self._load_archive_async()), self._get_shared_ranges()
         meta = await cached.ameta()
         opened = self._opened
         if opened is None or opened.version != get_object_version(meta):
             ranges = cached.at(meta)
-            archive = await drive(open_archive(self._fresh_leaves()), ranges)
+            archive = await drive(open_archive(self._make_fresh_leaves()), ranges)
             opened = _Opened(archive, ranges, get_object_version(meta))
             with self._lock:
                 self._opened = opened
-        return self._checked(opened.archive), opened.ranges
+        return self._check_archive(opened.archive), opened.ranges
 
-    def _fresh_leaves(self) -> LeafCache:
+    def _make_fresh_leaves(self) -> LeafCache:
         # Leaf offsets belong to one version of the archive.
         return LeafCache(maxsize=self._leaves.maxsize)
 
-    def _checked(self, archive: Archive) -> Archive:
+    def _check_archive(self, archive: Archive) -> Archive:
         """``archive``, when its tiles can be served as the definition says."""
         problem = tiles_problem(
             archive.header["tile_type"],
@@ -326,14 +326,14 @@ class PMTilesTiles:
     def content(self) -> TileContent:
         """What the archive holds: header, metadata and, for raster tiles, the first tile."""
         archive, ranges = self._open_sync()
-        return self._describe(archive, self._tile_size_sync(archive, ranges))
+        return self._describe(archive, self._read_tile_size_sync(archive, ranges))
 
     async def acontent(self) -> TileContent:
         """Async twin of :meth:`content`."""
         archive, ranges = await self._open_async()
-        return self._describe(archive, await self._tile_size_async(archive, ranges))
+        return self._describe(archive, await self._read_tile_size_async(archive, ranges))
 
-    def _tile_size_sync(self, archive: Archive, ranges: ByteRanges) -> int | None:
+    def _read_tile_size_sync(self, archive: Archive, ranges: ByteRanges) -> int | None:
         """``options.tile_size``, or the width of the first raster tile, measured once."""
         if archive.header["tile_type"] == TileType.MVT:
             return None
@@ -341,22 +341,26 @@ class PMTilesTiles:
         if configured:
             return int(configured)
         if archive.tile_size is None:
-            archive.tile_size = self._width(archive, drive_sync(first_tile(archive), ranges))
+            archive.tile_size = self._get_width(
+                archive, drive_sync(find_first_tile(archive), ranges)
+            )
         return archive.tile_size or None
 
-    async def _tile_size_async(self, archive: Archive, ranges: ByteRanges) -> int | None:
-        """Async twin of :meth:`_tile_size_sync`."""
+    async def _read_tile_size_async(self, archive: Archive, ranges: ByteRanges) -> int | None:
+        """Async twin of :meth:`_read_tile_size_sync`."""
         if archive.header["tile_type"] == TileType.MVT:
             return None
         configured = self._context.options.get("tile_size")
         if configured:
             return int(configured)
         if archive.tile_size is None:
-            archive.tile_size = self._width(archive, await drive(first_tile(archive), ranges))
+            archive.tile_size = self._get_width(
+                archive, await drive(find_first_tile(archive), ranges)
+            )
         return archive.tile_size or None
 
     @staticmethod
-    def _width(archive: Archive, data: bytes | None) -> int:
+    def _get_width(archive: Archive, data: bytes | None) -> int:
         if data is None:
             return 0
         tile = inflate(data, archive.header["tile_compression"])
@@ -365,29 +369,29 @@ class PMTilesTiles:
     def tile(self, z: int, x: int, y: int) -> bytes | None:
         """The tile bytes, decompressed."""
         try:
-            return self._tile_sync(z, x, y)
+            return self._read_tile_sync(z, x, y)
         except ObjectChangedError:
             # The archive changed under the version being read: read the tile from the new one.
-            return self._tile_sync(z, x, y)
+            return self._read_tile_sync(z, x, y)
 
     async def atile(self, z: int, x: int, y: int) -> bytes | None:
         """The same tile, awaited; big tiles are inflated in a worker to keep the loop free."""
         try:
-            return await self._tile_async(z, x, y)
+            return await self._read_tile_async(z, x, y)
         except ObjectChangedError:
-            return await self._tile_async(z, x, y)
+            return await self._read_tile_async(z, x, y)
 
-    def _tile_sync(self, z: int, x: int, y: int) -> bytes | None:
+    def _read_tile_sync(self, z: int, x: int, y: int) -> bytes | None:
         archive, ranges = self._open_sync()
-        entry = drive_sync(locate(archive, _tile_id(archive, z, x, y)), ranges)
+        entry = drive_sync(locate(archive, _get_tile_id(archive, z, x, y)), ranges)
         if entry is None:
             return None
         raw = drive_sync(read_tile(archive, entry), ranges)
         return inflate(raw, archive.header["tile_compression"])
 
-    async def _tile_async(self, z: int, x: int, y: int) -> bytes | None:
+    async def _read_tile_async(self, z: int, x: int, y: int) -> bytes | None:
         archive, ranges = await self._open_async()
-        entry = await drive(locate(archive, _tile_id(archive, z, x, y)), ranges)
+        entry = await drive(locate(archive, _get_tile_id(archive, z, x, y)), ranges)
         if entry is None:
             return None
         raw = await drive(read_tile(archive, entry), ranges)
@@ -399,7 +403,7 @@ class PMTilesTiles:
     def _describe(self, archive: Archive, tile_size: int | None) -> TileContent:
         header, metadata = archive.header, archive.metadata
         media_type = MEDIA_TYPES[header["tile_type"]][0]
-        low, high = zoom_limits(archive)
+        low, high = get_zoom_limits(archive)
         return TileContent(
             data_type=data_type_for(media_type, self._context.dem),
             media_type=media_type,
@@ -407,14 +411,14 @@ class PMTilesTiles:
             min_zoom=low,
             max_zoom=high,
             bounds=(
-                _degrees(header["min_lon_e7"]),
-                _degrees(header["min_lat_e7"]),
-                _degrees(header["max_lon_e7"]),
-                _degrees(header["max_lat_e7"]),
+                _to_degrees(header["min_lon_e7"]),
+                _to_degrees(header["min_lat_e7"]),
+                _to_degrees(header["max_lon_e7"]),
+                _to_degrees(header["max_lat_e7"]),
             ),
             center=(
-                _degrees(header["center_lon_e7"]),
-                _degrees(header["center_lat_e7"]),
+                _to_degrees(header["center_lon_e7"]),
+                _to_degrees(header["center_lat_e7"]),
                 header["center_zoom"],
             ),
             name=metadata.get("name"),
@@ -436,9 +440,9 @@ class PMTilesTiles:
         )
 
 
-def _tile_id(archive: Archive, z: int, x: int, y: int) -> int:
+def _get_tile_id(archive: Archive, z: int, x: int, y: int) -> int:
     """The tile id of z/x/y; outside the archive's zooms is :class:`TileOutsideError`."""
-    low, high = zoom_limits(archive)
+    low, high = get_zoom_limits(archive)
     if not low <= z <= high:
         raise TileOutsideError(f"tile {z}/{x}/{y} is outside the archive's zooms {low}-{high}")
     return zxy_to_tileid(z, x, y)

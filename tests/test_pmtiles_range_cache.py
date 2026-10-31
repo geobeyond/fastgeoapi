@@ -85,12 +85,12 @@ def test_two_threads_open_one_version_once(origin):
     start = threading.Barrier(2)
     tiles = []
 
-    def first_tile():
+    def find_first_tile():
         start.wait()
         tiles.append(provider.get_tiles(z=0, x=0, y=0))
 
     with patch.object(pmtiles, "open_archive", side_effect=slow_open):
-        threads = [threading.Thread(target=first_tile) for _ in range(2)]
+        threads = [threading.Thread(target=find_first_tile) for _ in range(2)]
         for thread in threads:
             thread.start()
         for thread in threads:
