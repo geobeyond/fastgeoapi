@@ -1,5 +1,6 @@
 """The PMTiles provider reads a remote archive through the range cache."""
 
+import dataclasses
 import gzip
 
 import pytest
@@ -65,6 +66,40 @@ def test_the_sync_face_reads_through_the_cache_too(origin):
     assert len(origin.range_reads) == reads
 
 
+def test_two_threads_open_one_version_once(origin):
+    import threading
+    import time
+    from unittest.mock import patch
+
+    from app.provider import pmtiles
+
+    provider = _provider(origin, range_cache(memory_store()))
+    opened = []
+    real = pmtiles.open_archive
+
+    def slow_open(leaves):
+        opened.append(threading.get_ident())
+        time.sleep(0.2)  # long enough for the other thread to reach the check
+        return real(leaves)
+
+    start = threading.Barrier(2)
+    tiles = []
+
+    def first_tile():
+        start.wait()
+        tiles.append(provider.get_tiles(z=0, x=0, y=0))
+
+    with patch.object(pmtiles, "open_archive", side_effect=slow_open):
+        threads = [threading.Thread(target=first_tile) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+    assert tiles == [b"tile 0/0/0", b"tile 0/0/0"]
+    assert len(opened) == 1
+
+
 @pytest.mark.asyncio
 async def test_an_archive_rewritten_in_place_is_opened_again(origin, tmp_path):
     clock = Clock()
@@ -76,6 +111,40 @@ async def test_an_archive_rewritten_in_place_is_opened_again(origin, tmp_path):
     clock.now += 301
 
     assert await provider.aget_tiles(z=0, x=0, y=0) == b"new 0/0/0"
+    await cache.drain()
+
+
+class NoEtag(CountingStore):
+    """A store without ETags, like some HTTP servers."""
+
+    def head(self, path):
+        return dataclasses.replace(super().head(path), etag=None)
+
+    async def ahead(self, path):
+        return dataclasses.replace(await super().ahead(path), etag=None)
+
+
+@pytest.mark.asyncio
+async def test_an_archive_without_etag_rewritten_in_place_is_opened_again(tmp_path):
+    origin = NoEtag(memory_store())
+    origin.put(KEY, _archive(tmp_path / "v1.pmtiles", {(0, 0, 0): TILE_BYTES(0, 0, 0)}))
+    clock = Clock()
+    cache = range_cache(memory_store(), clock=clock)
+    provider = _provider(origin, cache)
+    assert await provider.aget_tiles(z=0, x=0, y=0) == b"tile 0/0/0"
+    assert provider.get_tiles(z=0, x=0, y=0) == b"tile 0/0/0"
+
+    # Other offsets and a tile that only the new archive has.
+    v2 = {
+        (0, 0, 0): gzip.compress(b"a longer new tile 0/0/0"),
+        (1, 0, 0): TILE_BYTES(1, 0, 0),
+        (1, 1, 1): TILE_BYTES(1, 1, 1),
+    }
+    origin.put(KEY, _archive(tmp_path / "v2.pmtiles", v2))
+    clock.now += 301
+
+    assert await provider.aget_tiles(z=0, x=0, y=0) == b"a longer new tile 0/0/0"
+    assert provider.get_tiles(z=1, x=1, y=1) == b"tile 1/1/1"
     await cache.drain()
 
 
