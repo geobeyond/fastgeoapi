@@ -85,16 +85,40 @@ class RangeCache:
         self._written = self._tenth
         self._sweeping = False
         self._sweeps: set[asyncio.Task[None]] = set()
+        self._sweep_threads: set[threading.Thread] = set()
         self._warned: dict[str, float] = {}
 
     @classmethod
     def at(cls, location: str, *, max_bytes: int, revalidate_seconds: float = 300.0) -> RangeCache:
-        """A cache in a local directory readable by this user only, or in a store named by URL."""
+        """A cache in a local directory readable by this user only, or in a store named by URL.
+
+        Nothing is created before the first read or write. A local directory
+        is then created with mode 0700, or brought back to 0700 when it
+        already exists: the entries are bytes of the objects, private
+        buckets included.
+
+        Parameters
+        ----------
+        location
+            A local path, or the URL of a store.
+        max_bytes
+            The cap on the size of the entries. Past it, a sweep deletes the
+            entries written first, down to nine tenths of the cap.
+        revalidate_seconds
+            How many seconds a version read with a HEAD is trusted.
+
+        Returns
+        -------
+        RangeCache
+            The cache, before any I/O.
+        """
 
         def opener() -> ObjectStore:
             if "://" not in location:
                 # Entries are bytes of the objects, private buckets included.
+                # makedirs leaves a directory that already exists as it is.
                 os.makedirs(location, mode=0o700, exist_ok=True)
+                os.chmod(location, 0o700)
             return load_store(location)
 
         return cls(opener, max_bytes=max_bytes, revalidate_seconds=revalidate_seconds)
@@ -133,7 +157,19 @@ class RangeCache:
         return data
 
     def put(self, key: str, data: bytes) -> None:
-        """Keep ``data`` at ``key``, unless it is larger than a tenth of the cap."""
+        """Keep ``data`` at ``key``, unless it is larger than a tenth of the cap.
+
+        A write that fails is logged, and the entry is not kept. The sweep
+        the write may start runs on a thread of its own, so the reader that
+        wrote the entry does not wait for the listing and the deletes.
+
+        Parameters
+        ----------
+        key
+            The entry's key, from :meth:`key`.
+        data
+            The bytes of the range.
+        """
         if len(data) > self._tenth:
             return
         try:
@@ -142,7 +178,19 @@ class RangeCache:
             self._warn("write", error)
             return
         if self._due(len(data)):
+            thread = threading.Thread(
+                target=self._sweep_in_background, name="range-cache-sweep", daemon=True
+            )
+            with self._lock:
+                self._sweep_threads.add(thread)
+            thread.start()
+
+    def _sweep_in_background(self) -> None:
+        try:
             self.sweep()
+        finally:
+            with self._lock:
+                self._sweep_threads.discard(threading.current_thread())
 
     async def aput(self, key: str, data: bytes) -> None:
         """Async twin of :meth:`put`; the sweep it may start runs in the background."""
@@ -183,9 +231,16 @@ class RangeCache:
                 self._sweeping = False
 
     async def drain(self) -> None:
-        """Wait for the sweeps running in the background."""
+        """Wait for the sweeps running in the background, on the loop and on threads.
+
+        A sweep that fails has already logged its error, so none is raised here.
+        """
         if self._sweeps:
             await asyncio.gather(*self._sweeps, return_exceptions=True)
+        with self._lock:
+            threads = list(self._sweep_threads)
+        for thread in threads:
+            await asyncio.to_thread(thread.join)
 
     def _surplus(self, entries: list[ObjectMeta]) -> list[str]:
         # The location may hold other objects: only the cache's own entries count and are deleted.
@@ -270,14 +325,41 @@ class CachedRanges:
         self._revalidating: asyncio.Task | None = None
 
     def meta(self) -> ObjectMeta:
-        """The object's metadata; a HEAD once ``revalidate_seconds`` have passed."""
+        """The object's metadata, read again with a HEAD once ``revalidate_seconds`` have passed.
+
+        When that HEAD fails, the version read last answers and a warning is
+        logged; the next call past the TTL tries again. When it fails before
+        any version was read, the store's error reaches the caller.
+
+        Returns
+        -------
+        ObjectMeta
+            The size, the ETag and the modification time of the object.
+        """
         meta = self._fresh()
-        return meta if meta is not None else self._remember(self.store.head(self.key))
+        if meta is not None:
+            return meta
+        try:
+            return self._remember(self.store.head(self.key))
+        except Exception as error:
+            return self._known_after(error)
 
     async def ameta(self) -> ObjectMeta:
-        """Async twin of :meth:`meta`."""
+        """Async twin of :meth:`meta`, with the same fallback and the same errors."""
         meta = self._fresh()
-        return meta if meta is not None else self._remember(await self.store.ahead(self.key))
+        if meta is not None:
+            return meta
+        try:
+            return self._remember(await self.store.ahead(self.key))
+        except Exception as error:
+            return self._known_after(error)
+
+    def _known_after(self, error: Exception) -> ObjectMeta:
+        known = self.known_meta()
+        if known is None:
+            raise error
+        self.cache._warn("revalidation", error, then="the known version stays")
+        return known
 
     async def ameta_without_waiting(self) -> ObjectMeta:
         """The version to read now: the known one, while a HEAD past the TTL runs behind.

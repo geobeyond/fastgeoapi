@@ -83,6 +83,34 @@ async def test_a_sweep_deletes_the_entries_written_first_down_to_nine_tenths_of_
     assert kept == [_entry(index) for index in range(3, 12)]  # 90 bytes left
 
 
+class SlowListing(CountingStore):
+    """A store whose listing waits until the test lets it go."""
+
+    def __init__(self, inner):
+        super().__init__(inner)
+        self.listed = threading.Event()
+
+    def entries(self, prefix: str = ""):
+        self.listed.wait(timeout=5)
+        return super().entries(prefix)
+
+
+@pytest.mark.asyncio
+async def test_a_sync_write_leaves_its_sweep_to_another_thread():
+    store = SlowListing(memory_store())
+    for index in range(12):
+        store.put(_entry(index), bytes(10))
+    cache = range_cache(store, max_bytes=100)
+
+    cache.put(_entry(12), bytes(10))  # the first write is due for a sweep
+    swept_before = len(store.inner.entries())
+    store.listed.set()
+    await cache.drain()
+
+    assert swept_before == 13
+    assert len(store.inner.entries()) < 13
+
+
 @pytest.mark.asyncio
 async def test_under_the_cap_a_sweep_deletes_nothing():
     store = memory_store()
@@ -170,6 +198,19 @@ def test_a_local_cache_directory_is_created_private_at_its_first_use(tmp_path):
     cache.put("s/v/0-3", b"abc")
     assert stat.S_IMODE(location.stat().st_mode) == 0o700
     assert cache.get("s/v/0-3", 3) == b"abc"
+
+
+def test_an_existing_cache_directory_is_made_private_at_its_first_use(tmp_path):
+    from app.provider.storage import RangeCache
+
+    location = tmp_path / "ranges"
+    location.mkdir(mode=0o755)
+    location.chmod(0o755)
+    cache = RangeCache.at(str(location), max_bytes=1 << 20)
+
+    cache.put("s/v/0-3", b"abc")
+
+    assert stat.S_IMODE(location.stat().st_mode) == 0o700
 
 
 def test_concurrent_writes_of_one_entry_never_show_a_partial_entry(tmp_path):
