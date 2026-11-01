@@ -32,7 +32,7 @@
     "node-diff3": "^3.2.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "redoc": "^2.5.4",
+    "redoc": "^3.0.1",
     "swagger-ui-dist": "^5.34.0",
     "tailwind-merge": "^3.7.0",
     "tailwindcss": "^4.3.3",

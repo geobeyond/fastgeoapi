@@ -9,15 +9,23 @@ export interface ApiDocsConfig {
   url: string;
 }
 
-/** The globals the viewers' bundles define once loaded. */
+/** The global Swagger UI's bundle defines once loaded. */
 export interface Viewers {
   SwaggerUIBundle?: (options: { url: string; domNode: HTMLElement }) => unknown;
-  Redoc?: {
-    init: (url: string, options: object, element: HTMLElement) => void;
-  };
+}
+
+/** What ReDoc's bundle exports: it is an ES module, not a classic script. */
+export interface RedocModule {
+  init: (url: string, options: object, element: HTMLElement) => unknown;
 }
 
 export type Load = (src: string) => Promise<void>;
+export type ImportModule = (src: string) => Promise<RedocModule>;
+
+/** Imports a module from the URL the build gives its bundle. */
+export function importModule(src: string): Promise<RedocModule> {
+  return import(/* @vite-ignore */ src) as Promise<RedocModule>;
+}
 
 /** Adds a classic script to the page and waits for it to run. */
 export function loadScript(src: string): Promise<void> {
@@ -36,12 +44,13 @@ export async function showDocs(
   config: ApiDocsConfig,
   load: Load = loadScript,
   viewers: Viewers = window as unknown as Viewers,
+  importRedoc: ImportModule = importModule,
 ): Promise<void> {
   const target = document.createElement("div");
   element.append(target);
   if (config.ui === "redoc") {
-    await load(redocBundle);
-    viewers.Redoc?.init(config.url, {}, target);
+    const redoc = await importRedoc(redocBundle);
+    redoc.init(config.url, {}, target);
     return;
   }
   await load(swaggerBundle);
