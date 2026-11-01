@@ -90,6 +90,9 @@ portolan = [
 [dependency-groups]
 dev = [
     "pytest>=9.0.2,<10",
+    # The tests of scripts/generate_api_reference.py import its generator,
+    # which the `docs` group installs only for the docs build.
+    "mkdocs-openapi>=0.3.3",
     # Local S3 for the end-to-end test of the bucket read path. Kept in
     # `dev` and never near the `geoparquet` extra: it drags in botocore,
     # which is 15 MB the runtime has no use for.
