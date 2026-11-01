@@ -19,6 +19,29 @@ uv run nox -s models-check  # the generated config models are current
 uv run nox -s docs-build   # the site, in strict mode
 ```
 
+## The OGC schemas
+
+The tests in `tests/conformance` build the sub-app of
+`pygeoapi-config.yml` and of `pygeoapi-config.demo.yml` in process and
+validate the JSON they return against the official OGC schemas. The
+schemas, and the validator, come from xpublish-ogc-core, which only the
+`conformance` dependency group installs:
+
+```bash
+uv sync --group conformance
+uv run pytest tests/conformance
+```
+
+Without the group the folder is skipped, which is what happens in the
+`tests` and `typeguard` sessions. CI runs it in a lane of its own:
+
+```bash
+uv run nox -s conformance
+```
+
+The tests read no data and open no connection, so they need neither the
+buckets of the demo nor credentials.
+
 ## The frontend
 
 The editor's page and the scripts of the HTML pages share a suite, and it
