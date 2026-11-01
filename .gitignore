@@ -151,11 +151,14 @@ dmypy.json
 
 # fastgeoapi
 /pygeoapi-openapi.json
+/pygeoapi-demo-openapi.json
+/pygeoapi-demo-openapi.yml
 pygeoapi-openapi.yml
 canaille.sqlite
 
 # Report generato dal gate OWASP in CI
 openlint-owasp.json
+openlint-owasp-demo.json
 
 # The editor's page: sources in frontend/, compiled into the package.
 # The build artefact is shipped as package data from CI, never committed.

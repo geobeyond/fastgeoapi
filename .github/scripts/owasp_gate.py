@@ -11,10 +11,10 @@ rather than reading as success.
 
 Findings are split by source. OpenLint resolves `$ref`s into the remote
 OGC schemas, and those documents predate the rules; that noise is
-reported but never gates. Only findings in our own generated document
+reported but never gates. Only findings in the documents we generate
 can fail the build.
 
-Known errors in our document are listed in ACCEPTED with the reason they
+Known errors in our documents are listed in ACCEPTED with the reason they
 are tolerated. The gate is a ratchet: anything outside that list fails,
 so the set can shrink but not silently grow.
 """
@@ -27,8 +27,12 @@ import pathlib
 import sys
 from collections import Counter
 
-REPORT = pathlib.Path("openlint-owasp.json")
-DOCUMENT = "pygeoapi-openapi.json"
+# One report per document: given two documents at once, OpenLint 1.0.0
+# reports findings without their source.
+REPORTS = (pathlib.Path("openlint-owasp.json"), pathlib.Path("openlint-owasp-demo.json"))
+# The documents CI generates: the example configuration and the demo one,
+# which adds the GeoParquet, tile and map collections.
+DOCUMENTS = ("pygeoapi-openapi.json", "pygeoapi-demo-openapi.json")
 
 SEVERITY = {0: "error", 1: "warning", 2: "info", 3: "hint"}
 
@@ -70,35 +74,50 @@ def emit(summary: list[str]) -> None:
 
 
 def main() -> int:
-    """Parse the OpenLint report, print the summary, and gate on our errors."""
-    if not REPORT.exists() or not REPORT.stat().st_size:
-        emit(
-            [
-                "# 🔒 OWASP API Security Top 10",
-                "",
-                f"**The lint produced no report** (`{REPORT}` missing or empty).",
-                "Treating this as a failure: a check that cannot run must not "
-                "read as a check that passed.",
-            ]
-        )
-        return 1
+    """Parse the OpenLint reports, print the summary, and gate on our errors."""
+    findings: list[dict] = []
+    for report in REPORTS:
+        if not report.exists() or not report.stat().st_size:
+            emit(
+                [
+                    "# 🔒 OWASP API Security Top 10",
+                    "",
+                    f"**The lint produced no report** (`{report}` missing or empty).",
+                    "Treating this as a failure: a check that cannot run must not "
+                    "read as a check that passed.",
+                ]
+            )
+            return 1
+        try:
+            findings += json.loads(report.read_text())
+        except json.JSONDecodeError as error:
+            emit(
+                [
+                    "# 🔒 OWASP API Security Top 10",
+                    "",
+                    f"**`{report}` is not valid JSON**: {error}",
+                    "OpenLint most likely aborted before validating — check the "
+                    "ruleset for rule names that no longer exist upstream.",
+                ]
+            )
+            return 1
 
-    try:
-        findings = json.loads(REPORT.read_text())
-    except json.JSONDecodeError as error:
+    # A finding without its source cannot be told ours or remote, and would
+    # otherwise pass as remote whatever its severity.
+    sourceless = [f for f in findings if not f.get("source")]
+    if sourceless:
         emit(
             [
                 "# 🔒 OWASP API Security Top 10",
                 "",
-                f"**The report is not valid JSON**: {error}",
-                "OpenLint most likely aborted before validating — check the "
-                "ruleset for rule names that no longer exist upstream.",
+                f"**{len(sourceless)} findings have no source**, so they cannot be "
+                "told ours or remote. Lint one document per OpenLint run.",
             ]
         )
         return 1
 
     def is_ours(finding: dict) -> bool:
-        return (finding.get("source") or "").endswith(DOCUMENT)
+        return (finding.get("source") or "").endswith(DOCUMENTS)
 
     ours = [f for f in findings if is_ours(f)]
     remote = [f for f in findings if not is_ours(f)]
@@ -110,7 +129,7 @@ def main() -> int:
         "",
         "| Source | Errors | Warnings |",
         "|---|---|---|",
-        f"| **Our document** | {sum(1 for f in ours if f['severity'] == 0)} "
+        f"| **Our documents** | {sum(1 for f in ours if f['severity'] == 0)} "
         f"| {sum(1 for f in ours if f['severity'] == 1)} |",
         f"| Remote OGC schemas | {sum(1 for f in remote if f['severity'] == 0)} "
         f"| {sum(1 for f in remote if f['severity'] == 1)} |",
@@ -121,7 +140,7 @@ def main() -> int:
     ]
 
     if our_errors:
-        summary += ["## Errors in our document", ""]
+        summary += ["## Errors in our documents", ""]
         for code, count in Counter(f["code"] for f in our_errors).most_common():
             mark = "✅ accepted" if code in ACCEPTED else "❌ **new**"
             summary.append(f"- `{code}` x{count} — {mark}")
@@ -144,7 +163,7 @@ def main() -> int:
         emit(summary)
         return 1
 
-    summary.append("✅ No unaccepted errors in our document.")
+    summary.append("✅ No unaccepted errors in our documents.")
     emit(summary)
     return 0
 
