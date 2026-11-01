@@ -1,0 +1,408 @@
+:root {
+  /* GET, POST, PUT, and DELETE match the Swagger Petstore defaults. */
+  --api-method-get-color: #61affe;
+  --api-method-post-color: #49cc90;
+  --api-method-put-color: #fca130;
+  --api-method-delete-color: #f93e3e;
+  --api-method-patch-color: #50e3c2;
+  --api-method-head-color: #9012fe;
+  --api-method-options-color: #0d5aa7;
+  --api-method-trace-color: #6b7280;
+  --api-method-text-color: #ffffff;
+  --api-parameter-name-color: #2563eb;
+}
+
+.md-typeset code.http-method {
+  border: 0;
+  border-radius: 0.25rem;
+  color: var(--api-method-text-color);
+  display: inline-block;
+  font-family: var(--md-code-font-family, monospace);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+  min-width: 2.75rem;
+  padding: 0.1rem 0.32rem;
+  text-align: center;
+}
+
+.http-method.get { background: var(--api-method-get-color); }
+.http-method.post { background: var(--api-method-post-color); }
+.http-method.put { background: var(--api-method-put-color); }
+.http-method.delete { background: var(--api-method-delete-color); }
+.http-method.patch { background: var(--api-method-patch-color); }
+.http-method.head { background: var(--api-method-head-color); }
+.http-method.options { background: var(--api-method-options-color); }
+.http-method.trace { background: var(--api-method-trace-color); }
+
+.operation-path {
+  font-size: 0.82rem;
+  margin-left: 0.35rem;
+  word-break: break-word;
+}
+
+.api-endpoint {
+  align-items: center;
+  background: var(--md-code-bg-color);
+  border: 0.05rem solid var(--md-default-fg-color--lightest);
+  border-radius: 0.45rem;
+  display: flex;
+  gap: 0.65rem;
+  margin: 1rem 0 1.25rem;
+  min-width: 0;
+  padding: 0.65rem;
+  position: relative;
+}
+
+.api-endpoint__method {
+  border-radius: 0.25rem;
+  color: var(--api-method-text-color);
+  flex: 0 0 auto;
+  font-family: var(--md-code-font-family, monospace);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1.6;
+  min-width: 2.75rem;
+  padding: 0.15rem 0.3rem;
+  text-align: center;
+}
+
+.api-endpoint code.api-endpoint__url {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: var(--md-default-fg-color);
+  display: block;
+  flex: 1 1 auto;
+  font-size: 0.72rem;
+  margin: 0;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 0.2rem 0;
+  scrollbar-width: thin;
+  white-space: nowrap;
+}
+
+.api-copy-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 0.25rem;
+  color: var(--md-default-fg-color--light);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  padding: 0.35rem;
+}
+
+.api-copy-button:hover,
+.api-copy-button:focus-visible,
+.api-copy-button.is-copied {
+  background: var(--md-default-fg-color--lightest);
+  color: var(--md-accent-fg-color);
+}
+
+.api-copy-button svg,
+.api-page-actions svg {
+  fill: currentcolor;
+  height: 1rem;
+  width: 1rem;
+}
+
+.api-copy-feedback {
+  bottom: -1.1rem;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.55rem;
+  position: absolute;
+  right: 0.65rem;
+}
+
+.api-parameter {
+  border-bottom: 0.05rem solid var(--md-default-fg-color--lightest);
+  padding: 0.8rem 0 1rem;
+}
+
+.api-parameter:last-child {
+  border-bottom: 0;
+}
+
+.api-parameter__meta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.md-typeset code.api-parameter__name,
+.md-typeset code.api-parameter__type {
+  border-radius: 0.3rem;
+  font-size: 0.72rem;
+  padding: 0.12rem 0.38rem;
+}
+
+.md-typeset code.api-parameter__name {
+  background: color-mix(in srgb, var(--api-parameter-name-color) 10%, transparent);
+  color: var(--api-parameter-name-color);
+  font-weight: 700;
+}
+
+.md-typeset code.api-parameter__type {
+  background: var(--md-code-bg-color);
+  color: var(--md-default-fg-color--light);
+}
+
+.api-parameter__required {
+  background: color-mix(in srgb, var(--api-method-delete-color) 10%, transparent);
+  border-radius: 0.3rem;
+  color: var(--api-method-delete-color);
+  font-family: var(--md-code-font-family, monospace);
+  font-size: 0.68rem;
+  padding: 0.12rem 0.38rem;
+}
+
+.api-parameter__description {
+  color: var(--md-default-fg-color--light);
+  margin-top: 0.55rem;
+}
+
+.api-page-actions {
+  align-items: stretch;
+  border: 0.05rem solid var(--md-default-fg-color--lightest);
+  border-radius: 0.45rem;
+  display: flex;
+  float: right;
+  margin: 0 0 0.5rem 0.75rem;
+  position: relative;
+  z-index: 2;
+}
+
+.md-typeset .api-page-actions details {
+  background: transparent;
+  border: 0;
+  border-left: 0.05rem solid var(--md-default-fg-color--lightest);
+  border-radius: 0;
+  box-shadow: none;
+  color: inherit;
+  flex: 0 0 1.8rem;
+  font-size: inherit;
+  height: 1.8rem;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+.md-typeset .api-page-actions .api-page-actions__primary,
+.md-typeset .api-page-actions summary {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--md-default-fg-color--light);
+  cursor: pointer;
+  display: flex;
+  height: 1.8rem;
+  justify-content: center;
+  line-height: 1;
+}
+
+.md-typeset .api-page-actions .api-page-actions__primary {
+  border-radius: 0.4rem 0 0 0.4rem;
+  font: inherit;
+  gap: 0.4rem;
+  padding: 0 0.55rem;
+}
+
+.md-typeset .api-page-actions summary {
+  border-radius: 0 0.4rem 0.4rem 0;
+  box-sizing: border-box;
+  list-style: none;
+  margin: 0;
+  min-width: 0;
+  outline: 0;
+  padding: 0.35rem;
+  user-select: none;
+  width: 100%;
+}
+
+.md-typeset .api-page-actions summary::-webkit-details-marker {
+  display: none;
+}
+
+.md-typeset .api-page-actions summary::before,
+.md-typeset .api-page-actions summary::after {
+  display: none;
+}
+
+.api-page-actions .api-page-actions__primary:hover,
+.api-page-actions .api-page-actions__primary:focus-visible,
+.api-page-actions details[open] summary,
+.api-page-actions summary:hover,
+.api-page-actions summary:focus-visible {
+  background: var(--md-default-fg-color--lightest);
+  color: var(--md-accent-fg-color);
+}
+
+.api-page-actions__chevron {
+  flex: 0 0 1.05rem;
+  height: 1.05rem;
+  transition: transform 150ms ease;
+  width: 1.05rem;
+}
+
+.api-page-actions details[open] .api-page-actions__chevron {
+  transform: rotate(180deg);
+}
+
+.api-page-actions__menu {
+  background: var(--md-default-bg-color);
+  border: 0.05rem solid var(--md-default-fg-color--lightest);
+  border-radius: 0.35rem;
+  box-shadow: var(--md-shadow-z2);
+  min-width: 14.5rem;
+  padding: 0.3rem;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.3rem);
+}
+
+.api-page-actions__menu button {
+  align-items: flex-start;
+  background: transparent;
+  border: 0;
+  border-radius: 0.25rem;
+  color: var(--md-default-fg-color);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: 0.6rem;
+  line-height: 1.25;
+  padding: 0.5rem 0.55rem;
+  text-align: left;
+  width: 100%;
+}
+
+.api-page-actions__menu button > svg {
+  border: 0.05rem solid var(--md-default-fg-color--lightest);
+  border-radius: 0.25rem;
+  box-sizing: content-box;
+  flex: 0 0 1rem;
+  margin-top: 0.05rem;
+  padding: 0.25rem;
+}
+
+.api-page-actions__label {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.api-page-actions__label strong {
+  align-items: center;
+  display: flex;
+  font-size: 0.68rem;
+  font-weight: 500;
+  gap: 0.15rem;
+}
+
+.api-page-actions__label small {
+  color: var(--md-default-fg-color--light);
+  font-size: 0.56rem;
+  margin-top: 0.08rem;
+  white-space: nowrap;
+}
+
+.api-page-actions__label .api-page-actions__external {
+  border: 0;
+  height: 0.58rem;
+  padding: 0;
+  width: 0.58rem;
+}
+
+.api-page-actions__menu button:hover,
+.api-page-actions__menu button:focus-visible {
+  background: var(--md-default-fg-color--lightest);
+  color: var(--md-accent-fg-color);
+}
+
+.api-page-actions__feedback {
+  color: var(--md-default-fg-color--light);
+  font-size: 0.55rem;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.2rem);
+  white-space: nowrap;
+}
+
+.api-page-actions script {
+  display: none;
+}
+
+/*
+ * MkDocs nav labels are plain text, so generated filenames expose the method
+ * as "operation-{method}-". The pseudo-element adds the visual badge without
+ * requiring HTML in mkdocs.yml.
+ */
+.md-nav--primary .md-nav__link[href*="operation-"]::before,
+.md-nav--primary .md-nav__link[data-api-method]::before {
+  border-radius: 0.2rem;
+  color: var(--api-method-text-color);
+  flex: 0 0 1.9rem;
+  font-family: var(--md-code-font-family, monospace);
+  font-size: 0.44rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.35;
+  margin-right: 0.3rem;
+  padding: 0.03rem 0.1rem;
+  text-align: center;
+}
+
+.md-nav--primary .md-nav__link[href*="operation-get-"]::before,
+.md-nav--primary .md-nav__link[data-api-method="get"]::before {
+  background: var(--api-method-get-color);
+  content: "GET";
+}
+
+.md-nav--primary .md-nav__link[href*="operation-post-"]::before,
+.md-nav--primary .md-nav__link[data-api-method="post"]::before {
+  background: var(--api-method-post-color);
+  content: "POST";
+}
+
+.md-nav--primary .md-nav__link[href*="operation-put-"]::before,
+.md-nav--primary .md-nav__link[data-api-method="put"]::before {
+  background: var(--api-method-put-color);
+  content: "PUT";
+}
+
+.md-nav--primary .md-nav__link[href*="operation-delete-"]::before,
+.md-nav--primary .md-nav__link[data-api-method="delete"]::before {
+  background: var(--api-method-delete-color);
+  content: "DEL";
+}
+
+.md-nav--primary .md-nav__link[href*="operation-patch-"]::before,
+.md-nav--primary .md-nav__link[data-api-method="patch"]::before {
+  background: var(--api-method-patch-color);
+  content: "PATCH";
+}
+
+.md-nav--primary .md-nav__link[href*="operation-head-"]::before,
+.md-nav--primary .md-nav__link[data-api-method="head"]::before {
+  background: var(--api-method-head-color);
+  content: "HEAD";
+}
+
+.md-nav--primary .md-nav__link[href*="operation-options-"]::before,
+.md-nav--primary .md-nav__link[data-api-method="options"]::before {
+  background: var(--api-method-options-color);
+  content: "OPTIONS";
+}
+
+.md-nav--primary .md-nav__link[href*="operation-trace-"]::before,
+.md-nav--primary .md-nav__link[data-api-method="trace"]::before {
+  background: var(--api-method-trace-color);
+  content: "TRACE";
+}
