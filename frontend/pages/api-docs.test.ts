@@ -24,9 +24,10 @@ describe("showDocs", () => {
     });
   });
 
-  it("opens ReDoc when the page asks for it", async () => {
+  it("opens ReDoc from its module bundle when the page asks for it", async () => {
     const element = document.createElement("fga-api-docs");
     const loaded: string[] = [];
+    const imported: string[] = [];
     const init = vi.fn();
 
     await showDocs(
@@ -35,10 +36,21 @@ describe("showDocs", () => {
       async (src) => {
         loaded.push(src);
       },
-      { Redoc: { init } },
+      {},
+      async (src) => {
+        imported.push(src);
+        return { init };
+      },
     );
 
-    expect(loaded).toEqual([expect.stringContaining("redoc.standalone")]);
-    expect(init).toHaveBeenCalledWith(url, {}, element.firstElementChild);
+    // ReDoc 3 ships its bundle as an ES module: no classic script.
+    expect(loaded).toEqual([]);
+    expect(imported).toEqual([expect.stringContaining("redoc.standalone")]);
+    // ReDoc 3 sends usage telemetry to Redocly unless told not to.
+    expect(init).toHaveBeenCalledWith(
+      url,
+      { disableTelemetry: true },
+      element.firstElementChild,
+    );
   });
 });
