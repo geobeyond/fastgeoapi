@@ -142,10 +142,7 @@ def _not_conforming(findings: tuple[Finding, ...]) -> str:
 
 
 def _variable_at(value: Any, path: str) -> str | None:
-    """Where a string or a key in ``value`` holds ``${``; ``store_options`` are left out.
-
-    The store options are the user's, and a variable there can be meant.
-    """
+    """Where a string or a key in ``value`` holds ``${``."""
     if isinstance(value, str):
         return path if _VARIABLE in value else None
     if isinstance(value, Mapping):
@@ -153,7 +150,7 @@ def _variable_at(value: Any, path: str) -> str | None:
             where = f"{path}.{key}" if path else str(key)
             if _VARIABLE in str(key):
                 return where
-            found = None if key == "store_options" else _variable_at(item, where)
+            found = _variable_at(item, where)
             if found is not None:
                 return found
     if isinstance(value, list):
@@ -221,7 +218,16 @@ async def _resource(
         ingest["schema"] = catalog.portolan_schema
     # The root is the one given on the command line; the rest comes from the catalog.
     from_catalog = {key: value for key, value in ingest.items() if key != "catalog"}
-    where = _variable_at({"id": collection.id, **resource, "ingest": from_catalog}, "")
+    # A provider's store options come from the user, who may mean a variable there.
+    # The check skips that field alone: a catalog can give a style any name,
+    # store_options included.
+    checked = [
+        {key: value for key, value in provider.items() if key != "store_options"}
+        for provider in providers
+    ]
+    where = _variable_at(
+        {"id": collection.id, **resource, "providers": checked, "ingest": from_catalog}, ""
+    )
     if where is not None:
         reason = f"{where} holds '${{', which the configuration reads as a variable"
         return SkippedDocument(collection.id, reason)

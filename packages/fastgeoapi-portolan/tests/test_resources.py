@@ -385,6 +385,40 @@ async def test_a_style_named_with_a_variable_is_skipped(base):
 
 
 @pytest.mark.asyncio
+async def test_a_style_named_store_options_is_still_checked_for_variables(base):
+    """The check leaves out the store options of the provider, and nothing else with that name."""
+    _archive(base / "roads" / "roads.pmtiles")
+    style = {
+        "version": 8,
+        "sources": {"roads": {"type": "vector", "url": "pmtiles://./roads.pmtiles"}},
+        "layers": [],
+    }
+    (base / "roads" / "${SECRET}.json").write_text(json.dumps(style))
+    assets = {
+        "tiles": {
+            "href": "./roads.pmtiles",
+            "type": "application/vnd.pmtiles",
+            "roles": ["visual"],
+        },
+        "night": {
+            "href": "./${SECRET}.json",
+            "type": "application/json",
+            "roles": ["style"],
+            "title": "store_options",
+        },
+    }
+    document = _document("roads", assets=assets)
+
+    built, skipped = await build(_catalog(base, _collection(base, document)), IngestOptions())
+
+    assert built == []
+    assert skipped[0].reason == (
+        "providers[0].options.styles.store_options holds '${',"
+        " which the configuration reads as a variable"
+    )
+
+
+@pytest.mark.asyncio
 async def test_a_provider_refused_for_now_leaves_the_whole_collection_as_it_is(base, monkeypatch):
     async def unavailable(collection, ingest_options):
         return Refusal("the archive could not be read: HTTP 503", transient=True)
