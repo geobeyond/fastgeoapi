@@ -9,7 +9,7 @@ never measured. So the first thing checked here is that the lint produced
 usable output at all; an empty or unparseable report fails the build
 rather than reading as success.
 
-Findings are split by source. Spectral resolves `$ref`s into the remote
+Findings are split by source. OpenLint resolves `$ref`s into the remote
 OGC schemas, and those documents predate the rules; that noise is
 reported but never gates. Only findings in our own generated document
 can fail the build.
@@ -27,7 +27,7 @@ import pathlib
 import sys
 from collections import Counter
 
-REPORT = pathlib.Path("spectral-owasp.json")
+REPORT = pathlib.Path("openlint-owasp.json")
 DOCUMENT = "pygeoapi-openapi.json"
 
 SEVERITY = {0: "error", 1: "warning", 2: "info", 3: "hint"}
@@ -70,7 +70,7 @@ def emit(summary: list[str]) -> None:
 
 
 def main() -> int:
-    """Parse the Spectral report, print the summary, and gate on our errors."""
+    """Parse the OpenLint report, print the summary, and gate on our errors."""
     if not REPORT.exists() or not REPORT.stat().st_size:
         emit(
             [
@@ -91,7 +91,7 @@ def main() -> int:
                 "# 🔒 OWASP API Security Top 10",
                 "",
                 f"**The report is not valid JSON**: {error}",
-                "Spectral most likely aborted before validating — check the "
+                "OpenLint most likely aborted before validating — check the "
                 "ruleset for rule names that no longer exist upstream.",
             ]
         )
