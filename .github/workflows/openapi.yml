@@ -1,4 +1,4 @@
-name: Validate OpenAPI with Spectral
+name: Validate OpenAPI with OpenLint
 
 on:
   - push
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  spectral-oas:
+  openlint-oas:
     name: Lint and validate OpenAPI document for pygeoapi configuration
     runs-on: ubuntu-latest
     steps:
@@ -42,20 +42,23 @@ jobs:
         env:
           UV_SYSTEM_PYTHON: 1
           UV_BREAK_SYSTEM_PACKAGES: 1
-      # Display the OAS3 ruleset (already in repo)
+      # The CLI is pinned: a major range would run whatever 1.x is
+      # published next.
+      - name: Install OpenLint
+        run: npm install -g openlint@1.0.0
+
       - name: Show OAS3 ruleset
-        run: |
-          cat .spectral.oas3.yaml
+        run: cat .openlint.oas3.yaml
 
-      # Run Spectral for OAS3 - highlights errors but doesn't fail the build
-      - name: Run Spectral for OAS3
-        uses: stoplightio/spectral-action@6416fd018ae38e60136775066eb3e98172143141 # v0.8.13 (tag `latest`)
+      # Highlights the findings as annotations but does not fail the build.
+      - name: Run OpenLint for OAS3
         continue-on-error: true
-        with:
-          file_glob: "pygeoapi-openapi.json"
-          spectral_ruleset: ".spectral.oas3.yaml"
+        run: |
+          openlint lint pygeoapi-openapi.json \
+            --ruleset .openlint.oas3.yaml \
+            --format github-actions
 
-  spectral-owasp:
+  openlint-owasp:
     name: Validate OpenAPI document against OWASP Top 10 API security rules
     runs-on: ubuntu-latest
     steps:
@@ -87,24 +90,22 @@ jobs:
         env:
           UV_SYSTEM_PYTHON: 1
           UV_BREAK_SYSTEM_PACKAGES: 1
-      # The ruleset version is pinned inside .spectral.owasp-top.10.yaml;
-      # the CLI is pinned here for the same reason. `@6` was a major
-      # range, not a pin — the comment claimed something the line did not
-      # do, and any 6.x published upstream would have run here.
-      - name: Install Spectral CLI
-        run: npm install -g @stoplight/spectral-cli@6.16.3
+      # The ruleset is vendored and pinned by scripts/vendor_owasp_ruleset.py;
+      # the CLI is pinned here for the same reason.
+      - name: Install OpenLint
+        run: npm install -g openlint@1.0.0
 
       - name: Show OWASP ruleset
-        run: cat .spectral.owasp-top.10.yaml
+        run: cat .openlint.owasp-top-10.yaml
 
-      # `|| true` because spectral exits non-zero when it finds anything.
-      # The gate below decides — and fails if this produced no usable
+      # `|| true` because openlint exits non-zero when it finds anything.
+      # The gate below decides, and fails if this produced no usable
       # report, which is how a broken ruleset went unnoticed before.
       - name: Run OWASP ruleset
         run: |
-          spectral lint pygeoapi-openapi.json \
-            --ruleset .spectral.owasp-top.10.yaml \
-            --format json > spectral-owasp.json || true
+          openlint lint pygeoapi-openapi.json \
+            --ruleset .openlint.owasp-top-10.yaml \
+            --format json > openlint-owasp.json || true
 
       - name: Report findings and gate on ours
         run: python3 .github/scripts/owasp_gate.py

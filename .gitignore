@@ -129,6 +129,10 @@ venv.bak/
 # mkdocs documentation
 /site
 /docs_build
+# Written by scripts/generate_api_reference.py before the docs build.
+/docs/consumers/reference/api/
+/docs/stylesheets/mkdocs-openapi.css
+/docs/javascripts/mkdocs-openapi.js
 
 # mypy
 .mypy_cache/
@@ -151,7 +155,7 @@ pygeoapi-openapi.yml
 canaille.sqlite
 
 # Report generato dal gate OWASP in CI
-spectral-owasp.json
+openlint-owasp.json
 
 # The editor's page: sources in frontend/, compiled into the package.
 # The build artefact is shipped as package data from CI, never committed.

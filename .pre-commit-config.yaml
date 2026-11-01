@@ -32,19 +32,21 @@ repos:
         entry: check-yaml
         language: system
         types: [yaml]
+      # `.openlint/` holds a vendored ruleset, kept byte for byte as
+      # scripts/vendor_owasp_ruleset.py writes it.
       - id: end-of-file-fixer
         name: Fix End of Files
         entry: end-of-file-fixer
         language: system
         types: [text]
-        exclude: '^(app/pygeoapi/config_models/(_generated\.py|pygeoapi-config-schema\.yml)|packages/fastgeoapi-portolan/fastgeoapi_portolan/catalog/schemas/.+\.json|packages/fastgeoapi-portolan/fastgeoapi_portolan/(catalog/_generated/[^/]+|models/(?!__init__\.py)[^/]+)\.py)$'
+        exclude: '^(app/pygeoapi/config_models/(_generated\.py|pygeoapi-config-schema\.yml)|packages/fastgeoapi-portolan/fastgeoapi_portolan/catalog/schemas/.+\.json|packages/fastgeoapi-portolan/fastgeoapi_portolan/(catalog/_generated/[^/]+|models/(?!__init__\.py)[^/]+)\.py|\.openlint/.+)$'
         stages: [pre-commit, pre-push, manual]
       - id: trailing-whitespace
         name: Trim Trailing Whitespace
         entry: trailing-whitespace-fixer
         language: system
         types: [text]
-        exclude: '^(app/pygeoapi/config_models/(_generated\.py|pygeoapi-config-schema\.yml)|packages/fastgeoapi-portolan/fastgeoapi_portolan/catalog/schemas/.+\.json|packages/fastgeoapi-portolan/fastgeoapi_portolan/(catalog/_generated/[^/]+|models/(?!__init__\.py)[^/]+)\.py)$'
+        exclude: '^(app/pygeoapi/config_models/(_generated\.py|pygeoapi-config-schema\.yml)|packages/fastgeoapi-portolan/fastgeoapi_portolan/catalog/schemas/.+\.json|packages/fastgeoapi-portolan/fastgeoapi_portolan/(catalog/_generated/[^/]+|models/(?!__init__\.py)[^/]+)\.py|\.openlint/.+)$'
         stages: [pre-commit, pre-push, manual]
       - id: ty
         name: Type check with ty
@@ -78,4 +80,4 @@ repos:
         # parse: it would rewrite their tags.
         # `docs/javascripts/` holds a vendored, minified web component: not
         # ours to restyle (scripts/vendor_install_button.py regenerates it).
-        exclude: "^(packages/fastgeoapi-portolan/fastgeoapi_portolan/catalog/schemas/.+\\.json$|packages/fastgeoapi-html/fastgeoapi_html/templates/|app/pygeoapi/config_models/|frontend/|docs/javascripts/|docs/configuration-reference\\.md$|docs/index\\.md$|docs/(operators|consumers|contributors)/index\\.md$)"
+        exclude: "^(packages/fastgeoapi-portolan/fastgeoapi_portolan/catalog/schemas/.+\\.json$|packages/fastgeoapi-html/fastgeoapi_html/templates/|app/pygeoapi/config_models/|frontend/|docs/javascripts/|\\.openlint/|docs/configuration-reference\\.md$|docs/index\\.md$|docs/(operators|consumers|contributors)/index\\.md$)"

@@ -288,6 +288,8 @@ def ty(session: Session) -> None:
         # The OGC conformance validator for `tests/test_ogc_conformance_local.py`
         # in the `dev` group, which these sessions do not install.
         "ogcapi-registry==0.4.0",
+        # The generator that tests/test_generate_api_reference.py imports.
+        "mkdocs-openapi>=0.3.3",
         "ty",
         "pytest",
         "schemathesis>=4.26",
@@ -328,6 +330,8 @@ def tests(session: Session) -> None:
         # The OGC conformance validator for `tests/test_ogc_conformance_local.py`
         # in the `dev` group, which these sessions do not install.
         "ogcapi-registry==0.4.0",
+        # The generator that tests/test_generate_api_reference.py imports.
+        "mkdocs-openapi>=0.3.3",
         "coverage[toml]",
         "pytest",
         "pygments",
@@ -382,6 +386,8 @@ def typeguard(session: Session) -> None:
         # The OGC conformance validator for `tests/test_ogc_conformance_local.py`
         # in the `dev` group, which these sessions do not install.
         "ogcapi-registry==0.4.0",
+        # The generator that tests/test_generate_api_reference.py imports.
+        "mkdocs-openapi>=0.3.3",
         "pytest",
         "typeguard",
         "pygments",
@@ -481,7 +487,13 @@ def xdoctest(session: Session) -> None:
 #: replaced Material for MkDocs and most of its plugins with settings of
 #: its own; what is left is the API reference handler and the terminal
 #: animation, both of which it reads as extensions.
-DOCS_DEPENDENCIES = ("zensical>=0.0.58", "mkdocstrings-python", "termynal")
+DOCS_DEPENDENCIES = (
+    "zensical>=0.0.58",
+    "mkdocstrings-python",
+    "termynal",
+    # Its generator writes the API reference pages; Zensical does not run it as a plugin.
+    "mkdocs-openapi>=0.3.3",
+)
 
 
 @session(name="docs-build", python="3.12")
@@ -499,6 +511,7 @@ def docs_build(session: Session) -> None:
     if build_dir.exists():
         shutil.rmtree(build_dir)
 
+    session.run("python", "scripts/generate_api_reference.py")
     session.run("python", "-m", "zensical", "build", *args)
 
 
@@ -513,4 +526,5 @@ def docs(session: Session) -> None:
     if build_dir.exists():
         shutil.rmtree(build_dir)
 
+    session.run("python", "scripts/generate_api_reference.py")
     session.run("python", "-m", "zensical", "serve", *args)
