@@ -46,6 +46,11 @@ describe("showDocs", () => {
     // ReDoc 3 ships its bundle as an ES module: no classic script.
     expect(loaded).toEqual([]);
     expect(imported).toEqual([expect.stringContaining("redoc.standalone")]);
-    expect(init).toHaveBeenCalledWith(url, {}, element.firstElementChild);
+    // ReDoc 3 sends usage telemetry to Redocly unless told not to.
+    expect(init).toHaveBeenCalledWith(
+      url,
+      { disableTelemetry: true },
+      element.firstElementChild,
+    );
   });
 });

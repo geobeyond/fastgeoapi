@@ -50,7 +50,8 @@ export async function showDocs(
   element.append(target);
   if (config.ui === "redoc") {
     const redoc = await importRedoc(redocBundle);
-    redoc.init(config.url, {}, target);
+    // ReDoc 3 reports usage to Redocly unless told not to.
+    redoc.init(config.url, { disableTelemetry: true }, target);
     return;
   }
   await load(swaggerBundle);
