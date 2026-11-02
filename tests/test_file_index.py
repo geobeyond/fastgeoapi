@@ -6,6 +6,7 @@ bind a second ``FileIndexError`` that ``pytest.raises`` does not catch.
 """
 
 import pytest
+from loguru import logger
 
 from app.provider.duckdb_ import connect, scan_files
 from app.provider.file_index import (
@@ -115,3 +116,65 @@ def test_an_href_with_a_quote_stays_one_literal(tmp_path):
 
     assert str(path).replace("'", "''") in scan
     assert con.execute(f"SELECT count(*) FROM {scan}").fetchone()[0] == 1
+
+
+def _write_sql_index(path, select: str) -> str:
+    connect(str(path.parent)).execute(f"COPY ({select}) TO '{path}' (FORMAT parquet)")
+    return str(path)
+
+
+def _warnings(action) -> list[str]:
+    messages: list[str] = []
+    sink = logger.add(lambda message: messages.append(str(message)), level="WARNING")
+    try:
+        action()
+    finally:
+        logger.remove(sink)
+    return messages
+
+
+def test_a_row_without_an_href_names_its_id(tmp_path):
+    index = _write_sql_index(
+        tmp_path / "index.parquet",
+        "SELECT 'a' AS id, {'xmin': 0.0, 'ymin': 0.0, 'xmax': 1.0, 'ymax': 1.0} AS bbox,"
+        " {'data': {'href': 'a.parquet'}} AS assets"
+        " UNION ALL SELECT 'b', {'xmin': 1.0, 'ymin': 1.0, 'xmax': 2.0, 'ymax': 2.0},"
+        " {'data': {'href': NULL::VARCHAR}}",
+    )
+
+    with pytest.raises(FileIndexError, match="'b'"):
+        read_stac_geoparquet(index)
+
+
+def test_rows_with_an_unusable_bbox_are_kept_and_counted_in_a_warning(tmp_path):
+    index = _write_sql_index(
+        tmp_path / "index.parquet",
+        "SELECT 'a' AS id, {'xmin': 0.0, 'ymin': 0.0, 'xmax': 1.0, 'ymax': 1.0} AS bbox,"
+        " {'data': {'href': 'a.parquet'}} AS assets"
+        " UNION ALL SELECT 'b', NULL, {'data': {'href': 'b.parquet'}}",
+    )
+    entries: list[FileEntry] = []
+
+    messages = _warnings(lambda: entries.extend(read_stac_geoparquet(index)))
+
+    assert select_files(entries, [50.0, 50.0, 51.0, 51.0]) == [str(tmp_path / "b.parquet")]
+    assert any("1 of 2" in message for message in messages)
+
+
+def test_an_index_without_stac_geoparquet_metadata_is_read_with_a_warning(dataset):
+    _, index = dataset
+
+    messages = _warnings(lambda: read_stac_geoparquet(index))
+
+    assert any("stac-geoparquet" in message and index in message for message in messages)
+
+
+def test_an_index_without_ids_names_that_column(tmp_path):
+    index = _write_sql_index(
+        tmp_path / "index.parquet",
+        "SELECT {'xmin': 0.0, 'ymin': 0.0, 'xmax': 1.0, 'ymax': 1.0} AS bbox,"
+        " {'data': {'href': 'a.parquet'}} AS assets",
+    )
+
+    with pytest.raises(FileIndexError, match=r"has no id$"):
+        read_stac_geoparquet(index)
