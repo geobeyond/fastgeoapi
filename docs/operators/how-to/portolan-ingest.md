@@ -148,6 +148,22 @@ Data at any other `https://` URL is written as it is when it names one
 `.parquet` file; a glob or a folder there is skipped with the reason,
 since HTTP cannot list the files.
 
+When the data comes from the items, the provider also gets a
+`file_index`, so a request with a bbox reads only the files it meets (see
+the GeoParquet guide). The index is, in this order:
+
+- the collection's stac-geoparquet mirror of its items, an asset with the
+  role `collection-mirror`;
+- with `--into`, a stac-geoparquet file the command writes as
+  `indexes/<resource id>.parquet` in the folder of the configuration, on
+  disk or in the bucket, and names relative to it. Every run writes it
+  again. The command needs duckdb for it; without duckdb it says so and
+  takes the next choice;
+- the collection itself, whose items the provider then reads once.
+
+An item without a usable bbox leaves the whole collection without an
+index, since that file could never be left out.
+
 The id column and the geometry column come from the first source that
 names them:
 
@@ -243,12 +259,16 @@ quotes and `${VAR}` placeholders included.
   catalog, is left alone and listed under `skipped`.
 - Collections gone from the catalog are listed as missing and kept.
   `--prune` removes them, under three conditions:
+
   - only resources of this catalog are removed;
   - with `--collection`, only the selected ones;
   - only after a walk that read the whole catalog. If a document could not
     be read or the walk stopped at its limit, a collection may still be
     there, so nothing is pruned and a warning says why. A collection the
     catalog still lists but this run skipped is never missing.
+
+  A pruned resource takes its file in `indexes/` with it.
+
 - A collection whose archive, style, metadata or items do not answer
   (anything but a missing or oversized object) is skipped with the
   reason, and its resource stays as it was: a second ingest during an
