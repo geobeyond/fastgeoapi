@@ -37,11 +37,45 @@ class Served:
     config: dict
 
 
+def build_served(name: str) -> Served:
+    """Build the sub-app of one configuration.
+
+    The demo reads the schema of its remote Parquet datasets to build its
+    OpenAPI document. When DuckDB cannot read that data, because the network
+    fails or a release leaves the bucket, the cases of the configuration are
+    skipped with the error as the reason and do not show up as schema
+    violations.
+
+    Parameters
+    ----------
+    name
+        The id of the configuration in ``CONFIGURATIONS``.
+
+    Returns
+    -------
+    Served
+        The client and the configuration it serves.
+    """
+    import duckdb
+    from pygeoapi.util import yaml_load
+
+    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
+
+    with Path(CONFIGURATIONS[name]).open() as handle:
+        config = yaml_load(handle)
+    try:
+        openapi = build_openapi(config)
+    except duckdb.IOException as error:
+        pytest.skip(f"{name}: the data it names cannot be read ({error})")
+    app = build_pygeoapi_subapp(config, openapi)
+    return Served(client=TestClient(app, raise_server_exceptions=False), config=config)
+
+
 @pytest.fixture(
     name="served", scope="module", params=list(CONFIGURATIONS), ids=list(CONFIGURATIONS)
 )
 def serve_configuration(request: pytest.FixtureRequest) -> Served:
-    """Build the sub-app of one configuration, without reading its data.
+    """Serve one configuration to the tests of a module.
 
     Parameters
     ----------
@@ -53,11 +87,4 @@ def serve_configuration(request: pytest.FixtureRequest) -> Served:
     Served
         The client and the configuration it serves.
     """
-    from pygeoapi.util import yaml_load
-
-    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
-
-    with Path(CONFIGURATIONS[request.param]).open() as handle:
-        config = yaml_load(handle)
-    app = build_pygeoapi_subapp(config, build_openapi(config))
-    return Served(client=TestClient(app, raise_server_exceptions=False), config=config)
+    return build_served(request.param)

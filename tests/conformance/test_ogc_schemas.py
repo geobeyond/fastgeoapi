@@ -4,8 +4,12 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import pytest
+from starlette.applications import Starlette
+from starlette.responses import JSONResponse
+from starlette.routing import Route
+from starlette.testclient import TestClient
 
-from tests.conformance.conftest import Served
+from tests.conformance.conftest import Served, build_served
 
 validate_response = pytest.importorskip("xpublish_ogc_core.testing").validate_response
 
@@ -85,6 +89,26 @@ def test_the_landing_page_follows_ogc_common(served: Served) -> None:
     assert_follows_ogc("landingPage", body, "common")
 
 
+def list_tile_collection_names(served: Served) -> list[str]:
+    """Name the resources of the configuration with a tile provider.
+
+    Parameters
+    ----------
+    served
+        The configuration to read.
+
+    Returns
+    -------
+    list[str]
+        The names, in the order of the configuration.
+    """
+    return [
+        name
+        for name, resource in served.config["resources"].items()
+        if any(provider["type"] == "tile" for provider in resource.get("providers", []))
+    ]
+
+
 def list_tileset_paths(served: Served) -> list[str]:
     """Find the tilesets the tile collections link to.
 
@@ -103,11 +127,10 @@ def list_tileset_paths(served: Served) -> list[str]:
     """
     base = urlsplit(served.config["server"]["url"]).path.rstrip("/")
     paths = []
-    for name, resource in served.config["resources"].items():
-        if not any(provider["type"] == "tile" for provider in resource.get("providers", [])):
-            continue
+    for name in list_tile_collection_names(served):
         status, body = get_json(served, f"/collections/{name}/tiles")
         assert status == 200, name
+        assert body["tilesets"], f"{name} lists no tileset"
         for tileset in body["tilesets"]:
             href = next(link["href"] for link in tileset["links"] if link["rel"] == "self")
             paths.append(urlsplit(href).path.removeprefix(base))
@@ -169,9 +192,9 @@ def test_an_unknown_collection_answers_an_ogc_exception(served: Served) -> None:
 
 def test_each_tileset_follows_ogc_tiles(served: Served) -> None:
     """Every tileset a tile collection links to follows the Tiles ``tileSet`` schema."""
-    paths = list_tileset_paths(served)
-    if not paths:
+    if not list_tile_collection_names(served):
         pytest.skip("the configuration has no tile collection")
+    paths = list_tileset_paths(served)
     for path in paths:
         status, body = get_json(served, path)
 
@@ -183,6 +206,58 @@ def test_an_unlisted_divergence_fails() -> None:
     """A violation that ``KNOWN_DIVERGENCES`` does not list fails the test."""
     with pytest.raises(AssertionError, match="'links' is a required property"):
         assert_follows_ogc("landingPage", {}, "common")
+
+
+def test_a_tile_collection_without_tilesets_fails() -> None:
+    """A tile collection that lists no tileset fails; only a configuration without one skips."""
+    app = Starlette(
+        routes=[
+            Route(
+                "/collections/roads/tiles",
+                lambda request: JSONResponse({"links": [], "tilesets": []}),
+            )
+        ]
+    )
+    config = {
+        "server": {"url": "http://localhost:5000/geoapi"},
+        "resources": {"roads": {"type": "collection", "providers": [{"type": "tile"}]}},
+    }
+    served = Served(client=TestClient(app), config=config)
+
+    with pytest.raises(AssertionError, match="roads"):
+        list_tileset_paths(served)
+
+
+def test_a_configuration_whose_data_cannot_be_read_is_skipped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Data the configuration names but cannot read skips its cases with the reason."""
+    import duckdb
+
+    from app.pygeoapi import factory
+
+    def fail(config: dict) -> dict:
+        raise duckdb.IOException("No files found that match the pattern")
+
+    monkeypatch.setattr(factory, "build_openapi", fail)
+
+    with pytest.raises(pytest.skip.Exception, match="No files found"):
+        build_served("demo")
+
+
+def test_any_other_error_while_building_a_configuration_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Only a read of the data turns into a skip."""
+    from app.pygeoapi import factory
+
+    def fail(config: dict) -> dict:
+        raise ValueError("broken configuration")
+
+    monkeypatch.setattr(factory, "build_openapi", fail)
+
+    with pytest.raises(ValueError, match="broken configuration"):
+        build_served("demo")
 
 
 # Keep this test last: it reads what the tests above recorded.
