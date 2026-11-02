@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from importlib.metadata import EntryPoint
 
 import pytest
@@ -552,3 +553,133 @@ def test_strict_counts_a_resource_left_alone(base, config):
 
     assert result.exit_code == 1
     assert config.read_text() == CONFIG
+
+
+def _partitioned(identifier):
+    """A collection whose GeoParquet data is in three items, one file each."""
+    document = _collection(identifier)
+    del document["assets"]
+    return document
+
+
+def _write_partitioned_catalog(folder, *identifiers):
+    """A catalog of partitioned collections, each with three items and their links."""
+    root = _write_catalog(folder, *(_partitioned(identifier) for identifier in identifiers))
+    for identifier in identifiers:
+        path = folder / identifier / "collection.json"
+        document = json.loads(path.read_text())
+        for n in range(3):
+            item = {
+                "type": "Feature",
+                "stac_version": "1.1.0",
+                "stac_extensions": [],
+                "id": f"{identifier}-{n}",
+                "collection": identifier,
+                "geometry": {"type": "Point", "coordinates": [n * 10.0, n * 10.0]},
+                "bbox": [n * 10.0, n * 10.0, n * 10.0 + 1, n * 10.0 + 1],
+                "properties": {"datetime": "2026-01-01T00:00:00Z"},
+                "links": [
+                    {"rel": "collection", "href": "../collection.json", "type": "application/json"}
+                ],
+                "assets": {
+                    "data": {"href": f"./part-{n}.parquet", "type": PARQUET, "roles": ["data"]}
+                },
+            }
+            (folder / identifier / "items").mkdir(exist_ok=True)
+            (folder / identifier / "items" / f"part-{n}.json").write_text(json.dumps(item))
+            document["links"].append(
+                {"rel": "item", "href": f"./items/part-{n}.json", "type": "application/geo+json"}
+            )
+        path.write_text(json.dumps(document))
+    return root
+
+
+def _file_index(text, resource):
+    (provider,) = [p for p in _resources(text)[resource]["providers"] if p["type"] == "feature"]
+    return provider.get("file_index")
+
+
+def test_into_writes_the_index_beside_the_config(base, config):
+    root = _write_partitioned_catalog(base / "cat", "roads")
+
+    result = _run("--from-portolan", str(root), "--into", str(config), "--json")
+
+    assert result.exit_code == 0, result.output
+    assert (base / "indexes" / "roads.parquet").is_file()
+    assert _file_index(config.read_text(), "roads") == "indexes/roads.parquet"
+    assert (
+        "file_index: written beside the configuration"
+        in json.loads(result.stdout)["choices"]["roads"]
+    )
+
+
+def test_without_into_the_file_index_is_the_collection(base):
+    root = _write_partitioned_catalog(base / "cat", "roads")
+
+    result = _run("--from-portolan", str(root))
+
+    assert _file_index(result.stdout, "roads") == str(base / "cat" / "roads" / "collection.json")
+    assert not (base / "indexes").exists()
+
+
+def test_prune_removes_the_index_of_a_removed_resource_only(base, config):
+    folder = base / "cat"
+    root = _write_partitioned_catalog(folder, "roads", "rails")
+    other = _write_partitioned_catalog(base / "other", "roads")
+    _run("--from-portolan", str(root), "--into", str(config))
+    _run("--from-portolan", str(other), "--into", str(config), "--prefix", "b-")
+    _write_partitioned_catalog(folder, "roads")
+    (folder / "rails" / "collection.json").unlink()
+
+    _run("--from-portolan", str(root), "--into", str(config), "--prune")
+
+    assert sorted(path.name for path in (base / "indexes").iterdir()) == [
+        "b-roads.parquet",
+        "roads.parquet",
+    ]
+
+
+def test_without_duckdb_the_ingest_warns_and_points_at_the_collection(base, config, monkeypatch):
+    root = _write_partitioned_catalog(base / "cat", "roads")
+    monkeypatch.setitem(sys.modules, "duckdb", None)
+
+    result = _run("--from-portolan", str(root), "--into", str(config), "--json")
+
+    assert _file_index(config.read_text(), "roads") == str(
+        base / "cat" / "roads" / "collection.json"
+    )
+    assert any("duckdb" in warning for warning in json.loads(result.stdout)["warnings"])
+
+
+def test_into_a_bucket_writes_the_index_in_the_bucket(base, s3_endpoint, monkeypatch):
+    boto3 = pytest.importorskip("boto3")
+    monkeypatch.delenv("AWS_ALLOW_HTTP", raising=False)
+    client = boto3.client(
+        "s3",
+        endpoint_url=s3_endpoint,
+        aws_access_key_id="test",
+        aws_secret_access_key="test",
+        region_name="us-east-1",
+    )
+    client.create_bucket(Bucket="indexes-test")
+    client.put_object(Bucket="indexes-test", Key="configs/demo.yml", Body=CONFIG.encode())
+    root = _write_partitioned_catalog(base / "cat", "roads")
+    options = {
+        "endpoint": s3_endpoint.removeprefix("http://"),
+        "use_ssl": "false",
+        "url_style": "path",
+        "region": "us-east-1",
+        "key_id": "test",
+        "secret": "test",
+    }
+    pairs = [
+        part for key, value in options.items() for part in ("--store-option", f"{key}={value}")
+    ]
+
+    result = _run(
+        "--from-portolan", str(root), "--into", "s3://indexes-test/configs/demo.yml", *pairs
+    )
+
+    assert result.exit_code == 0, result.output
+    keys = [entry["Key"] for entry in client.list_objects_v2(Bucket="indexes-test")["Contents"]]
+    assert "configs/indexes/roads.parquet" in keys

@@ -9,10 +9,11 @@ validator, which is looked up only when a document is about to be written.
 from __future__ import annotations
 
 import asyncio
+import copy
 import importlib
 import json
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from importlib.metadata import entry_points
 from typing import Any, NoReturn
 
@@ -22,6 +23,7 @@ from ruamel.yaml import YAMLError
 from fastgeoapi_portolan.catalog.protocols import MAX_DOCUMENT_BYTES
 from fastgeoapi_portolan.catalog.walk import MAX_DOCUMENTS, STOPPED_AT_LIMIT
 from fastgeoapi_portolan.document import ConcurrentEditError, read_document, write_document
+from fastgeoapi_portolan.file_index import IndexRow, delete_index, index_location, write_index
 from fastgeoapi_portolan.geoparquet import PROVIDER, duplicate_ids
 from fastgeoapi_portolan.handlers import IngestOptions, describe_read_error
 from fastgeoapi_portolan.merge import MergeResult, merge, render
@@ -32,6 +34,11 @@ from fastgeoapi_portolan.resources import DuplicateCollectionIdError, IngestedRe
 Validator = Callable[[str], list[str]]
 VALIDATORS = "fastgeoapi_portolan.validators"
 NOT_VALIDATED = "the document was not validated: no configuration validator is installed"
+NO_INDEX_WRITER = (
+    "the file indexes were not written, they need duckdb: pip install duckdb;"
+    " the resources read the items of their collection instead"
+)
+WRITTEN_INDEX = "file_index: written beside the configuration"
 NOT_PRUNED = "nothing pruned: the walk did not read the whole catalog"
 
 
@@ -236,11 +243,46 @@ def _print(request: _Request, outcome: _Outcome) -> None:
     click.echo(render(outcome.built), nl=False)
 
 
+def _place_indexes(into: str, outcome: _Outcome) -> dict[str, tuple[IndexRow, ...]]:
+    """Point the resources with index rows at an index beside ``into``.
+
+    The rows are written only once the merged document is valid, so this
+    returns them by resource id; without duckdb nothing is written and the
+    resources keep their collection as index.
+    """
+    if not any(entry.index_rows for entry in outcome.built):
+        return {}
+    try:
+        importlib.import_module("duckdb")
+    except ImportError:
+        outcome.warnings.append(NO_INDEX_WRITER)
+        return {}
+    rows: dict[str, tuple[IndexRow, ...]] = {}
+    placed = []
+    for entry in outcome.built:
+        if not entry.index_rows:
+            placed.append(entry)
+            continue
+        resource = copy.deepcopy(entry.resource)
+        for provider in resource.get("providers", []):
+            if provider.get("name") == PROVIDER and "file_index" in provider:
+                provider["file_index"] = f"indexes/{entry.id}.parquet"
+        choices = tuple(
+            WRITTEN_INDEX if choice == "file_index: the collection" else choice
+            for choice in entry.choices
+        )
+        placed.append(replace(entry, resource=resource, choices=choices))
+        rows[entry.id] = entry.index_rows
+    outcome.built = placed
+    return rows
+
+
 def _merge_into(
     request: _Request, outcome: _Outcome, validator: Callable[[], Validator | None]
 ) -> None:
     into = str(request.into)
     store_options = request.ingest_options.store_options
+    indexes = _place_indexes(into, outcome)
     try:
         document = read_document(into, store_options)
     except (OSError, ValueError) as error:
@@ -276,10 +318,19 @@ def _merge_into(
             if problems:
                 listed = "\n".join(f"  {problem}" for problem in problems)
                 _fail(f"{into} would not be a valid configuration, nothing written:\n{listed}")
+    # Every index of this catalog is written again, even when the document does
+    # not change: the items may have changed under the same resource.
+    left_alone = {entry.collection for entry in merged.skipped}
+    for identifier, rows in indexes.items():
+        if identifier not in left_alone:
+            write_index(rows, index_location(into, identifier), store_options)
+    if merged.text != document.text:
         try:
             write_document(document, merged.text, store_options)
         except ConcurrentEditError as error:
             _fail(str(error))
+    for identifier in merged.pruned:
+        delete_index(index_location(into, identifier), store_options)
     _report(request, outcome)
 
 
