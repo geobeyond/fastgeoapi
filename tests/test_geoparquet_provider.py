@@ -8,6 +8,7 @@ would take — LocalStore and bucket differ only in credentials.
 import re
 
 import pytest
+from loguru import logger
 from pygeoapi.provider.base import BaseProvider
 
 from app.interfaces import AsyncFeatureProvider
@@ -703,3 +704,15 @@ def test_get_finds_an_id_in_any_file(indexed):
     provider = _indexed_provider(indexed)
 
     assert provider.get(3)["id"] == 3
+
+
+def test_a_missing_index_falls_back_to_the_glob_with_a_warning(indexed):
+    messages: list[str] = []
+    sink = logger.add(lambda message: messages.append(str(message)), level="WARNING")
+    try:
+        provider = _indexed_provider(indexed, file_index=f"{indexed}/meta/missing.parquet")
+    finally:
+        logger.remove(sink)
+
+    assert len(provider.query(limit=10)["features"]) == 3
+    assert any("missing.parquet" in message for message in messages)

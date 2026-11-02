@@ -5,13 +5,19 @@ from ``sys.modules`` in their fixtures, and an import inside a test would
 bind a second ``FileIndexError`` that ``pytest.raises`` does not catch.
 """
 
+import json
+from unittest.mock import patch
+
 import pytest
 from loguru import logger
 
+from app.provider import file_index as file_index_module
 from app.provider.duckdb_ import connect, scan_files
 from app.provider.file_index import (
     FileEntry,
     FileIndexError,
+    read_file_index,
+    read_stac_collection,
     read_stac_geoparquet,
     select_files,
 )
@@ -178,3 +184,84 @@ def test_an_index_without_ids_names_that_column(tmp_path):
 
     with pytest.raises(FileIndexError, match=r"has no id$"):
         read_stac_geoparquet(index)
+
+
+def _write_collection(root, items) -> str:
+    """A STAC collection whose ``item`` links name one JSON item per ``(id, bbox, href)``."""
+    (root / "items").mkdir(exist_ok=True)
+    links = []
+    for identifier, bbox, href in items:
+        item = {"type": "Feature", "id": identifier, "assets": {"data": {"href": href}}}
+        if bbox is not None:
+            item["bbox"] = bbox
+        (root / "items" / f"{identifier}.json").write_text(json.dumps(item))
+        links.append({"rel": "item", "href": f"./items/{identifier}.json"})
+    collection = root / "collection.json"
+    collection.write_text(json.dumps({"type": "Collection", "id": "roads", "links": links}))
+    return str(collection)
+
+
+ITEMS = [
+    ("a", [0.0, 0.0, 1.0, 1.0], "../a.parquet"),
+    ("b", [10.0, 10.0, 11.0, 11.0], "../b.parquet"),
+    ("c", [20.0, 20.0, 21.0, 21.0], "../c.parquet"),
+]
+
+
+def test_a_collection_index_reads_its_items(tmp_path):
+    collection = _write_collection(tmp_path, ITEMS)
+
+    entries = read_stac_collection(collection)
+
+    assert [entry.href for entry in entries] == [
+        str(tmp_path / f"{name}.parquet") for name in "abc"
+    ]
+    assert entries[1].bbox == (10.0, 10.0, 11.0, 11.0)
+
+
+def test_a_second_read_comes_from_the_cache(tmp_path):
+    collection = _write_collection(tmp_path, ITEMS)
+    cache = tmp_path / "cache"
+
+    with patch.object(
+        file_index_module, "read_stac_item", wraps=file_index_module.read_stac_item
+    ) as reads:
+        first = read_stac_collection(collection, cache_dir=cache)
+        second = read_stac_collection(collection, cache_dir=cache)
+
+    assert reads.call_count == 3
+    assert second == first
+
+
+def test_a_changed_collection_is_read_again(tmp_path):
+    collection = _write_collection(tmp_path, ITEMS)
+    cache = tmp_path / "cache"
+    read_stac_collection(collection, cache_dir=cache)
+    _write_collection(tmp_path, ITEMS[:2])
+
+    entries = read_stac_collection(collection, cache_dir=cache)
+
+    assert len(entries) == 2
+
+
+def test_an_item_without_a_bbox_is_always_selected(tmp_path):
+    collection = _write_collection(tmp_path, [*ITEMS[:2], ("d", None, "../d.parquet")])
+
+    selected = select_files(read_stac_collection(collection), [50.0, 50.0, 51.0, 51.0])
+
+    assert selected == [str(tmp_path / "d.parquet")]
+
+
+def test_the_index_kind_follows_the_suffix(dataset, tmp_path):
+    _, index = dataset
+    stac = tmp_path / "stac"
+    stac.mkdir()
+    collection = _write_collection(stac, ITEMS)
+
+    assert len(read_file_index(index)) == 3
+    assert len(read_file_index(collection)) == 3
+
+
+def test_a_missing_index_is_a_file_index_error(tmp_path):
+    with pytest.raises(FileIndexError, match="cannot be read"):
+        read_file_index(str(tmp_path / "missing.parquet"))
