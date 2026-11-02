@@ -15,6 +15,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 
+from app.config.logging import create_logger
+
+logger = create_logger("app.provider.file_index")
+
 _ASSET_NAME = re.compile(r"^[A-Za-z0-9_\-]+$")
 """Asset names reach the SQL as quoted identifiers, so only these characters pass."""
 
@@ -86,8 +90,17 @@ def read_stac_geoparquet(
     Raises
     ------
     FileIndexError
-        If the asset name is not a plain name, or the index has no
-        ``bbox`` column or no ``assets.<asset>.href``.
+        If the asset name is not a plain name, the index has no ``id``,
+        ``bbox`` or ``assets.<asset>.href``, or a row has no href.
+
+    Notes
+    -----
+    The reader takes only what it uses, so an index from another producer
+    reads as long as it has those columns. A file without the
+    ``stac-geoparquet`` key in its Parquet metadata, and rows whose bbox
+    cannot be used, are read with a warning: such rows are never left out
+    of a request, so the answers stay right and only those files lose the
+    pruning.
     """
     import duckdb
 
@@ -96,17 +109,42 @@ def read_stac_geoparquet(
     if not _ASSET_NAME.match(asset):
         raise FileIndexError(f"invalid asset name for the file index: {asset!r}")
     con = connect(location, store_options=store_options)
+    keys = con.execute("SELECT key FROM parquet_kv_metadata(?)", [location]).fetchall()
+    if not any(bytes(key) == b"stac-geoparquet" for (key,) in keys):
+        logger.warning(f"the file index {location} does not declare stac-geoparquet metadata")
+    columns = dict(
+        con.execute(
+            "SELECT column_name, column_type FROM (DESCRIBE SELECT * FROM read_parquet(?))",
+            [location],
+        ).fetchall()
+    )
+    for name in ("id", "bbox", "assets"):
+        if name not in columns:
+            raise FileIndexError(f"the file index {location} has no {name}")
     try:
         # The asset name passed `_ASSET_NAME` above, and the location is a parameter.
         rows = con.execute(
             # ruff: ignore[hardcoded-sql-expression]
-            f'SELECT assets."{asset}".href, bbox FROM read_parquet(?)',  # nosec B608
+            f'SELECT id, assets."{asset}".href, bbox FROM read_parquet(?)',  # nosec B608
             [location],
         ).fetchall()
     except duckdb.BinderException as error:
-        missing = "bbox" if "bbox" in str(error) else f"assets.{asset}.href"
-        raise FileIndexError(f"the file index {location} has no {missing}") from error
-    return [FileEntry(href=_resolve(href, location), bbox=_planar(bbox)) for href, bbox in rows]
+        # The three columns are there, so what is missing is the asset or its href.
+        raise FileIndexError(f"the file index {location} has no assets.{asset}.href") from error
+    entries = []
+    for identifier, href, bbox in rows:
+        if not href:
+            raise FileIndexError(
+                f"the file index {location} has no href for the row {identifier!r}"
+            )
+        entries.append(FileEntry(href=_resolve(href, location), bbox=_planar(bbox)))
+    unbounded = sum(entry.bbox is None for entry in entries)
+    if unbounded:
+        logger.warning(
+            f"{unbounded} of {len(entries)} files in the file index {location} have no usable bbox;"
+            " every request reads them"
+        )
+    return entries
 
 
 def _meets(entry: FileEntry, minx: float, miny: float, maxx: float, maxy: float) -> bool:
