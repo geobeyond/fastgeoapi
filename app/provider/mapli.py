@@ -5,6 +5,7 @@ import copy
 import dataclasses
 import functools
 import hashlib
+import importlib.metadata
 import json
 import math
 import threading
@@ -66,6 +67,9 @@ MAX_LATITUDE = 85.05112877980659
 
 # URL scheme under which mapli reads bucket data through this module's handler
 MAPLI_SCHEME = "fastgeoapi"
+
+# used when computing the version of a map that is to be used for replying to a request
+MAPLI_VERSION = importlib.metadata.version("mapli")
 
 
 class _UncachedObject:
@@ -315,6 +319,17 @@ class MapliMapProviderConfig:
         )
 
 
+@dataclasses.dataclass(frozen=True)
+class _MapArguments:
+    """The arguments of a map request, checked and ready for rendering."""
+
+    style_id: str
+    lon_lat_bbox: tuple[float, float, float, float]
+    width: int
+    height: int
+    transparent: bool
+
+
 class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
     """OGC API Maps provider backed by mapli."""
 
@@ -347,7 +362,86 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         if Path(urlsplit(self._config.data).path).suffix.lower() != ".pmtiles":
             raise ProviderGenericError(user_msg=f"map source not supported: {self._config.data}")
 
-    async def aquery(
+    async def aversion(self, **kwargs: Any) -> str | None:
+        """Entry point of fastgeoapi's VersionedProvider protocol."""
+        return await self._compute_map_version(**kwargs)
+
+    async def aquery(self, **kwargs: Any) -> bytes:
+        """Entry point of fastgeoapi's async map provider interface."""
+        return await self._render_map(**kwargs)
+
+    def query(self, **kwargs: Any) -> bytes:
+        """Entry point of pygeoapi's map provider interface."""
+        return asyncio.run(self._render_map(**kwargs))
+
+    async def _fetch_data_version(self) -> str | None:
+        """Fetch the version of the provider's data; None when it is unknown.
+
+        Remote data read through the range cache has the ETag the cache knows,
+        and remote data read without it has no version. Local data has its
+        size and modification time.
+        """
+        return await self.adata_version()
+
+    def _compute_definition_digest(self) -> str:
+        """Compute a digest of the provider's definition.
+
+        Any change to the configuration of the provider, its options included,
+        changes the digest. Credentials in ``store_options`` never leave the
+        computation: only the digest is returned.
+        """
+        return self.definition_digest()
+
+    async def _compute_map_version(
+        self,
+        style: str | None = None,
+        bbox: list[float] | None = None,
+        width: int = 500,
+        height: int = 300,
+        crs: str | None = None,
+        transparent: Any = True,
+        format_: str | None = "png",
+        **kwargs: Any,
+    ) -> str | None:
+        """Determine the map version that would be used for rendering.
+
+        This method can be used to help decide whether a map needs to be
+        re-rendered or if a cached version can be used instead. It computes
+        a unique string based on the data version, style definition, and
+        other parameters.
+
+        If the data version is unknown (e.g., when using remote
+        data without a range cache), it returns None, indicating that the
+        version cannot be determined.
+
+        The output of this can be used by fastgeoapi's HTTP caching
+        mechanism to build suitable ETag headers and also to decide whether to
+        render a map image to return to clients, or just return a 304 Not
+        Modified answer.
+
+        NOTE: A style given as a URL is identified by its URL only, so a
+        change to the document at that URL does not change the version.
+        """
+        if (data_version := await self._fetch_data_version()) is None:
+            return None
+        arguments = self._validate_arguments(
+            style=style,
+            bbox=bbox,
+            width=width,
+            height=height,
+            crs=crs,
+            transparent=transparent,
+            format_=format_,
+        )
+        # uses run_sync as getting the style identifier may involve reading data and its version
+        style_identifier, _ = await self.run_sync(
+            self._generate_registered_style, arguments.style_id, arguments.transparent
+        )
+        return "|".join(
+            (data_version, self._compute_definition_digest(), style_identifier, MAPLI_VERSION)
+        )
+
+    async def _render_map(
         self,
         style: str | None = None,
         bbox: list[float] | None = None,
@@ -359,6 +453,58 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         **kwargs: Any,
     ) -> bytes:
         """Generate a map image."""
+        arguments = self._validate_arguments(
+            style=style,
+            bbox=bbox,
+            width=width,
+            height=height,
+            crs=crs,
+            transparent=transparent,
+            format_=format_,
+        )
+
+        scheme_object = self._scheme_object
+        if scheme_object is not None:
+            # Register only once the version is known: on a reload, the provider
+            # this one replaces keeps serving its maps until then
+            await scheme_object.ameta_without_waiting()
+            _SCHEME_HANDLER.register_source(scheme_object)
+
+        registered_style_identifier = await self.run_sync(
+            self._register_style, self._render_pool, arguments.style_id, arguments.transparent
+        )
+        try:
+            return await self._render_pool.arender_from_bounds(
+                style_id=registered_style_identifier,
+                bbox=arguments.lon_lat_bbox,
+                width=arguments.width,
+                height=arguments.height,
+            )
+        except mapli.StyleLoadError as error:
+            logger.warning(f"mapli could not load style {arguments.style_id!r}: {error}")
+            raise ProviderGenericError(
+                user_msg=f"style {arguments.style_id} could not be loaded"
+            ) from error
+        except mapli.MapliError as error:
+            logger.warning(f"mapli failed to render with {type(error).__name__}: {error}")
+            raise ProviderGenericError(user_msg="the map renderer failed") from error
+
+    def _validate_arguments(
+        self,
+        style: str | None,
+        bbox: list[float] | None,
+        width: int,
+        height: int,
+        crs: str | None,
+        transparent: Any,
+        format_: str | None,
+    ) -> _MapArguments:
+        """Check the arguments of a map request and return them ready for rendering.
+
+        Both ``compute_map_version`` and ``render_map`` call this first, so a
+        request that ``render_map`` refuses never gets a version. It reads nothing: an unknown
+        style is found later, when the style is generated.
+        """
         if format_ not in ("png", "html"):
             raise MapParameterError(user_msg="maps are drawn as PNG only")
 
@@ -393,62 +539,47 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         )
         if any(math.isnan(i) for i in web_mercator_bbox):
             raise MapParameterError(user_msg="bounding box contains NaN values")
-        lon_lat_bbox = parse_web_mercator_bbox_as_crs84_bbox(web_mercator_bbox)
 
-        scheme_object = self._scheme_object
-        if scheme_object is not None:
-            # Register only once the version is known: on a reload, the provider
-            # this one replaces keeps serving its maps until then
-            await scheme_object.ameta_without_waiting()
-            _SCHEME_HANDLER.register_source(scheme_object)
-
-        style_id = style or self._config.default_style or self._DEFAULT_STYLE_NAME
-        # In a thread: preparing the style may read the data and its version
-        registered_style_identifier = await self.run_sync(
-            self._register_style, self._render_pool, style_id, with_transparency
+        return _MapArguments(
+            style_id=style or self._config.default_style or self._DEFAULT_STYLE_NAME,
+            lon_lat_bbox=parse_web_mercator_bbox_as_crs84_bbox(web_mercator_bbox),
+            width=width,
+            height=height,
+            transparent=with_transparency,
         )
-        try:
-            return await self._render_pool.arender_from_bounds(
-                style_id=registered_style_identifier,
-                bbox=lon_lat_bbox,
-                width=width,
-                height=height,
-            )
-        except mapli.StyleLoadError as error:
-            logger.warning(f"mapli could not load style {style_id!r}: {error}")
-            raise ProviderGenericError(user_msg=f"style {style_id} could not be loaded") from error
-        except mapli.MapliError as error:
-            logger.warning(f"mapli failed to render with {type(error).__name__}: {error}")
-            raise ProviderGenericError(user_msg="the map renderer failed") from error
-
-    def query(self, **kwargs: Any) -> bytes:
-        """Generate a map image."""
-        return asyncio.run(self.aquery(**kwargs))
 
     def _register_style(
         self, render_pool: mapli.RenderPool, style_id: str, transparent_background: bool
     ) -> str:
-        """Register the style with mapli, if needed, and return its identifier there.
-
-        The identifier changes along with the style's contents, including the URL of
-        the data, which names its version when read through the scheme handler. When
-        the data changes, a new style gets registered instead of drawing the old version.
-        """
-        style_definition = self._generate_style(
-            style_id, transparent_background=transparent_background
+        """Register the style with mapli, if needed, and return its identifier there."""
+        registered_style_identifier, style_definition = self._generate_registered_style(
+            style_id, transparent_background
         )
-        if isinstance(style_definition, str):
-            registered_style_identifier = style_id
-        else:
-            serialized = json.dumps(style_definition, sort_keys=True)
-            digest = hashlib.sha256(serialized.encode()).hexdigest()[:16]
-            registered_style_identifier = f"{style_id}-{digest}"
         if not render_pool.has_style(registered_style_identifier):
             if isinstance(style_definition, str):
                 render_pool.register_style(registered_style_identifier, url=style_definition)
             else:
                 render_pool.register_style(registered_style_identifier, json=style_definition)
         return registered_style_identifier
+
+    def _generate_registered_style(
+        self, style_id: str, transparent_background: bool
+    ) -> tuple[str, dict | str]:
+        """Generate the style and the identifier mapli registers it under.
+
+        The identifier changes along with the style's contents, including the URL of
+        the data, which names its version when read through the scheme handler. When
+        the data changes, a new style gets registered instead of drawing the old version.
+        A style given as a URL is registered under its name.
+        """
+        style_definition = self._generate_style(
+            style_id, transparent_background=transparent_background
+        )
+        if isinstance(style_definition, str):
+            return style_id, style_definition
+        serialized = json.dumps(style_definition, sort_keys=True)
+        style_digest = hashlib.sha256(serialized.encode()).hexdigest()[:16]
+        return f"{style_id}-{style_digest}", style_definition
 
     @functools.cached_property
     def _render_pool(self) -> mapli.RenderPool:

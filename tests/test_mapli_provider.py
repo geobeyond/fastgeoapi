@@ -665,3 +665,147 @@ def test_the_route_answers_a_renderer_failure_in_json(archive):
 
     assert response.status_code == 500
     assert response.json()["description"] == "the map renderer failed"
+
+
+# HTTP caching
+
+
+def test_the_provider_tells_the_version_of_its_maps(archive):
+    from app.interfaces.providers import VersionedProvider
+
+    assert isinstance(_provider(archive), VersionedProvider)
+
+
+@pytest.mark.asyncio
+async def test_two_providers_of_one_definition_give_one_version_without_rendering(archive):
+    first = await _provider(archive).aversion()
+    second = await _provider(archive).aversion()
+
+    assert first is not None
+    assert first == second
+    assert FakeRenderPool.instances == []
+
+
+@pytest.mark.asyncio
+async def test_a_local_archive_written_again_gives_a_new_version(tmp_path):
+    import os
+
+    path = land_archive(tmp_path / "land.pmtiles")
+    provider = _provider(path)
+    before = await provider.aversion()
+    path.write_bytes(path.read_bytes() + b"\x00")
+    later = path.stat().st_mtime + 10
+    os.utime(path, (later, later))
+
+    assert await provider.aversion() != before
+
+
+@pytest.mark.asyncio
+async def test_another_definition_gives_another_version(archive):
+    default = await _provider(archive).aversion()
+    recoloured = await _provider(archive, {"default_vector_colors": ["#000000"]}).aversion()
+
+    assert default != recoloured
+
+
+@pytest.mark.asyncio
+async def test_another_style_or_background_gives_another_version(archive):
+    night = {"version": 8, "sources": {}, "layers": [{"id": "night", "type": "background"}]}
+    provider = _provider(archive, {"styles": {"night": night}})
+
+    versions = {
+        await provider.aversion(transparent=True),
+        await provider.aversion(transparent=False),
+        await provider.aversion(style="night"),
+    }
+
+    assert len(versions) == 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "parameters",
+    [
+        {"crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"},
+        {"format_": "jpeg"},
+        {"width": 9},
+        {"width": 2049},
+        {"height": 9},
+        {"height": 2049},
+        {"bbox": [math.nan, 0, 1, 1]},
+        {"style": "night"},
+    ],
+)
+async def test_a_bad_parameter_gets_no_version(archive, parameters):
+    from app.provider.maps import MapParameterError
+
+    with pytest.raises(MapParameterError):
+        await _provider(archive).aversion(**parameters)
+
+
+@pytest.mark.asyncio
+async def test_a_bucket_map_follows_the_version_the_range_cache_knows(tmp_path):
+    provider, origin = _bucket_provider(tmp_path)
+    first = await provider.aversion()
+    origin.put("land.pmtiles", origin.get("land.pmtiles") + b"\x00")
+    provider.cached_ranges.invalidate()
+
+    assert first is not None
+    assert await provider.aversion() != first
+
+
+@pytest.mark.asyncio
+async def test_a_bucket_map_without_the_range_cache_has_no_version(tmp_path):
+    provider, origin = _uncached_bucket_provider(tmp_path)
+
+    assert await provider.aversion() is None
+    assert origin.heads == 0
+
+
+def _caching_client(archive):
+    from starlette.testclient import TestClient
+
+    from app.pygeoapi.api_async.caching import HttpCache
+    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
+    from tests.test_tiles_async_route import _collection, _config
+
+    config = _config({"land": _collection("Land", [_definition(archive)])})
+    http_cache = HttpCache(max_age=300, protected=False, code="test")
+    return TestClient(
+        build_pygeoapi_subapp(config, build_openapi(config), http_cache=http_cache),
+        raise_server_exceptions=False,
+    )
+
+
+def test_the_route_sends_a_map_with_its_etag_and_how_long_to_keep_it(archive):
+    response = _caching_client(archive).get(
+        "/collections/land/map", params={"width": 64, "height": 64}
+    )
+
+    assert response.status_code == 200, response.text[:200]
+    assert response.headers["etag"].startswith('"')
+    assert response.headers["cache-control"] == "public, max-age=300"
+
+
+def test_the_route_answers_304_to_a_map_asked_with_its_etag_without_rendering_it(archive):
+    client = _caching_client(archive)
+    params = {"width": 64, "height": 64}
+    etag = client.get("/collections/land/map", params=params).headers["etag"]
+    renders = len(_pool().renders)
+
+    response = client.get("/collections/land/map", params=params, headers={"If-None-Match": etag})
+
+    assert (response.status_code, response.content) == (304, b"")
+    assert response.headers["etag"] == etag
+    assert len(_pool().renders) == renders
+
+
+def test_the_route_answers_400_to_a_bad_map_asked_with_any_etag(archive):
+    response = _caching_client(archive).get(
+        "/collections/land/map",
+        params={"width": 99999, "height": 64},
+        headers={"If-None-Match": "*"},
+    )
+
+    assert response.status_code == 400
+    assert "etag" not in response.headers
