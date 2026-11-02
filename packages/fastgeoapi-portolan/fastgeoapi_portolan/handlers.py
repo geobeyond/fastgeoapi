@@ -10,6 +10,7 @@ from obstore.exceptions import BaseError
 
 from fastgeoapi_portolan.catalog.protocols import MAX_DOCUMENT_BYTES, DocumentTooLargeError
 from fastgeoapi_portolan.catalog.walk import MAX_DOCUMENTS
+from fastgeoapi_portolan.file_index import IndexRow
 from fastgeoapi_portolan.reader import Collection
 
 
@@ -36,6 +37,8 @@ class ProviderMatch:
 
     provider: dict[str, Any]
     choices: tuple[str, ...]
+    #: The files of a partitioned dataset, for an index written beside the configuration.
+    index_rows: tuple[IndexRow, ...] = ()
 
 
 @dataclass(frozen=True)

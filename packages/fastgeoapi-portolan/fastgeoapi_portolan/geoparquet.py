@@ -20,6 +20,7 @@ from fastgeoapi_portolan.catalog.locations import (
     is_url,
     resolve,
 )
+from fastgeoapi_portolan.file_index import IndexRow, read_planar_bbox
 from fastgeoapi_portolan.handlers import (
     IngestOptions,
     ProviderMatch,
@@ -82,6 +83,42 @@ def _data_asset(document: Mapping[str, Any]) -> Mapping[str, Any] | None:
     if not isinstance(assets, Mapping):
         return None
     return next((asset for asset in assets.values() if _is_parquet_data(asset)), None)
+
+
+def _mirror(collection: Collection) -> str | None:
+    """The stac-geoparquet mirror of the items of ``collection``, when it publishes one."""
+    assets = collection.document.get("assets")
+    for asset in assets.values() if isinstance(assets, Mapping) else ():
+        roles = asset.get("roles") if isinstance(asset, Mapping) else None
+        href = asset.get("href") if isinstance(asset, Mapping) else None
+        if isinstance(roles, list) and "collection-mirror" in roles and isinstance(href, str):
+            location = resolve(collection.href, href)
+            rewritten = s3_from_https(location)
+            return rewritten[0] if rewritten is not None else location
+    return None
+
+
+def _index_rows(collection: Collection, items: Iterable[Mapping[str, Any]]) -> list[IndexRow]:
+    """One row per item with GeoParquet data, or none when an item has no usable bbox."""
+    rows = []
+    for href, item in zip(collection.item_hrefs, items, strict=True):
+        found = _data_asset(item)
+        if found is None:
+            continue
+        bbox = read_planar_bbox(item.get("bbox"))
+        if bbox is None:
+            # An index without the bbox of a file cannot leave that file out.
+            return []
+        location = resolve(href, found["href"])
+        rewritten = s3_from_https(location)
+        rows.append(
+            IndexRow(
+                id=str(item.get("id", "")),
+                bbox=bbox,
+                href=rewritten[0] if rewritten is not None else location,
+            )
+        )
+    return rows
 
 
 def _bucket(url: str) -> str:
@@ -163,6 +200,7 @@ async def geoparquet_provider(
     choices: list[str] = []
     data: str | None = None
     derived: dict[str, Any] = {}
+    rows: list[IndexRow] = []
 
     if collection.item_hrefs and (glob or asset is None):
         try:
@@ -189,6 +227,7 @@ async def geoparquet_provider(
             for href, item in zip(collection.item_hrefs, items.items, strict=True)
             if (found := _data_asset(item)) is not None
         ]
+        rows = _index_rows(collection, items.items)
         described += [found for _, found in parts]
         described += [item.get("properties") or {} for item in items.items]
         if glob is None:
@@ -258,7 +297,15 @@ async def geoparquet_provider(
     }
     if store_options:
         provider["store_options"] = store_options
-    return ProviderMatch(provider, tuple(choices))
+    mirror = _mirror(collection)
+    if mirror is not None:
+        provider["file_index"] = mirror
+        choices.append("file_index: collection-mirror")
+        rows = []
+    elif rows:
+        provider["file_index"] = collection.href
+        choices.append("file_index: the collection")
+    return ProviderMatch(provider, tuple(choices), tuple(rows))
 
 
 def _literal(value: Any) -> str:
