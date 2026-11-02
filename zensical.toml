@@ -88,6 +88,7 @@ nav = [
       { "Development setup" = "contributors/how-to/development-setup.md" },
       { "Running the tests" = "contributors/how-to/running-the-tests.md" },
       { "Writing an async provider" = "contributors/how-to/writing-an-async-provider.md" },
+      { "Writing a map provider" = "contributors/how-to/writing-a-map-provider.md" },
     ] },
     { "Reference" = [
       { "API reference" = "contributors/reference/index.md" },

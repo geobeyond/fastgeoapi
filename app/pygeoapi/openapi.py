@@ -17,10 +17,13 @@ from openapi_pydantic.v3.v3_0 import (
 )
 from pydantic import BaseModel
 from pydantic_core import ValidationError
+from pygeoapi.crs import DEFAULT_CRS
 from pygeoapi.openapi import generate_openapi_document as _upstream_generate_openapi_document
 
 from app.auth.models import unauthorized
 from app.config.logging import create_logger
+from app.interfaces.providers import MapCapabilities, MapLimits
+from app.pygeoapi.map_limits import MapCeiling, choose_default_map_crs
 from app.pygeoapi.models import not_found
 
 logger = create_logger("app.pygeoapi.openapi")
@@ -304,20 +307,20 @@ def allow_unlocated_features(openapi: OpenAPI) -> OpenAPI:
 _FLOAT_FIELDS = ("minimum", "maximum", "multipleOf")
 
 
-def _whole_numbers_back(node) -> None:
+def _restore_whole_numbers(node) -> None:
     """Give the float fields of every schema under a node their integers back."""
     if isinstance(node, dict):
         for key, value in node.items():
             if key in _FLOAT_FIELDS and isinstance(value, float) and value.is_integer():
                 node[key] = int(value)
             else:
-                _whole_numbers_back(value)
+                _restore_whole_numbers(value)
     elif isinstance(node, list):
         for value in node:
-            _whole_numbers_back(value)
+            _restore_whole_numbers(value)
 
 
-def _ordered_like(node, original):
+def _order_like(node, original):
     """Put the keys of every mapping in the order the original has them.
 
     Keys the original does not have come last, in the order of the model.
@@ -325,9 +328,9 @@ def _ordered_like(node, original):
     if isinstance(node, dict) and isinstance(original, dict):
         keys = [key for key in original if key in node]
         keys += [key for key in node if key not in original]
-        return {key: _ordered_like(node[key], original.get(key)) for key in keys}
+        return {key: _order_like(node[key], original.get(key)) for key in keys}
     if isinstance(node, list) and isinstance(original, list) and len(node) == len(original):
-        return [_ordered_like(value, before) for value, before in zip(node, original, strict=True)]
+        return [_order_like(value, before) for value, before in zip(node, original, strict=True)]
     return node
 
 
@@ -343,8 +346,8 @@ def dump_openapi(openapi: OpenAPI, like: dict | None = None) -> dict:
     document to take the order of the keys from.
     """
     doc = openapi.model_dump(mode="json", by_alias=True, exclude_unset=True)
-    _whole_numbers_back(doc)
-    return doc if like is None else _ordered_like(doc, like)
+    _restore_whole_numbers(doc)
+    return doc if like is None else _order_like(doc, like)
 
 
 def _unset(model: BaseModel, field: str) -> None:
@@ -357,7 +360,7 @@ def _unset(model: BaseModel, field: str) -> None:
     model.model_fields_set.discard(field)
 
 
-def _references(node):
+def _find_references(node):
     """Every ``$ref`` under a node, whether the node is a model or plain data.
 
     openapi-pydantic has no visitor of its own. Iterating a model yields
@@ -368,16 +371,16 @@ def _references(node):
         yield node.ref
     elif isinstance(node, BaseModel):
         for _, value in node:
-            yield from _references(value)
+            yield from _find_references(value)
     elif isinstance(node, dict):
         for key, value in node.items():
             if key == "$ref" and isinstance(value, str):
                 yield value
             else:
-                yield from _references(value)
+                yield from _find_references(value)
     elif isinstance(node, list):
         for value in node:
-            yield from _references(value)
+            yield from _find_references(value)
 
 
 def fix_resolved_document(doc: dict) -> dict:
@@ -412,7 +415,7 @@ CQL2_FILTERING_PROVIDERS = frozenset(
 )
 
 
-def _provider_filters_cql2(name: str) -> bool:
+def _does_provider_filter_cql2(name: str) -> bool:
     """Say whether the configured provider applies a CQL2 filter.
 
     The name is resolved the way pygeoapi's ``load_plugin`` does: a short
@@ -438,7 +441,7 @@ def _provider_filters_cql2(name: str) -> bool:
     )
 
 
-def _items_provider(resource: dict) -> dict | None:
+def _find_items_provider(resource: dict) -> dict | None:
     """The provider pygeoapi uses for the items of a collection.
 
     ``get_oas_30`` takes the first ``record`` provider when there is one,
@@ -471,10 +474,10 @@ def drop_unfiltered_cql2_operations(openapi: OpenAPI, config: dict) -> OpenAPI:
         item = paths.get(f"/collections/{name}/items")
         if item is None or item.post is None:
             continue
-        provider = _items_provider(resource)
+        provider = _find_items_provider(resource)
         if provider is None or provider.get("editable", False):
             continue
-        if not _provider_filters_cql2(str(provider.get("name", ""))):
+        if not _does_provider_filter_cql2(str(provider.get("name", ""))):
             _unset(item, "post")
     return openapi
 
@@ -534,8 +537,13 @@ def describe_tilesets(openapi: OpenAPI) -> OpenAPI:
     return openapi
 
 
-def fix_map_operations(openapi: OpenAPI, config: dict) -> OpenAPI:
-    """Give each map path its own id, an image response and, with styles, its styled path.
+def fix_map_operations(
+    openapi: OpenAPI,
+    config: dict,
+    limits: dict[str, MapLimits],
+    capabilities: dict[str, MapCapabilities],
+) -> OpenAPI:
+    """Give each map path its own id, an image response, its parameters and its styled path.
 
     pygeoapi writes ``operationId: getMap`` for the map path of every
     collection (``api/maps.py``, ``get_oas_30``, 0.24), while OpenAPI
@@ -544,8 +552,31 @@ def fix_map_operations(openapi: OpenAPI, config: dict) -> OpenAPI:
     ``/collections/{id}/styles/{styleId}/map`` without writing it. The id
     follows pygeoapi's own ``get<Collection>Features`` form, the
     response takes the provider's format, and the styled path is written
-    only for a provider with ``options.styles``. Remove once fixed
-    upstream in pygeoapi.
+    only for a provider with ``options.styles``. These three go once
+    pygeoapi is fixed upstream.
+
+    Parameters
+    ----------
+    openapi
+        The document to correct.
+    config
+        The pygeoapi configuration the document was generated from.
+    limits
+        The limits of each collection whose map provider is native, by
+        collection name. The ``width`` and ``height`` of their maps get
+        ``minimum: 1`` and the collection's ``maximum``, on both paths.
+    capabilities
+        The capabilities of each collection whose map provider is native,
+        by collection name. Their maps publish the parameters the route
+        applies, on both paths: ``bbox`` with four numbers, ``bbox-crs``
+        with CRS84 and the CRSs the provider draws, ``crs`` with those
+        CRSs, ``f`` with its formats, ``datetime`` only with a temporal extent, and ``subset``
+        only with an extent beyond ``spatial`` and ``temporal``.
+
+    Returns
+    -------
+    OpenAPI
+        The same document.
     """
     paths = openapi.paths or {}
     for name, resource in (config.get("resources") or {}).items():
@@ -558,6 +589,10 @@ def fix_map_operations(openapi: OpenAPI, config: dict) -> OpenAPI:
             continue
         operation = item.get
         operation.operationId = f"get{name.capitalize()}Map"
+        if name in capabilities:
+            _publish_parameters(operation, resource, provider, capabilities[name])
+        if name in limits:
+            _publish_sizes(operation, limits[name])
         mimetype = (provider.get("format") or {}).get("mimetype", "image/png")
         ok = operation.responses.get("200")
         if isinstance(ok, Response):
@@ -583,6 +618,121 @@ def fix_map_operations(openapi: OpenAPI, config: dict) -> OpenAPI:
                     responses=dict(operation.responses),
                 )
             )
+    return openapi
+
+
+def _publish_parameters(
+    operation: Operation, resource: dict, provider_def: dict, capabilities: MapCapabilities
+) -> None:
+    extents = resource.get("extents") or {}
+    additional = set(extents) - {"spatial", "temporal"}
+    bbox_crs = [DEFAULT_CRS, *(c for c in capabilities.crs if c.lower() != DEFAULT_CRS.lower())]
+    published: list[Parameter | Reference] = []
+    for parameter in operation.parameters or []:
+        if isinstance(parameter, Reference):
+            target = parameter.ref.rsplit("/", 1)[-1]
+            if target == "bbox":
+                published.append(_build_bbox_parameter())
+            elif target == "bbox-crs-epsg":
+                published.append(
+                    _build_crs_parameter(
+                        "bbox-crs", "The CRS of the bbox coordinates.", bbox_crs, DEFAULT_CRS
+                    )
+                )
+            elif target != "subset" or additional:
+                published.append(parameter)
+            continue
+        if parameter.name == "f" and isinstance(parameter.param_schema, Schema):
+            parameter.param_schema.enum = list(capabilities.formats)
+            if parameter.param_schema.default not in capabilities.formats:
+                parameter.param_schema.default = capabilities.formats[0]
+        published.append(parameter)
+    published.append(
+        _build_crs_parameter(
+            "crs",
+            "The CRS the map is drawn in.",
+            list(capabilities.crs),
+            choose_default_map_crs(provider_def, capabilities),
+        )
+    )
+    if "temporal" in extents:
+        published.append(
+            Parameter(
+                name="datetime",
+                param_in=ParameterLocation.QUERY,
+                description=(
+                    "The time or the interval of the map, within the collection's temporal extent."
+                ),
+                required=False,
+                style="form",
+                explode=False,
+                param_schema=Schema(type=DataType.STRING),
+            )
+        )
+    operation.parameters = published
+
+
+def _build_bbox_parameter() -> Parameter:
+    return Parameter(
+        name="bbox",
+        param_in=ParameterLocation.QUERY,
+        description="The area of the map: minx,miny,maxx,maxy, in the CRS of bbox-crs.",
+        required=False,
+        style="form",
+        explode=False,
+        param_schema=Schema(
+            type=DataType.ARRAY,
+            minItems=4,
+            maxItems=4,
+            items=Schema(type=DataType.NUMBER),
+        ),
+    )
+
+
+def _build_crs_parameter(name: str, description: str, uris: list[str], default: str) -> Parameter:
+    return Parameter(
+        name=name,
+        param_in=ParameterLocation.QUERY,
+        description=description,
+        required=False,
+        style="form",
+        explode=False,
+        param_schema=Schema(type=DataType.STRING, schema_format="uri", enum=uris, default=default),
+    )
+
+
+def _publish_sizes(operation: Operation, limits: MapLimits) -> None:
+    largest = {"width": limits.max_width, "height": limits.max_height}
+    for parameter in operation.parameters or []:
+        if not isinstance(parameter, Parameter) or parameter.name not in largest:
+            continue
+        if isinstance(parameter.param_schema, Schema):
+            parameter.param_schema.minimum = 1
+            parameter.param_schema.maximum = largest[parameter.name]
+
+
+def publish_map_ceiling(openapi: OpenAPI, ceiling: MapCeiling) -> OpenAPI:
+    """Publish the server's largest map as ``x-OGC-limits.maps`` in the ``info``.
+
+    /rec/scaling/max-width-height names the keys; ``maxPixels`` is there
+    only when the ceiling sets it.
+
+    Parameters
+    ----------
+    openapi
+        The document to publish it in.
+    ceiling
+        The server's ceiling.
+
+    Returns
+    -------
+    OpenAPI
+        The same document.
+    """
+    maps: dict[str, int] = {"maxWidth": ceiling.max_width, "maxHeight": ceiling.max_height}
+    if ceiling.max_pixels is not None:
+        maps["maxPixels"] = ceiling.max_pixels
+    setattr(openapi.info, "x-OGC-limits", {"maps": maps})
     return openapi
 
 
@@ -625,7 +775,7 @@ def fix_tileset_list_response(openapi: OpenAPI) -> OpenAPI:
     ):
         entries = getattr(openapi.components, section, None) if openapi.components else None
         pointer = f"#/components/{section}/{name}"
-        if entries and name in entries and pointer not in set(_references(openapi)):
+        if entries and name in entries and pointer not in set(_find_references(openapi)):
             del entries[name]
     return openapi
 

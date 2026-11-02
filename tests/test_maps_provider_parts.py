@@ -27,20 +27,36 @@ class PlainMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         from app.maps.queue import RenderQueue
 
         super().__init__(provider_def)
-        self._queue = RenderQueue(
-            lambda: create_fake_renderer({}), size=8, timeout=5.0, render_limit=20.0
-        )
+        self._queue = RenderQueue(lambda: create_fake_renderer({}), render_limit=20.0)
 
     def _style(self, name, transparent):
         if name is not None:
             raise KeyError(name)
         return {"data": self.provider_def["data"]}
 
-    async def aquery(self, **kwargs):
-        from app.provider.maps import draw_map, map_request
+    @property
+    def limits(self):
+        from app.interfaces.providers import MapLimits
 
-        request = map_request(self._style, max_size=32, **kwargs)
+        return MapLimits(32, 32, None, 1, 8, 5.0)
+
+    @property
+    def capabilities(self):
+        from app.interfaces.providers import MapCapabilities
+
+        return MapCapabilities(crs=(WEB_MERCATOR,), formats=("png",))
+
+    async def arender_map(self, **kwargs):
+        from app.provider.maps import build_map_request, draw_map
+
+        request = build_map_request(self._style, max_size=32, **kwargs)
         return await draw_map(self._queue, request)
+
+    async def aget_version(self, **kwargs):
+        return None
+
+    def close(self):
+        self._queue.close()
 
 
 def test_the_maplibre_provider_is_one_line_of_bases_like_the_others():
@@ -58,7 +74,7 @@ async def test_another_family_draws_by_composing_the_same_parts(tmp_path):
 
     provider = PlainMapProvider(map_provider(tmp_path / "roads.bin"))
 
-    png = await provider.aquery(bbox=ROME, width=16, height=16, crs=WEB_MERCATOR)
+    png = await provider.arender_map(bbox=ROME, width=16, height=16, crs=WEB_MERCATOR)
 
     assert isinstance(provider, AsyncMapProvider)
     assert png.startswith(b"\x89PNG")
@@ -72,9 +88,17 @@ async def test_another_family_keeps_the_limits_and_errors_of_the_parts(tmp_path)
     provider = PlainMapProvider(map_provider(tmp_path / "roads.bin"))
 
     with pytest.raises(MapTooLargeError):
-        await provider.aquery(bbox=ROME, width=64, height=16, crs=WEB_MERCATOR)
+        await provider.arender_map(bbox=ROME, width=64, height=16, crs=WEB_MERCATOR)
     with pytest.raises(MapParameterError):
-        await provider.aquery(bbox=ROME, width=16, height=16, crs="EPSG:4326")
+        await provider.arender_map(bbox=ROME, width=16, height=16, crs="EPSG:4326")
+
+
+def test_the_maps_classes_declared_are_only_those_the_route_passes():
+    from app.provider.maps import MAPS_CONFORMANCE
+
+    maps = "http://www.opengis.net/spec/ogcapi-maps-1/1.0/conf"
+
+    assert set(MAPS_CONFORMANCE) == {f"{maps}/core", f"{maps}/collection-map", f"{maps}/png"}
 
 
 def test_the_maplibre_provider_declares_the_maps_conformance_of_the_parts(tmp_path):

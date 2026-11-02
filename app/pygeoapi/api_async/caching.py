@@ -39,7 +39,7 @@ _warned: dict[tuple[str, str], float] = {}
 _warned_lock = threading.Lock()
 
 
-def sources_digest(root: Path) -> str:
+def digest_sources(root: Path) -> str:
     """A digest of the Python sources under ``root``, their paths included."""
     sha = hashlib.sha256()
     for path in sorted(root.rglob("*.py")):
@@ -51,13 +51,13 @@ def sources_digest(root: Path) -> str:
 
 
 @lru_cache(maxsize=1)
-def code_version() -> str:
+def get_code_version() -> str:
     """The digest of fastgeoapi's own sources, read once per process.
 
     The Docker image does not install the project, so it has no package
     version, and the version in ``pyproject.toml`` changes only at releases.
     """
-    return sources_digest(PACKAGE)
+    return digest_sources(PACKAGE)
 
 
 @dataclass(frozen=True)
@@ -81,7 +81,7 @@ class HttpCache:
         return cls(
             max_age=int(settings.FASTGEOAPI_HTTP_MAX_AGE_SECONDS),
             protected=protected,
-            code=code_version(),
+            code=get_code_version(),
         )
 
     @property
@@ -89,24 +89,24 @@ class HttpCache:
         """Whether the answers get cache headers at all."""
         return self.max_age > 0
 
-    def cache_control(self) -> str:
+    def build_cache_control(self) -> str:
         """``public`` or ``private``, with the max age."""
         scope = "private" if self.protected else "public"
         return f"{scope}, max-age={self.max_age}"
 
-    def etag(self, dataset: str, kind: str, version: str, arguments: dict[str, Any]) -> str:
+    def build_etag(self, dataset: str, kind: str, version: str, arguments: dict[str, Any]) -> str:
         """A strong ETag for the ``kind`` (``tile`` or ``map``) of ``dataset`` at ``version``."""
         payload = json.dumps(
             [self.code, dataset, kind, version, arguments], sort_keys=True, default=str
         )
         return f'"{hashlib.sha256(payload.encode()).hexdigest()[:32]}"'
 
-    def headers(self, etag: str) -> dict[str, str]:
+    def build_headers(self, etag: str) -> dict[str, str]:
         """The headers of an answer with ``etag``, a 304 included."""
-        return {"ETag": etag, "Cache-Control": self.cache_control(), "Vary": VARY}
+        return {"ETag": etag, "Cache-Control": self.build_cache_control(), "Vary": VARY}
 
 
-def default_http_cache() -> HttpCache:
+def get_default_http_cache() -> HttpCache:
     """The policy of fastgeoapi's settings; off without them, since protection is then unknown."""
     # Imported here: building the settings needs a configured fastgeoapi, and
     # the sub-app is also built by tools that only have pygeoapi.
@@ -117,7 +117,7 @@ def default_http_cache() -> HttpCache:
     return HttpCache.from_settings(configuration)
 
 
-def not_modified(if_none_match: str | None, etag: str) -> bool:
+def is_not_modified(if_none_match: str | None, etag: str) -> bool:
     """Whether ``If-None-Match`` names ``etag``, compared weakly (RFC 9110, section 13.1.2)."""
     if not if_none_match:
         return False
@@ -127,7 +127,7 @@ def not_modified(if_none_match: str | None, etag: str) -> bool:
     return any(tag.strip().removeprefix("W/") == wanted for tag in if_none_match.split(","))
 
 
-async def cache_headers(
+async def get_cache_headers(
     http_cache: HttpCache | None,
     provider: Any,
     dataset: str,
@@ -137,7 +137,7 @@ async def cache_headers(
 ) -> dict[str, str]:
     """The cache headers of the answer to ``arguments``; empty when it gets none.
 
-    A provider without ``aversion``, or one that does not know its version,
+    A provider without ``aget_version``, or one that does not know its version,
     gives none. A provider error means the request fails, and the data
     call that follows reports it. Any other failure is logged, and the
     request goes on without cache headers. The content coding already in
@@ -149,7 +149,7 @@ async def cache_headers(
     if not isinstance(provider, VersionedProvider):
         return {}
     try:
-        version = await provider.aversion(**arguments)
+        version = await provider.aget_version(**arguments)
     except ProviderGenericError:
         return {}
     except Exception as error:
@@ -158,7 +158,7 @@ async def cache_headers(
     if version is None:
         return {}
     coded = {**arguments, "encoding": response_headers.get("Content-Encoding")}
-    return http_cache.headers(http_cache.etag(dataset, kind, version, coded))
+    return http_cache.build_headers(http_cache.build_etag(dataset, kind, version, coded))
 
 
 def _warn(kind: str, dataset: str, error: Exception) -> None:
@@ -172,7 +172,7 @@ def _warn(kind: str, dataset: str, error: Exception) -> None:
     logger.warning(f"the {kind} of {dataset} goes without cache headers: {type(error).__name__}")
 
 
-def not_modified_answer(headers: dict, cached: dict[str, str]) -> tuple[dict, int, bytes]:
+def answer_not_modified(headers: dict, cached: dict[str, str]) -> tuple[dict, int, bytes]:
     """The 304 for a request whose ``If-None-Match`` names the current ETag.
 
     It has no body, so no content coding either.
