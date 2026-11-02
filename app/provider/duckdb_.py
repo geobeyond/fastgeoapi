@@ -29,6 +29,7 @@ from __future__ import annotations
 import os
 import re
 import tempfile
+from collections.abc import Sequence
 
 from app.config.logging import create_logger
 from app.provider.interrupts import on_interrupt
@@ -332,6 +333,30 @@ def scan_expression(
         target = f"'{source.rstrip('/')}/**/*.parquet'"
     union = "true" if union_by_name else "false"
     return f"read_parquet({target}, hive_partitioning=true, union_by_name={union})"
+
+
+def scan_files(hrefs: Sequence[str], *, union_by_name: bool = True) -> str:
+    """Build the ``read_parquet`` fragment for an explicit list of files.
+
+    The hrefs come from an index, that is from whoever published the
+    catalog, so each one is written as a single quoted literal with its
+    quotes doubled: an href cannot end the list or add SQL to it.
+
+    Parameters
+    ----------
+    hrefs
+        The files, as paths or URLs DuckDB can read. At least one.
+    union_by_name
+        Whether to unite the schemas of the files, as in ``scan_expression``.
+
+    Returns
+    -------
+    str
+        The fragment, ready to follow ``FROM``.
+    """
+    literals = ", ".join("'" + href.replace("'", "''") + "'" for href in hrefs)
+    union = "true" if union_by_name else "false"
+    return f"read_parquet([{literals}], hive_partitioning=true, union_by_name={union})"
 
 
 def _enumerate_cloud_parquet(source: str, store_options: dict | None) -> str:
