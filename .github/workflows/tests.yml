@@ -34,6 +34,7 @@ jobs:
           # - { python: "3.12", os: "macos-latest", session: "tests" }
           - { python: "3.12", os: "ubuntu-22.04", session: "typeguard" }
           - { python: "3.12", os: "ubuntu-24.04", session: "maps" }
+          - { python: "3.12", os: "ubuntu-24.04", session: "conformance" }
           - { python: "3.11", os: "ubuntu-22.04", session: "portolan" }
           - { python: "3.12", os: "ubuntu-22.04", session: "portolan" }
           - { python: "3.11", os: "ubuntu-22.04", session: "portolan-rashid" }
