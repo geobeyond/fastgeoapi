@@ -390,7 +390,7 @@ async def test_drawing_leaves_the_configured_style_as_it_was(archive):
     await _map(provider, transparent=True)
     await _map(provider, transparent=False)
 
-    template = provider._map_styles["default"]
+    template = provider._get_map_styles().styles["default"]
     assert "layout" not in _background(template)
     assert "url" not in template["sources"]["dataset"]
 
@@ -456,10 +456,10 @@ async def test_an_elevation_archive_is_drawn_as_a_hillshade(tmp_path):
 async def test_the_styles_are_read_once(archive):
     provider = _provider(archive)
     await _map(provider)
-    template = provider._map_styles["default"]
+    template = provider._get_map_styles().styles["default"]
     await _map(provider)
 
-    assert provider._map_styles["default"] is template
+    assert provider._get_map_styles().styles["default"] is template
 
 
 # Errors of mapli
@@ -625,12 +625,76 @@ async def test_a_bucket_without_the_range_cache_is_read_from_its_store(tmp_path)
 
 
 @pytest.mark.asyncio
-async def test_a_bucket_without_the_range_cache_is_looked_up_once(tmp_path):
+async def test_a_bucket_without_the_range_cache_is_looked_up_for_each_map(tmp_path):
     provider, origin = _uncached_bucket_provider(tmp_path)
     for _ in range(3):
         await _map(provider)
 
-    assert origin.heads == 1
+    assert origin.heads == 3
+
+
+@pytest.mark.asyncio
+async def test_a_replaced_bucket_object_is_not_read_under_its_old_version(tmp_path):
+    provider, origin = _uncached_bucket_provider(tmp_path)
+    await _map(provider)
+    old_url = _rendered_url()
+    origin.put("land.pmtiles", origin.get("land.pmtiles") + b"\x00")
+
+    assert _is_error(_serve(old_url, (0, 6)), "NotFound")
+
+
+@pytest.mark.asyncio
+async def test_a_replaced_bucket_object_is_drawn_from_the_next_map_on(tmp_path):
+    provider, origin = _uncached_bucket_provider(tmp_path)
+    await _map(provider)
+    first_url, first_style = _rendered_url(), _pool().renders[-1]["style_id"]
+    origin.put("land.pmtiles", origin.get("land.pmtiles") + b"\x00")
+    await _map(provider)
+    second_url, second_style = _rendered_url(), _pool().renders[-1]["style_id"]
+
+    assert first_url != second_url
+    assert first_style != second_style
+    assert bytes(_serve(second_url, (0, 6))) == b"PMTiles"
+
+
+# The default style follows the version of the data
+
+
+@pytest.mark.asyncio
+async def test_a_replaced_local_archive_gets_a_new_default_style(tmp_path):
+    archive = land_archive(tmp_path / "land.pmtiles")
+    provider = _provider(archive)
+    await _map(provider)
+    raster_archive(tmp_path / "raster.pmtiles").replace(archive)
+    await _map(provider)
+
+    assert _pool().rendered_style(0)["sources"]["dataset"]["type"] == "vector"
+    assert _pool().rendered_style(1)["sources"]["dataset"]["type"] == "raster"
+
+
+@pytest.mark.asyncio
+async def test_a_replaced_bucket_object_gets_a_new_default_style(tmp_path):
+    provider, origin = _bucket_provider(tmp_path)
+    await _map(provider)
+    origin.put("land.pmtiles", raster_archive(tmp_path / "raster.pmtiles").read_bytes())
+    provider.cached_ranges.invalidate()
+    await _map(provider)
+
+    assert _pool().rendered_style(0)["sources"]["dataset"]["type"] == "vector"
+    assert _pool().rendered_style(1)["sources"]["dataset"]["type"] == "raster"
+
+
+@pytest.mark.asyncio
+async def test_a_replaced_bucket_object_without_the_range_cache_gets_a_new_default_style(
+    tmp_path,
+):
+    provider, origin = _uncached_bucket_provider(tmp_path)
+    await _map(provider)
+    origin.put("land.pmtiles", raster_archive(tmp_path / "raster.pmtiles").read_bytes())
+    await _map(provider)
+
+    assert _pool().rendered_style(0)["sources"]["dataset"]["type"] == "vector"
+    assert _pool().rendered_style(1)["sources"]["dataset"]["type"] == "raster"
 
 
 @pytest.mark.asyncio
@@ -809,11 +873,14 @@ async def test_a_bucket_map_follows_the_version_the_range_cache_knows(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_a_bucket_map_without_the_range_cache_has_no_version(tmp_path):
+async def test_a_bucket_map_without_the_range_cache_follows_the_store_version(tmp_path):
     provider, origin = _uncached_bucket_provider(tmp_path)
+    first = await provider.aversion()
+    origin.put("land.pmtiles", origin.get("land.pmtiles") + b"\x00")
 
-    assert await provider.aversion() is None
-    assert origin.heads == 0
+    assert first is not None
+    assert await provider.aversion() != first
+    assert origin.heads == 2
 
 
 def _caching_client(archive):
