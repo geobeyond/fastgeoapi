@@ -470,6 +470,9 @@ def portolan(session: Session) -> None:
         "ministack>=1.5,<2",
         "boto3>=1.35",
         "duckdb>=1.5,<2",
+        # The reference reader reads back the file index the ingest writes.
+        "stac-geoparquet>=0.8,<0.9",
+        "pyarrow>=17",
     )
     session.chdir("packages/fastgeoapi-portolan")
     session.run("pytest", *session.posargs)
