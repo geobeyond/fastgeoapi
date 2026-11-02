@@ -434,6 +434,25 @@ def maps(session: Session) -> None:
     session.run("pytest", "-m", "renderer", "-rs", *session.posargs)
 
 
+@session(python=python_versions)
+def conformance(session: Session) -> None:
+    """Validate the responses against the official OGC schemas."""
+    # The demo configuration names the GeoParquet and PMTiles providers, and
+    # its OpenAPI document cannot be built without them.
+    session.run_install(
+        "uv",
+        "sync",
+        "--group",
+        "conformance",
+        "--extra",
+        "geoparquet",
+        "--extra",
+        "pmtiles",
+        env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
+    )
+    session.run("pytest", "tests/conformance", "-rs", *session.posargs)
+
+
 @session(python=["3.11", "3.12"])
 def portolan(session: Session) -> None:
     """Run the tests of the package that ingests Portolan catalogs."""
