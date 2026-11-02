@@ -6,7 +6,10 @@ here, the ``API`` instance is born in ``app/pygeoapi/factory.py``.
 
 from __future__ import annotations
 
+import posixpath
 from dataclasses import dataclass
+from pathlib import Path, PurePosixPath
+from urllib.parse import urlsplit
 
 import yaml
 
@@ -54,11 +57,55 @@ def _parse(raw: bytes, source: str) -> dict:
     return parsed
 
 
+def resolve_file_indexes(config: dict, source: str) -> dict:
+    """Make every relative ``file_index`` of ``config`` relative to ``source``.
+
+    An index written beside the configuration is named relative to it, so
+    the two move together. A provider does not know where its configuration
+    came from, so the path is resolved here, after parsing; the text of the
+    configuration keeps the relative path.
+
+    Parameters
+    ----------
+    config
+        The parsed configuration; changed in place.
+    source
+        Where the configuration was read: a local path or a bucket URL.
+
+    Returns
+    -------
+    dict
+        ``config``, with each relative ``file_index`` made absolute.
+    """
+    remote = urlsplit(source)
+    resources = config.get("resources")
+    # The schema validation reports a malformed configuration; leave it as it is.
+    if not isinstance(resources, dict):
+        return config
+    for resource in resources.values():
+        providers = resource.get("providers") if isinstance(resource, dict) else None
+        for provider in providers if isinstance(providers, list) else []:
+            index = provider.get("file_index") if isinstance(provider, dict) else None
+            if not isinstance(index, str) or not index:
+                continue
+            if urlsplit(index).scheme or Path(index).is_absolute():
+                continue
+            if remote.scheme:
+                # urljoin does not know s3:// and keeps the key relative, so it is joined here;
+                # normpath folds a `..` that PurePosixPath keeps and S3 would read literally.
+                key = posixpath.normpath(str(PurePosixPath(remote.path).parent / index))
+                provider["file_index"] = f"{remote.scheme}://{remote.netloc}{key}"
+            else:
+                provider["file_index"] = str(Path(source).resolve().parent / index)
+    return config
+
+
 def load_config_source(source: str) -> ConfigDocument:
     """Sync face: used at startup, before the loop exists."""
     bridge, key = _bridge_and_key(source)
     raw = bridge.read(key)
-    return ConfigDocument(config=_parse(raw, source), etag=bridge.stat(key).etag, source=source)
+    config = resolve_file_indexes(_parse(raw, source), source)
+    return ConfigDocument(config=config, etag=bridge.stat(key).etag, source=source)
 
 
 async def aload_config_source(source: str) -> ConfigDocument:
@@ -66,7 +113,8 @@ async def aload_config_source(source: str) -> ConfigDocument:
     bridge, key = _bridge_and_key(source)
     raw = await bridge.aread(key)
     meta = await bridge.astat(key)
-    return ConfigDocument(config=_parse(raw, source), etag=meta.etag, source=source)
+    config = resolve_file_indexes(_parse(raw, source), source)
+    return ConfigDocument(config=config, etag=meta.etag, source=source)
 
 
 async def astat_config_source(source: str) -> ObjectMeta:

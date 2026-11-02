@@ -273,7 +273,7 @@ def _write_cached(entry: Path, etag: str, entries: Sequence[FileEntry]) -> None:
         partial.write_text(
             json.dumps({"etag": etag, "entries": [[e.href, e.bbox] for e in entries]})
         )
-        os.replace(partial, entry)
+        partial.replace(entry)
     except OSError as error:
         logger.warning(f"cannot keep the file index of {entry.name} ({error})")
 
