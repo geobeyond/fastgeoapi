@@ -20,6 +20,7 @@ adds them to the schema the editor serves, so the form has fields for them.
 | ------------------------------ | ------------------- | ---------------------------------------------------------------- |
 | `geometry_column`              | GeoParquet          | Geometry column name (default `geom`)                            |
 | `bbox_column`                  | GeoParquet          | Covering column to pre-filter on; auto-detected                  |
+| `union_by_name`                | GeoParquet          | `false` takes the schema from the first file instead of all      |
 | `store_options`                | GeoParquet, PMTiles | Store settings: `region`, `skip_signature`, `endpoint`           |
 | `engine_options`               | GeoParquet          | DuckDB settings, e.g. `memory_limit`, `threads`                  |
 | `options.inline_inflate_limit` | PMTiles             | Bytes above which a tile is decompressed in a worker (256 KiB)   |

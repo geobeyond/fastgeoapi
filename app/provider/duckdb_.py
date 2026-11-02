@@ -298,6 +298,8 @@ def scan_expression(
     source: str,
     store_options: dict | None = None,
     engine_options: dict | None = None,
+    *,
+    union_by_name: bool = True,
 ) -> str:
     """Build the ``read_parquet`` fragment for a file, glob or directory.
 
@@ -315,6 +317,12 @@ def scan_expression(
       works while ``*.parquet`` and ``**/*.parquet`` both raise "No files
       found" — so on that path the objects are listed through the storage
       layer and handed to DuckDB as explicit paths.
+
+    ``union_by_name`` unites the schemas of all the files, which means
+    reading the footer of every one of them. A dataset whose files share
+    one schema can turn it off: DuckDB then takes the schema of the first
+    file, and a glob over hundreds of large files is described in seconds
+    instead of minutes.
     """
     if source.endswith(".parquet") or "*" in source:
         target = f"'{source}'"
@@ -322,7 +330,8 @@ def scan_expression(
         target = _enumerate_cloud_parquet(source, store_options)
     else:
         target = f"'{source.rstrip('/')}/**/*.parquet'"
-    return f"read_parquet({target}, hive_partitioning=true, union_by_name=true)"
+    union = "true" if union_by_name else "false"
+    return f"read_parquet({target}, hive_partitioning=true, union_by_name={union})"
 
 
 def _enumerate_cloud_parquet(source: str, store_options: dict | None) -> str:
