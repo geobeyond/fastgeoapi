@@ -600,3 +600,30 @@ def test_the_provider_module_imports_without_duckdb():
     )  # nosec B603
 
     assert result.returncode == 0, result.stderr[-300:]
+
+
+def _two_schemas(root) -> str:
+    """A dataset of two files, the second with a column the first lacks."""
+    con = connect(str(root))
+    con.execute(f"COPY (SELECT 1 AS id, ST_Point(12.5, 41.9) AS geom) TO '{root}/a.parquet'")
+    con.execute(
+        f"COPY (SELECT 2 AS id, ST_Point(9.2, 45.5) AS geom, 'x' AS extra) TO '{root}/b.parquet'"
+    )
+    return f"{root}/*.parquet"
+
+
+@pytest.mark.parametrize(("union_by_name", "has_extra"), [(None, True), (False, False)])
+def test_union_by_name_decides_where_the_schema_comes_from(tmp_path, union_by_name, has_extra):
+    definition = {
+        "name": "app.provider.geoparquet.GeoParquetProvider",
+        "type": "feature",
+        "data": _two_schemas(tmp_path),
+        "id_field": "id",
+        "geometry_column": "geom",
+    }
+    if union_by_name is not None:
+        definition["union_by_name"] = union_by_name
+
+    provider = GeoParquetProvider(definition)
+
+    assert ("extra" in provider.get_fields()) is has_extra

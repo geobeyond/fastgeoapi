@@ -52,6 +52,7 @@ resources:
 | `time_field`      | no       | Column the `datetime` parameter filters on             |
 | `properties`      | no       | Restrict which columns are returned by default         |
 | `bbox_column`     | no       | Covering column to pre-filter on (auto-detected)       |
+| `union_by_name`   | no       | `false` takes the schema from the first file only      |
 | `count`           | no       | `false` drops `numberMatched` from item responses      |
 | `store_options`   | no       | Store settings: `region`, `skip_signature`, `endpoint` |
 | `engine_options`  | no       | DuckDB settings, e.g. `memory_limit`, `threads`        |
@@ -199,6 +200,21 @@ Following the GeoParquet spec's own distribution guidance:
 `geoparquet-io` applies these as defaults, and a plain DuckDB
 `COPY … TO … (FORMAT parquet, ROW_GROUP_SIZE 100000)` gets you most of
 the way.
+
+### Turn off `union_by_name` on a large glob of one schema
+
+By default the provider unites the schemas of all the files of a
+dataset, which means reading the footer of each of them when it starts.
+On a glob over many large files this dominates the start: the 512 files
+of the Overture buildings (258 GiB) took 117 s and 3.8 GB of memory to
+describe with ten threads, and did not finish in 15 minutes with one.
+When the files share one schema, as the files of an Overture type do,
+`union_by_name: false` takes the schema from the first file instead, and
+the same glob is described in about 4 s with 63 MB. The other files are
+then read against that schema: a column the first file lacks is left
+out without a warning, and a file that lacks a column of the first fails
+the query with `schema mismatch in glob`. Leave the default on a dataset
+whose files were written at different times.
 
 ### Keep the data near the server, and read it with a caching reader
 
