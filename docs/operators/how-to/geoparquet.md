@@ -246,7 +246,10 @@ providers:
 Of the 512 files of the Overture buildings one meets a window over Rome.
 Read from a laptop with sixteen DuckDB threads, the first request on that
 window took 125 s on the glob and 9 s on the one file, and a repeated
-request 6 s and 2 s.
+request 6 s and 2 s. On a server with one dedicated vCPU in the bucket's
+region, the same request took 44 s and then 28 s on the glob, and 2.8 s
+and then 0.5 s with the index, while the process used 625 MB at most
+instead of 1.6 GB.
 
 ### Keep the data near the server, and read it with a caching reader
 
