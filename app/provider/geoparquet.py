@@ -123,6 +123,7 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
             self.data,
             store_options=provider_def.get("store_options"),
             engine_options=provider_def.get("engine_options"),
+            union_by_name=provider_def.get("union_by_name", True),
         )
         # Per-dataset store options (region, skip_signature for public
         # data, endpoint for an S3-compatible service) travel with the
