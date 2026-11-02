@@ -26,6 +26,7 @@ from pygeoapi.crs import transform_bbox
 from pygeoapi.provider.base import (
     BaseProvider,
     ProviderGenericError,
+    ProviderItemNotFoundError,
 )
 
 from app.config.logging import create_logger
@@ -43,6 +44,7 @@ from app.provider.maps import (
     MAPS_CONFORMANCE,
     WEB_MERCATOR,
     MapParameterError,
+    MapTooLargeError,
     is_bucket,
 )
 from app.provider.storage.base import ObjectChangedError
@@ -257,9 +259,9 @@ class MapliMapProviderConfig:
     default_hillshade_background_color: str = "#f2efe9"
     default_style: str | None = None
     dem_data_encodings: str | None = None
-    min_image_width: int = 10
+    min_image_width: int = 1
     max_image_width: int = 2048
-    min_image_height: int = 10
+    min_image_height: int = 1
     max_image_height: int = 2048
     data_url: str | None = None
     styles: dict[str, Any] = dataclasses.field(default_factory=dict)
@@ -508,28 +510,33 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         if format_ not in ("png", "html"):
             raise MapParameterError(user_msg="maps are drawn as PNG only")
 
-        # fastgeoapi's async maps route does not parse the `transparent` query param:
-        # https://github.com/geobeyond/fastgeoapi/issues/491
-        if isinstance(transparent, str):
-            with_transparency = True if transparent.lower() == "true" else False
-        else:
+        # The `transparent` query param may arrive as the string of the request:
+        # pygeoapi's route passes it on as is, and so does fastgeoapi's async
+        # route until https://github.com/geobeyond/fastgeoapi/issues/491 is fixed
+        if isinstance(transparent, bool):
             with_transparency = transparent
+        elif isinstance(transparent, str) and transparent.lower() in ("true", "false"):
+            with_transparency = transparent.lower() == "true"
+        else:
+            raise MapParameterError(user_msg="'transparent' must be either true or false")
 
-        if not self._config.min_image_width <= width <= self._config.max_image_width:
+        if width < self._config.min_image_width:
             raise MapParameterError(
-                user_msg=(
-                    f"Please provide a width between {self._config.min_image_width} "
-                    f"and {self._config.max_image_width}"
-                )
+                user_msg=f"Please provide a width of at least {self._config.min_image_width}"
+            )
+        if width > self._config.max_image_width:
+            raise MapTooLargeError(
+                user_msg=f"Please provide a width of at most {self._config.max_image_width}"
+            )
+        if height < self._config.min_image_height:
+            raise MapParameterError(
+                user_msg=f"Please provide a height of at least {self._config.min_image_height}"
+            )
+        if height > self._config.max_image_height:
+            raise MapTooLargeError(
+                user_msg=f"Please provide a height of at most {self._config.max_image_height}"
             )
 
-        if not self._config.min_image_height <= height <= self._config.max_image_height:
-            raise MapParameterError(
-                user_msg=(
-                    f"Please provide a height between {self._config.min_image_height} "
-                    f"and {self._config.max_image_height}"
-                )
-            )
         effective_crs = crs or WEB_MERCATOR
         if effective_crs.lower() != WEB_MERCATOR.lower():
             raise MapParameterError(user_msg=f"maps are drawn in {WEB_MERCATOR} only")
@@ -539,10 +546,16 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         )
         if any(math.isnan(i) for i in web_mercator_bbox):
             raise MapParameterError(user_msg="bounding box contains NaN values")
+        west, south, east, north = parse_web_mercator_bbox_as_crs84_bbox(web_mercator_bbox)
+        # mapli refuses a bbox without area, which includes one lying entirely
+        # beyond the poles, as its latitudes are clamped to the same value. A
+        # west edge east of the east edge is fine: the bbox crosses the antimeridian
+        if west == east or south >= north:
+            raise MapParameterError(user_msg="bounding box must have a positive width and height")
 
         return _MapArguments(
             style_id=style or self._config.default_style or self._DEFAULT_STYLE_NAME,
-            lon_lat_bbox=parse_web_mercator_bbox_as_crs84_bbox(web_mercator_bbox),
+            lon_lat_bbox=(west, south, east, north),
             width=width,
             height=height,
             transparent=with_transparency,
@@ -683,7 +696,7 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         try:
             style_definition = self._map_styles[style_identifier]
         except KeyError as err:
-            raise MapParameterError(user_msg=f"Unknown style {style_identifier}") from err
+            raise ProviderItemNotFoundError(user_msg=f"Unknown style {style_identifier}") from err
         if isinstance(style_definition, str):
             # this is a URL to a remote style
             # TODO: retrieve the style from the remote and modify if needed

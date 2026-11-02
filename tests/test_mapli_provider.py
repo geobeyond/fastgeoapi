@@ -239,12 +239,14 @@ async def test_a_map_without_bbox_is_the_world(archive):
     [
         {"crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"},
         {"format_": "jpeg"},
-        {"width": 9},
-        {"width": 2049},
-        {"height": 9},
-        {"height": 2049},
+        {"width": 0},
+        {"height": 0},
         {"bbox": [math.nan, 0, 1, 1]},
-        {"style": "night"},
+        {"bbox": [1379000.0, 5140000.0, 1379000.0, 5160000.0]},  # no width
+        {"bbox": [1379000.0, 5160000.0, 1403000.0, 5140000.0]},  # south above north
+        {"bbox": [0.0, 21000000.0, 1.0, 22000000.0]},  # beyond the north pole
+        {"transparent": "1"},
+        {"transparent": "yes"},
     ],
 )
 async def test_a_bad_parameter_answers_400(archive, parameters):
@@ -254,6 +256,40 @@ async def test_a_bad_parameter_answers_400(archive, parameters):
         await _map(_provider(archive), **parameters)
     assert error.value.http_status_code == HTTPStatus.BAD_REQUEST
     assert all(pool.renders == [] for pool in FakeRenderPool.instances)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("parameters", [{"width": 2049}, {"height": 2049}])
+async def test_a_map_larger_than_the_maximum_answers_413(archive, parameters):
+    from app.provider.maps import MapTooLargeError
+
+    with pytest.raises(MapTooLargeError) as error:
+        await _map(_provider(archive), **parameters)
+    assert error.value.http_status_code == HTTPStatus.REQUEST_ENTITY_TOO_LARGE
+    assert all(pool.renders == [] for pool in FakeRenderPool.instances)
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_style_answers_404(archive):
+    from pygeoapi.provider.base import ProviderItemNotFoundError
+
+    with pytest.raises(ProviderItemNotFoundError) as error:
+        await _map(_provider(archive), style="night")
+    assert error.value.http_status_code == HTTPStatus.NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_a_tiny_map_is_drawn(archive):
+    await _map(_provider(archive), width=1, height=5)
+
+    assert _pool().renders[-1]["size"] == (1, 5)
+
+
+@pytest.mark.asyncio
+async def test_a_bbox_across_the_antimeridian_is_drawn(archive):
+    await _map(_provider(archive), bbox=[19000000.0, 0.0, -19000000.0, 1000000.0])
+
+    assert len(_pool().renders) == 1
 
 
 @pytest.mark.asyncio
@@ -667,6 +703,22 @@ def test_the_route_answers_a_renderer_failure_in_json(archive):
     assert response.json()["description"] == "the map renderer failed"
 
 
+@pytest.mark.parametrize(
+    ("path", "params", "status"),
+    [
+        ("/collections/land/styles/night/map", {"width": 16, "height": 16}, 404),
+        ("/collections/land/map", {"width": 4096, "height": 16}, 413),
+        ("/collections/land/map", {"width": 5, "height": 5}, 200),
+        ("/collections/land/map", {"bbox": "12.4,41.8,12.4,42.0", "width": 16}, 400),
+        ("/collections/land/map", {"transparent": "1", "width": 16, "height": 16}, 400),
+    ],
+)
+def test_the_route_answers_each_request_with_its_status(archive, path, params, status):
+    response = _client(archive).get(path, params=params)
+
+    assert response.status_code == status, response.text[:200]
+
+
 # HTTP caching
 
 
@@ -728,18 +780,20 @@ async def test_another_style_or_background_gives_another_version(archive):
     [
         {"crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"},
         {"format_": "jpeg"},
-        {"width": 9},
+        {"width": 0},
         {"width": 2049},
-        {"height": 9},
+        {"height": 0},
         {"height": 2049},
         {"bbox": [math.nan, 0, 1, 1]},
+        {"bbox": [1379000.0, 5160000.0, 1403000.0, 5140000.0]},
+        {"transparent": "1"},
         {"style": "night"},
     ],
 )
 async def test_a_bad_parameter_gets_no_version(archive, parameters):
-    from app.provider.maps import MapParameterError
+    from pygeoapi.provider.base import ProviderGenericError
 
-    with pytest.raises(MapParameterError):
+    with pytest.raises(ProviderGenericError):
         await _provider(archive).aversion(**parameters)
 
 
@@ -803,7 +857,7 @@ def test_the_route_answers_304_to_a_map_asked_with_its_etag_without_rendering_it
 def test_the_route_answers_400_to_a_bad_map_asked_with_any_etag(archive):
     response = _caching_client(archive).get(
         "/collections/land/map",
-        params={"width": 99999, "height": 64},
+        params={"width": 0, "height": 64},
         headers={"If-None-Match": "*"},
     )
 

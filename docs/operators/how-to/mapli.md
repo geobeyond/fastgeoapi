@@ -86,7 +86,7 @@ The provider's own settings go under `options`:
 | `dem`                                 | none                                                             | If provided, must be either `terrarium` or `mapbox`, for a raster archive of elevations. The generated style shades the relief.                                  |
 | `max_size`                            | 2048                                                             | The largest `width` and `height` a request may ask for.                                                                                                          |
 | `max_image_width`, `max_image_height` | `max_size`                                                       | The largest `width` and `height`, set separately.                                                                                                                |
-| `min_image_width`, `min_image_height` | 10                                                               | The smallest `width` and `height`.                                                                                                                               |
+| `min_image_width`, `min_image_height` | 1                                                                | The smallest `width` and `height`.                                                                                                                               |
 | `num_workers`                         | 1                                                                | Number of rendering threads used by mapli.                                                                                                                       |
 | `max_renderers_per_worker`            | 4                                                                | Renderers each thread keeps. Each renderer holds its own GL context and tile cache.                                                                              |
 | `data_url`                            | none                                                             | An https address of the archive that mapli reads directly. It is used only when the range cache is off.                                                          |
@@ -197,13 +197,21 @@ neither the bucket's location nor any credentials.
 
 ## Request parameters
 
-A map request can pass `bbox`, `bbox-crs`, `crs`, `width`, `height`,
-`transparent` and `f`, as in OGC API - Maps.
+A map request recognizes the following query parameters, most of which are specified in the OGC API Maps standard:
 
-- **`crs`**, when given, must be the EPSG:3857 URI.
-- **`f`** takes `png`. `f=html` also returns the PNG.
-- **Errors:** an unknown style answers 400. An archive of AVIF tiles answers 500
-  with "map source not drawable".
+- `bbox`,
+- `bbox-crs`,
+- `crs` - if provided, must be the EPSG:3857 URI,
+- `width`,
+- `height`,
+- `transparent` - if provided, must be either `true` or `false`
+- `f` - if provided, must be either `png` or `html` (returns a PNG anyway)
+
+#### Errors
+
+- an unknown style returns 404.
+- `width` or `height` above the maximum returns 413, and below the minimum returns 400
+- as bbox without area or any other `transparent` value also returns 400.
 
 ## HTTP caching
 
