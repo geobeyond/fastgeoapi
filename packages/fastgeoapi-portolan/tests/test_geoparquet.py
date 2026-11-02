@@ -462,3 +462,40 @@ async def test_an_item_that_is_not_json_refuses_the_collection(base):
 
     assert isinstance(refused, Refusal)
     assert refused.reason.endswith("the document is not JSON")
+
+
+@pytest.mark.asyncio
+async def test_items_give_a_file_index_on_their_collection(base):
+    items = {f"items/part-{n}.json": _item(f"part-{n}", f"./part-{n}.parquet") for n in range(3)}
+    collection = _collection(base, items=items)
+
+    provided = await geoparquet_provider(collection, IngestOptions())
+
+    assert provided.provider["file_index"] == collection.href
+    assert "file_index: the collection" in provided.choices
+    assert [(row.id, row.bbox, row.href) for row in provided.index_rows] == [
+        (f"part-{n}", (12.5, 41.9, 12.5, 41.9), str(base / "roads" / "items" / f"part-{n}.parquet"))
+        for n in range(3)
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_collection_mirror_is_the_file_index(base):
+    items = {f"items/part-{n}.json": _item(f"part-{n}", f"./part-{n}.parquet") for n in range(2)}
+    mirror = {"href": "./items.parquet", "type": PARQUET, "roles": ["collection-mirror"]}
+    collection = _collection(base, items=items, assets={"items": mirror})
+
+    provided = await geoparquet_provider(collection, IngestOptions())
+
+    assert provided.provider["file_index"] == str(base / "roads" / "items.parquet")
+    assert "file_index: collection-mirror" in provided.choices
+    assert provided.index_rows == ()
+
+
+@pytest.mark.asyncio
+async def test_an_https_item_href_is_indexed_as_its_s3_url(base):
+    items = {"items/part-0.json": _item("part-0", OVERTURE)}
+
+    provided = await geoparquet_provider(_collection(base, items=items), IngestOptions())
+
+    assert provided.index_rows[0].href.startswith("s3://overturemaps-us-west-2/")

@@ -10,7 +10,8 @@ from pmtiles.writer import Writer
 
 import fastgeoapi_portolan.resources as resources_module
 from fastgeoapi_portolan.catalog.testing import PORTOLAN
-from fastgeoapi_portolan.handlers import IngestOptions, Refusal
+from fastgeoapi_portolan.file_index import IndexRow
+from fastgeoapi_portolan.handlers import IngestOptions, ProviderMatch, Refusal
 from fastgeoapi_portolan.reader import (
     Catalog,
     Collection,
@@ -539,3 +540,20 @@ async def test_a_collection_whose_items_cannot_be_read_is_skipped(base):
 
     assert built == []
     assert skipped == [SkippedDocument("roads", "the items could not be read: it does not exist")]
+
+
+@pytest.mark.asyncio
+async def test_the_rows_of_a_file_index_reach_the_ingested_resource(base, monkeypatch):
+    rows = (IndexRow(id="part-0", bbox=(0.0, 0.0, 1.0, 1.0), href="s3://b/part-0.parquet"),)
+
+    async def indexed(collection, ingest_options):
+        provider = {"type": "feature", "name": "GeoParquet", "data": "s3://b/*.parquet"}
+        return ProviderMatch(provider, ("data: glob of 1 items",), rows)
+
+    monkeypatch.setattr(resources_module, "HANDLERS", (("geoparquet", indexed),))
+
+    (built,), _ = await build(
+        _catalog(base, _collection(base, _document("roads"))), IngestOptions()
+    )
+
+    assert built.index_rows == rows
