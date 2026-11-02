@@ -29,7 +29,7 @@ from app.config.logging import create_logger
 from app.provider import geoparquet_schema
 from app.provider.base import AsyncProviderMixin
 from app.provider.duckdb_ import connect, scan_expression, scan_files
-from app.provider.file_index import FileEntry, read_stac_geoparquet, select_files
+from app.provider.file_index import FileEntry, FileIndexError, read_file_index, select_files
 from app.provider.interrupts import on_interrupt
 from app.provider.storage import is_remote
 
@@ -163,14 +163,17 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         location = provider_def.get("file_index")
         if not location:
             return None
-        return (
-            read_stac_geoparquet(
+        try:
+            entries = read_file_index(
                 location,
                 asset=provider_def.get("file_index_asset", "data"),
                 store_options=self._store_options,
+                cache_dir=geoparquet_schema.get_default_cache_base_dir(),
             )
-            or None
-        )
+        except (FileIndexError, OSError) as error:
+            logger.warning(f"file index {location} not used, every file is read: {error}")
+            return None
+        return entries or None
 
     def _scan_for(self, bbox: list) -> str | None:
         """The scan of the files a request with ``bbox`` meets, or None when it meets none."""
