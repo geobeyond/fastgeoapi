@@ -204,3 +204,17 @@ A map request can pass `bbox`, `bbox-crs`, `crs`, `width`, `height`,
 - **`f`** takes `png`. `f=html` also returns the PNG.
 - **Errors:** an unknown style answers 400. An archive of AVIF tiles answers 500
   with "map source not drawable".
+
+## HTTP caching
+
+A drawn map carries an `ETag` and a `Cache-Control` header, as tiles do:
+the [PMTiles guide](pmtiles.md#http-caching) has the setting and the rule
+for protected instances. The ETag changes with the request's parameters, the
+version of the archive, the collection's configuration, the style mapli would
+get and the version of mapli. A map asked again with its ETag answers 304
+without being rendered. Errors carry no cache headers.
+
+- **A style given as a URL** is identified by its URL only: editing the
+  document at that URL does not change the ETag of the maps drawn with it.
+- **An archive in a bucket read without the range cache** has no known
+  version, so its maps carry no cache headers.
