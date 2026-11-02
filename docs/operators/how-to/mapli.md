@@ -137,6 +137,9 @@ mapli provider reads through the range cache described in the [PMTiles guide](pm
 read once are reused until they are evicted or the archive changes.
 
 When the range cache is disabled, there is no caching and the mapli provider reads straight from the bucket.
+It asks the bucket for the archive's version (a HEAD request) before each map, and draws the map from that
+version only, so a replaced archive is drawn from the next map on.
+
 If the archive is public, the `data_url` key can give its https address instead, and mapli then reads the
 archive from that address.
 
@@ -224,5 +227,11 @@ without being rendered. Errors carry no cache headers.
 
 - **A style given as a URL** is identified by its URL only: editing the
   document at that URL does not change the ETag of the maps drawn with it.
-- **An archive in a bucket read without the range cache** has no known
-  version, so its maps carry no cache headers.
+- **An archive read at its `data_url`, or at an https URL without the
+  range cache,** has no known version, so its maps carry no cache headers.
+- **An archive replaced while a map is being requested** can give that one
+  map the ETag of the previous version. The image itself is drawn from the
+  new version. This only matters if the archive is later rolled back to the
+  previous version: a client that kept the image can then get a 304 for it
+  and go on showing the newer image for as long as the archive stays at the
+  previous version.
