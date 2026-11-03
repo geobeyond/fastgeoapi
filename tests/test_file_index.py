@@ -16,11 +16,13 @@ from app.provider.duckdb_ import connect, scan_files
 from app.provider.file_index import (
     FileEntry,
     FileIndexError,
+    count_rows,
     read_file_index,
     read_stac_collection,
     read_stac_geoparquet,
     resolve_href,
     select_files,
+    select_page,
 )
 
 #: One point per file, in three boxes that do not touch.
@@ -374,3 +376,27 @@ def test_a_cache_without_row_counts_still_reads(tmp_path):
 
     assert reads.call_count == 0
     assert [entry.rows for entry in cached] == [None, None, None]
+
+
+COUNTED = [
+    FileEntry(href=name, bbox=None, rows=rows)
+    for name, rows in (("a", 3), ("b", 0), ("c", 4), ("d", 5))
+]
+
+
+def test_count_rows_sums_the_counts():
+    assert count_rows(COUNTED) == 12
+    assert count_rows([*COUNTED, FileEntry(href="e", bbox=None)]) is None
+
+
+def test_select_page_starts_in_the_file_that_holds_the_offset():
+    assert select_page(COUNTED, 4, 2) == (["c"], 1)
+
+
+def test_select_page_spans_files():
+    assert select_page(COUNTED, 2, 3) == (["a", "c"], 2)
+
+
+def test_select_page_past_the_end_is_empty():
+    assert select_page(COUNTED, 12, 10) == ([], 0)
+    assert select_page(COUNTED, 0, 0) == ([], 0)
