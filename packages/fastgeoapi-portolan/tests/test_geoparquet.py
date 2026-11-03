@@ -424,7 +424,21 @@ async def test_a_remote_collection_cannot_point_at_local_data_through_its_items(
     refused = await geoparquet_provider(collection, IngestOptions())
 
     assert isinstance(refused, Refusal)
-    assert refused.reason == f"the data file:///srv/data/*.parquet {LOCAL_FROM_REMOTE}"
+    assert refused.reason == f"the data file:///srv/data/part-0.parquet {LOCAL_FROM_REMOTE}"
+
+
+@pytest.mark.asyncio
+async def test_a_remote_partitioned_collection_cannot_index_local_item_data(base):
+    on_disk = _collection(
+        base,
+        items={"items/part-0.json": _item("part-0", "file:///srv/data/part-0.parquet")},
+        **{"partition:glob": "s3://bucket/roads/*.parquet"},
+    )
+    collection = Collection("roads", REMOTE, on_disk.document, on_disk.item_hrefs, None)
+
+    refused = await geoparquet_provider(collection, IngestOptions())
+
+    assert refused == Refusal(f"the data file:///srv/data/part-0.parquet {LOCAL_FROM_REMOTE}")
 
 
 @pytest.mark.asyncio
@@ -462,3 +476,76 @@ async def test_an_item_that_is_not_json_refuses_the_collection(base):
 
     assert isinstance(refused, Refusal)
     assert refused.reason.endswith("the document is not JSON")
+
+
+@pytest.mark.asyncio
+async def test_items_give_a_file_index_on_their_collection(base):
+    items = {f"items/part-{n}.json": _item(f"part-{n}", f"./part-{n}.parquet") for n in range(3)}
+    collection = _collection(base, items=items)
+
+    provided = await geoparquet_provider(collection, IngestOptions())
+
+    assert provided.provider["file_index"] == collection.href
+    assert "file_index: the collection" in provided.choices
+    assert [(row.id, row.bbox, row.href) for row in provided.index_rows] == [
+        (f"part-{n}", (12.5, 41.9, 12.5, 41.9), str(base / "roads" / "items" / f"part-{n}.parquet"))
+        for n in range(3)
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_collection_mirror_is_the_file_index(base):
+    items = {f"items/part-{n}.json": _item(f"part-{n}", f"./part-{n}.parquet") for n in range(2)}
+    mirror = {"href": "./items.parquet", "type": PARQUET, "roles": ["collection-mirror"]}
+    collection = _collection(base, items=items, assets={"items": mirror})
+
+    provided = await geoparquet_provider(collection, IngestOptions())
+
+    assert provided.provider["file_index"] == str(base / "roads" / "items.parquet")
+    assert "file_index: collection-mirror" in provided.choices
+    assert provided.index_rows == ()
+
+
+@pytest.mark.asyncio
+async def test_an_https_item_href_is_indexed_as_its_s3_url(base):
+    items = {"items/part-0.json": _item("part-0", OVERTURE)}
+
+    provided = await geoparquet_provider(_collection(base, items=items), IngestOptions())
+
+    assert provided.index_rows[0].href.startswith("s3://overturemaps-us-west-2/")
+
+
+@pytest.mark.asyncio
+async def test_items_whose_data_asset_has_another_name_say_so(base):
+    items = {}
+    for n in range(2):
+        item = _item(f"part-{n}", f"./part-{n}.parquet")
+        item["assets"] = {"parquet": item["assets"]["data"]}
+        items[f"items/part-{n}.json"] = item
+
+    provided = await geoparquet_provider(_collection(base, items=items), IngestOptions())
+
+    assert provided.provider["file_index_asset"] == "parquet"
+
+
+@pytest.mark.asyncio
+async def test_a_remote_collection_cannot_name_a_local_mirror(base):
+    items = {"items/part-0.json": _item("part-0", OVERTURE)}
+    on_disk = _collection(
+        base,
+        items=items,
+        assets={
+            "items": {
+                "href": "file:///etc/items.parquet",
+                "type": PARQUET,
+                "roles": ["collection-mirror"],
+            }
+        },
+    )
+    remote = "https://example.org/catalog/roads/collection.json"
+    collection = Collection("roads", remote, on_disk.document, on_disk.item_hrefs, None)
+
+    provided = await geoparquet_provider(collection, IngestOptions())
+
+    assert provided.provider.get("file_index") != "file:///etc/items.parquet"
+    assert "file_index: collection-mirror" not in provided.choices

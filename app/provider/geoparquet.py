@@ -28,7 +28,8 @@ from pygeoapi.provider.base import BaseProvider, ProviderConnectionError, Provid
 from app.config.logging import create_logger
 from app.provider import geoparquet_schema
 from app.provider.base import AsyncProviderMixin
-from app.provider.duckdb_ import connect, scan_expression
+from app.provider.duckdb_ import connect, scan_expression, scan_files
+from app.provider.file_index import FileEntry, FileIndexError, read_file_index, select_files
 from app.provider.interrupts import on_interrupt
 from app.provider.storage import is_remote
 
@@ -119,12 +120,21 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         self.geometry_column = provider_def.get("geometry_column", "geom")
         self._configured_covering = provider_def.get("bbox_column")
         self._store_options = provider_def.get("store_options")
-        self._scan = scan_expression(
-            self.data,
-            store_options=provider_def.get("store_options"),
-            engine_options=provider_def.get("engine_options"),
-            union_by_name=provider_def.get("union_by_name", True),
-        )
+        self._union_by_name = provider_def.get("union_by_name", True)
+        self._files = self._read_file_index(provider_def)
+        if self._files:
+            self._scan = scan_files(
+                [entry.href for entry in self._files], union_by_name=self._union_by_name
+            )
+            self._schema_source = self._files[0].href
+        else:
+            self._scan = scan_expression(
+                self.data,
+                store_options=provider_def.get("store_options"),
+                engine_options=provider_def.get("engine_options"),
+                union_by_name=self._union_by_name,
+            )
+            self._schema_source = self.data
         # Per-dataset store options (region, skip_signature for public
         # data, endpoint for an S3-compatible service) travel with the
         # provider definition — credentials themselves stay in the
@@ -147,6 +157,32 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         # /queryables reads the property. Upstream's own ParquetProvider
         # carries the same call for the same reason.
         self.get_fields()
+
+    def _read_file_index(self, provider_def: dict) -> list[FileEntry] | None:
+        """Read the index of the files of the dataset, when the definition names one."""
+        location = provider_def.get("file_index")
+        if not location:
+            return None
+        try:
+            entries = read_file_index(
+                location,
+                asset=provider_def.get("file_index_asset", "data"),
+                store_options=self._store_options,
+                cache_dir=geoparquet_schema.get_default_cache_base_dir(),
+            )
+        except (FileIndexError, OSError) as error:
+            logger.warning(f"file index {location} not used, every file is read: {error}")
+            return None
+        return entries or None
+
+    def _scan_for(self, bbox: list) -> str | None:
+        """The scan of the files a request with ``bbox`` meets, or None when it meets none."""
+        if not self._files or not bbox:
+            return self._scan
+        hrefs = select_files(self._files, bbox)
+        if not hrefs:
+            return None
+        return scan_files(hrefs, union_by_name=self._union_by_name)
 
     def _cursor(self):
         """A cursor for one operation.
@@ -184,9 +220,9 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
 
     def _describe(self) -> dict[str, str]:
         """Column name → DuckDB type, read once per version of a remote dataset's objects."""
-        if is_remote(self.data):
+        if is_remote(self._schema_source):
             types = geoparquet_schema.remote_schema(
-                self.data,
+                self._schema_source,
                 store_options=self._store_options,
                 cache_dir=geoparquet_schema.schema_cache_dir(),
             )
@@ -196,10 +232,12 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
 
     def _describe_natively(self) -> dict[str, str]:
         """Column name → DuckDB type, from DuckDB's own read of the dataset."""
-        # `_scan` is derived from the provider definition's `data`, never
-        # from request input, and nothing else is interpolated here.
+        scan = scan_files([self._schema_source], union_by_name=False) if self._files else self._scan
+        # The scan is derived from the provider definition's `data` or its
+        # file index, never from request input, and nothing else is
+        # interpolated here.
         # ruff: ignore[hardcoded-sql-expression]
-        describe_sql = f"DESCRIBE SELECT * FROM {self._scan}"  # nosec B608
+        describe_sql = f"DESCRIBE SELECT * FROM {scan}"  # nosec B608
         rows = self._cursor().execute(describe_sql).fetchall()
         return {row[0]: str(row[1]).upper() for row in rows}
 
@@ -396,13 +434,20 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
             filterq=filterq,
         )
         clause = f" WHERE {' AND '.join(where)}" if where else ""
+        scan = self._scan_for(bbox or [])
+        if scan is None:
+            # The index places every file outside the bbox: nothing to read.
+            empty = {"type": "FeatureCollection", "features": [], "numberReturned": 0}
+            if self.count or resulttype == "hits":
+                empty["numberMatched"] = 0
+            return empty
 
         # `clause` never carries raw request input: CQL2 properties pass
         # through `field_mapping`, which doubles as an identifier allowlist,
         # and our dialect escapes quotes in literals and LIKE patterns;
         # bbox and datetime emit numeric or quoted values.
         # ruff: ignore[hardcoded-sql-expression]
-        count_sql = f"SELECT count(*) FROM {self._scan}{clause}"  # nosec B608
+        count_sql = f"SELECT count(*) FROM {scan}{clause}"  # nosec B608
         # Counting a remote dataset is not free: 15s on the Overture file.
         # `count: false` in the provider definition drops it, exactly as
         # upstream's SQL provider does — a hits request always counts,
@@ -428,7 +473,7 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         # values are cast to int before they reach the string.
         sql = (
             # ruff: ignore[hardcoded-sql-expression]
-            f"SELECT {projection}, {geometry} FROM {self._scan}{clause}"  # nosec B608
+            f"SELECT {projection}, {geometry} FROM {scan}{clause}"  # nosec B608
             f"{self._order_by(sortby or [])} LIMIT {int(limit)} OFFSET {int(offset)}"
         )
         logger.debug(f"GeoParquet query: {sql}")

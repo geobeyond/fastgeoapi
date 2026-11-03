@@ -8,6 +8,7 @@ would take — LocalStore and bucket differ only in credentials.
 import re
 
 import pytest
+from loguru import logger
 from pygeoapi.provider.base import BaseProvider
 
 from app.interfaces import AsyncFeatureProvider
@@ -627,3 +628,91 @@ def test_union_by_name_decides_where_the_schema_comes_from(tmp_path, union_by_na
     provider = GeoParquetProvider(definition)
 
     assert ("extra" in provider.get_fields()) is has_extra
+
+
+@pytest.fixture
+def indexed(tmp_path):
+    """Three one-point files in boxes that do not touch, and their stac-geoparquet index."""
+    con = connect(str(tmp_path))
+    boxes = {"a": (0.0, 0.0), "b": (10.0, 10.0), "c": (20.0, 20.0)}
+    for number, (name, (x, y)) in enumerate(boxes.items(), start=1):
+        con.execute(
+            f"COPY (SELECT {number} AS id, ST_Point({x + 0.5}, {y + 0.5}) AS geom)"
+            f" TO '{tmp_path}/{name}.parquet' (FORMAT parquet)"
+        )
+    rows = " UNION ALL ".join(
+        f"SELECT '{name}' AS id, {{'xmin': {x}, 'ymin': {y}, 'xmax': {x + 1}, 'ymax': {y + 1}}} AS bbox,"
+        f" {{'data': {{'href': '../{name}.parquet'}}}} AS assets"
+        for name, (x, y) in boxes.items()
+    )
+    # Beside the data the glob would read the index too, so it gets a folder of its own.
+    (tmp_path / "meta").mkdir()
+    con.execute(f"COPY ({rows}) TO '{tmp_path}/meta/index.parquet' (FORMAT parquet)")
+    return tmp_path
+
+
+def _indexed_provider(root, **extra) -> GeoParquetProvider:
+    return GeoParquetProvider(
+        {
+            "name": "app.provider.geoparquet.GeoParquetProvider",
+            "type": "feature",
+            "data": f"{root}/*.parquet",
+            "id_field": "id",
+            "geometry_column": "geom",
+            "union_by_name": False,
+            "file_index": f"{root}/meta/index.parquet",
+            **extra,
+        }
+    )
+
+
+def test_a_request_reads_only_the_files_its_bbox_meets(indexed):
+    provider = _indexed_provider(indexed)
+    (indexed / "c.parquet").write_bytes(b"not parquet")
+
+    result = provider.query(bbox=[0, 0, 1, 1])
+
+    assert [feature["id"] for feature in result["features"]] == [1]
+
+
+def test_a_bbox_that_meets_no_file_answers_zero_features(indexed):
+    provider = _indexed_provider(indexed)
+
+    result = provider.query(bbox=[50, 50, 51, 51])
+
+    assert result["features"] == []
+    assert result["numberMatched"] == 0
+
+
+def test_count_and_rows_read_the_same_files(indexed):
+    provider = _indexed_provider(indexed)
+
+    result = provider.query(bbox=[0, 0, 11, 11], limit=1, offset=1)
+
+    assert result["numberMatched"] == 2
+    assert result["numberReturned"] == 1
+
+
+def test_without_bbox_the_index_answers_as_the_glob(indexed):
+    provider = _indexed_provider(indexed)
+    glob = _indexed_provider(indexed, file_index=None)
+
+    assert provider.query(limit=10)["features"] == glob.query(limit=10)["features"]
+
+
+def test_get_finds_an_id_in_any_file(indexed):
+    provider = _indexed_provider(indexed)
+
+    assert provider.get(3)["id"] == 3
+
+
+def test_a_missing_index_falls_back_to_the_glob_with_a_warning(indexed):
+    messages: list[str] = []
+    sink = logger.add(lambda message: messages.append(str(message)), level="WARNING")
+    try:
+        provider = _indexed_provider(indexed, file_index=f"{indexed}/meta/missing.parquet")
+    finally:
+        logger.remove(sink)
+
+    assert len(provider.query(limit=10)["features"]) == 3
+    assert any("missing.parquet" in message for message in messages)

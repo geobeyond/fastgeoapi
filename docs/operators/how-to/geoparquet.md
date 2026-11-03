@@ -44,18 +44,20 @@ resources:
         time_field: observed_at
 ```
 
-| Key               | Required | Meaning                                                |
-| ----------------- | -------- | ------------------------------------------------------ |
-| `data`            | yes      | Dataset source: a file, a glob, or a directory root    |
-| `id_field`        | yes      | Column carrying the feature identifier                 |
-| `geometry_column` | no       | Geometry column name (default `geom`)                  |
-| `time_field`      | no       | Column the `datetime` parameter filters on             |
-| `properties`      | no       | Restrict which columns are returned by default         |
-| `bbox_column`     | no       | Covering column to pre-filter on (auto-detected)       |
-| `union_by_name`   | no       | `false` takes the schema from the first file only      |
-| `count`           | no       | `false` drops `numberMatched` from item responses      |
-| `store_options`   | no       | Store settings: `region`, `skip_signature`, `endpoint` |
-| `engine_options`  | no       | DuckDB settings, e.g. `memory_limit`, `threads`        |
+| Key                | Required | Meaning                                                |
+| ------------------ | -------- | ------------------------------------------------------ |
+| `data`             | yes      | Dataset source: a file, a glob, or a directory root    |
+| `id_field`         | yes      | Column carrying the feature identifier                 |
+| `geometry_column`  | no       | Geometry column name (default `geom`)                  |
+| `time_field`       | no       | Column the `datetime` parameter filters on             |
+| `properties`       | no       | Restrict which columns are returned by default         |
+| `bbox_column`      | no       | Covering column to pre-filter on (auto-detected)       |
+| `union_by_name`    | no       | `false` takes the schema from the first file only      |
+| `file_index`       | no       | stac-geoparquet file or STAC collection of the files   |
+| `file_index_asset` | no       | Asset of the index with each file's href (`data`)      |
+| `count`            | no       | `false` drops `numberMatched` from item responses      |
+| `store_options`    | no       | Store settings: `region`, `skip_signature`, `endpoint` |
+| `engine_options`   | no       | DuckDB settings, e.g. `memory_limit`, `threads`        |
 
 ### Source shapes
 
@@ -215,6 +217,45 @@ then read against that schema: a column the first file lacks is left
 out without a warning, and a file that lacks a column of the first fails
 the query with `schema mismatch in glob`. Leave the default on a dataset
 whose files were written at different times.
+
+### Read only the files a request needs
+
+A request with a `bbox` on a glob still opens the footer of every file,
+because the bounds of each row group are in the footers. When the
+provider has a `file_index`, it hands DuckDB only the files whose bbox
+meets the request, and answers with no feature, without reading anything,
+when none does. A request without a bbox reads every file, whatever its
+CQL2 filter, and so does `/items/{id}`.
+
+The index is a stac-geoparquet file, one row per file with its `bbox` and
+the `href` of its `data` asset, or the URL of a STAC collection whose
+items name the files; the provider reads the items once and keeps the
+result in its cache until the collection changes. A relative `file_index`
+is read from beside the configuration. If the index cannot be read, the
+provider logs a warning and reads the glob.
+
+With an index the provider takes the schema from the first file it lists,
+whatever `union_by_name` says, so the files of an indexed dataset should
+share one schema. With `union_by_name: false` the schema of each request
+comes from the first file it selects, and a request whose first file
+lacks a column of the others fails.
+
+```yaml
+providers:
+  - type: feature
+    name: app.provider.geoparquet.GeoParquetProvider
+    data: s3://overturemaps-us-west-2/release/2026-10-21.0/theme=buildings/type=building/*.parquet
+    union_by_name: false
+    file_index: indexes/portolan-building.parquet
+```
+
+Of the 512 files of the Overture buildings one meets a window over Rome.
+Read from a laptop with sixteen DuckDB threads, the first request on that
+window took 125 s on the glob and 9 s on the one file, and a repeated
+request 6 s and 2 s. On a server with one dedicated vCPU in the bucket's
+region, the same request took 44 s and then 28 s on the glob, and 2.8 s
+and then 0.5 s with the index, while the process used 625 MB at most
+instead of 1.6 GB.
 
 ### Keep the data near the server, and read it with a caching reader
 

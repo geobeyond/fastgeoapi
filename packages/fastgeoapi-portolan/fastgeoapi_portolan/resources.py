@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from fastgeoapi_portolan.catalog.locations import resolve
+from fastgeoapi_portolan.file_index import IndexRow
 from fastgeoapi_portolan.geoparquet import geoparquet_provider
 from fastgeoapi_portolan.handlers import Handler, IngestOptions, ProviderMatch, Refusal
 from fastgeoapi_portolan.reader import (
@@ -49,6 +50,8 @@ class IngestedResource:
     id: str
     resource: dict[str, Any]
     choices: tuple[str, ...]
+    #: The files of its GeoParquet data, for an index written beside the configuration.
+    index_rows: tuple[IndexRow, ...] = ()
 
 
 def _text(document: Mapping[str, Any], key: str) -> str | None:
@@ -181,6 +184,7 @@ async def _resource(
         return SkippedDocument(collection.id, "the collection has no spatial extent")
 
     providers: list[dict[str, Any]] = []
+    index_rows: list[IndexRow] = []
     choices: list[str] = []
     refusals: list[tuple[str, str]] = []
     for name, handler in HANDLERS:
@@ -188,6 +192,7 @@ async def _resource(
         if isinstance(result, ProviderMatch):
             providers.append(result.provider)
             choices.extend(result.choices)
+            index_rows.extend(result.index_rows)
         elif isinstance(result, Refusal) and result.transient:
             # Half a resource would replace the whole one already configured.
             reason = f"{name}: {result.reason}; nothing changes until it can be read"
@@ -232,7 +237,7 @@ async def _resource(
         reason = f"{where} holds '${{', which the configuration reads as a variable"
         return SkippedDocument(collection.id, reason)
     resource["ingest"] = ingest
-    return IngestedResource(f"{prefix}{collection.id}", resource, tuple(choices))
+    return IngestedResource(f"{prefix}{collection.id}", resource, tuple(choices), tuple(index_rows))
 
 
 async def build(
