@@ -7,6 +7,7 @@ would take — LocalStore and bucket differ only in credentials.
 
 import re
 
+import duckdb
 import pytest
 from loguru import logger
 from pygeoapi.provider.base import BaseProvider
@@ -716,3 +717,104 @@ def test_a_missing_index_falls_back_to_the_glob_with_a_warning(indexed):
 
     assert len(provider.query(limit=10)["features"]) == 3
     assert any("missing.parquet" in message for message in messages)
+
+
+@pytest.fixture
+def counted(tmp_path):
+    """Files of 1, 1, 1 and 2 rows in boxes that do not touch, indexed with their row counts."""
+    con = connect(str(tmp_path))
+    files = {
+        "a": ((0.0, 0.0), 1),
+        "b": ((10.0, 10.0), 1),
+        "c": ((20.0, 20.0), 1),
+        "d": ((30.0, 30.0), 2),
+    }
+    first = 1
+    for name, ((x, y), rows) in files.items():
+        con.execute(
+            f"COPY (SELECT i AS id, ST_Point({x + 0.5}, {y + 0.5}) AS geom"
+            f" FROM range({first}, {first + rows}) t(i))"
+            f" TO '{tmp_path}/{name}.parquet' (FORMAT parquet)"
+        )
+        first += rows
+    index = " UNION ALL ".join(
+        f"SELECT '{name}' AS id, {{'xmin': {x}, 'ymin': {y}, 'xmax': {x + 1}, 'ymax': {y + 1}}} AS bbox,"
+        f" {{'data': {{'href': '../{name}.parquet'}}}} AS assets, {rows}::BIGINT AS \"table:row_count\""
+        for name, ((x, y), rows) in files.items()
+    )
+    (tmp_path / "meta").mkdir()
+    con.execute(f"COPY ({index}) TO '{tmp_path}/meta/index.parquet' (FORMAT parquet)")
+    return tmp_path
+
+
+def _ids(result) -> list[int]:
+    return [feature["id"] for feature in result["features"]]
+
+
+def test_without_filters_the_count_comes_from_the_index(counted):
+    provider = _indexed_provider(counted)
+    (counted / "c.parquet").write_bytes(b"not parquet")
+
+    assert provider.query(limit=1)["numberMatched"] == 5
+    assert provider.query(resulttype="hits")["numberMatched"] == 5
+
+
+def test_a_page_across_two_files_matches_the_glob(counted):
+    provider = _indexed_provider(counted)
+    glob = _indexed_provider(counted, file_index=None)
+
+    assert _ids(provider.query(offset=2, limit=2)) == _ids(glob.query(offset=2, limit=2)) == [3, 4]
+
+
+def test_a_file_without_rows_does_not_shift_the_page(counted):
+    con = connect(str(counted))
+    con.execute(
+        "COPY (SELECT i AS id, ST_Point(10.5, 10.5) AS geom FROM range(0) t(i))"
+        f" TO '{counted}/b.parquet' (FORMAT parquet)"
+    )
+    con.execute(
+        f"COPY (SELECT id, bbox, assets, CASE WHEN id = 'b' THEN 0 ELSE \"table:row_count\" END"
+        f" AS \"table:row_count\" FROM '{counted}/meta/index.parquet')"
+        f" TO '{counted}/meta/index.parquet' (FORMAT parquet)"
+    )
+    provider = _indexed_provider(counted)
+    glob = _indexed_provider(counted, file_index=None)
+
+    for offset in range(4):
+        assert _ids(provider.query(offset=offset, limit=2)) == _ids(
+            glob.query(offset=offset, limit=2)
+        )
+
+
+def test_an_offset_past_the_end_answers_no_feature(counted):
+    result = _indexed_provider(counted).query(offset=50, limit=10)
+
+    assert result["features"] == []
+    assert result["numberMatched"] == 5
+
+
+def test_one_file_without_a_count_counts_as_before(counted):
+    con = connect(str(counted))
+    con.execute(
+        f"COPY (SELECT id, bbox, assets, CASE WHEN id = 'a' THEN NULL ELSE \"table:row_count\" END"
+        f" AS \"table:row_count\" FROM '{counted}/meta/index.parquet')"
+        f" TO '{counted}/meta/index.parquet' (FORMAT parquet)"
+    )
+    provider = _indexed_provider(counted)
+
+    assert provider.query(limit=1)["numberMatched"] == 5
+    (counted / "c.parquet").write_bytes(b"not parquet")
+    with pytest.raises(duckdb.InvalidInputException):
+        provider.query(limit=1)
+
+
+@pytest.mark.parametrize(
+    "request_args",
+    [{"sortby": [{"property": "id", "order": "-"}]}, {"properties": [("id", "1")]}],
+)
+def test_sortby_and_filters_keep_the_full_scan(counted, request_args):
+    provider = _indexed_provider(counted)
+    (counted / "c.parquet").write_bytes(b"not parquet")
+
+    with pytest.raises(duckdb.InvalidInputException):
+        provider.query(limit=1, **request_args)

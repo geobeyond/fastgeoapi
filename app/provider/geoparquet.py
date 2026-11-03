@@ -29,7 +29,14 @@ from app.config.logging import create_logger
 from app.provider import geoparquet_schema
 from app.provider.base import AsyncProviderMixin
 from app.provider.duckdb_ import connect, scan_expression, scan_files
-from app.provider.file_index import FileEntry, FileIndexError, read_file_index, select_files
+from app.provider.file_index import (
+    FileEntry,
+    FileIndexError,
+    count_rows,
+    read_file_index,
+    select_files,
+    select_page,
+)
 from app.provider.interrupts import on_interrupt
 from app.provider.storage import is_remote
 
@@ -434,6 +441,11 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
             filterq=filterq,
         )
         clause = f" WHERE {' AND '.join(where)}" if where else ""
+        indexed_rows = count_rows(self._files) if self._files and not where and not sortby else None
+        if indexed_rows is not None:
+            return self._query_counted(
+                indexed_rows, offset, limit, resulttype, skip_geometry, select_properties
+            )
         scan = self._scan_for(bbox or [])
         if scan is None:
             # The index places every file outside the bbox: nothing to read.
@@ -463,6 +475,28 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
                 "numberReturned": 0,
             }
 
+        features = self._select_features(
+            scan,
+            clause,
+            self._order_by(sortby or []),
+            limit,
+            offset,
+            skip_geometry,
+            select_properties,
+        )
+        collection = {
+            "type": "FeatureCollection",
+            "features": features,
+            "numberReturned": len(features),
+        }
+        if matched is not None:
+            collection["numberMatched"] = matched
+        return collection
+
+    def _select_features(
+        self, scan, clause, order_by, limit, offset, skip_geometry, select_properties
+    ) -> list[dict]:
+        """Select one page of features from ``scan``."""
         columns = self._select_columns(select_properties or [])
         if self.id_field not in columns:
             columns = [self.id_field, *columns]
@@ -474,18 +508,33 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         sql = (
             # ruff: ignore[hardcoded-sql-expression]
             f"SELECT {projection}, {geometry} FROM {scan}{clause}"  # nosec B608
-            f"{self._order_by(sortby or [])} LIMIT {int(limit)} OFFSET {int(offset)}"
+            f"{order_by} LIMIT {int(limit)} OFFSET {int(offset)}"
         )
         logger.debug(f"GeoParquet query: {sql}")
-        rows = self._rows(sql)
-        features = self._rows_to_features(rows, columns, skip_geometry)
-        collection = {
-            "type": "FeatureCollection",
-            "features": features,
-            "numberReturned": len(features),
-        }
-        if matched is not None:
+        return self._rows_to_features(self._rows(sql), columns, skip_geometry)
+
+    def _query_counted(
+        self, matched, offset, limit, resulttype, skip_geometry, select_properties
+    ) -> dict:
+        """Answer a request without filters from the row counts of the index.
+
+        The count is the sum of the counts, and the page reads only the
+        files its rows fall in, so no other file is opened.
+        """
+        collection: dict = {"type": "FeatureCollection", "features": [], "numberReturned": 0}
+        if self.count or resulttype == "hits":
             collection["numberMatched"] = matched
+        if resulttype == "hits":
+            return collection
+        hrefs, local = select_page(self._files or [], int(offset), int(limit))
+        if not hrefs:
+            return collection
+        scan = scan_files(hrefs, union_by_name=self._union_by_name)
+        features = self._select_features(
+            scan, "", "", limit, local, skip_geometry, select_properties
+        )
+        collection["features"] = features
+        collection["numberReturned"] = len(features)
         return collection
 
     def get(self, identifier, **kwargs) -> dict:

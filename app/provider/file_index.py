@@ -244,6 +244,63 @@ def select_files(entries: Sequence[FileEntry], bbox: Sequence[float] | None) -> 
     return [entry.href for entry in entries if _meets(entry, minx, miny, maxx, maxy)]
 
 
+def count_rows(entries: Sequence[FileEntry]) -> int | None:
+    """Count the rows of the dataset from the counts of its files.
+
+    Parameters
+    ----------
+    entries
+        The files of the dataset.
+
+    Returns
+    -------
+    int | None
+        The sum of the counts, or None when a file has none.
+    """
+    if any(entry.rows is None for entry in entries):
+        return None
+    return sum(entry.rows or 0 for entry in entries)
+
+
+def select_page(entries: Sequence[FileEntry], offset: int, limit: int) -> tuple[list[str], int]:
+    """Select the files a page of rows falls in.
+
+    The rows are numbered in the order of ``entries``, as a scan of the
+    files in that order returns them.
+
+    Parameters
+    ----------
+    entries
+        The files of the dataset, each with a count.
+    offset
+        The first row of the page.
+    limit
+        The number of rows of the page.
+
+    Returns
+    -------
+    tuple[list[str], int]
+        The hrefs of the files that hold the rows ``[offset, offset + limit)``,
+        in order and without the empty ones, and the offset of the first row
+        inside the first of them; ``([], 0)`` when the page holds no row.
+    """
+    hrefs: list[str] = []
+    local = 0
+    start = 0
+    end = offset + limit
+    for entry in entries:
+        rows = entry.rows or 0
+        stop = start + rows
+        if rows and stop > offset and start < end:
+            if not hrefs:
+                local = offset - start
+            hrefs.append(entry.href)
+        start = stop
+        if start >= end:
+            break
+    return (hrefs, local) if hrefs else ([], 0)
+
+
 def _read_json(location: str, store_options: dict | None) -> dict:
     """The JSON document at ``location``, read through the store layer."""
     from app.provider.storage import load_store, split_source
