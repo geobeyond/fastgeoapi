@@ -424,7 +424,21 @@ async def test_a_remote_collection_cannot_point_at_local_data_through_its_items(
     refused = await geoparquet_provider(collection, IngestOptions())
 
     assert isinstance(refused, Refusal)
-    assert refused.reason == f"the data file:///srv/data/*.parquet {LOCAL_FROM_REMOTE}"
+    assert refused.reason == f"the data file:///srv/data/part-0.parquet {LOCAL_FROM_REMOTE}"
+
+
+@pytest.mark.asyncio
+async def test_a_remote_partitioned_collection_cannot_index_local_item_data(base):
+    on_disk = _collection(
+        base,
+        items={"items/part-0.json": _item("part-0", "file:///srv/data/part-0.parquet")},
+        **{"partition:glob": "s3://bucket/roads/*.parquet"},
+    )
+    collection = Collection("roads", REMOTE, on_disk.document, on_disk.item_hrefs, None)
+
+    refused = await geoparquet_provider(collection, IngestOptions())
+
+    assert refused == Refusal(f"the data file:///srv/data/part-0.parquet {LOCAL_FROM_REMOTE}")
 
 
 @pytest.mark.asyncio
