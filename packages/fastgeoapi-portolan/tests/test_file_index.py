@@ -94,3 +94,21 @@ def test_a_row_across_the_antimeridian_keeps_its_bbox_and_spans_the_world(tmp_pa
     assert metadata["geo"]["columns"]["geometry"]["bbox"] == [-180.0, -20.0, 180.0, -10.0]
     ((bbox,),) = duckdb.connect().execute("SELECT bbox FROM read_parquet(?)", [location]).fetchall()
     assert (bbox["xmin"], bbox["xmax"]) == (170.0, -170.0)
+
+
+def test_the_index_has_the_row_count_of_each_file(tmp_path):
+    location = str(tmp_path / "roads.parquet")
+    rows = (
+        IndexRow(id="part-0", bbox=(0.0, 0.0, 1.0, 1.0), href="s3://b/part-0.parquet", rows=4),
+        IndexRow(id="part-1", bbox=(10.0, 10.0, 11.0, 11.0), href="s3://b/part-1.parquet"),
+    )
+
+    write_index(rows, location)
+
+    counts = (
+        duckdb.connect()
+        .execute('SELECT "table:row_count" FROM read_parquet(?)', [location])
+        .fetchall()
+    )
+    assert counts == [(4,), (None,)]
+    jsonschema.validate(_metadata(location)["stac-geoparquet"], json.loads(SCHEMA.read_text()))
