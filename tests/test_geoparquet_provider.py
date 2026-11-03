@@ -8,7 +8,6 @@ would take — LocalStore and bucket differ only in credentials.
 import re
 from unittest.mock import patch
 
-import duckdb
 import pytest
 from loguru import logger
 from pygeoapi.provider.base import BaseProvider
@@ -805,6 +804,8 @@ def test_one_file_without_a_count_counts_as_before(counted):
 
     assert provider.query(limit=1)["numberMatched"] == 5
     (counted / "c.parquet").write_bytes(b"not parquet")
+    # duckdb is imported here: the renderer lane collects this module without it.
+    duckdb = pytest.importorskip("duckdb")
     with pytest.raises(duckdb.InvalidInputException):
         provider.query(limit=1)
 
@@ -816,6 +817,7 @@ def test_one_file_without_a_count_counts_as_before(counted):
 def test_sortby_and_filters_keep_the_full_scan(counted, request_args):
     provider = _indexed_provider(counted)
     (counted / "c.parquet").write_bytes(b"not parquet")
+    duckdb = pytest.importorskip("duckdb")
 
     with pytest.raises(duckdb.InvalidInputException):
         provider.query(limit=1, **request_args)
