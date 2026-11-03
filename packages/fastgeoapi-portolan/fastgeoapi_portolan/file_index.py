@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import posixpath
+import re
 import struct
 import tempfile
 from collections.abc import Mapping, Sequence
@@ -66,6 +67,9 @@ def read_planar_bbox(bbox: object) -> tuple[float, float, float, float] | None:
         return None
 
 
+_PLAIN_NAME = re.compile(r"[A-Za-z0-9._-]+")
+
+
 def index_location(into: str, resource_id: str) -> str:
     """Name the index of ``resource_id`` beside the configuration ``into``.
 
@@ -80,7 +84,15 @@ def index_location(into: str, resource_id: str) -> str:
     -------
     str
         ``<folder of into>/indexes/<resource_id>.parquet``.
+
+    Raises
+    ------
+    ValueError
+        If ``resource_id`` is not a plain file name: the id comes from the
+        catalog, and a path in it would write or delete another object.
     """
+    if not _PLAIN_NAME.fullmatch(resource_id) or resource_id in (".", ".."):
+        raise ValueError(f"the resource id {resource_id!r} is not a plain file name")
     name = f"{resource_id}.parquet"
     if is_url(into):
         parts = urlsplit(into)
@@ -92,6 +104,9 @@ def index_location(into: str, resource_id: str) -> str:
 def _polygon_wkb(bbox: tuple[float, float, float, float]) -> bytes:
     """The rectangle of ``bbox`` as a little-endian WKB polygon."""
     xmin, ymin, xmax, ymax = bbox
+    if xmin > xmax:
+        # A box across the antimeridian: the rectangle spans every longitude.
+        xmin, xmax = -180.0, 180.0
     ring = [(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax), (xmin, ymin)]
     return struct.pack("<BIII", 1, 3, 1, len(ring)) + b"".join(
         struct.pack("<dd", x, y) for x, y in ring
@@ -106,6 +121,8 @@ def _geo_metadata(rows: Sequence[IndexRow]) -> dict[str, Any]:
         max(row.bbox[2] for row in rows),
         max(row.bbox[3] for row in rows),
     ]
+    if any(row.bbox[0] > row.bbox[2] for row in rows):
+        corners[0], corners[2] = -180.0, 180.0
     covering = {corner: ["bbox", corner] for corner in ("xmin", "ymin", "xmax", "ymax")}
     return {
         "version": "1.1.0",

@@ -76,3 +76,21 @@ def test_the_index_has_every_required_column(tmp_path):
 
 def test_deleting_a_missing_index_is_quiet(tmp_path):
     delete_index(str(tmp_path / "indexes" / "gone.parquet"))
+
+
+@pytest.mark.parametrize("resource_id", ["../../data/part-0", "a/b", "a\\b", "..", ""])
+def test_an_id_that_is_not_a_plain_name_has_no_index_location(resource_id):
+    with pytest.raises(ValueError, match="file name"):
+        index_location("s3://bucket/configs/demo.yml", resource_id)
+
+
+def test_a_row_across_the_antimeridian_keeps_its_bbox_and_spans_the_world(tmp_path):
+    location = str(tmp_path / "roads.parquet")
+    across = IndexRow(id="fiji", bbox=(170.0, -20.0, -170.0, -10.0), href="s3://b/fiji.parquet")
+
+    write_index((across,), location)
+
+    metadata = _metadata(location)
+    assert metadata["geo"]["columns"]["geometry"]["bbox"] == [-180.0, -20.0, 180.0, -10.0]
+    ((bbox,),) = duckdb.connect().execute("SELECT bbox FROM read_parquet(?)", [location]).fetchall()
+    assert (bbox["xmin"], bbox["xmax"]) == (170.0, -170.0)
