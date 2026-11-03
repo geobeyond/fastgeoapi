@@ -224,11 +224,19 @@ A request with a `bbox` on a glob still opens the footer of every file,
 because the bounds of each row group are in the footers. When the
 provider has a `file_index`, it hands DuckDB only the files whose bbox
 meets the request, and answers with no feature, without reading anything,
-when none does. A request without a bbox reads every file, whatever its
-CQL2 filter, and so does `/items/{id}`.
+when none does. A request without a bbox but with another filter (a
+property, a datetime, CQL2) reads every file, and so does `/items/{id}`.
 
-The index is a stac-geoparquet file, one row per file with its `bbox` and
-the `href` of its `data` asset, or the URL of a STAC collection whose
+When every row of the index has a `table:row_count`, a request with no
+filter and no `sortby` opens no footer to count: `numberMatched` is the
+sum of the counts, and a page reads only the files its rows fall in,
+however far it is from the first. If one row has no count, DuckDB counts
+and pages the whole dataset over every file. The counts are taken from
+the index as they are; a wrong count gives a wrong `numberMatched` and
+shifts the pages.
+
+The index is a stac-geoparquet file, one row per file with its `bbox`, the
+`href` of its `data` asset and, optionally, its `table:row_count`, or the URL of a STAC collection whose
 items name the files; the provider reads the items once and keeps the
 result in its cache until the collection changes. A relative `file_index`
 is read from beside the configuration. If the index cannot be read, the
