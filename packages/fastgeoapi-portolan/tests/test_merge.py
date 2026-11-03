@@ -146,6 +146,38 @@ def test_providers_other_than_ours_are_kept():
     assert providers[0]["data"] == "s3://bucket/roads-2.parquet"
 
 
+def test_provider_keys_added_by_hand_survive_a_second_ingest():
+    first = merge(DOCUMENT, [_built("roads")], catalog=CATALOG, selected=None, prune=False)
+    tuned = first.text.replace(
+        "        geometry_column: geometry\n",
+        "        geometry_column: geometry\n"
+        "        union_by_name: false\n"
+        "        engine_options:\n"
+        "          threads: 16\n",
+        1,
+    )
+    rebuilt = _built("roads")
+    rebuilt.resource["providers"][0]["data"] = "s3://bucket/roads-2.parquet"
+
+    second = merge(tuned, [rebuilt], catalog=CATALOG, selected=None, prune=False)
+
+    (provider,) = _resources(second.text)["roads"]["providers"]
+    assert provider["data"] == "s3://bucket/roads-2.parquet"
+    assert provider["union_by_name"] is False
+    assert provider["engine_options"] == {"threads": 16}
+
+
+def test_a_provider_key_the_ingest_no_longer_writes_is_removed():
+    built = _built("roads")
+    built.resource["providers"][0]["store_options"] = {"region": "us-west-2"}
+    first = merge(DOCUMENT, [built], catalog=CATALOG, selected=None, prune=False)
+
+    second = merge(first.text, [_built("roads")], catalog=CATALOG, selected=None, prune=False)
+
+    (provider,) = _resources(second.text)["roads"]["providers"]
+    assert "store_options" not in provider
+
+
 def test_a_hand_written_resource_with_the_same_id_is_left_alone():
     merged = merge(DOCUMENT, [_built("lakes")], catalog=CATALOG, selected=None, prune=False)
 
