@@ -93,9 +93,24 @@ def _mirror(collection: Collection) -> str | None:
         href = asset.get("href") if isinstance(asset, Mapping) else None
         if isinstance(roles, list) and "collection-mirror" in roles and isinstance(href, str):
             location = resolve(collection.href, href)
+            if is_local_from_remote(collection.href, location):
+                # A remote catalog would make the server read a file on its own disk.
+                return None
             rewritten = s3_from_https(location)
             return rewritten[0] if rewritten is not None else location
     return None
+
+
+def _data_asset_name(items: Iterable[Mapping[str, Any]]) -> str | None:
+    """The key every item gives its GeoParquet data asset, when they all agree."""
+    names = set()
+    for item in items:
+        assets = item.get("assets")
+        for name, asset in assets.items() if isinstance(assets, Mapping) else ():
+            if _is_parquet_data(asset):
+                names.add(name)
+                break
+    return names.pop() if len(names) == 1 else None
 
 
 def _index_rows(collection: Collection, items: Iterable[Mapping[str, Any]]) -> list[IndexRow]:
@@ -201,6 +216,7 @@ async def geoparquet_provider(
     data: str | None = None
     derived: dict[str, Any] = {}
     rows: list[IndexRow] = []
+    asset_name: str | None = None
 
     if collection.item_hrefs and (glob or asset is None):
         try:
@@ -228,6 +244,7 @@ async def geoparquet_provider(
             if (found := _data_asset(item)) is not None
         ]
         rows = _index_rows(collection, items.items)
+        asset_name = _data_asset_name(items.items)
         described += [found for _, found in parts]
         described += [item.get("properties") or {} for item in items.items]
         if glob is None:
@@ -298,6 +315,8 @@ async def geoparquet_provider(
     if store_options:
         provider["store_options"] = store_options
     mirror = _mirror(collection)
+    if (mirror is not None or rows) and asset_name not in (None, "data"):
+        provider["file_index_asset"] = asset_name
     if mirror is not None:
         provider["file_index"] = mirror
         choices.append("file_index: collection-mirror")

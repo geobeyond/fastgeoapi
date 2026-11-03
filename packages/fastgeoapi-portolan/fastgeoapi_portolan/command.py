@@ -263,10 +263,18 @@ def _place_indexes(into: str, outcome: _Outcome) -> dict[str, tuple[IndexRow, ..
         if not entry.index_rows:
             placed.append(entry)
             continue
+        try:
+            index_location(into, entry.id)
+        except ValueError as error:
+            outcome.warnings.append(f"{entry.id}: no file index written, {error}")
+            placed.append(entry)
+            continue
         resource = copy.deepcopy(entry.resource)
         for provider in resource.get("providers", []):
             if provider.get("name") == PROVIDER and "file_index" in provider:
                 provider["file_index"] = f"indexes/{entry.id}.parquet"
+                # The index written here names every file under `data`.
+                provider.pop("file_index_asset", None)
         choices = tuple(
             WRITTEN_INDEX if choice == "file_index: the collection" else choice
             for choice in entry.choices
@@ -330,7 +338,11 @@ def _merge_into(
         except ConcurrentEditError as error:
             _fail(str(error))
     for identifier in merged.pruned:
-        delete_index(index_location(into, identifier), store_options)
+        try:
+            location = index_location(into, identifier)
+        except ValueError:
+            continue
+        delete_index(location, store_options)
     _report(request, outcome)
 
 
