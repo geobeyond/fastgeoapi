@@ -11,11 +11,12 @@ from __future__ import annotations
 
 import json
 import os
+import posixpath
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
-from pathlib import Path
-from urllib.parse import urljoin, urlsplit
+from pathlib import Path, PurePosixPath
+from urllib.parse import urlsplit
 
 from app.config.logging import create_logger
 
@@ -46,13 +47,42 @@ class FileEntry:
     bbox: tuple[float, float, float, float] | None
 
 
-def _resolve(href: str, base: str) -> str:
-    """``href`` made absolute against the location ``base`` of the index."""
-    if urlsplit(href).scheme or href.startswith("/"):
+def resolve_href(href: str, base: str) -> str:
+    """Make ``href`` absolute against ``base``, the location of the document naming it.
+
+    A relative href is joined to the folder of ``base``, on a bucket as on
+    disk: urljoin does not know ``s3://`` and keeps it relative. A document
+    read from a store names data in a store, so it cannot name a local file.
+
+    Parameters
+    ----------
+    href
+        The href, as the index or the item writes it.
+    base
+        Where the index or the item was read.
+
+    Returns
+    -------
+    str
+        The href as DuckDB and the store layer read it.
+
+    Raises
+    ------
+    FileIndexError
+        If ``base`` is remote and ``href`` names a local path or a ``file:`` URL.
+    """
+    remote = urlsplit(base).scheme not in ("", "file")
+    target = urlsplit(href)
+    local = target.scheme == "file" or (not target.scheme and href.startswith("/"))
+    if remote and local:
+        raise FileIndexError(f"{base} is remote and names the local file {href}")
+    if target.scheme or href.startswith("/"):
         return href
-    if urlsplit(base).scheme:
-        return urljoin(base, href)
-    return str((Path(base).parent / href).resolve())
+    if not remote:
+        return str((Path(base).parent / href).resolve())
+    parts = urlsplit(base)
+    key = posixpath.normpath(str(PurePosixPath(parts.path).parent / href))
+    return f"{parts.scheme}://{parts.netloc}{key}"
 
 
 def _planar(bbox: dict | None) -> tuple[float, float, float, float] | None:
@@ -142,7 +172,7 @@ def read_stac_geoparquet(
             raise FileIndexError(
                 f"the file index {location} has no href for the row {identifier!r}"
             )
-        entries.append(FileEntry(href=_resolve(href, location), bbox=_planar(bbox)))
+        entries.append(FileEntry(href=resolve_href(href, location), bbox=_planar(bbox)))
     unbounded = sum(entry.bbox is None for entry in entries)
     if unbounded:
         logger.warning(
@@ -152,16 +182,25 @@ def read_stac_geoparquet(
     return entries
 
 
+def _ranges(west: float, east: float) -> list[tuple[float, float]]:
+    """The longitude ranges of a box; one crossing the antimeridian has two."""
+    if west <= east:
+        return [(west, east)]
+    return [(west, 180.0), (-180.0, east)]
+
+
 def _meets(entry: FileEntry, minx: float, miny: float, maxx: float, maxy: float) -> bool:
     if entry.bbox is None:
         return True
     xmin, ymin, xmax, ymax = entry.bbox
     if ymin > maxy or ymax < miny:
         return False
-    if minx <= maxx:
-        return xmin <= maxx and xmax >= minx
-    # The request crosses the antimeridian: two ranges, east and west of it.
-    return xmax >= minx or xmin <= maxx
+    # The request and the file may each cross the antimeridian (west > east).
+    return any(
+        file_west <= request_east and file_east >= request_west
+        for file_west, file_east in _ranges(xmin, xmax)
+        for request_west, request_east in _ranges(minx, maxx)
+    )
 
 
 def select_files(entries: Sequence[FileEntry], bbox: Sequence[float] | None) -> list[str]:
@@ -240,7 +279,7 @@ def read_stac_item(href: str, *, asset: str, store_options: dict | None) -> File
         planar = _planar(
             {"xmin": bbox[0], "ymin": bbox[1], "xmax": bbox[half], "ymax": bbox[half + 1]}
         )
-    return FileEntry(href=_resolve(data["href"], href), bbox=planar)
+    return FileEntry(href=resolve_href(data["href"], href), bbox=planar)
 
 
 def _cache_path(location: str, asset: str, cache_dir: Path | None) -> Path | None:
@@ -314,7 +353,7 @@ def read_stac_collection(
         return cached
     collection = _read_json(location, store_options)
     items = [
-        _resolve(link["href"], location)
+        resolve_href(link["href"], location)
         for link in collection.get("links", [])
         if link.get("rel") == "item" and link.get("href")
     ]
