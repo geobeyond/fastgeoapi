@@ -9,6 +9,7 @@ import importlib.metadata
 import json
 import math
 import threading
+import weakref
 from collections.abc import (
     Callable,
     Sequence,
@@ -120,23 +121,14 @@ class _UncachedObject:
 
     store: "ObjectStore"
     key: str
-    source: str
     is_local_file: bool
     _lock: threading.Lock
     _meta: "ObjectMeta | None"
 
-    def __init__(
-        self, store: "ObjectStore", key: str, *, source: str, is_local_file: bool = False
-    ) -> None:
-        """Prepare access to object at ``key`` in ``store``.
-
-        ``source`` is the provider's ``data``. Its digest becomes this object's
-        ``source`` attribute, which identifies the object in the URLs the scheme
-        handler serves.
-        """
+    def __init__(self, store: "ObjectStore", key: str, *, is_local_file: bool = False) -> None:
+        """Prepare access to object at ``key`` in ``store``."""
         self.store = store
         self.key = key
-        self.source = digest(source)
         self.is_local_file = is_local_file
         self._meta: ObjectMeta | None = None
         self._lock = threading.Lock()
@@ -256,29 +248,34 @@ class _MapliSchemeHandler:
       fetched from the bucket.
     """
 
-    _sources: dict[str, _SchemeObject]
+    _sources: "weakref.WeakValueDictionary[str, _SchemeObject]"
 
     def __init__(self) -> None:
-        self._sources = {}
+        # entries are removed when their provider is garbage collected
+        self._sources = weakref.WeakValueDictionary()
 
-    def register_source(self, source: _SchemeObject) -> None:
-        """Make ``source`` available to mapli through this handler.
+    def register_source(self, source_key: str, scheme_object: _SchemeObject) -> None:
+        """Make ``scheme_object`` available to mapli through this handler, under ``source_key``.
 
-        ``source`` gives access to a provider's data, either through the range
+        ``scheme_object`` gives access to a provider's data, either through the range
         cache (``CachedRanges``) or straight from the store (``_UncachedObject``).
+        It is held by a weak reference: it stays registered for as long as its
+        provider keeps it, and registering another object under the same
+        ``source_key`` replaces it.
         """
-        self._sources[source.source] = source
+        self._sources[source_key] = scheme_object
 
-    def generate_scheme_url(self, scheme_object: _SchemeObject, meta: "ObjectMeta") -> str:
+    def generate_scheme_url(
+        self, source_key: str, scheme_object: _SchemeObject, meta: "ObjectMeta"
+    ) -> str:
         """Generate the URL that mapli uses to read ``scheme_object``'s data.
 
-        The URL has the form ``fastgeoapi://<source>/<version>``, where ``source``
-        is the digest of the provider's ``data`` and ``version`` is the version
-        of the data that ``meta`` describes. It names the data without revealing
-        its real location or any credentials.
+        The URL has the form ``fastgeoapi://<source_key>/<version>``, where
+        ``version`` is the version of the data that ``meta`` describes. It names
+        the data without revealing its real location or any credentials.
         """
         version = compute_scheme_object_version(scheme_object, meta)
-        return f"{MAPLI_SCHEME}://{scheme_object.source}/{version}"
+        return f"{MAPLI_SCHEME}://{source_key}/{version}"
 
     def __call__(self, request: mapli.ResourceRequest) -> mapli.Response | bytes:
         """Serve a read that mapli makes for a URL built by :meth:`generate_scheme_url`.
@@ -453,12 +450,16 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
     _config: MapliMapProviderConfig
     _map_styles: _MapStyles | None
     _map_styles_lock: threading.Lock
+    _render_pool: mapli.RenderPool | None
+    _render_pool_lock: threading.Lock
 
     def __init__(self, provider_def: dict) -> None:
         super().__init__(provider_def)
         self._config = MapliMapProviderConfig.from_pygeoapi_provider_def(provider_def)
         self._map_styles = None
         self._map_styles_lock = threading.Lock()
+        self._render_pool = None
+        self._render_pool_lock = threading.Lock()
         if Path(urlsplit(self._config.data).path).suffix.lower() != ".pmtiles":
             raise ProviderGenericError(user_msg=f"map source not supported: {self._config.data}")
 
@@ -575,13 +576,13 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         # Register only once the version is known: on a reload, the provider
         # this one replaces keeps serving its maps until then
         await scheme_object.ameta_without_waiting()
-        _SCHEME_HANDLER.register_source(scheme_object)
+        _SCHEME_HANDLER.register_source(self._scheme_source_key, scheme_object)
 
         registered_style_identifier = await self.run_sync(
-            self._register_style, self._render_pool, arguments.style_id, arguments.transparent
+            self._register_style, arguments.style_id, arguments.transparent
         )
         try:
-            return await self._render_pool.arender_from_bounds(
+            return await self._get_render_pool().arender_from_bounds(
                 style_id=registered_style_identifier,
                 bbox=arguments.lon_lat_bbox,
                 width=arguments.width,
@@ -670,10 +671,13 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             transparent=with_transparency,
         )
 
-    def _register_style(
-        self, render_pool: mapli.RenderPool, style_id: str, transparent_background: bool
-    ) -> str:
-        """Register the style with mapli, if needed, and return its identifier there."""
+    def _register_style(self, style_id: str, transparent_background: bool) -> str:
+        """Register the style with mapli, if needed, and return its identifier there.
+
+        This blocks, as it may create the render pool and read the data, so it is
+        meant to run in a thread.
+        """
+        render_pool = self._get_render_pool()
         registered_style_identifier, style_definition = self._generate_registered_style(
             style_id, transparent_background
         )
@@ -703,22 +707,25 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         style_digest = hashlib.sha256(serialized.encode()).hexdigest()[:16]
         return f"{style_id}-{style_digest}", style_definition
 
-    @functools.cached_property
-    def _render_pool(self) -> mapli.RenderPool:
-        """Create mapli render pool.
+    def _get_render_pool(self) -> mapli.RenderPool:
+        """Return the mapli render pool, creating it on first use.
 
-        This is implemented as a cached property in order to ensure the render
-        pool is not created during provider initialization, as that could cause
-        unneeded slowdowns - providers may be initialized multiple times
-        during the app lifecycle (ex: generating the openapi document), and
+        The render pool is not created during provider initialization, as that
+        could cause unneeded slowdowns - providers may be initialized multiple
+        times during the app lifecycle (ex: generating the openapi document), and
         not always in order to render maps.
 
-        A mapli render pool starts some additional GL threads.
+        Creating a render pool blocks, as it checks that an OpenGL (EGL) context can
+        be created and starts some additional GL threads. The lock makes concurrent
+        first maps share one pool.
         """
-        return mapli.RenderPool(
-            workers=self._config.num_workers,
-            max_renderers_per_worker=self._config.max_renderers_per_worker,
-        )
+        with self._render_pool_lock:
+            if self._render_pool is None:
+                self._render_pool = mapli.RenderPool(
+                    workers=self._config.num_workers,
+                    max_renderers_per_worker=self._config.max_renderers_per_worker,
+                )
+            return self._render_pool
 
     def _get_map_styles(self) -> _MapStyles:
         """Return the styles to draw maps with, for the current version of the data.
@@ -731,7 +738,9 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         meta = scheme_object.known_meta() or scheme_object.meta()
         data_version = compute_scheme_object_version(scheme_object, meta)
         read_data = scheme_object.at(meta).read
-        dataset_url = _SCHEME_HANDLER.generate_scheme_url(scheme_object, meta)
+        dataset_url = _SCHEME_HANDLER.generate_scheme_url(
+            self._scheme_source_key, scheme_object, meta
+        )
         with self._map_styles_lock:
             map_styles = self._map_styles
             if map_styles is None or map_styles.data_version != data_version:
@@ -776,11 +785,23 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         if self.cached_ranges is not None:
             return self.cached_ranges
         return _UncachedObject(
-            self.store,
-            self.object_key,
-            source=self._config.data,
-            is_local_file=not is_remote(self._config.data),
+            self.store, self.object_key, is_local_file=not is_remote(self._config.data)
         )
+
+    @functools.cached_property
+    def _scheme_source_key(self) -> str:
+        """The key the scheme handler serves this provider's data under.
+
+        It is a digest of the provider's ``data`` and ``store_options``, so
+        providers that read the same data through differently configured stores
+        get different keys. Credentials in ``store_options`` never leave the
+        computation: only the digest is returned.
+        """
+        identity = {
+            "data": self._config.data,
+            "store_options": self.provider_def.get("store_options") or {},
+        }
+        return digest(json.dumps(identity, sort_keys=True, default=str))
 
     def _generate_default_map_style(self, source_content: "SourceContent") -> dict[str, Any]:
         """Generate the default style, with the data source but not its URL yet."""
@@ -841,6 +862,14 @@ def parse_web_mercator_bbox_as_crs84_bbox(
         # The west edge lies east of the east edge: bbox crosses the
         # antimeridian, and its east edge is one world further on.
         xmax += 2 * HALF_WORLD
+
+    if xmax - xmin >= 2 * HALF_WORLD:
+        # bbox spanning one world or more is drawn as the whole world
+        xmin, xmax = -HALF_WORLD, HALF_WORLD
+    else:
+        # shift bbox by whole worlds until its west edge lies within web mercator
+        shift = math.floor((xmin + HALF_WORLD) / (2 * HALF_WORLD)) * 2 * HALF_WORLD
+        xmin, xmax = xmin - shift, xmax - shift
 
     # clamp y values because web mercator only works correctly
     # when `-HALF_WORLD <= lat <= HALF_WORLD`
