@@ -19,6 +19,7 @@ from app.provider.file_index import (
     read_file_index,
     read_stac_collection,
     read_stac_geoparquet,
+    resolve_href,
     select_files,
 )
 
@@ -265,3 +266,35 @@ def test_the_index_kind_follows_the_suffix(dataset, tmp_path):
 def test_a_missing_index_is_a_file_index_error(tmp_path):
     with pytest.raises(FileIndexError, match="cannot be read"):
         read_file_index(str(tmp_path / "missing.parquet"))
+
+
+@pytest.mark.parametrize(
+    ("href", "base", "expected"),
+    [
+        ("./items/a.json", "s3://b/c/collection.json", "s3://b/c/items/a.json"),
+        ("../part-0.parquet", "s3://b/c/meta/index.parquet", "s3://b/c/part-0.parquet"),
+        ("part-0.parquet", "https://h/c/index.parquet", "https://h/c/part-0.parquet"),
+        ("s3://other/part-0.parquet", "s3://b/c/index.parquet", "s3://other/part-0.parquet"),
+    ],
+)
+def test_a_relative_href_resolves_against_a_remote_index(href, base, expected):
+    assert resolve_href(href, base) == expected
+
+
+@pytest.mark.parametrize("href", ["/etc/data.parquet", "file:///etc/data.parquet"])
+def test_a_remote_index_cannot_name_a_local_file(href):
+    with pytest.raises(FileIndexError, match="local"):
+        resolve_href(href, "s3://b/c/index.parquet")
+
+
+def test_a_local_index_can_name_an_absolute_path(tmp_path):
+    assert resolve_href("/data/a.parquet", str(tmp_path / "index.parquet")) == "/data/a.parquet"
+
+
+def test_a_file_across_the_antimeridian_is_kept_for_both_sides():
+    across = FileEntry(href="across.parquet", bbox=(170.0, -10.0, -170.0, 10.0))
+
+    assert select_files([across], [175.0, -5.0, 178.0, 5.0]) == ["across.parquet"]
+    assert select_files([across], [-178.0, -5.0, -175.0, 5.0]) == ["across.parquet"]
+    assert select_files([across], [175.0, -5.0, -175.0, 5.0]) == ["across.parquet"]
+    assert select_files([across], [0.0, -5.0, 1.0, 5.0]) == []
