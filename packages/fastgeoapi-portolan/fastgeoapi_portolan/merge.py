@@ -29,6 +29,20 @@ from fastgeoapi_portolan.resources import IngestedResource
 # The keys of a resource the ingest owns; any other key is kept as written.
 GENERATED = ("type", "title", "description", "keywords", "links", "extents", "providers", "ingest")
 OUR_PROVIDERS = (geoparquet.PROVIDER, tiles.PROVIDER)
+# The keys of each of our providers the ingest owns; any other key is kept as written.
+GENERATED_PROVIDER_KEYS = {
+    geoparquet.PROVIDER: (
+        "type",
+        "name",
+        "data",
+        "id_field",
+        "geometry_column",
+        "store_options",
+        "file_index",
+        "file_index_asset",
+    ),
+    tiles.PROVIDER: ("type", "name", "data", "options", "format", "store_options"),
+}
 
 
 class _Representer(RoundTripRepresenter):
@@ -112,17 +126,55 @@ def _ours(resource: Any, root: str) -> dict[str, Any] | None:
     return ingest
 
 
+def _is_ours(provider: Any) -> bool:
+    return isinstance(provider, dict) and provider.get("name") in OUR_PROVIDERS
+
+
+def _update_providers(current: list[Any], built: Sequence[Mapping[str, Any]]) -> list[Any]:
+    """Update the providers of a resource with the ones the ingest built.
+
+    A current provider of ours with the same name is the twin of a built
+    one. The keys the ingest writes come from ``built``, so one it no longer
+    writes goes away; any other key, a tuning option for one, stays. A
+    provider of ours with no twin in ``built`` is dropped.
+
+    Parameters
+    ----------
+    current
+        The providers of the resource, as the configuration has them.
+    built
+        The providers the ingest built for the resource.
+
+    Returns
+    -------
+    list
+        The providers of ``built``, each with the keys added by hand to its
+        twin, then the providers of ``current`` that are not ours, as they were.
+    """
+    twins = [provider for provider in current if _is_ours(provider)]
+    providers = []
+    for provider in built:
+        twin = next((p for p in twins if p.get("name") == provider.get("name")), None)
+        if twin is None:
+            providers.append(dict(provider))
+            continue
+        twins.remove(twin)
+        generated = GENERATED_PROVIDER_KEYS[twin["name"]]
+        kept = {
+            key: value
+            for key, value in twin.items()
+            if key not in generated and key not in provider
+        }
+        providers.append({**provider, **kept})
+    return [*providers, *(provider for provider in current if not _is_ours(provider))]
+
+
 def _updated(current: dict[str, Any], built: Mapping[str, Any]) -> dict[str, Any]:
     """``current`` with the generated keys of ``built``; the other keys stay."""
     result: dict[str, Any] = {}
     for key, value in current.items():
         if key == "providers":
-            others = [
-                provider
-                for provider in value or []
-                if not (isinstance(provider, dict) and provider.get("name") in OUR_PROVIDERS)
-            ]
-            result[key] = [*built.get("providers", []), *others]
+            result[key] = _update_providers(value or [], built.get("providers", []))
         elif key in GENERATED:
             if key in built:
                 result[key] = built[key]

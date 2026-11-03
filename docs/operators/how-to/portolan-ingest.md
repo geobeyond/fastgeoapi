@@ -255,6 +255,10 @@ quotes and `${VAR}` placeholders included.
   `extents`, `providers`, `ingest`) are replaced, and the others, such as a
   `view` you added, stay. Among the providers only the GeoParquet and
   PMTiles ones are replaced, so a map provider added by hand stays too.
+  Within those two, the keys the command writes come from the catalog,
+  and a key you added, such as `union_by_name` or `engine_options`,
+  stays. A key the command wrote before and no longer
+  writes, `store_options` for one, goes away.
 - A resource with the same id written by hand, or ingested from another
   catalog, is left alone and listed under `skipped`.
 - Collections gone from the catalog are listed as missing and kept.
