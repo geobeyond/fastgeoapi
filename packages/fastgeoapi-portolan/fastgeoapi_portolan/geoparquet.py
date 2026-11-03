@@ -243,6 +243,11 @@ async def geoparquet_provider(
             for href, item in zip(collection.item_hrefs, items.items, strict=True)
             if (found := _data_asset(item)) is not None
         ]
+        # The items name the files of the index, even when a glob names the data.
+        for href, found in parts:
+            location = resolve(href, found["href"])
+            if is_local_from_remote(collection.href, location):
+                return Refusal(f"the data {location} {LOCAL_FROM_REMOTE}")
         rows = _index_rows(collection, items.items)
         asset_name = _data_asset_name(items.items)
         described += [found for _, found in parts]
