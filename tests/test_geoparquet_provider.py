@@ -849,3 +849,27 @@ def test_the_nested_selection_returns_the_same_rows(provider, sortby, offset):
     result = provider.query(offset=offset, limit=1, sortby=sortby, bbox=[-180, -90, 180, 90])
 
     assert [feature["id"] for feature in result["features"]] == expected
+
+
+def test_a_page_of_files_without_a_column_of_the_first_reads_it_as_null(tmp_path):
+    con = connect(str(tmp_path))
+    con.execute(
+        "COPY (SELECT 1 AS id, 'x' AS extra, ST_Point(0.5, 0.5) AS geom)"
+        f" TO '{tmp_path}/s0.parquet' (FORMAT parquet)"
+    )
+    con.execute(
+        f"COPY (SELECT 2 AS id, ST_Point(10.5, 10.5) AS geom) TO '{tmp_path}/s1.parquet' (FORMAT parquet)"
+    )
+    index = " UNION ALL ".join(
+        f"SELECT '{name}' AS id, {{'xmin': {x}, 'ymin': {x}, 'xmax': {x + 1}, 'ymax': {x + 1}}} AS bbox,"
+        f" {{'data': {{'href': '../{name}.parquet'}}}} AS assets, 1::BIGINT AS \"table:row_count\""
+        for name, x in (("s0", 0), ("s1", 10))
+    )
+    (tmp_path / "meta").mkdir()
+    con.execute(f"COPY ({index}) TO '{tmp_path}/meta/index.parquet' (FORMAT parquet)")
+    provider = _indexed_provider(tmp_path, union_by_name=True)
+
+    (feature,) = provider.query(offset=1, limit=1)["features"]
+
+    assert feature["id"] == 2
+    assert feature["properties"]["extra"] is None

@@ -531,10 +531,19 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         hrefs, local = select_page(self._files or [], int(offset), int(limit))
         if not hrefs:
             return collection
+        import duckdb
+
         scan = scan_files(hrefs, union_by_name=self._union_by_name)
-        features = self._select_features(
-            scan, "", "", limit, local, skip_geometry, select_properties
-        )
+        try:
+            features = self._select_features(
+                scan, "", "", limit, local, skip_geometry, select_properties
+            )
+        except duckdb.BinderException:
+            # The schema comes from the first file; when the files of the page
+            # lack one of its columns, only the whole dataset fills it with NULL.
+            features = self._select_features(
+                self._scan, "", "", limit, offset, skip_geometry, select_properties
+            )
         collection["features"] = features
         collection["numberReturned"] = len(features)
         return collection
