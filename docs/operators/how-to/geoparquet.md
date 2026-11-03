@@ -234,6 +234,12 @@ result in its cache until the collection changes. A relative `file_index`
 is read from beside the configuration. If the index cannot be read, the
 provider logs a warning and reads the glob.
 
+With an index the provider takes the schema from the first file it lists,
+whatever `union_by_name` says, so the files of an indexed dataset should
+share one schema. With `union_by_name: false` the schema of each request
+comes from the first file it selects, and a request whose first file
+lacks a column of the others fails.
+
 ```yaml
 providers:
   - type: feature
