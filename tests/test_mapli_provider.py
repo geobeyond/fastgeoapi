@@ -126,6 +126,24 @@ async def test_the_pool_size_is_configurable(archive):
     assert (_pool().workers, _pool().max_renderers_per_worker) == (2, 3)
 
 
+@pytest.mark.asyncio
+async def test_the_render_pool_is_created_off_the_event_loop(archive, monkeypatch):
+    import threading
+
+    created_on = []
+
+    class ThreadRecordingPool(FakeRenderPool):
+        def __init__(self, *args, **kwargs) -> None:
+            created_on.append(threading.get_ident())
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(mapli, "RenderPool", ThreadRecordingPool)
+    await _map(_provider(archive))
+
+    assert len(created_on) == 1
+    assert created_on[0] != threading.get_ident()
+
+
 def test_the_constructor_reads_nothing(tmp_path):
     _provider(tmp_path / "missing.pmtiles")
 
@@ -208,6 +226,30 @@ def test_a_bbox_across_the_antimeridian_keeps_its_west_east_of_its_east():
     )
 
     assert (west, east) == pytest.approx((162, -162))
+
+
+@pytest.mark.parametrize(
+    ("worlds", "longitudes"),
+    [
+        # shifted past the antimeridian, as a panning client sends it
+        ((0.9, 1.5), (162, -90)),
+        ((-1.5, -0.9), (90, -162)),
+        ((2.1, 2.2), (18, 36)),
+        # one world wide or wider
+        ((-1.2, 1.2), (-180, 180)),
+        ((-1, 1.01), (-180, 180)),
+        ((-3, 3), (-180, 180)),
+        ((0.5, 2.6), (-180, 180)),
+    ],
+)
+def test_a_bbox_beyond_web_mercator_is_drawn_where_it_points(worlds, longitudes):
+    from app.maps.camera import HALF_WORLD
+    from app.provider.mapli import parse_web_mercator_bbox_as_crs84_bbox
+
+    xmin, xmax = (value * HALF_WORLD for value in worlds)
+    west, _, east, _ = parse_web_mercator_bbox_as_crs84_bbox([xmin, -1e6, xmax, 1e6])
+
+    assert (west, east) == pytest.approx(longitudes)
 
 
 # Parameters
@@ -327,14 +369,13 @@ def test_the_sync_face_draws_with_the_arguments_it_is_given(archive):
 
 @pytest.mark.asyncio
 async def test_the_default_style_draws_every_layer_of_the_archive(archive):
-    from app.provider.storage.cache import digest
-
-    await _map(_provider(archive))
+    provider = _provider(archive)
+    await _map(provider)
 
     style = _pool().rendered_style()
     assert style["sources"]["dataset"]["type"] == "vector"
     assert style["sources"]["dataset"]["url"].startswith(
-        f"pmtiles://fastgeoapi://{digest(str(archive))}/"
+        f"pmtiles://fastgeoapi://{provider._scheme_source_key}/"
     )
     assert {layer["source-layer"] for layer in style["layers"] if "source" in layer} == {"land"}
 
@@ -416,17 +457,16 @@ async def test_the_default_style_option_picks_the_style_drawn_without_one(archiv
 
 @pytest.mark.asyncio
 async def test_a_style_naming_the_dataset_source_gets_the_url_of_the_data(archive):
-    from app.provider.storage.cache import digest
-
     roads = {
         "version": 8,
         "sources": {"dataset": {"type": "vector"}},
         "layers": [{"id": "land", "type": "fill", "source": "dataset", "source-layer": "land"}],
     }
-    await _map(_provider(archive, {"styles": {"roads": roads}}), style="roads")
+    provider = _provider(archive, {"styles": {"roads": roads}})
+    await _map(provider, style="roads")
 
     url = _pool().rendered_style()["sources"]["dataset"]["url"]
-    assert url.startswith(f"pmtiles://fastgeoapi://{digest(str(archive))}/")
+    assert url.startswith(f"pmtiles://fastgeoapi://{provider._scheme_source_key}/")
 
 
 @pytest.mark.asyncio
@@ -531,7 +571,7 @@ async def test_a_bucket_is_read_through_the_scheme_handler(tmp_path):
     url = _rendered_url()
     cached = provider.cached_ranges
 
-    assert url == f"fastgeoapi://{cached.source}/{version_of(cached.meta())}"
+    assert url == f"fastgeoapi://{provider._scheme_source_key}/{version_of(cached.meta())}"
     assert bytes(_serve(url, (0, 6))) == b"PMTiles"
 
 
@@ -604,10 +644,12 @@ async def test_the_first_map_of_a_bucket_blocks_nothing_on_the_loop(tmp_path):
 # Data in a bucket without the range cache, read straight from its store
 
 
-def _uncached_bucket_provider(tmp_path, options=None):
+def _uncached_bucket_provider(tmp_path, options=None, store_options=None):
     from tests.range_cache_fixtures import CountingStore, memory_store
 
-    provider = _provider(BUCKET_DATA, {"range_cache": False, **(options or {})})
+    provider = _provider(
+        BUCKET_DATA, {"range_cache": False, **(options or {})}, store_options=store_options
+    )
     origin = CountingStore(memory_store())
     origin.put("land.pmtiles", land_archive(tmp_path / "land.pmtiles").read_bytes())
     provider.store = origin
@@ -616,15 +658,16 @@ def _uncached_bucket_provider(tmp_path, options=None):
 
 @pytest.mark.asyncio
 async def test_a_bucket_without_the_range_cache_is_read_from_its_store(tmp_path):
-    from app.provider.storage.cache import digest, version_of
+    from app.provider.storage.cache import version_of
 
     provider, origin = _uncached_bucket_provider(tmp_path)
     await _map(provider)
     url = _rendered_url()
     reads_before = len(origin.range_reads)
+    version = version_of(origin.head("land.pmtiles"))
 
     assert provider.cached_ranges is None
-    assert url == f"fastgeoapi://{digest(BUCKET_DATA)}/{version_of(origin.head('land.pmtiles'))}"
+    assert url == f"fastgeoapi://{provider._scheme_source_key}/{version}"
     assert bytes(_serve(url, (0, 6))) == b"PMTiles"
     assert len(origin.range_reads) == reads_before + 1
 
@@ -667,10 +710,39 @@ async def test_a_replaced_bucket_object_is_drawn_from_the_next_map_on(tmp_path):
 
 @pytest.mark.asyncio
 async def test_a_local_archive_is_read_through_the_scheme_handler(archive):
-    await _map(_provider(archive))
+    provider = _provider(archive)
+    await _map(provider)
 
     assert _rendered_url().startswith("fastgeoapi://")
     assert bytes(_serve(_rendered_url(), (0, 6))) == b"PMTiles"
+
+
+@pytest.mark.asyncio
+async def test_the_same_data_through_other_store_options_is_served_by_its_own_store(tmp_path):
+    first, first_origin = _uncached_bucket_provider(tmp_path)
+    second, _ = _uncached_bucket_provider(tmp_path, store_options={"endpoint": "other.example.org"})
+    await _map(first)
+    await _map(second)
+    first_url = first._get_map_styles().dataset_url.removeprefix("pmtiles://")
+    second_url = second._get_map_styles().dataset_url.removeprefix("pmtiles://")
+    first_reads = len(first_origin.range_reads)
+
+    assert first_url != second_url
+    assert bytes(_serve(first_url, (0, 6))) == b"PMTiles"
+    assert len(first_origin.range_reads) == first_reads + 1
+
+
+@pytest.mark.asyncio
+async def test_the_data_of_a_dropped_provider_is_no_longer_served(archive):
+    import gc
+
+    provider = _provider(archive)
+    await _map(provider)
+    url = _rendered_url()
+    del provider
+    gc.collect()
+
+    assert _is_error(_serve(url, (0, 6)), "NotFound")
 
 
 @pytest.mark.asyncio
@@ -767,7 +839,7 @@ async def test_a_replaced_bucket_object_without_the_range_cache_gets_a_new_defau
 async def test_an_https_archive_without_the_range_cache_is_read_through_the_scheme_handler(
     tmp_path,
 ):
-    from app.provider.storage.cache import digest, version_of
+    from app.provider.storage.cache import version_of
     from tests.range_cache_fixtures import CountingStore, memory_store
 
     data = "https://example.org/tiles/land.pmtiles"
@@ -778,7 +850,7 @@ async def test_an_https_archive_without_the_range_cache_is_read_through_the_sche
     await _map(provider)
 
     assert _rendered_url() == (
-        f"fastgeoapi://{digest(data)}/{version_of(origin.head('land.pmtiles'))}"
+        f"fastgeoapi://{provider._scheme_source_key}/{version_of(origin.head('land.pmtiles'))}"
     )
     assert bytes(_serve(_rendered_url(), (0, 6))) == b"PMTiles"
 
