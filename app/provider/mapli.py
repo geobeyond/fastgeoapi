@@ -45,7 +45,6 @@ from app.provider.maps import (
     WEB_MERCATOR,
     MapParameterError,
     MapTooLargeError,
-    is_bucket,
 )
 from app.provider.storage import is_remote
 from app.provider.storage.base import ObjectChangedError
@@ -111,7 +110,7 @@ class _ObjectVersionReader:
 
 
 class _UncachedObject:
-    """Used to access a bucket object when the range cache is disabled.
+    """Used to access the data when the range cache does not apply.
 
     This offers the same relevant methods as ``CachedRanges``, but reads every byte
     range directly from the provider's store, without any caching. Its metadata
@@ -122,10 +121,13 @@ class _UncachedObject:
     store: "ObjectStore"
     key: str
     source: str
+    is_local_file: bool
     _lock: threading.Lock
     _meta: "ObjectMeta | None"
 
-    def __init__(self, store: "ObjectStore", key: str, *, source: str) -> None:
+    def __init__(
+        self, store: "ObjectStore", key: str, *, source: str, is_local_file: bool = False
+    ) -> None:
         """Prepare access to object at ``key`` in ``store``.
 
         ``source`` is the provider's ``data``. Its digest becomes this object's
@@ -135,8 +137,22 @@ class _UncachedObject:
         self.store = store
         self.key = key
         self.source = digest(source)
+        self.is_local_file = is_local_file
         self._meta: ObjectMeta | None = None
         self._lock = threading.Lock()
+
+    def compute_version(self, meta: "ObjectMeta") -> str:
+        """Compute the version of the object that ``meta`` describes.
+
+        A remote object's version is derived from its ETag. A local file's
+        version is derived from its size and modification time instead, since
+        its ETag also holds the file's inode, which differs between machines
+        holding the same file.
+        """
+        if self.is_local_file:
+            modified = meta.last_modified.isoformat() if meta.last_modified is not None else ""
+            return digest(f"{meta.size}:{modified}")
+        return version_of(meta)
 
     def meta(self) -> "ObjectMeta":
         """Entry point shared with ``CachedRanges``."""
@@ -187,7 +203,7 @@ class _UncachedObject:
         built for.
         """
         meta = self._get_stored_metadata()
-        return meta if meta is not None and version_of(meta) == version else None
+        return meta if meta is not None and self.compute_version(meta) == version else None
 
     def _create_reader(self, meta: "ObjectMeta") -> "ByteRanges":
         """Create a reader of byte ranges of the object at the version ``meta`` names.
@@ -211,6 +227,13 @@ class _UncachedObject:
 
 
 type _SchemeObject = CachedRanges | _UncachedObject
+
+
+def compute_scheme_object_version(scheme_object: _SchemeObject, meta: "ObjectMeta") -> str:
+    """Compute the version of ``scheme_object``'s data that ``meta`` describes."""
+    if isinstance(scheme_object, _UncachedObject):
+        return scheme_object.compute_version(meta)
+    return version_of(meta)
 
 
 class _MapliSchemeHandler:
@@ -250,11 +273,12 @@ class _MapliSchemeHandler:
         """Generate the URL that mapli uses to read ``scheme_object``'s data.
 
         The URL has the form ``fastgeoapi://<source>/<version>``, where ``source``
-        is the digest of the provider's ``data`` and ``version`` is derived from
-        the ETag in ``meta``. It names the data without revealing its real
-        location or any credentials.
+        is the digest of the provider's ``data`` and ``version`` is the version
+        of the data that ``meta`` describes. It names the data without revealing
+        its real location or any credentials.
         """
-        return f"{MAPLI_SCHEME}://{scheme_object.source}/{version_of(meta)}"
+        version = compute_scheme_object_version(scheme_object, meta)
+        return f"{MAPLI_SCHEME}://{scheme_object.source}/{version}"
 
     def __call__(self, request: mapli.ResourceRequest) -> mapli.Response | bytes:
         """Serve a read that mapli makes for a URL built by :meth:`generate_scheme_url`.
@@ -321,7 +345,6 @@ class MapliMapProviderConfig:
     max_image_width: int = 2048
     min_image_height: int = 1
     max_image_height: int = 2048
-    data_url: str | None = None
     styles: dict[str, Any] = dataclasses.field(default_factory=dict)
 
     def __post_init__(self):
@@ -350,7 +373,6 @@ class MapliMapProviderConfig:
         options = provider_def.get("options") or {}
         return cls(
             data=provider_def["data"],
-            data_url=options.get("data_url", cls.data_url),
             dem_data_encodings=options.get("dem", cls.dem_data_encodings),
             max_renderers_per_worker=options.get(
                 "max_renderers_per_worker", cls.max_renderers_per_worker
@@ -422,7 +444,8 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
     # NOTE: It will be non-None if this provider's configured `data` points to
     # a remote resource and if the provider's configured `options.range_cache`
     # is not set to False. When it has a value, `_scheme_object` makes mapli
-    # read the data through it
+    # read the data through it, otherwise mapli reads the data straight from
+    # the store
     cached_ranges: "CachedRanges | None"
 
     _DEFAULT_STYLE_NAME = "default"
@@ -455,13 +478,15 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         """Fetch the version of the provider's data; None when it is unknown.
 
         Remote data read through the range cache has the ETag the cache knows.
-        A bucket read without it has the ETag the store gives now, as its
-        metadata is fetched for every map anyway. Remote data that mapli reads
-        itself has no version. Local data has its size and modification time.
+        Any other data has the version the store gives now, as its metadata is
+        fetched for every map anyway. Remote data without an ETag has no version.
         """
         scheme_object = self._scheme_object
         if isinstance(scheme_object, _UncachedObject):
-            return (await scheme_object.ameta_without_waiting()).etag
+            meta = await scheme_object.ameta_without_waiting()
+            if meta.etag is None and not scheme_object.is_local_file:
+                return None
+            return scheme_object.compute_version(meta)
         return await self.adata_version()
 
     def _compute_definition_digest(self) -> str:
@@ -487,9 +512,13 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         """Determine the map version that would be used for rendering.
 
         This method can be used to help decide whether a map needs to be
-        re-rendered or if a cached version can be used instead. It computes
-        a unique string based on the data version, style definition, and
-        other parameters.
+        re-rendered or if a cached version can be used instead. It joins the
+        data version, the digest of the provider's definition and the version
+        of mapli. It reads the data's metadata only, never its contents.
+
+        The style is not part of the version: it is generated from the data,
+        the provider's definition and the request's arguments, and fastgeoapi's
+        HTTP caching adds the request's arguments to the ETag already.
 
         If the data version is unknown (e.g., when using remote
         data without a range cache), it returns None, indicating that the
@@ -509,7 +538,7 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         """
         if (data_version := await self._fetch_data_version()) is None:
             return None
-        arguments = self._validate_arguments(
+        self._validate_arguments(
             style=style,
             bbox=bbox,
             width=width,
@@ -518,13 +547,7 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             transparent=transparent,
             format_=format_,
         )
-        # uses run_sync as getting the style identifier may involve reading data and its version
-        style_identifier, _ = await self.run_sync(
-            self._generate_registered_style, arguments.style_id, arguments.transparent
-        )
-        return "|".join(
-            (data_version, self._compute_definition_digest(), style_identifier, MAPLI_VERSION)
-        )
+        return "|".join((data_version, self._compute_definition_digest(), MAPLI_VERSION))
 
     async def _render_map(
         self,
@@ -549,11 +572,10 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         )
 
         scheme_object = self._scheme_object
-        if scheme_object is not None:
-            # Register only once the version is known: on a reload, the provider
-            # this one replaces keeps serving its maps until then
-            await scheme_object.ameta_without_waiting()
-            _SCHEME_HANDLER.register_source(scheme_object)
+        # Register only once the version is known: on a reload, the provider
+        # this one replaces keeps serving its maps until then
+        await scheme_object.ameta_without_waiting()
+        _SCHEME_HANDLER.register_source(scheme_object)
 
         registered_style_identifier = await self.run_sync(
             self._register_style, self._render_pool, arguments.style_id, arguments.transparent
@@ -587,8 +609,7 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         """Check the arguments of a map request and return them ready for rendering.
 
         Both ``compute_map_version`` and ``render_map`` call this first, so a
-        request that ``render_map`` refuses never gets a version. It reads nothing: an unknown
-        style is found later, when the style is generated.
+        request that ``render_map`` refuses never gets a version. It reads nothing.
         """
         if format_ not in ("png", "html"):
             raise MapParameterError(user_msg="maps are drawn as PNG only")
@@ -636,8 +657,13 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         if west == east or south >= north:
             raise MapParameterError(user_msg="bounding box must have a positive width and height")
 
+        style_id = style or self._config.default_style or self._DEFAULT_STYLE_NAME
+        if style_id != self._DEFAULT_STYLE_NAME and style_id not in self._config.styles:
+            # the style names the resource in the request's path
+            raise ProviderItemNotFoundError(user_msg=f"Unknown style {style_id}")
+
         return _MapArguments(
-            style_id=style or self._config.default_style or self._DEFAULT_STYLE_NAME,
+            style_id=style_id,
             lon_lat_bbox=(west, south, east, north),
             width=width,
             height=height,
@@ -702,15 +728,10 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         metadata of the data.
         """
         scheme_object = self._scheme_object
-        if scheme_object is not None:
-            meta = scheme_object.known_meta() or scheme_object.meta()
-            data_version = version_of(meta)
-            read_data = scheme_object.at(meta).read
-            dataset_url = _SCHEME_HANDLER.generate_scheme_url(scheme_object, meta)
-        else:
-            data_version = self._get_direct_data_version()
-            read_data = self.byte_ranges().read
-            dataset_url = self._generate_direct_dataset_url()
+        meta = scheme_object.known_meta() or scheme_object.meta()
+        data_version = compute_scheme_object_version(scheme_object, meta)
+        read_data = scheme_object.at(meta).read
+        dataset_url = _SCHEME_HANDLER.generate_scheme_url(scheme_object, meta)
         with self._map_styles_lock:
             map_styles = self._map_styles
             if map_styles is None or map_styles.data_version != data_version:
@@ -720,18 +741,6 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
                     dataset_url=f"pmtiles://{dataset_url}",
                 )
             return map_styles
-
-    def _get_direct_data_version(self) -> str | None:
-        """Get the version of data that mapli reads itself; None when it is unknown.
-
-        Local data has its size and modification time. Remote data has no
-        known version, since finding it would cost a HEAD for every map.
-        """
-        if is_remote(self._config.data):
-            return None
-        meta = self.store.head(self.object_key)
-        modified = meta.last_modified.isoformat() if meta.last_modified is not None else ""
-        return f"{meta.size}:{modified}"
 
     def _generate_map_styles(self, read_data: Callable[[int, int], bytes]) -> dict[str, str | dict]:
         """Generate the default style, from what the archive holds, and add the configured styles.
@@ -757,20 +766,21 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         }
 
     @functools.cached_property
-    def _scheme_object(self) -> _SchemeObject | None:
-        """The object mapli reads through the scheme handler.
+    def _scheme_object(self) -> _SchemeObject:
+        """The object mapli reads the data through, by way of the scheme handler.
 
-        mapli (and thus MapLibre Native) has no bucket credentials, so data in a
-        bucket is read through the handler, with the store and its store_options:
-        through the range cache when it applies, else straight from the store.
-        A data_url, when given, is read directly instead, unless the range cache
-        applies.
+        Remote data is read through the range cache when it applies. Otherwise,
+        local and remote data alike are read straight from the provider's store,
+        with its store_options.
         """
         if self.cached_ranges is not None:
             return self.cached_ranges
-        if is_bucket(self._config.data) and self._config.data_url is None:
-            return _UncachedObject(self.store, self.object_key, source=self._config.data)
-        return None
+        return _UncachedObject(
+            self.store,
+            self.object_key,
+            source=self._config.data,
+            is_local_file=not is_remote(self._config.data),
+        )
 
     def _generate_default_map_style(self, source_content: "SourceContent") -> dict[str, Any]:
         """Generate the default style, with the data source but not its URL yet."""
@@ -802,10 +812,7 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
     def _generate_style(self, style_identifier: str, transparent_background: bool) -> dict | str:
         map_styles = self._get_map_styles()
-        try:
-            style_definition = map_styles.styles[style_identifier]
-        except KeyError as err:
-            raise ProviderItemNotFoundError(user_msg=f"Unknown style {style_identifier}") from err
+        style_definition = map_styles.styles[style_identifier]
         if isinstance(style_definition, str):
             # this is a URL to a remote style
             # TODO: retrieve the style from the remote and modify if needed
@@ -821,17 +828,6 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
                 layout_definition = background_layer.setdefault("layout", {})
                 layout_definition["visibility"] = "none" if transparent_background else "visible"
             return result
-
-    def _generate_direct_dataset_url(self) -> str:
-        """Generate the URL of data that mapli reads itself, rather than through the scheme handler.
-
-        That is the ``data_url``, the data's http(s) URL or its local path.
-        """
-        if self._config.data_url:
-            return self._config.data_url
-        if self._config.data.startswith(("http://", "https://")):
-            return self._config.data
-        return f"file://{Path(self._config.data.removeprefix('file://')).resolve()}"
 
 
 def parse_web_mercator_bbox_as_crs84_bbox(

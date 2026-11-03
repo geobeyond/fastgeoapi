@@ -41,6 +41,3 @@ def test_the_lazio_roads_map_mapli_draws_the_same_archive_with_mapli():
     assert map_provider["name"] == "app.provider.mapli.MapliMapProvider"
     assert map_provider["data"] == "s3://fastgeoapi-demo/tiles/lazio-roads.pmtiles"
     assert map_provider["storage_crs"] == "http://www.opengis.net/def/crs/EPSG/0/3857"
-    assert map_provider["options"]["data_url"] == (
-        "https://fastgeoapi-demo.fly.storage.tigris.dev/tiles/lazio-roads.pmtiles"
-    )

@@ -158,7 +158,7 @@ def test_a_source_no_format_reads_is_refused(tmp_path):
         _provider(tmp_path / "roads.geojson")
 
 
-def test_a_bucket_needs_neither_the_range_cache_nor_a_data_url():
+def test_a_bucket_does_not_need_the_range_cache():
     _provider(BUCKET_DATA, {"range_cache": False})
 
 
@@ -327,12 +327,15 @@ def test_the_sync_face_draws_with_the_arguments_it_is_given(archive):
 
 @pytest.mark.asyncio
 async def test_the_default_style_draws_every_layer_of_the_archive(archive):
+    from app.provider.storage.cache import digest
+
     await _map(_provider(archive))
 
     style = _pool().rendered_style()
-    assert style["sources"] == {
-        "dataset": {"type": "vector", "url": f"pmtiles://file://{archive.resolve()}"}
-    }
+    assert style["sources"]["dataset"]["type"] == "vector"
+    assert style["sources"]["dataset"]["url"].startswith(
+        f"pmtiles://fastgeoapi://{digest(str(archive))}/"
+    )
     assert {layer["source-layer"] for layer in style["layers"] if "source" in layer} == {"land"}
 
 
@@ -413,6 +416,8 @@ async def test_the_default_style_option_picks_the_style_drawn_without_one(archiv
 
 @pytest.mark.asyncio
 async def test_a_style_naming_the_dataset_source_gets_the_url_of_the_data(archive):
+    from app.provider.storage.cache import digest
+
     roads = {
         "version": 8,
         "sources": {"dataset": {"type": "vector"}},
@@ -421,7 +426,7 @@ async def test_a_style_naming_the_dataset_source_gets_the_url_of_the_data(archiv
     await _map(_provider(archive, {"styles": {"roads": roads}}), style="roads")
 
     url = _pool().rendered_style()["sources"]["dataset"]["url"]
-    assert url == f"pmtiles://file://{archive.resolve()}"
+    assert url.startswith(f"pmtiles://fastgeoapi://{digest(str(archive))}/")
 
 
 @pytest.mark.asyncio
@@ -657,6 +662,67 @@ async def test_a_replaced_bucket_object_is_drawn_from_the_next_map_on(tmp_path):
     assert bytes(_serve(second_url, (0, 6))) == b"PMTiles"
 
 
+# A local archive, read through the scheme handler
+
+
+@pytest.mark.asyncio
+async def test_a_local_archive_is_read_through_the_scheme_handler(archive):
+    await _map(_provider(archive))
+
+    assert _rendered_url().startswith("fastgeoapi://")
+    assert bytes(_serve(_rendered_url(), (0, 6))) == b"PMTiles"
+
+
+@pytest.mark.asyncio
+async def test_a_replaced_local_archive_is_not_read_under_its_old_version(tmp_path):
+    archive = land_archive(tmp_path / "land.pmtiles")
+    provider = _provider(archive)
+    await _map(provider)
+    old_url = _rendered_url()
+    raster_archive(tmp_path / "raster.pmtiles").replace(archive)
+
+    assert _is_error(_serve(old_url, (0, 6)), "NotFound")
+
+
+@pytest.mark.asyncio
+async def test_a_replaced_local_archive_is_drawn_from_the_next_map_on(tmp_path):
+    archive = land_archive(tmp_path / "land.pmtiles")
+    provider = _provider(archive)
+    await _map(provider)
+    first_url = _rendered_url()
+    raster_archive(tmp_path / "raster.pmtiles").replace(archive)
+    await _map(provider)
+    second_url = _rendered_url()
+
+    assert first_url != second_url
+    assert bytes(_serve(second_url, (0, 6))) == b"PMTiles"
+
+
+@pytest.mark.asyncio
+async def test_the_version_of_a_local_archive_does_not_depend_on_its_inode(tmp_path):
+    import shutil
+
+    archive = land_archive(tmp_path / "land.pmtiles")
+    provider = _provider(archive)
+    first = await provider.aversion()
+    # A copy that keeps the size and modification time, as on another machine
+    shutil.copy2(archive, tmp_path / "copy.pmtiles")
+    (tmp_path / "copy.pmtiles").replace(archive)
+
+    assert first is not None
+    assert await provider.aversion() == first
+
+
+@pytest.mark.asyncio
+async def test_the_version_of_a_local_archive_follows_the_file(tmp_path):
+    archive = land_archive(tmp_path / "land.pmtiles")
+    provider = _provider(archive)
+    first = await provider.aversion()
+    raster_archive(tmp_path / "raster.pmtiles").replace(archive)
+
+    assert await provider.aversion() != first
+
+
 # The default style follows the version of the data
 
 
@@ -698,14 +764,23 @@ async def test_a_replaced_bucket_object_without_the_range_cache_gets_a_new_defau
 
 
 @pytest.mark.asyncio
-async def test_a_bucket_with_a_data_url_and_no_range_cache_is_read_at_the_data_url(tmp_path):
-    provider, origin = _uncached_bucket_provider(
-        tmp_path, {"data_url": "https://example.org/land.pmtiles"}
-    )
+async def test_an_https_archive_without_the_range_cache_is_read_through_the_scheme_handler(
+    tmp_path,
+):
+    from app.provider.storage.cache import digest, version_of
+    from tests.range_cache_fixtures import CountingStore, memory_store
+
+    data = "https://example.org/tiles/land.pmtiles"
+    provider = _provider(data, {"range_cache": False})
+    origin = CountingStore(memory_store())
+    origin.put("land.pmtiles", land_archive(tmp_path / "land.pmtiles").read_bytes())
+    provider.store = origin
     await _map(provider)
 
-    assert _rendered_url() == "https://example.org/land.pmtiles"
-    assert origin.heads == 0
+    assert _rendered_url() == (
+        f"fastgeoapi://{digest(data)}/{version_of(origin.head('land.pmtiles'))}"
+    )
+    assert bytes(_serve(_rendered_url(), (0, 6))) == b"PMTiles"
 
 
 @pytest.mark.asyncio
@@ -825,17 +900,12 @@ async def test_another_definition_gives_another_version(archive):
 
 
 @pytest.mark.asyncio
-async def test_another_style_or_background_gives_another_version(archive):
-    night = {"version": 8, "sources": {}, "layers": [{"id": "night", "type": "background"}]}
-    provider = _provider(archive, {"styles": {"night": night}})
+async def test_the_version_reads_the_metadata_of_the_archive_only(tmp_path):
+    provider, origin = _uncached_bucket_provider(tmp_path)
 
-    versions = {
-        await provider.aversion(transparent=True),
-        await provider.aversion(transparent=False),
-        await provider.aversion(style="night"),
-    }
-
-    assert len(versions) == 3
+    assert await provider.aversion() is not None
+    assert origin.heads == 1
+    assert origin.range_reads == []
 
 
 @pytest.mark.asyncio
@@ -883,19 +953,34 @@ async def test_a_bucket_map_without_the_range_cache_follows_the_store_version(tm
     assert origin.heads == 2
 
 
-def _caching_client(archive):
+def _caching_client(archive, options=None):
     from starlette.testclient import TestClient
 
     from app.pygeoapi.api_async.caching import HttpCache
     from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
     from tests.test_tiles_async_route import _collection, _config
 
-    config = _config({"land": _collection("Land", [_definition(archive)])})
+    config = _config({"land": _collection("Land", [_definition(archive, options)])})
     http_cache = HttpCache(max_age=300, protected=False, code="test")
     return TestClient(
         build_pygeoapi_subapp(config, build_openapi(config), http_cache=http_cache),
         raise_server_exceptions=False,
     )
+
+
+def test_the_route_gives_another_etag_to_another_style_or_background(archive):
+    night = {"version": 8, "sources": {}, "layers": [{"id": "night", "type": "background"}]}
+    client = _caching_client(archive, {"styles": {"night": night}})
+    size = {"width": 64, "height": 64}
+
+    responses = [
+        client.get("/collections/land/map", params={**size, "transparent": "true"}),
+        client.get("/collections/land/map", params={**size, "transparent": "false"}),
+        client.get("/collections/land/styles/night/map", params=size),
+    ]
+
+    assert [response.status_code for response in responses] == [200, 200, 200]
+    assert len({response.headers["etag"] for response in responses}) == 3
 
 
 def test_the_route_sends_a_map_with_its_etag_and_how_long_to_keep_it(archive):

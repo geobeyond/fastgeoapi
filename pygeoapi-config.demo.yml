@@ -452,7 +452,6 @@ resources:
           url_style: vhost
           skip_signature: true
         options:
-          data_url: https://fastgeoapi-demo.fly.storage.tigris.dev/tiles/lazio-roads.pmtiles
           max_size: 2048
         format:
           name: png
