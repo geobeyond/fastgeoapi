@@ -298,3 +298,79 @@ def test_a_file_across_the_antimeridian_is_kept_for_both_sides():
     assert select_files([across], [-178.0, -5.0, -175.0, 5.0]) == ["across.parquet"]
     assert select_files([across], [175.0, -5.0, -175.0, 5.0]) == ["across.parquet"]
     assert select_files([across], [0.0, -5.0, 1.0, 5.0]) == []
+
+
+def _counted_index(path, counts) -> str:
+    """An index of one row per count, ``NULL`` where the count is None."""
+    selects = [
+        f"SELECT '{name}' AS id,"
+        f" {{'xmin': {n}.0, 'ymin': 0.0, 'xmax': {n}.5, 'ymax': 1.0}} AS bbox,"
+        f" {{'data': {{'href': '{name}.parquet'}}}} AS assets,"
+        f' {"NULL" if count is None else count}::BIGINT AS "table:row_count"'
+        for n, (name, count) in enumerate(counts.items())
+    ]
+    return _write_sql_index(path, " UNION ALL ".join(selects))
+
+
+def test_the_index_reads_the_row_count_of_each_file(tmp_path):
+    index = _counted_index(tmp_path / "index.parquet", {"a": 1, "b": 2, "c": 3})
+
+    assert [entry.rows for entry in read_stac_geoparquet(index)] == [1, 2, 3]
+
+
+def test_an_index_without_row_counts_reads_none(dataset):
+    _, index = dataset
+
+    assert {entry.rows for entry in read_stac_geoparquet(index)} == {None}
+
+
+def test_a_count_that_is_not_a_count_reads_as_missing(tmp_path):
+    index = _counted_index(tmp_path / "index.parquet", {"a": None, "b": -1, "c": 4})
+
+    assert [entry.rows for entry in read_stac_geoparquet(index)] == [None, None, 4]
+
+
+def _set_row_count(root, identifier, count) -> None:
+    item = root / "items" / f"{identifier}.json"
+    document = json.loads(item.read_text())
+    document["properties"] = {"table:row_count": count}
+    item.write_text(json.dumps(document))
+
+
+@pytest.mark.parametrize(("count", "expected"), [(7, 7), (True, None), (3.5, None), ("7", None)])
+def test_a_collection_item_gives_its_row_count(tmp_path, count, expected):
+    collection = _write_collection(tmp_path, ITEMS)
+    _set_row_count(tmp_path, "b", count)
+
+    entries = read_stac_collection(collection)
+
+    assert [entry.rows for entry in entries] == [None, expected, None]
+
+
+def test_the_cache_keeps_the_row_counts(tmp_path):
+    collection = _write_collection(tmp_path, ITEMS)
+    _set_row_count(tmp_path, "a", 5)
+    cache = tmp_path / "cache"
+
+    read_stac_collection(collection, cache_dir=cache)
+    with patch.object(file_index_module, "read_stac_item") as reads:
+        cached = read_stac_collection(collection, cache_dir=cache)
+
+    assert reads.call_count == 0
+    assert [entry.rows for entry in cached] == [5, None, None]
+
+
+def test_a_cache_without_row_counts_still_reads(tmp_path):
+    collection = _write_collection(tmp_path, ITEMS)
+    cache = tmp_path / "cache"
+    read_stac_collection(collection, cache_dir=cache)
+    (written,) = (cache / "file-index").glob("*.json")
+    stored = json.loads(written.read_text())
+    stored["entries"] = [entry[:2] for entry in stored["entries"]]
+    written.write_text(json.dumps(stored))
+
+    with patch.object(file_index_module, "read_stac_item") as reads:
+        cached = read_stac_collection(collection, cache_dir=cache)
+
+    assert reads.call_count == 0
+    assert [entry.rows for entry in cached] == [None, None, None]

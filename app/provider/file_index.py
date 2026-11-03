@@ -41,10 +41,21 @@ class FileEntry:
     bbox
         ``(xmin, ymin, xmax, ymax)`` of the file, or None when the index
         gives none; such a file is never left out.
+    rows
+        The number of rows of the file, from ``table:row_count``, or None
+        when the index gives no usable count.
     """
 
     href: str
     bbox: tuple[float, float, float, float] | None
+    rows: int | None = None
+
+
+def _read_row_count(value: object) -> int | None:
+    """Read a ``table:row_count`` as a count; None when it is not a whole number of rows."""
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return None
+    return value
 
 
 def resolve_href(href: str, base: str) -> str:
@@ -156,23 +167,31 @@ def read_stac_geoparquet(
     for name in ("id", "bbox", "assets"):
         if name not in columns:
             raise FileIndexError(f"the file index {location} has no {name}")
+    count = '"table:row_count"' if "table:row_count" in columns else "NULL"
     try:
-        # The asset name passed `_ASSET_NAME` above, and the location is a parameter.
+        # The asset name passed `_ASSET_NAME` above, `count` is one of two constants,
+        # and the location is a parameter.
         rows = con.execute(
             # ruff: ignore[hardcoded-sql-expression]
-            f'SELECT id, assets."{asset}".href, bbox FROM read_parquet(?)',  # nosec B608
+            f'SELECT id, assets."{asset}".href, bbox, {count} FROM read_parquet(?)',  # nosec B608
             [location],
         ).fetchall()
     except duckdb.BinderException as error:
         # The three columns are there, so what is missing is the asset or its href.
         raise FileIndexError(f"the file index {location} has no assets.{asset}.href") from error
     entries = []
-    for identifier, href, bbox in rows:
+    for identifier, href, bbox, row_count in rows:
         if not href:
             raise FileIndexError(
                 f"the file index {location} has no href for the row {identifier!r}"
             )
-        entries.append(FileEntry(href=resolve_href(href, location), bbox=_planar(bbox)))
+        entries.append(
+            FileEntry(
+                href=resolve_href(href, location),
+                bbox=_planar(bbox),
+                rows=_read_row_count(row_count),
+            )
+        )
     unbounded = sum(entry.bbox is None for entry in entries)
     if unbounded:
         logger.warning(
@@ -279,7 +298,11 @@ def read_stac_item(href: str, *, asset: str, store_options: dict | None) -> File
         planar = _planar(
             {"xmin": bbox[0], "ymin": bbox[1], "xmax": bbox[half], "ymax": bbox[half + 1]}
         )
-    return FileEntry(href=resolve_href(data["href"], href), bbox=planar)
+    properties = item.get("properties")
+    count = properties.get("table:row_count") if isinstance(properties, dict) else None
+    return FileEntry(
+        href=resolve_href(data["href"], href), bbox=planar, rows=_read_row_count(count)
+    )
 
 
 def _cache_path(location: str, asset: str, cache_dir: Path | None) -> Path | None:
@@ -299,9 +322,14 @@ def _read_cached(entry: Path | None, etag: str | None) -> list[FileEntry] | None
         return None
     if not isinstance(cached, dict) or cached.get("etag") != etag:
         return None
+    # An entry written before the row counts has two values.
     return [
-        FileEntry(href=href, bbox=tuple(bbox) if bbox else None)
-        for href, bbox in cached.get("entries", [])
+        FileEntry(
+            href=entry[0],
+            bbox=tuple(entry[1]) if entry[1] else None,
+            rows=_read_row_count(entry[2]) if len(entry) > 2 else None,
+        )
+        for entry in cached.get("entries", [])
     ]
 
 
@@ -310,7 +338,7 @@ def _write_cached(entry: Path, etag: str, entries: Sequence[FileEntry]) -> None:
         entry.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         partial = entry.with_name(f"{entry.name}.{os.getpid()}.partial")
         partial.write_text(
-            json.dumps({"etag": etag, "entries": [[e.href, e.bbox] for e in entries]})
+            json.dumps({"etag": etag, "entries": [[e.href, e.bbox, e.rows] for e in entries]})
         )
         partial.replace(entry)
     except OSError as error:
