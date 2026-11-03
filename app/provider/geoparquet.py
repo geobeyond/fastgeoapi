@@ -504,11 +504,13 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         geometry = "NULL" if skip_geometry else f"ST_AsGeoJSON({self._geometry_expression()})"
         # `projection` quotes column names taken from the dataset schema,
         # `clause` is built as described in `_where_clauses`, and the paging
-        # values are cast to int before they reach the string.
+        # values are cast to int before they reach the string. With an OFFSET
+        # in the same SELECT, DuckDB scans every file before it skips rows;
+        # a LIMIT inside lets it stop once it has the rows of the page.
         sql = (
             # ruff: ignore[hardcoded-sql-expression]
-            f"SELECT {projection}, {geometry} FROM {scan}{clause}"  # nosec B608
-            f"{order_by} LIMIT {int(limit)} OFFSET {int(offset)}"
+            f"SELECT * FROM (SELECT {projection}, {geometry} FROM {scan}{clause}"  # nosec B608
+            f"{order_by} LIMIT {int(offset) + int(limit)}) OFFSET {int(offset)}"
         )
         logger.debug(f"GeoParquet query: {sql}")
         return self._rows_to_features(self._rows(sql), columns, skip_geometry)

@@ -6,6 +6,7 @@ would take — LocalStore and bucket differ only in credentials.
 """
 
 import re
+from unittest.mock import patch
 
 import duckdb
 import pytest
@@ -818,3 +819,31 @@ def test_sortby_and_filters_keep_the_full_scan(counted, request_args):
 
     with pytest.raises(duckdb.InvalidInputException):
         provider.query(limit=1, **request_args)
+
+
+def test_the_selection_limits_before_it_skips(provider):
+    statements: list[str] = []
+    rows = provider._rows
+
+    def record(sql):
+        statements.append(sql)
+        return rows(sql)
+
+    with patch.object(provider, "_rows", side_effect=record):
+        provider.query(offset=1, limit=1, bbox=[-180, -90, 180, 90])
+
+    assert statements[-1].endswith("LIMIT 2) OFFSET 1")
+
+
+@pytest.mark.parametrize("sortby", [[], [{"property": "pop", "order": "-"}]])
+@pytest.mark.parametrize("offset", [0, 1, 2])
+def test_the_nested_selection_returns_the_same_rows(provider, sortby, offset):
+    order = " ORDER BY pop DESC" if sortby else ""
+    expected = [
+        row[0]
+        for row in provider._rows(f"SELECT id FROM {provider._scan}{order} LIMIT 1 OFFSET {offset}")
+    ]
+
+    result = provider.query(offset=offset, limit=1, sortby=sortby, bbox=[-180, -90, 180, 90])
+
+    assert [feature["id"] for feature in result["features"]] == expected
