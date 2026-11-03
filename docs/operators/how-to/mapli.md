@@ -4,11 +4,10 @@ icon: material/map-outline
 
 # :material-map-outline: mapli provider
 
-The mapli provider is an OGC API - Maps provider. It draws PNG maps of a
-PMTiles archive of vector or raster tiles, using
-[mapli](https://geobeyond.github.io/mapli/), a Python library that renders
-MapLibre styles with MapLibre Native. The archive is read in place, from a
-local path, an https URL or a bucket, in the same way as the
+The mapli provider is an OGC API - Maps provider. It draws PNG maps from a
+PMTiles archive of vector or raster tiles, using [mapli](https://geobeyond.github.io/mapli/), a
+Python library that renders MapLibre styles with MapLibre Native. The archive is read
+in place, from either a local path, an https URL or a bucket, in the same way as the
 [PMTiles provider](pmtiles.md).
 
 ## Installation
@@ -21,9 +20,8 @@ The provider needs the `pmtiles` extra to read the archive:
 pip install "fastgeoapi[mapli,pmtiles]"
 ```
 
-mapli draws through an OpenGL (EGL) context. A GPU is not required: Mesa's
-llvmpipe software renderer is used when none is present. On Debian and Ubuntu,
-the system needs:
+mapli draws through an OpenGL (EGL) context. On Debian and Ubuntu, install
+these additional system packages:
 
 ```shell
 apt-get install libegl1 libegl-mesa0 libgl1-mesa-dri libcurl4t64 xvfb
@@ -38,10 +36,11 @@ Xvfb :99 -screen 0 1280x1024x24 -nolisten tcp &
 export DISPLAY=:99
 ```
 
-On machines that expose a GPU device that Xvfb cannot use, set
-`LIBGL_ALWAYS_SOFTWARE=1` so that Mesa uses its software renderer. The mapli
-[system requirements](https://geobeyond.github.io/mapli/user-guide/system-requirements/)
-page has more detail.
+!!! TIP "Rendering with a software renderer"
+
+    On machines that expose a GPU device that Xvfb cannot use, set
+    `LIBGL_ALWAYS_SOFTWARE=1` so that Mesa uses its software renderer. The mapli
+    [system requirements](https://geobeyond.github.io/mapli/user-guide/system-requirements/) page has more detail.
 
 ## Enabling the provider
 
@@ -89,7 +88,6 @@ The provider's own settings go under `options`:
 | `min_image_width`, `min_image_height` | 1                                                                | The smallest `width` and `height`.                                                                                                                               |
 | `num_workers`                         | 1                                                                | Number of rendering threads used by mapli.                                                                                                                       |
 | `max_renderers_per_worker`            | 4                                                                | Renderers each thread keeps. Each renderer holds its own GL context and tile cache.                                                                              |
-| `data_url`                            | none                                                             | An https address of the archive that mapli reads directly. It is used only when the range cache is off.                                                          |
 | `range_cache`                         | true                                                             | Read a bucket archive through the range cache. `false` reads each range from the bucket.                                                                         |
 
 ### Styles
@@ -132,16 +130,13 @@ needs a `glyphs` URL that mapli can reach.
 
 ## Reading data from a bucket
 
-When the fastgeoapi range cache is turned on, which is the default, the
+When the fastgeoapi range cache is turned on (which is the default), the
 mapli provider reads through the range cache described in the [PMTiles guide](pmtiles.md#range-cache), so bytes
 read once are reused until they are evicted or the archive changes.
 
 When the range cache is disabled, there is no caching and the mapli provider reads straight from the bucket.
-It asks the bucket for the archive's version (a HEAD request) before each map, and draws the map from that
-version only, so a replaced archive is drawn from the next map on.
 
-If the archive is public, the `data_url` key can give its https address instead, and mapli then reads the
-archive from that address.
+#### Examples
 
 A private bucket, read through the range cache. The credentials come from the
 standard environment variables, as described in
@@ -171,8 +166,7 @@ requests, so no credentials are needed:
     skip_signature: true
 ```
 
-A public bucket with the range cache disabled. mapli reads the archive at its
-`data_url`:
+A public bucket with the range cache disabled. Every byte range is read from the bucket:
 
 ```yaml
 - type: map
@@ -186,15 +180,15 @@ A public bucket with the range cache disabled. mapli reads the archive at its
     skip_signature: true
   options:
     range_cache: false
-    data_url: https://my-public-bucket.fly.storage.tigris.dev/tiles/roads.pmtiles
 ```
 
-!!! tip "Technical details"
-The fastgeoapi mapli provider registers a scheme handler for URLs of the
-form `fastgeoapi://<source>/<version>`, and the styles point mapli at those URLs.
-When mapli reads the archive, the handler serves the requested bytes through
-the fastgeoapi store, with the collection's `store_options`. The URLs contain
-neither the bucket's location nor any credentials.
+??? tip "Technical details"
+
+    The fastgeoapi mapli provider registers a scheme handler for URLs of the
+    form `fastgeoapi://<source>/<version>`, and the styles point mapli at those URLs,
+    wherever the archive is stored. When mapli reads the archive, the handler serves the requested bytes through
+    the fastgeoapi store, with the collection's `store_options`. The URLs contain
+    neither the bucket's location nor any credentials.
 
     Read more about custom scheme handlers at the [mapli docs](https://geobeyond.github.io/mapli/user-guide/custom-url-schemes/).
 
@@ -218,20 +212,56 @@ A map request recognizes the following query parameters, most of which are speci
 
 ## HTTP caching
 
-A drawn map carries an `ETag` and a `Cache-Control` header, as tiles do:
-the [PMTiles guide](pmtiles.md#http-caching) has the setting and the rule
-for protected instances. The ETag changes with the request's parameters, the
-version of the archive, the collection's configuration, the style mapli would
-get and the version of mapli. A map asked again with its ETag answers 304
-without being rendered. Errors carry no cache headers.
+fastgeoapi supports HTTP caching of maps, so that browsers and shared caches,
+such as a CDN, can reuse a map instead of requesting it again. Caching is
+controlled by the `FASTGEOAPI_HTTP_MAX_AGE_SECONDS` setting, which applies to
+maps and tiles alike and is described in the
+[PMTiles guide](pmtiles.md#http-caching), along with how authentication affects it.
 
-- **A style given as a URL** is identified by its URL only: editing the
-  document at that URL does not change the ETag of the maps drawn with it.
-- **An archive read at its `data_url`, or at an https URL without the
-  range cache,** has no known version, so its maps carry no cache headers.
-- **An archive replaced while a map is being requested** can give that one
-  map the ETag of the previous version. The image itself is drawn from the
-  new version. This only matters if the archive is later rolled back to the
-  previous version: a client that kept the image can then get a 304 for it
-  and go on showing the newer image for as long as the archive stays at the
-  previous version.
+??? "How HTTP caching works"
+
+    A successful response includes the following HTTP headers:
+
+    - `Cache-Control` states how long, in seconds, the map may be reused without
+      asking the server again, and whether shared caches may store it (`public`)
+      or only the user's browser (`private`).
+    - `ETag` identifies the version of the map. It changes whenever the image
+      would change, except in the cases listed under [Limitations](#limitations).
+
+    When recurring clients request a map image they can also send an ETag gotten from a previous
+    request. If the sent ETag is still current, then the server does not generate the map image,
+    it simply replies with `304 Not Modified`. The client keeps using the image it already has. If
+    the client-sent ETag does not match, this means that something has changed and the server
+    proceeds to render an updated image of the map, sending it back with a status of  `200 OK` and
+    also including the new ETag header in the response.
+
+
+    ### Computing a map request's ETag header
+
+    The ETag of a map changes when any of the following changes:
+
+    - the version of the underlying dataset. This is determined as follows:
+
+      | Archive location                                  | Version changes when                                                                               |
+      | ------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+      | Local file                                        | The file's size or modification time changes.                                                      |
+      | Bucket or https URL, read through the range cache | The archive's ETag changes. It is checked again every `FASTGEOAPI_RANGE_CACHE_REVALIDATE_SECONDS`. |
+      | Bucket or https URL, read without the range cache | The archive's ETag changes. It is checked whenever receiving a request.                            |
+
+    - the configuration of the collection's map provider, including its styles;
+    - request parameters, such as `bbox`, `width`, `height`, the style and
+      `transparent`;
+    - the version of mapli, or the code of fastgeoapi, so any change to fastgeoapi's code, such
+      as a new deployment, changes the ETag.
+
+    ### Limitations
+
+    - Maps of a remote archive whose server does not send an ETag are sent without cache headers.
+    - Error responses are sent without cache headers.
+    - A style given as a URL is identified by its URL only. Changing the document
+      at that URL does not change the ETag of the maps drawn with it.
+    - If the archive is replaced while a map is being requested, that map can
+      be sent with the ETag of the previous version of the archive. If the
+      archive is later restored to that previous version, a client that holds
+      the map receives `304 Not Modified` for it, and keeps showing the map drawn
+      from the newer archive.
