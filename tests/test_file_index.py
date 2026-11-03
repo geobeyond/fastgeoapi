@@ -400,3 +400,20 @@ def test_select_page_spans_files():
 def test_select_page_past_the_end_is_empty():
     assert select_page(COUNTED, 12, 10) == ([], 0)
     assert select_page(COUNTED, 0, 0) == ([], 0)
+
+
+def test_an_index_written_by_the_ingest_gives_its_row_counts(tmp_path):
+    writer = pytest.importorskip("fastgeoapi_portolan.file_index")
+    location = str(tmp_path / "index.parquet")
+    writer.write_index(
+        [
+            writer.IndexRow(id="a", bbox=(0.0, 0.0, 1.0, 1.0), href="a.parquet", rows=2),
+            writer.IndexRow(id="b", bbox=(2.0, 2.0, 3.0, 3.0), href="b.parquet", rows=3),
+        ],
+        location,
+    )
+
+    entries = read_stac_geoparquet(location)
+
+    assert [entry.rows for entry in entries] == [2, 3]
+    assert count_rows(entries) == 5

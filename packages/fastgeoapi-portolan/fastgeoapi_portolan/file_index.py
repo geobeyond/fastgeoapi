@@ -38,11 +38,33 @@ class IndexRow:
         ``(xmin, ymin, xmax, ymax)`` of the item.
     href
         Where the file is, as the provider reads it.
+    rows
+        The number of rows of the file, from the ``table:row_count`` of the
+        item, or None when the item gives no usable count.
     """
 
     id: str
     bbox: tuple[float, float, float, float]
     href: str
+    rows: int | None = None
+
+
+def read_row_count(value: object) -> int | None:
+    """Read a ``table:row_count`` as a count; None when it is not a whole number of rows.
+
+    Parameters
+    ----------
+    value
+        The ``table:row_count`` property of an item.
+
+    Returns
+    -------
+    int | None
+        The count, or None for a value that is not a non-negative integer.
+    """
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return None
+    return value
 
 
 def read_planar_bbox(bbox: object) -> tuple[float, float, float, float] | None:
@@ -172,11 +194,11 @@ def write_index(
     con = duckdb.connect()
     con.execute(
         "CREATE TABLE files (id VARCHAR, xmin DOUBLE, ymin DOUBLE, xmax DOUBLE,"
-        " ymax DOUBLE, href VARCHAR, geometry BLOB)"
+        " ymax DOUBLE, href VARCHAR, geometry BLOB, row_count BIGINT)"
     )
     con.executemany(
-        "INSERT INTO files VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [(row.id, *row.bbox, row.href, _polygon_wkb(row.bbox)) for row in rows],
+        "INSERT INTO files VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [(row.id, *row.bbox, row.href, _polygon_wkb(row.bbox), row.rows) for row in rows],
     )
     stac = json.dumps({"version": STAC_GEOPARQUET_VERSION})
     geo = json.dumps(_geo_metadata(rows))
@@ -188,7 +210,9 @@ def write_index(
         " AS assets,"
         # STAC items carry `datetime` among their properties; the reference reader
         # rebuilds them from the columns past the top-level ones and needs one.
-        " NULL::TIMESTAMPTZ AS datetime"
+        " NULL::TIMESTAMPTZ AS datetime,"
+        # The property of the Table extension, which the reader sums and pages by.
+        ' row_count AS "table:row_count"'
         " FROM files"
     )
     metadata = f'{{"stac-geoparquet": {_quoted(stac)}, geo: {_quoted(geo)}}}'

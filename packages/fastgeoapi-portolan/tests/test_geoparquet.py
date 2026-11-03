@@ -549,3 +549,28 @@ async def test_a_remote_collection_cannot_name_a_local_mirror(base):
 
     assert provided.provider.get("file_index") != "file:///etc/items.parquet"
     assert "file_index: collection-mirror" not in provided.choices
+
+
+@pytest.mark.asyncio
+async def test_items_give_their_row_counts_to_the_index(base):
+    item = _item("part-0", "./part-0.parquet")
+    item["properties"]["table:row_count"] = 12
+
+    provided = await geoparquet_provider(
+        _collection(base, items={"items/part-0.json": item}), IngestOptions()
+    )
+
+    assert provided.index_rows[0].rows == 12
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("count", [True, -1, "12", 3.5])
+async def test_an_item_count_that_is_not_a_count_is_not_written(base, count):
+    item = _item("part-0", "./part-0.parquet")
+    item["properties"]["table:row_count"] = count
+
+    provided = await geoparquet_provider(
+        _collection(base, items={"items/part-0.json": item}), IngestOptions()
+    )
+
+    assert provided.index_rows[0].rows is None
