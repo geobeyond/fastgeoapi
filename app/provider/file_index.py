@@ -22,6 +22,9 @@ from app.config.logging import create_logger
 
 logger = create_logger("app.provider.file_index")
 
+_CACHE_VERSION = 2
+"""The layout of a cached collection index: ``[href, bbox, rows]`` per file."""
+
 _ASSET_NAME = re.compile(r"^[A-Za-z0-9_\-]+$")
 """Asset names reach the SQL as quoted identifiers, so only these characters pass."""
 
@@ -367,7 +370,8 @@ def _cache_path(location: str, asset: str, cache_dir: Path | None) -> Path | Non
 
     if cache_dir is None:
         return None
-    return cache_dir / "file-index" / f"{digest(location + asset)}.json"
+    # The version keeps an entry of another layout from being read as this one.
+    return cache_dir / "file-index" / f"{digest(f'{_CACHE_VERSION}:{location}{asset}')}.json"
 
 
 def _read_cached(entry: Path | None, etag: str | None) -> list[FileEntry] | None:
@@ -379,14 +383,12 @@ def _read_cached(entry: Path | None, etag: str | None) -> list[FileEntry] | None
         return None
     if not isinstance(cached, dict) or cached.get("etag") != etag:
         return None
-    # An entry written before the row counts has two values.
+    rows = cached.get("entries", [])
+    if not all(isinstance(row, list) and len(row) == 3 for row in rows):
+        return None
     return [
-        FileEntry(
-            href=entry[0],
-            bbox=tuple(entry[1]) if entry[1] else None,
-            rows=_read_row_count(entry[2]) if len(entry) > 2 else None,
-        )
-        for entry in cached.get("entries", [])
+        FileEntry(href=href, bbox=tuple(bbox) if bbox else None, rows=_read_row_count(count))
+        for href, bbox, count in rows
     ]
 
 
