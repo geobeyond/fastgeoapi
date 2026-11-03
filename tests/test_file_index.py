@@ -24,6 +24,7 @@ from app.provider.file_index import (
     select_files,
     select_page,
 )
+from app.provider.storage.cache import digest
 
 #: One point per file, in three boxes that do not touch.
 BOXES = {"a": (0.0, 0.0, 1.0, 1.0), "b": (10.0, 10.0, 11.0, 11.0), "c": (20.0, 20.0, 21.0, 21.0)}
@@ -362,20 +363,23 @@ def test_the_cache_keeps_the_row_counts(tmp_path):
     assert [entry.rows for entry in cached] == [5, None, None]
 
 
-def test_a_cache_without_row_counts_still_reads(tmp_path):
+def test_a_cache_written_without_row_counts_is_read_again(tmp_path):
     collection = _write_collection(tmp_path, ITEMS)
+    _set_row_count(tmp_path, "a", 5)
     cache = tmp_path / "cache"
-    read_stac_collection(collection, cache_dir=cache)
-    (written,) = (cache / "file-index").glob("*.json")
-    stored = json.loads(written.read_text())
-    stored["entries"] = [entry[:2] for entry in stored["entries"]]
-    written.write_text(json.dumps(stored))
+    old = cache / "file-index" / f"{digest(collection + 'data')}.json"
+    old.parent.mkdir(parents=True)
+    etag = file_index_module._etag(collection, None)
+    hrefs = [str(tmp_path / f"{name}.parquet") for name in "abc"]
+    old.write_text(json.dumps({"etag": etag, "entries": [[href, None] for href in hrefs]}))
 
-    with patch.object(file_index_module, "read_stac_item") as reads:
-        cached = read_stac_collection(collection, cache_dir=cache)
+    with patch.object(
+        file_index_module, "read_stac_item", wraps=file_index_module.read_stac_item
+    ) as reads:
+        entries = read_stac_collection(collection, cache_dir=cache)
 
-    assert reads.call_count == 0
-    assert [entry.rows for entry in cached] == [None, None, None]
+    assert reads.call_count == 3
+    assert [entry.rows for entry in entries] == [5, None, None]
 
 
 COUNTED = [
