@@ -6,6 +6,7 @@ and the parity tests compare the two routes on the same requests.
 """
 
 import asyncio
+from unittest.mock import patch
 
 import pytest
 from pygeoapi.provider.base import BaseProvider
@@ -129,6 +130,14 @@ def test_another_format_is_a_bad_parameter(client):
     response = client.get("/collections/native/map", params={"f": "jpeg"})
 
     assert response.status_code == 400
+
+
+def test_a_bad_parameter_logs_no_traceback(client, caplog):
+    with caplog.at_level("ERROR", logger="pygeoapi"):
+        response = client.get("/collections/native/map", params={"width": 5000, "height": 64})
+
+    assert response.status_code == 413
+    assert [record for record in caplog.records if record.exc_info] == []
 
 
 WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
@@ -330,6 +339,27 @@ async def test_a_full_queue_answers_503_with_retry_after_and_no_cache_headers(tm
 
 
 @pytest.mark.asyncio
+async def test_a_full_queue_logs_no_traceback(tmp_path, caplog):
+    import pygeoapi.plugin
+
+    app, definition = _gated_app(tmp_path, queue=1, timeout=5)
+    provider = pygeoapi.plugin.load_plugin("provider", definition)
+    FakeRenderer.gate = asyncio.Event()
+    try:
+        drawing = asyncio.create_task(_get(app))
+        waiting = asyncio.create_task(_get(app))
+        await _until(lambda: _occupied(provider) == 2)
+        with caplog.at_level("ERROR", logger="pygeoapi"):
+            busy = await _get(app)
+    finally:
+        FakeRenderer.gate.set()
+    await asyncio.gather(drawing, waiting)
+
+    assert busy["status"] == 503
+    assert [record for record in caplog.records if record.exc_info] == []
+
+
+@pytest.mark.asyncio
 async def test_a_slow_map_answers_504_and_its_render_goes_on(tmp_path):
     import pygeoapi.plugin
 
@@ -405,3 +435,20 @@ def test_a_map_without_time_has_no_content_datetime(client):
 
     assert response.status_code == 200, response.text[:200]
     assert "content-datetime" not in response.headers
+
+
+@pytest.mark.asyncio
+async def test_a_server_error_keeps_its_traceback(tmp_path, caplog):
+    import pygeoapi.plugin
+    from pygeoapi.provider.base import ProviderGenericError
+
+    app, definition = _gated_app(tmp_path, queue=1, timeout=5)
+    provider = pygeoapi.plugin.load_plugin("provider", definition)
+    with (
+        patch.object(provider, "arender_map", side_effect=ProviderGenericError("boom")),
+        caplog.at_level("ERROR", logger="pygeoapi"),
+    ):
+        failed = await _get(app)
+
+    assert failed["status"] == 500
+    assert [record for record in caplog.records if record.exc_info] != []

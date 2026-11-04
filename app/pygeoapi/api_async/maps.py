@@ -125,7 +125,13 @@ async def get_collection_map(
             style,
         )
     except MapParameterError as error:
-        return _answer_error(api, request, headers, error)
+        refused = error
+    else:
+        refused = None
+    # Answered outside the except block: pygeoapi logs the exception being
+    # handled with its traceback, and a refused map is not a server error.
+    if refused is not None:
+        return _answer_error(api, request, headers, refused)
     if parameters is None:
         return headers, HTTPStatus.NO_CONTENT, b""
     arguments = asdict(parameters)
@@ -139,7 +145,15 @@ async def get_collection_map(
     try:
         data = await get_admission(provider, limits).run(lambda: provider.arender_map(**arguments))
     except (ProviderGenericError, ProviderInvalidDataError) as error:
-        return _answer_error(api, request, headers, error)
+        if not _is_expected(error):
+            # Inside the except block pygeoapi logs the traceback, which a
+            # server error needs.
+            return _answer_error(api, request, headers, error)
+        failed = error
+    else:
+        failed = None
+    if failed is not None:
+        return _answer_error(api, request, headers, failed)
     if cached:
         # The data may change while the map is drawn. An ETag must name the
         # version the map was drawn from, so a map whose version moved goes
@@ -156,6 +170,27 @@ async def get_collection_map(
     headers["Content-Type"] = collection_def["format"]["mimetype"]
     headers.update(cached)
     return headers, HTTPStatus.OK, data
+
+
+def _is_expected(error: ProviderGenericError | ProviderInvalidDataError) -> bool:
+    """Tell an answer the route expects from a server fault.
+
+    A refused request (4xx), a full queue (503) and a map that took too long
+    (504) are part of serving maps, so their answers need no traceback.
+
+    Parameters
+    ----------
+    error
+        The error the provider or the admission raised.
+
+    Returns
+    -------
+    bool
+        True for a 4xx, a 503 or a 504; False for any other server error,
+        whose answer keeps the traceback in the log.
+    """
+    status = int(error.http_status_code)
+    return status < 500 or status in (HTTPStatus.SERVICE_UNAVAILABLE, HTTPStatus.GATEWAY_TIMEOUT)
 
 
 def _answer_error(
