@@ -8,6 +8,7 @@ import hashlib
 import importlib.metadata
 import json
 import math
+import secrets
 import threading
 import weakref
 from collections.abc import (
@@ -19,6 +20,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     ClassVar,
+    assert_never,
 )
 from urllib.parse import urlsplit
 
@@ -47,14 +49,13 @@ from app.provider.maps import (
     MapParameterError,
     MapTooLargeError,
 )
-from app.provider.storage import is_remote
+from app.provider.storage import CachedRanges, is_remote
 from app.provider.storage.base import ObjectChangedError
 from app.provider.storage.cache import digest, version_of
 from app.provider.storage.ranges import ObjectRanges
 
 if TYPE_CHECKING:
     from app.maps.contract import SourceContent
-    from app.provider.storage import CachedRanges
     from app.provider.storage.base import (
         ObjectMeta,
         ObjectStore,
@@ -69,6 +70,7 @@ CRS_84 = "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
 MAX_LATITUDE = 85.05112877980659
 
 # URL scheme under which mapli reads bucket data through this module's handler
+# check out the mapli docs for more info on custom URL scheme handlers
 MAPLI_SCHEME = "fastgeoapi"
 
 # used when computing the version of a map that is to be used for replying to a request
@@ -76,16 +78,18 @@ MAPLI_VERSION = importlib.metadata.version("mapli")
 
 
 class _ObjectVersionReader:
-    """Reads bytes from a single version of a bucket object.
+    """Reads bytes from a single version of a stored object.
 
     Instances of this class are tied to one version of the object, as
     identified by its ETag, and only ever return bytes of that version.
 
     Every read is a conditional request (``If-Match``), so a read made after the
-    object has been replaced raises ``ObjectChangedError``.
+    object has been replaced raises ``ObjectChangedError``. This ensures that
+    whenever the underlying dataset changes, calling code is forced to fetch
+    the new version of the data and its metadata.
 
-    This class follows the ``ByteRanges`` protocol, like the readers that
-    ``CachedRanges`` gives out when the range cache is enabled.
+    The purpose of this class is to provide a ``ByteRanges`` reader for data
+    that is not read through the fastgeoapi range cache.
     """
 
     def __init__(self, store: "ObjectStore", key: str, etag: str) -> None:
@@ -94,11 +98,11 @@ class _ObjectVersionReader:
         self.etag = etag
 
     def read(self, offset: int, length: int) -> bytes:
-        """Read ``length`` bytes from ``offset``."""
+        """Read ``length`` bytes starting from ``offset``."""
         return self.store.get_range(self.key, offset, length, if_match=self.etag)
 
     async def aread(self, offset: int, length: int) -> bytes:
-        """Read ``length`` bytes from ``offset``, asynchronously."""
+        """Read ``length`` bytes starting from ``offset``, asynchronously."""
         return await self.store.aget_range(self.key, offset, length, if_match=self.etag)
 
     def read_many(self, ranges: Sequence[tuple[int, int]]) -> list[bytes]:
@@ -111,18 +115,16 @@ class _ObjectVersionReader:
 
 
 class _UncachedObject:
-    """Used to access the data when the range cache does not apply.
+    """Provides access to data that is not read through the fastgeoapi range cache.
 
     This offers the same relevant methods as ``CachedRanges``, but reads every byte
-    range directly from the provider's store, without any caching. Its metadata
-    is fetched again for every map, so a replaced object is drawn from the next
-    map on, and every read is pinned to the version the map was started with.
+    range directly from the store, and without any caching. Metadata is fetched
+    every time in order to avoid working with stale data.
     """
 
     store: "ObjectStore"
     key: str
     is_local_file: bool
-    _lock: threading.Lock
     _meta: "ObjectMeta | None"
 
     def __init__(self, store: "ObjectStore", key: str, *, is_local_file: bool = False) -> None:
@@ -131,15 +133,15 @@ class _UncachedObject:
         self.key = key
         self.is_local_file = is_local_file
         self._meta: ObjectMeta | None = None
-        self._lock = threading.Lock()
 
     def compute_version(self, meta: "ObjectMeta") -> str:
-        """Compute the version of the object that ``meta`` describes.
+        """Compute version of the object described by ``meta``.
 
-        A remote object's version is derived from its ETag. A local file's
-        version is derived from its size and modification time instead, since
-        its ETag also holds the file's inode, which differs between machines
-        holding the same file.
+        Remote objects get a version derived from their ETag.
+
+        Local files have their version derived from the file size and modification
+        time instead. This is because a local file's ETag also holds the
+        file's inode, thus not being stable across different machines.
         """
         if self.is_local_file:
             modified = meta.last_modified.isoformat() if meta.last_modified is not None else ""
@@ -159,7 +161,7 @@ class _UncachedObject:
 
     def known_meta(self) -> "ObjectMeta | None":
         """Entry point shared with ``CachedRanges``."""
-        return self._get_stored_metadata()
+        return self._meta
 
     def known(self, version: str) -> "ObjectMeta | None":
         """Entry point shared with ``CachedRanges``."""
@@ -170,22 +172,14 @@ class _UncachedObject:
         return self._create_reader(meta)
 
     def _get_metadata(self) -> "ObjectMeta":
-        """Return the stored metadata, fetching it from the store if there is none yet."""
-        if (meta := self._get_stored_metadata()) is not None:
+        """Return stored metadata, fetching it from the store if needed."""
+        if (meta := self._meta) is not None:
             return meta
         return self._store_metadata(self.store.head(self.key))
 
     async def _fetch_metadata(self) -> "ObjectMeta":
-        """Fetch the object's metadata from the store, store it and return it.
-
-        Without a cache there is no known version to trust, so the provider
-        calls this before every map, at the cost of one HEAD each time.
-        """
+        """Fetch metadata from the store, store it and return it."""
         return self._store_metadata(await self.store.ahead(self.key))
-
-    def _get_stored_metadata(self) -> "ObjectMeta | None":
-        """Return the metadata fetched last, or None if none has been fetched yet."""
-        return self._meta
 
     def _get_metadata_of_version(self, version: str) -> "ObjectMeta | None":
         """Return the stored metadata if it is of ``version``, or None.
@@ -194,14 +188,24 @@ class _UncachedObject:
         check that it serves the version of the object that the style was
         built for.
         """
-        meta = self._get_stored_metadata()
-        return meta if meta is not None and self.compute_version(meta) == version else None
+        # snapshot the value of `self._meta` in order to ensure the computed version
+        # uses the same value as the one returned when this method exits. Otherwise,
+        # a concurrent update (from another thread) could change the metadata
+        # between the version check and the return, which would make the method
+        # return metadata that does not match the checked version.
+        meta = self._meta
+        if meta is None:
+            return None
+        if self.compute_version(meta) != version:
+            return None
+        return meta
 
     def _create_reader(self, meta: "ObjectMeta") -> "ByteRanges":
-        """Create a reader of byte ranges of the object at the version ``meta`` names.
+        """Create a reader of byte ranges for the input object metadata.
 
-        The reads go straight to the store. An object without an ETag has no
-        version to pin to, so its reads return the object's current bytes.
+        Metadata without an ETag (which we can get if an https server sends no ETag)
+        yields a reader that cannot detect that the object changed, and
+        returns its current bytes.
         """
         if meta.etag is None:
             return ObjectRanges(self.store, self.key)
@@ -213,9 +217,8 @@ class _UncachedObject:
         Only the latest version is kept: a map still being drawn from an older
         one fails its reads anyway, since the object has changed since.
         """
-        with self._lock:
-            self._meta = meta
-            return meta
+        self._meta = meta
+        return meta
 
 
 type _SchemeObject = CachedRanges | _UncachedObject
@@ -223,29 +226,38 @@ type _SchemeObject = CachedRanges | _UncachedObject
 
 def compute_scheme_object_version(scheme_object: _SchemeObject, meta: "ObjectMeta") -> str:
     """Compute the version of ``scheme_object``'s data that ``meta`` describes."""
-    if isinstance(scheme_object, _UncachedObject):
-        return scheme_object.compute_version(meta)
-    return version_of(meta)
+    match scheme_object:
+        case _UncachedObject():
+            return scheme_object.compute_version(meta)
+        case CachedRanges():
+            return version_of(meta)
+        case _:
+            assert_never(scheme_object)
 
 
 class _MapliSchemeHandler:
     """mapli scheme handler for ``fastgeoapi://<source>/<version>`` URLs.
 
-    This is a custom mapli scheme handler. It serves `fastgeoapi://` URLs. mapli
-    calls it and expects the raw data bytes in return. The implementation uses the
-    fastgeoapi store to retrieve the data and pass it back to mapli.
+    This is a custom mapli scheme handler. mapli calls it to read the data of a
+    style's source and expects the raw bytes in return. The handler reads them
+    with the provider's store, so local files, https URLs and buckets are all
+    read the same way.
 
     This is useful because:
 
-    - data in private buckets can only be accessed by using authentication, and
-      the fastgeoapi store already knows how to provide auth details, while
-      vanilla mapli (which uses MapLibre Native) does not.
+    - data in private buckets can only be accessed with authentication, which
+      the fastgeoapi store provides and MapLibre Native does not. The URLs hold
+      neither the data's location nor any credentials.
 
-    - data stored in remote object stores benefits from being cached. When the
-      range cache is enabled, the handler reads through it, so that a byte
-      range fetched from the bucket is reused until it is evicted from the cache
-      or the data changes. With the range cache turned off, every byte range is
-      fetched from the bucket.
+    - each version of the data has its own URL, derived from its ETag (or, for
+      a local file, its size and modification time). MapLibre Native caches an
+      archive's header and directories per URL, so a replaced archive is read
+      afresh. The handler only serves the version its URL names, and answers
+      NOT_FOUND for any other.
+
+    - remote data can be read through the range cache, so that a byte range is
+      reused until it is evicted or the data changes. With the range cache
+      turned off, every byte range is read from the store.
     """
 
     _sources: "weakref.WeakValueDictionary[str, _SchemeObject]"
@@ -255,7 +267,7 @@ class _MapliSchemeHandler:
         self._sources = weakref.WeakValueDictionary()
 
     def register_source(self, source_key: str, scheme_object: _SchemeObject) -> None:
-        """Make ``scheme_object`` available to mapli through this handler, under ``source_key``.
+        """Register the input ``scheme_object`` in mapli, under ``source_key``.
 
         ``scheme_object`` gives access to a provider's data, either through the range
         cache (``CachedRanges``) or straight from the store (``_UncachedObject``).
@@ -265,20 +277,16 @@ class _MapliSchemeHandler:
         """
         self._sources[source_key] = scheme_object
 
-    def generate_scheme_url(
-        self, source_key: str, scheme_object: _SchemeObject, meta: "ObjectMeta"
-    ) -> str:
-        """Generate the URL that mapli uses to read ``scheme_object``'s data.
+    def generate_scheme_url(self, source_key: str, version: str) -> str:
+        """Generate the URL that mapli uses to read ``version`` of the data under ``source_key``.
 
-        The URL has the form ``fastgeoapi://<source_key>/<version>``, where
-        ``version`` is the version of the data that ``meta`` describes. It names
+        The URL has the form ``fastgeoapi://<source_key>/<version>``. It names
         the data without revealing its real location or any credentials.
         """
-        version = compute_scheme_object_version(scheme_object, meta)
         return f"{MAPLI_SCHEME}://{source_key}/{version}"
 
     def __call__(self, request: mapli.ResourceRequest) -> mapli.Response | bytes:
-        """Serve a read that mapli makes for a URL built by :meth:`generate_scheme_url`.
+        """Read dataset bytes.
 
         The requested (inclusive) byte range is turned into an offset and length and
         clamped to the object's size; a request without a range reads the whole
@@ -348,7 +356,7 @@ class MapliMapProviderConfig:
         """Perform further validation of input parameters"""
         if self.storage_crs != WEB_MERCATOR:
             raise ProviderGenericError(
-                user_msg=(f"MapliMapProvider only supports {WEB_MERCATOR!r} as its storage_crs"),
+                user_msg=f"MapliMapProvider only supports {WEB_MERCATOR!r} as its storage_crs",
             )
         if self.default_style and self.default_style not in self.styles.keys():
             raise ProviderGenericError(
@@ -400,7 +408,7 @@ class MapliMapProviderConfig:
 
 @dataclasses.dataclass(frozen=True)
 class _MapArguments:
-    """The arguments of a map request, checked and ready for rendering."""
+    """Arguments of a map request, already checked and ready for rendering."""
 
     style_id: str
     lon_lat_bbox: tuple[float, float, float, float]
@@ -476,12 +484,6 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         return asyncio.run(self._render_map(**kwargs))
 
     async def _fetch_data_version(self) -> str | None:
-        """Fetch the version of the provider's data; None when it is unknown.
-
-        Remote data read through the range cache has the ETag the cache knows.
-        Any other data has the version the store gives now, as its metadata is
-        fetched for every map anyway. Remote data without an ETag has no version.
-        """
         scheme_object = self._scheme_object
         if isinstance(scheme_object, _UncachedObject):
             meta = await scheme_object.ameta_without_waiting()
@@ -515,27 +517,23 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         This method can be used to help decide whether a map needs to be
         re-rendered or if a cached version can be used instead. It joins the
         data version, the digest of the provider's definition and the version
-        of mapli. It reads the data's metadata only, never its contents.
+        of mapli.
 
         The style is not part of the version: it is generated from the data,
         the provider's definition and the request's arguments, and fastgeoapi's
         HTTP caching adds the request's arguments to the ETag already.
 
-        If the data version is unknown (e.g., when using remote
-        data without a range cache), it returns None, indicating that the
-        version cannot be determined.
+        If the data has no version (a remote archive whose server sends no
+        ETag), it returns None, indicating that the version cannot be
+        determined.
 
         The output of this can be used by fastgeoapi's HTTP caching
         mechanism to build suitable ETag headers and also to decide whether to
-        render a map image to return to clients, or just return a 304 Not
-        Modified answer.
+        render a map image to return to clients, or just return an empty
+        response with a status of '304 Not Modified'.
 
         NOTE: A style given as a URL is identified by its URL only, so a
         change to the document at that URL does not change the version.
-
-        NOTE: The data version is looked up here and again when the map is
-        rendered. If the data is replaced in between, the version returned here
-        names the previous data while the map is drawn from the new data.
         """
         if (data_version := await self._fetch_data_version()) is None:
             return None
@@ -573,8 +571,8 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         )
 
         scheme_object = self._scheme_object
-        # Register only once the version is known: on a reload, the provider
-        # this one replaces keeps serving its maps until then
+        # refresh the data's metadata before drawing, so the map uses its current version
+        # (with the range cache, the known version, checked again once its interval passes)
         await scheme_object.ameta_without_waiting()
         _SCHEME_HANDLER.register_source(self._scheme_source_key, scheme_object)
 
@@ -738,9 +736,7 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         meta = scheme_object.known_meta() or scheme_object.meta()
         data_version = compute_scheme_object_version(scheme_object, meta)
         read_data = scheme_object.at(meta).read
-        dataset_url = _SCHEME_HANDLER.generate_scheme_url(
-            self._scheme_source_key, scheme_object, meta
-        )
+        dataset_url = _SCHEME_HANDLER.generate_scheme_url(self._scheme_source_key, data_version)
         with self._map_styles_lock:
             map_styles = self._map_styles
             if map_styles is None or map_styles.data_version != data_version:
@@ -792,16 +788,10 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
     def _scheme_source_key(self) -> str:
         """The key the scheme handler serves this provider's data under.
 
-        It is a digest of the provider's ``data`` and ``store_options``, so
-        providers that read the same data through differently configured stores
-        get different keys. Credentials in ``store_options`` never leave the
-        computation: only the digest is returned.
+        It is a random token, generated once per provider, so that only the
+        styles this provider generates know it.
         """
-        identity = {
-            "data": self._config.data,
-            "store_options": self.provider_def.get("store_options") or {},
-        }
-        return digest(json.dumps(identity, sort_keys=True, default=str))
+        return secrets.token_hex(16)
 
     def _generate_default_map_style(self, source_content: "SourceContent") -> dict[str, Any]:
         """Generate the default style, with the data source but not its URL yet."""
