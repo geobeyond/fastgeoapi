@@ -124,6 +124,11 @@ options:
   default_style: roads
 ```
 
+!!! warning "Use style URLs from trusted sources only"
+
+    mapli follows every URL in a style document, including URLs of local files and
+    of any http server. Only configure style URLs whose content you control or trust.
+
 Maps are transparent unless the request passes `transparent=false`. A
 transparent map hides the layers of type `background`. A style with labels
 needs a `glyphs` URL that mapli can reach.
@@ -254,14 +259,16 @@ maps and tiles alike and is described in the
     - the version of mapli, or the code of fastgeoapi, so any change to fastgeoapi's code, such
       as a new deployment, changes the ETag.
 
-    ### Limitations
+### Limitations
 
-    - Maps of a remote archive whose server does not send an ETag are sent without cache headers.
-    - Error responses are sent without cache headers.
-    - A style given as a URL is identified by its URL only. Changing the document
-      at that URL does not change the ETag of the maps drawn with it.
-    - If the archive is replaced while a map is being requested, that map can
-      be sent with the ETag of the previous version of the archive. If the
-      archive is later restored to that previous version, a client that holds
-      the map receives `304 Not Modified` for it, and keeps showing the map drawn
-      from the newer archive.
+- :warning: Archives whose server does not send ETag headers must not be replaced
+  without restarting the server. Without these, the provider cannot detect when such an
+  archive has changed. Maps of such archives are also sent without cache headers.
+- Error responses are sent without cache headers.
+- A style given as a URL is identified by its URL only. Changing the document
+  at that URL does not change the ETag of the maps drawn with it.
+- If the archive is replaced while a map is being requested, that map can
+  be sent with the ETag of the previous version of the archive. If the
+  archive is later restored to that previous version, a client that holds
+  the map receives `304 Not Modified` for it, and keeps showing the map drawn
+  from the newer archive.
