@@ -162,6 +162,24 @@ def test_a_default_style_that_is_not_configured_is_refused(archive):
         _provider(archive, {"default_style": "night"})
 
 
+@pytest.mark.parametrize(
+    "style", ["styles/roads.json", "/srv/styles/roads.json", "s3://bucket/roads.json"]
+)
+def test_a_style_that_is_neither_a_url_nor_inline_is_refused(archive, style):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    with pytest.raises(ProviderGenericError, match="must be an http\\(s\\) or file URL"):
+        _provider(archive, {"styles": {"roads": style}})
+
+
+@pytest.mark.parametrize(
+    "style",
+    ["https://example.org/roads.json", "HTTP://example.org/roads.json", "file:///srv/roads.json"],
+)
+def test_a_style_url_is_accepted(archive, style):
+    _provider(archive, {"styles": {"roads": style}})
+
+
 def test_an_unknown_dem_encoding_is_refused(tmp_path):
     from pygeoapi.provider.base import ProviderGenericError
 
@@ -284,6 +302,8 @@ async def test_a_map_without_bbox_is_the_world(archive):
         {"width": 0},
         {"height": 0},
         {"bbox": [math.nan, 0, 1, 1]},
+        {"bbox": [math.inf, 0, math.inf, 1]},
+        {"bbox": [0, -math.inf, 1, 1]},
         {"bbox": [1379000.0, 5140000.0, 1379000.0, 5160000.0]},  # no width
         {"bbox": [1379000.0, 5160000.0, 1403000.0, 5140000.0]},  # south above north
         {"bbox": [0.0, 21000000.0, 1.0, 22000000.0]},  # beyond the north pole
@@ -529,6 +549,20 @@ async def test_a_mapli_error_is_a_provider_error(archive, error, message):
     with pytest.raises(ProviderGenericError) as raised:
         await _map(provider)
     assert raised.value.message == message
+
+
+@pytest.mark.asyncio
+async def test_a_render_pool_that_cannot_be_created_is_a_provider_error(archive, monkeypatch):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    def fail_to_create_pool(**kwargs):
+        raise mapli.GraphicsUnavailableError("no EGL")
+
+    monkeypatch.setattr(mapli, "RenderPool", fail_to_create_pool)
+
+    with pytest.raises(ProviderGenericError) as raised:
+        await _map(_provider(archive))
+    assert raised.value.message == "the map renderer failed"
 
 
 # Data in a bucket, read through the mapli scheme handler
