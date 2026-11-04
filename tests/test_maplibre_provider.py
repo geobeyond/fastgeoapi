@@ -62,6 +62,12 @@ async def test_a_map_is_drawn_from_the_archive(archive):
     assert request.style["sources"]["archive"]["url"] == f"pmtiles://file://{archive.resolve()}"
 
 
+def test_the_default_queue_holds_the_tiles_of_one_tiled_view(archive):
+    # A tiled client such as QGIS asks for about two dozen 256-pixel maps
+    # for one view of the screen.
+    assert _provider(archive).limits.waiting == 32
+
+
 @pytest.mark.asyncio
 async def test_the_constructor_reads_nothing(tmp_path):
     """pygeoapi builds the provider while writing the OpenAPI document."""

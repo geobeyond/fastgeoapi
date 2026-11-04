@@ -70,7 +70,8 @@ def digest_style(style: dict[str, Any], source_id: str) -> str:
 DEFAULTS: dict[str, Any] = {
     # The collection page of pygeoapi asks for an image as wide as its map.
     "max_size": 2048,
-    "queue": 8,
+    # A tiled client, QGIS for one, asks for about two dozen maps per view.
+    "queue": 32,
     "timeout": 30,
     # Seconds a render may go on after its map answered 504; four times
     # the timeout when unset.
