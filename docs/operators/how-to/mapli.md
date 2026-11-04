@@ -103,7 +103,9 @@ A style in `styles` is either the URL of a MapLibre style document, which mapli
 fetches itself, or a style written inline in the configuration. inline styles
 can declare their source using the special keyword `dataset` (and thus without providing
 the actual `url` of the source) in order to have the provider fill in with the correct URL,
-as per its own configuration. Example:
+as per its own configuration. A style URL must use `http://`, `https://` or
+`file://`. Any other value, such as a plain file path or a bucket key, is refused
+and stops the server from starting. Example:
 
 ```yaml
 options:
@@ -130,7 +132,8 @@ options:
     of any http server. Only configure style URLs whose content you control or trust.
 
 Maps are transparent unless the request passes `transparent=false`. A
-transparent map hides the layers of type `background`. A style with labels
+transparent map hides the layers of type `background`. `transparent` has no effect
+on a style given as a URL, which is drawn as it is. A style with labels
 needs a `glyphs` URL that mapli can reach.
 
 ## Reading data from a bucket

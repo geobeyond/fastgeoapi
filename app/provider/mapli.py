@@ -24,7 +24,6 @@ from typing import (
 )
 from urllib.parse import urlsplit
 
-import mapli
 from pygeoapi.crs import transform_bbox
 from pygeoapi.provider.base import (
     BaseProvider,
@@ -61,6 +60,14 @@ if TYPE_CHECKING:
         ObjectStore,
     )
     from app.provider.storage.ranges import ByteRanges
+
+try:
+    import mapli
+except ImportError as error:
+    raise ImportError(
+        "the mapli map provider needs the 'mapli' extra, available on Linux only: "
+        "pip install 'fastgeoapi[mapli]'"
+    ) from error
 
 logger = create_logger("app.provider.mapli")
 
@@ -364,6 +371,18 @@ class MapliMapProviderConfig:
                     f"default_style {self.default_style!r} is not among the configured styles"
                 )
             )
+        for style_name, style_definition in self.styles.items():
+            if isinstance(style_definition, str) and urlsplit(style_definition).scheme not in (
+                "http",
+                "https",
+                "file",
+            ):
+                raise ProviderGenericError(
+                    user_msg=(
+                        f"style {style_name!r} must be an http(s) or file URL, or an inline "
+                        f"style, not {style_definition!r}"
+                    )
+                )
         if self.dem_data_encodings and self.dem_data_encodings not in self._supported_dem_encodings:
             raise ProviderGenericError(
                 user_msg=(
@@ -576,10 +595,10 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         await scheme_object.ameta_without_waiting()
         _SCHEME_HANDLER.register_source(self._scheme_source_key, scheme_object)
 
-        registered_style_identifier = await self.run_sync(
-            self._register_style, arguments.style_id, arguments.transparent
-        )
         try:
+            registered_style_identifier = await self.run_sync(
+                self._register_style, arguments.style_id, arguments.transparent
+            )
             return await self._get_render_pool().arender_from_bounds(
                 style_id=registered_style_identifier,
                 bbox=arguments.lon_lat_bbox,
@@ -647,8 +666,8 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         web_mercator_bbox = (
             [float(i) for i in bbox] if bbox else (-HALF_WORLD, -HALF_WORLD, HALF_WORLD, HALF_WORLD)
         )
-        if any(math.isnan(i) for i in web_mercator_bbox):
-            raise MapParameterError(user_msg="bounding box contains NaN values")
+        if not all(math.isfinite(i) for i in web_mercator_bbox):
+            raise MapParameterError(user_msg="bounding box values must be finite numbers")
         west, south, east, north = parse_web_mercator_bbox_as_crs84_bbox(web_mercator_bbox)
         # mapli refuses a bbox without area, which includes one lying entirely
         # beyond the poles, as its latitudes are clamped to the same value. A
