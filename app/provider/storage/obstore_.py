@@ -155,7 +155,7 @@ class ObstoreStore:
         """
         await self._store.put_async(path, data)
 
-    def keys(self, prefix: str = "") -> list[str]:
+    def list_keys(self, prefix: str = "") -> list[str]:
         """List the keys of the objects under a prefix, recursively.
 
         Parameters
@@ -170,7 +170,7 @@ class ObstoreStore:
         """
         return [entry["path"] for batch in self._store.list(prefix) for entry in batch]
 
-    def entries(self, prefix: str = "") -> list[ObjectMeta]:
+    def list_entries(self, prefix: str = "") -> list[ObjectMeta]:
         """List the objects under a prefix, recursively, with their metadata.
 
         Parameters
@@ -195,8 +195,8 @@ class ObstoreStore:
         except BaseError as error:
             raise OSError(str(error)) from error
 
-    async def aentries(self, prefix: str = "") -> list[ObjectMeta]:
-        """List the objects under a prefix, asynchronously, as :meth:`entries` does.
+    async def alist_entries(self, prefix: str = "") -> list[ObjectMeta]:
+        """List the objects under a prefix, asynchronously, as :meth:`list_entries` does.
 
         Parameters
         ----------

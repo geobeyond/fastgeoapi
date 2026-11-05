@@ -137,7 +137,7 @@ def _list_files(location: str, store_options: dict | None) -> list[tuple[str, st
 
     base, pattern = split_source(location)
     try:
-        entries = load_store(base, store_options).entries("")
+        entries = load_store(base, store_options).list_entries("")
     except OSError as error:
         raise IdIndexError(f"the id index {location} cannot be listed: {error}") from error
     files = [

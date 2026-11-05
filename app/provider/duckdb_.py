@@ -385,7 +385,7 @@ def _enumerate_cloud_parquet(source: str, store_options: dict | None) -> str:
 
     base = source if source.endswith("/") else f"{source}/"
     store = load_store(base, store_options=store_options)
-    keys = [key for key in store.keys() if key.endswith(".parquet")]
+    keys = [key for key in store.list_keys() if key.endswith(".parquet")]
     if not keys:
         raise DuckDBUnavailableError(f"no parquet objects under {source}")
     logger.debug(f"{len(keys)} parquet object(s) enumerated under {source}")

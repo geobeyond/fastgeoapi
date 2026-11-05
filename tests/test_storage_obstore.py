@@ -131,11 +131,11 @@ def test_a_missing_local_folder_is_a_file_not_found_error(tmp_path):
 def test_a_listing_that_fails_is_an_os_error(local_store):
     with patch.object(obstore, "list", side_effect=GenericError("list request failed")):
         with pytest.raises(OSError, match="list request failed"):
-            local_store.entries()
+            local_store.list_entries()
 
 
 @pytest.mark.asyncio
 async def test_an_async_listing_that_fails_is_an_os_error(local_store):
     with patch.object(obstore, "list", side_effect=GenericError("list request failed")):
         with pytest.raises(OSError, match="list request failed"):
-            await local_store.aentries()
+            await local_store.alist_entries()

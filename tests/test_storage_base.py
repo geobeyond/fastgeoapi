@@ -43,14 +43,14 @@ class _FakeStore:
     async def aput(self, path: str, data: bytes) -> None:
         self._objects[path] = data
 
-    def keys(self, prefix: str = "") -> list[str]:
+    def list_keys(self, prefix: str = "") -> list[str]:
         return [key for key in self._objects if key.startswith(prefix)]
 
-    def entries(self, prefix: str = "") -> list[ObjectMeta]:
-        return [self.head(key) for key in self.keys(prefix)]
+    def list_entries(self, prefix: str = "") -> list[ObjectMeta]:
+        return [self.head(key) for key in self.list_keys(prefix)]
 
-    async def aentries(self, prefix: str = "") -> list[ObjectMeta]:
-        return self.entries(prefix)
+    async def alist_entries(self, prefix: str = "") -> list[ObjectMeta]:
+        return self.list_entries(prefix)
 
     def delete(self, path: str) -> None:
         self._objects.pop(path, None)

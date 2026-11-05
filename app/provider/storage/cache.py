@@ -210,7 +210,7 @@ class RangeCache:
         """Delete the entries written first until the cache is back under its target."""
         try:
             store = self._open()
-            for path in self._find_surplus(store.entries()):
+            for path in self._find_surplus(store.list_entries()):
                 store.delete(path)
         except Exception as error:
             self._warn("sweep", error)
@@ -222,7 +222,7 @@ class RangeCache:
         """Async twin of :meth:`sweep`."""
         try:
             store = await self._aopen()
-            for path in self._find_surplus(await store.aentries()):
+            for path in self._find_surplus(await store.alist_entries()):
                 await store.adelete(path)
         except Exception as error:
             self._warn("sweep", error)
