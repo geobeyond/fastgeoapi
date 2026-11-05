@@ -63,10 +63,19 @@ if TYPE_CHECKING:
 
 try:
     import mapli
-except ImportError as error:
+except ModuleNotFoundError as error:
+    if error.name != "mapli":
+        raise
     raise ImportError(
         "the mapli map provider needs the 'mapli' extra, available on Linux only: "
         "pip install 'fastgeoapi[mapli]'"
+    ) from error
+except ImportError as error:
+    # mapli is installed, but its native core could not be loaded
+    raise ImportError(
+        f"mapli is installed but could not be loaded ({error}). Its native core "
+        "links the system's EGL and GL libraries: on Debian and Ubuntu, "
+        "apt-get install libegl1 libgl1"
     ) from error
 
 logger = create_logger("app.provider.mapli")

@@ -30,6 +30,13 @@ jobs:
           cache-dependency-glob: "pyproject.toml"
           version: "0.10.9"
 
+      # mapli's native core links the system's EGL and GL, and building the
+      # demo's document imports it. Nothing is drawn, so no driver is needed.
+      - name: Install the libraries mapli links
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libgl1
+
       # From the lock, with the extras the demo's GeoParquet, tile and mapli
       # collections import: the documents come from the versions the
       # server runs. The demo configuration adds the GeoParquet, tile and
@@ -82,6 +89,13 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
           version: "0.10.9"
+
+      # mapli's native core links the system's EGL and GL, and building the
+      # demo's document imports it. Nothing is drawn, so no driver is needed.
+      - name: Install the libraries mapli links
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libgl1
 
       # From the lock, with the extras the demo's GeoParquet, tile and mapli
       # collections import: the documents come from the versions the
