@@ -877,11 +877,12 @@ def test_a_page_of_files_without_a_column_of_the_first_reads_it_as_null(tmp_path
     assert feature["properties"]["extra"] is None
 
 
-def _write_id_index(root, rows) -> dict:
+def _write_id_index(root, rows, bbox_type="DOUBLE") -> dict:
     """An id index in the registry form, text ids with a path and a bbox, and its mapping."""
+    t = bbox_type
     selects = " UNION ALL ".join(
         f"SELECT '{identifier}' AS id, {'NULL' if path is None else repr(path)} AS path,"
-        f" {{'xmin': {x}::DOUBLE, 'xmax': {x}::DOUBLE, 'ymin': {y}::DOUBLE, 'ymax': {y}::DOUBLE}}"
+        f" {{'xmin': {x}::{t}, 'xmax': {x}::{t}, 'ymin': {y}::{t}, 'ymax': {y}::{t}}}"
         " AS bbox"
         for identifier, path, (x, y) in rows
     )
@@ -1037,3 +1038,45 @@ def test_a_float32_covering_still_meets_the_double_bbox_of_the_row(covered_point
     # float32(0.7) is 0.699999988, below the double the index holds; the
     # comparison casts the literal to the column's FLOAT, so they meet.
     assert covered_points.get(1)["id"] == 1
+
+
+def test_a_row_naming_a_missing_file_falls_back_to_the_scan(indexed):
+    # The glob matches the name, but the file is gone: a registry of another release.
+    id_index = _write_id_index(indexed, [("2", "gone.parquet", (10.5, 10.5))])
+    provider = _indexed_provider(indexed, file_index=None, id_index=id_index)
+
+    assert provider.get(2)["id"] == 2
+
+
+def test_a_row_in_a_subfolder_of_the_glob_falls_back_to_the_scan(indexed):
+    (indexed / "sub").mkdir()
+    connect(str(indexed)).execute(
+        "COPY (SELECT 2 AS id, ST_Point(99.5, 99.5) AS geom)"
+        f" TO '{indexed}/sub/x.parquet' (FORMAT parquet)"
+    )
+    id_index = _write_id_index(indexed, [("2", "sub/x.parquet", (99.5, 99.5))])
+    provider = _indexed_provider(indexed, file_index=None, id_index=id_index)
+
+    assert provider.get(2)["geometry"]["coordinates"] == [10.5, 10.5]
+
+
+def test_a_float32_index_bbox_still_finds_a_double_covering(tmp_path):
+    connect(str(tmp_path)).execute(
+        "COPY (SELECT 1 AS id, ST_Point(0.7, 0.7) AS geom,"
+        " {'xmin': 0.7::DOUBLE, 'xmax': 0.7::DOUBLE, 'ymin': 0.7::DOUBLE, 'ymax': 0.7::DOUBLE}"
+        f" AS bbox) TO '{tmp_path}/p1.parquet' (FORMAT parquet)"
+    )
+    # float32(0.7) is 0.699999988: a box rounded to nearest, below the double.
+    id_index = _write_id_index(tmp_path, [("1", "p1.parquet", (0.7, 0.7))], bbox_type="FLOAT")
+    provider = GeoParquetProvider(
+        {
+            "name": "app.provider.geoparquet.GeoParquetProvider",
+            "type": "feature",
+            "data": f"{tmp_path}/*.parquet",
+            "id_field": "id",
+            "geometry_column": "geom",
+            "id_index": id_index,
+        }
+    )
+
+    assert provider.get(1)["id"] == 1

@@ -70,11 +70,35 @@ class ObjectStore(Protocol):
         ...
 
     def entries(self, prefix: str = "") -> list[ObjectMeta]:
-        """The objects under a prefix, recursively, each with its size and date."""
+        """List the objects under a prefix, recursively, each with its size and date.
+
+        A listing that fails raises an ``OSError``, whatever the backend.
+
+        Parameters
+        ----------
+        prefix
+            The key prefix; empty lists the whole store.
+
+        Returns
+        -------
+        list[ObjectMeta]
+            One entry per object.
+        """
         ...
 
     async def aentries(self, prefix: str = "") -> list[ObjectMeta]:
-        """Async twin of :meth:`entries`."""
+        """List the objects under a prefix, asynchronously, as :meth:`entries` does.
+
+        Parameters
+        ----------
+        prefix
+            The key prefix; empty lists the whole store.
+
+        Returns
+        -------
+        list[ObjectMeta]
+            One entry per object.
+        """
         ...
 
     def delete(self, path: str) -> None:

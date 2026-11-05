@@ -20,6 +20,7 @@ Configure it by dotted path::
 from __future__ import annotations
 
 import fnmatch
+import glob
 import posixpath
 import re
 from collections.abc import Mapping
@@ -110,6 +111,19 @@ def _normalize_href(href: str) -> str:
     if not parts.scheme:
         return str(Path(href).resolve())
     return f"{parts.scheme}://{parts.netloc}{posixpath.normpath(parts.path or '/')}"
+
+
+def _match_glob(path: str, pattern: str) -> bool:
+    """Whether ``path`` is one of the files the glob ``pattern`` reads.
+
+    As in DuckDB, ``*`` stays within one folder and only ``**`` crosses folders.
+    """
+    if "**" in pattern:
+        return fnmatch.fnmatchcase(path, pattern)
+    parts, pieces = path.split("/"), pattern.split("/")
+    return len(parts) == len(pieces) and all(
+        fnmatch.fnmatchcase(part, piece) for part, piece in zip(parts, pieces, strict=True)
+    )
 
 
 class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
@@ -226,8 +240,8 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         data = _normalize_href(str(self.data))
         if (
             normalized == data
-            or fnmatch.fnmatchcase(normalized, data)
-            or normalized.startswith(data.rstrip("/") + "/")
+            or _match_glob(normalized, data)
+            or (not glob.has_magic(data) and normalized.startswith(data.rstrip("/") + "/"))
         ):
             return normalized
         return None
@@ -639,24 +653,35 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         and an id it places in a file of the dataset reads only that file,
         pruned by the feature's bbox when the index gives one and the data
         has a covering column. Every file is read when the row names no
-        file or a file outside the dataset, and when the index cannot be
-        read.
+        file, a file outside the dataset or a file that cannot be read, and
+        when the index cannot be read.
         """
         duckdb = load_duckdb()
         row = self._look_up(str(identifier))
         href = self._find_dataset_file(row.href) if row is not None and row.href else None
         if href is None:
             return self._get_from(self._scan, "", identifier)
+        named = scan_files([href], union_by_name=self._union_by_name)
         overlap = self._overlap_clause(list(row.bbox)) if row.bbox else None
         try:
-            return self._get_from(
-                scan_files([href], union_by_name=self._union_by_name),
-                f" AND {overlap}" if overlap else "",
-                identifier,
-            )
+            if overlap:
+                try:
+                    return self._get_from(named, f" AND {overlap}", identifier)
+                except ProviderItemNotFoundError:
+                    # The index and the covering column may round one envelope
+                    # to different precisions, and then the two do not meet.
+                    pass
+            return self._get_from(named, "", identifier)
         except duckdb.BinderException:
             # The schema comes from the first file; a file that lacks one of its
             # columns is read as part of the whole dataset, which fills it with NULL.
+            return self._get_from(self._scan, "", identifier)
+        except (duckdb.IOException, duckdb.HTTPException) as error:
+            # A registry of another release names files the glob matches but
+            # the store no longer holds. A timeout is a StoreTimeoutError instead.
+            logger.warning(
+                f"{href}, named by the id index, cannot be read; every file is read: {error}"
+            )
             return self._get_from(self._scan, "", identifier)
 
     def _get_from(self, scan: str, clause: str, identifier) -> dict:
