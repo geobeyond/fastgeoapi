@@ -26,7 +26,7 @@ CAPABILITIES = MapCapabilities(crs=(WEB_MERCATOR,), formats=("png",))
 EXTENTS = {"spatial": {"bbox": [-180, -90, 180, 90], "crs": CRS84}}
 
 
-def _parse(limits=LIMITS, **params):
+def _parse(limits=LIMITS, extents=EXTENTS, **params):
     scope = {
         "type": "http",
         "method": "GET",
@@ -36,7 +36,7 @@ def _parse(limits=LIMITS, **params):
     }
     request = APIRequest(Request(scope), ["en-US"])
     return parse_map_parameters(
-        request, {"storage_crs": WEB_MERCATOR}, EXTENTS, limits, CAPABILITIES, None
+        request, {"storage_crs": WEB_MERCATOR}, extents, limits, CAPABILITIES, None
     )
 
 
@@ -151,3 +151,19 @@ def test_content_datetime_spans_the_temporal_extent():
 def test_a_collection_without_time_has_no_content_datetime():
     assert format_content_datetime(EXTENTS) is None
     assert format_content_datetime({**EXTENTS, "temporal": {"begin": None, "end": None}}) is None
+
+
+def test_without_a_bbox_the_map_covers_the_collection_extent():
+    rome = {"spatial": {"bbox": [12.4, 41.8, 12.6, 42.0], "crs": CRS84}}
+    wide = _parse(width=64, height=64)
+    narrow = _parse(extents=rome, width=64, height=64)
+
+    assert narrow.bbox != wide.bbox
+    assert narrow.bbox[0] == pytest.approx(1380361.7, abs=1.0)
+    assert narrow.bbox[2] == pytest.approx(1402625.6, abs=1.0)
+
+
+def test_an_extent_without_a_crs_is_read_as_crs84():
+    rome = {"spatial": {"bbox": [12.4, 41.8, 12.6, 42.0]}}
+
+    assert _parse(extents=rome, width=64, height=64).bbox[0] == pytest.approx(1380361.7, abs=1.0)

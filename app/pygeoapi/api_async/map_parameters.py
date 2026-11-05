@@ -172,7 +172,13 @@ def parse_map_parameters(
     if asked is not None and asked != "html" and asked not in capabilities.formats:
         raise MapParameterError(user_msg=f"maps are drawn as {', '.join(capabilities.formats)}")
 
-    bbox = _parse_bbox(params.get("bbox"))
+    if params.get("bbox") is None:
+        # Without a bbox the map covers the collection, in the CRS of its extent.
+        spatial = extents.get("spatial") or {}
+        bbox = _parse_bbox(",".join(str(value) for value in spatial.get("bbox") or ()))
+        bbox_crs = spatial.get("crs") or DEFAULT_CRS
+    else:
+        bbox = _parse_bbox(params.get("bbox"))
     if bbox[1] > bbox[3]:
         raise MapParameterError(user_msg="the bbox has its minimum y above its maximum y")
     if bbox[0] == bbox[2] or bbox[1] == bbox[3]:
@@ -267,10 +273,7 @@ def _match_declared_crs(value: str | None, declared: tuple[str, ...], name: str)
     raise MapParameterError(user_msg=f"{name} must be one of {', '.join(declared)}")
 
 
-def _parse_bbox(value: str | None) -> tuple[float, float, float, float]:
-    if value is None:
-        xmin, ymin, xmax, ymax = maps_api.DEFAULT_BBOX
-        return (float(xmin), float(ymin), float(xmax), float(ymax))
+def _parse_bbox(value: str) -> tuple[float, float, float, float]:
     parts = value.split(",")
     if len(parts) != 4:
         raise MapParameterError(user_msg="bbox values should be minx,miny,maxx,maxy")
