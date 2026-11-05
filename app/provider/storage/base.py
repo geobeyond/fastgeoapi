@@ -120,12 +120,12 @@ class ObjectStore(Protocol):
         """
         ...
 
-    def keys(self, prefix: str = "") -> list[str]:
+    def list_keys(self, prefix: str = "") -> list[str]:
         """List the keys of the objects under a prefix, recursively.
 
-        Named ``keys`` rather than ``list``: a method called ``list``
-        shadows the builtin inside the class body, so every ``list[...]``
-        annotation after it stops resolving.
+        Not named ``list``: a method called ``list`` shadows the builtin
+        inside the class body, so every ``list[...]`` annotation after it
+        stops resolving.
 
         Parameters
         ----------
@@ -139,7 +139,7 @@ class ObjectStore(Protocol):
         """
         ...
 
-    def entries(self, prefix: str = "") -> list[ObjectMeta]:
+    def list_entries(self, prefix: str = "") -> list[ObjectMeta]:
         """List the objects under a prefix, recursively, each with its size and date.
 
         A listing that fails raises an ``OSError``, whatever the backend.
@@ -156,8 +156,8 @@ class ObjectStore(Protocol):
         """
         ...
 
-    async def aentries(self, prefix: str = "") -> list[ObjectMeta]:
-        """List the objects under a prefix, asynchronously, as :meth:`entries` does.
+    async def alist_entries(self, prefix: str = "") -> list[ObjectMeta]:
+        """List the objects under a prefix, asynchronously, as :meth:`list_entries` does.
 
         Parameters
         ----------
