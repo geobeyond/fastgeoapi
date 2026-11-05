@@ -225,7 +225,8 @@ because the bounds of each row group are in the footers. When the
 provider has a `file_index`, it hands DuckDB only the files whose bbox
 meets the request, and answers with no feature, without reading anything,
 when none does. A request without a bbox but with another filter (a
-property, a datetime, CQL2) reads every file, and so does `/items/{id}`.
+property, a datetime, CQL2) reads every file, and so does `/items/{id}`
+unless the provider has an `id_index` (see the next section).
 
 When every row of the index has a `table:row_count`, a request with no
 filter and no `sortby` opens no footer to count: `numberMatched` is the
@@ -264,6 +265,68 @@ request 6 s and 2 s. On a server with one dedicated vCPU in the bucket's
 region, the same request took 44 s and then 28 s on the glob, and 2.8 s
 and then 0.5 s with the index, while the process used 625 MB at most
 instead of 1.6 GB.
+
+### Find a feature by id
+
+`/items/{id}` on a glob reads the id column of every file, because
+there's nothing that says which file holds the id. For example, on the
+512 files of the Overture buildings a lookup takes several minutes and a
+lot of memory. Some publishers ship an index of their ids, with one row
+per feature naming the file that holds it, sorted by id across a few
+Parquet files. The GERS registry of Overture Maps is one example. With
+`id_index` the provider looks the id up and reads only that file:
+
+```yaml
+providers:
+  - type: feature
+    name: app.provider.geoparquet.GeoParquetProvider
+    data: s3://overturemaps-us-west-2/release/2026-10-21.0/theme=buildings/type=building/*.parquet
+    store_options:
+      region: us-west-2
+      skip_signature: true
+    id_index:
+      type: retrieved
+      location: s3://overturemaps-us-west-2/registry/*.parquet
+      columns:
+        id: id
+        path: path
+        bbox: bbox
+      href_base: s3://overturemaps-us-west-2/release/2026-10-21.0/
+```
+
+`columns` names the id column, the column with the file (`href` for a
+full href, or `path` for a path that `href_base` is joined to) and,
+optionally, a `bbox` struct of `xmin`, `ymin`, `xmax` and `ymax`. The
+index is read with the `store_options` of the provider. A relative
+`location` is read from beside the configuration.
+
+The provider learns the range of ids of each index file from its footer,
+keeps the ranges in its cache with the ETag of each file, and checks them
+with one listing of `location` per lookup. A lookup opens only the index
+file whose range holds the id, and DuckDB reads only the row groups whose
+bounds hold it. Ids are compared as text, so an integer id matches an
+index that stores it as a string.
+
+The answer follows the row:
+
+- No row for the id: `404`, without reading any data file.
+- A row naming a file of the dataset: only that file is read. With a
+  `bbox` in the row and a covering column in the data, DuckDB also skips
+  the row groups whose bounds do not meet it.
+- A row with no file, or naming a file that is not part of the dataset:
+  every file is read, as without an index. A file is part of the dataset
+  when the `file_index` lists it or, without one, when the `data` glob
+  matches it or it lies under the folder `data` names.
+- An index that cannot be read: a warning, and every file is read.
+
+The third rule covers a registry that spans other themes, or that has
+moved to a newer release than the one served. The Overture registry
+follows the latest release and its paths name the files of that release,
+so joined to the `href_base` of an older one they name no file of the
+dataset, and the provider reads every file instead.
+
+An `id_index` of `type: generated` names an index built from the data.
+Nothing builds one yet, so the provider logs a warning and ignores it.
 
 ### Keep the data near the server, and read it with a caching reader
 
