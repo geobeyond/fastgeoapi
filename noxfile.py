@@ -442,8 +442,8 @@ def maps(session: Session) -> None:
 @session(python=python_versions)
 def conformance(session: Session) -> None:
     """Validate the responses against the official OGC schemas."""
-    # The demo configuration names the GeoParquet and PMTiles providers, and
-    # its OpenAPI document cannot be built without them.
+    # The demo configuration names the GeoParquet, PMTiles and mapli
+    # providers, and its OpenAPI document cannot be built without them.
     session.run_install(
         "uv",
         "sync",
@@ -453,6 +453,8 @@ def conformance(session: Session) -> None:
         "geoparquet",
         "--extra",
         "pmtiles",
+        "--extra",
+        "mapli",
         env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
     )
     session.run("pytest", "tests/conformance", "-rs", *session.posargs)
