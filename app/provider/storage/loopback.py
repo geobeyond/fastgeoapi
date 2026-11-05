@@ -52,7 +52,7 @@ class Refusal:
 def parse_request(
     method: str, target: str, range_header: str | None, *, token: str
 ) -> RangeRequest | Refusal:
-    """What a request asks for, or the status that refuses it.
+    """Parse a request into what it asks for, or the status that refuses it.
 
     Only ``GET /<token>/<source>/<version>`` with a single ``bytes=a-b``
     range of at most :data:`MAX_RANGE_BYTES` is answered. A wrong token
@@ -93,14 +93,43 @@ def parse_request(
 
 
 def clamp(request: RangeRequest, size: int) -> tuple[int, int] | None:
-    """Offset and length of the request inside an object of ``size`` bytes; None past its end."""
+    """Fit the range of ``request`` inside an object of ``size`` bytes.
+
+    Parameters
+    ----------
+    request
+        The range asked for.
+    size
+        The size of the object.
+
+    Returns
+    -------
+    tuple[int, int] | None
+        The offset and the length to read, cut at the end of the object,
+        or None when the range starts past it.
+    """
     if request.start >= size:
         return None
     return request.start, min(request.end, size - 1) - request.start + 1
 
 
 def build_partial_headers(offset: int, length: int, size: int) -> list[tuple[str, str]]:
-    """The headers of a 206 response carrying ``length`` bytes from ``offset``."""
+    """Build the headers of a 206 response carrying ``length`` bytes from ``offset``.
+
+    Parameters
+    ----------
+    offset
+        The first byte of the body.
+    length
+        How many bytes the body has.
+    size
+        The size of the whole object, for ``Content-Range``.
+
+    Returns
+    -------
+    list[tuple[str, str]]
+        The header names and values.
+    """
     return [
         ("content-type", "application/octet-stream"),
         ("content-length", str(length)),
@@ -113,22 +142,46 @@ class RangeSources:
     """The objects the server may serve, by the digest of their source."""
 
     def __init__(self) -> None:
+        """Start with no object registered."""
         self._sources: dict[str, CachedRanges] = {}
         self._lock = threading.Lock()
 
     def register(self, cached: CachedRanges) -> None:
-        """Serve ``cached``; the last registration of a source wins."""
+        """Serve ``cached``; the last registration of a source wins.
+
+        Parameters
+        ----------
+        cached
+            The ranges of the object, registered under the digest of its source.
+        """
         with self._lock:
             self._sources[cached.source] = cached
 
     def unregister(self, cached: CachedRanges) -> None:
-        """Stop serving ``cached``, unless a later registration replaced it."""
+        """Stop serving ``cached``, unless a later registration replaced it.
+
+        Parameters
+        ----------
+        cached
+            The ranges registered with :meth:`register`.
+        """
         with self._lock:
             if self._sources.get(cached.source) is cached:
                 del self._sources[cached.source]
 
     def get(self, source: str) -> CachedRanges | None:
-        """The object registered for ``source``."""
+        """Find the object registered for ``source``.
+
+        Parameters
+        ----------
+        source
+            The digest of the source.
+
+        Returns
+        -------
+        CachedRanges | None
+            The registered ranges, or None when nothing is registered.
+        """
         with self._lock:
             return self._sources.get(source)
 
@@ -140,6 +193,20 @@ SOURCES = RangeSources()
 def _answer_empty(
     status: int, *headers: tuple[str, str]
 ) -> tuple[int, list[tuple[str, str]], bytes]:
+    """Build a response with no body.
+
+    Parameters
+    ----------
+    status
+        The status code.
+    *headers
+        Headers to send besides ``Content-Length``.
+
+    Returns
+    -------
+    tuple[int, list[tuple[str, str]], bytes]
+        The status, the headers and an empty body.
+    """
     return status, [("content-length", "0"), *headers], b""
 
 
@@ -147,7 +214,13 @@ class RangeServer:
     """Serves ranges of the objects in ``sources`` to readers on this machine."""
 
     def __init__(self, sources: RangeSources) -> None:
-        """Nothing listens until :meth:`start`."""
+        """Prepare a server for ``sources``; nothing listens until :meth:`start`.
+
+        Parameters
+        ----------
+        sources
+            The objects the server may serve.
+        """
         self._sources = sources
         self.token = secrets.token_urlsafe(32)
         self.port: int | None = None
@@ -158,7 +231,13 @@ class RangeServer:
 
     @property
     def sockets(self) -> tuple:
-        """The listening sockets, once started."""
+        """The listening sockets, once started.
+
+        Returns
+        -------
+        tuple
+            The sockets, empty before :meth:`start`.
+        """
         return tuple(self._server.sockets) if self._server is not None else ()
 
     async def start(self) -> None:
@@ -169,7 +248,20 @@ class RangeServer:
                 self.port = self._server.sockets[0].getsockname()[1]
 
     def url_for(self, cached: CachedRanges, meta: ObjectMeta) -> str:
-        """The URL of ``cached`` at the version ``meta`` names, token included."""
+        """Build the URL of ``cached`` at the version ``meta`` names, token included.
+
+        Parameters
+        ----------
+        cached
+            The registered ranges of the object.
+        meta
+            The metadata of the version to serve.
+
+        Returns
+        -------
+        str
+            ``http://127.0.0.1:<port>/<token>/<source>/<version>``.
+        """
         return f"http://127.0.0.1:{self.port}/{self.token}/{cached.source}/{version_of(meta)}"
 
     async def aclose(self) -> None:
@@ -184,6 +276,15 @@ class RangeServer:
         await server.wait_closed()
 
     async def _serve(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        """Answer the requests of one connection until the peer closes it.
+
+        Parameters
+        ----------
+        reader
+            The stream the requests arrive on.
+        writer
+            The stream the responses go out on.
+        """
         self.connections += 1
         self._clients.add(writer)
         connection = h11.Connection(h11.SERVER)
@@ -210,6 +311,21 @@ class RangeServer:
                 await writer.wait_closed()
 
     async def _answer(self, request: h11.Request) -> tuple[int, list[tuple[str, str]], bytes]:
+        """Answer one request with the range it asks for, or with the status that refuses it.
+
+        A version no longer known, or an object that changed under it, gets
+        404; a read that fails gets 502.
+
+        Parameters
+        ----------
+        request
+            The request, complete.
+
+        Returns
+        -------
+        tuple[int, list[tuple[str, str]], bytes]
+            The status, the headers and the body.
+        """
         range_header = next(
             (value.decode("latin-1") for name, value in request.headers if name == b"range"), None
         )
@@ -244,7 +360,20 @@ class RangeServer:
 async def _read_next_request(
     connection: h11.Connection, reader: asyncio.StreamReader
 ) -> h11.Request | None:
-    """The next request on the connection once it is complete; None when the peer has gone."""
+    """Wait for the next request on the connection to be complete.
+
+    Parameters
+    ----------
+    connection
+        The h11 state of the connection.
+    reader
+        The stream the bytes arrive on.
+
+    Returns
+    -------
+    h11.Request | None
+        The request, or None when the peer has gone.
+    """
     request = None
     while True:
         event = connection.next_event()
@@ -264,7 +393,13 @@ _SERVERS: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, RangeServer] = (
 
 
 async def ensure_range_server() -> RangeServer:
-    """The server of the running event loop, started at its first use."""
+    """Start the server of the running event loop at its first use, and return it.
+
+    Returns
+    -------
+    RangeServer
+        The server of this loop, listening.
+    """
     loop = asyncio.get_running_loop()
     server = _SERVERS.get(loop)
     if server is None:

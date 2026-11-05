@@ -46,12 +46,34 @@ _ENTRY = re.compile(r"[0-9a-f]{32}/[0-9a-f]{32}/\d+-\d+")
 
 
 def digest(text: str) -> str:
-    """A short, path-safe fingerprint of ``text``, for the parts of a cache key."""
+    """Fingerprint ``text`` in 32 hex characters, safe in a path, for the parts of a cache key.
+
+    Parameters
+    ----------
+    text
+        What the key part stands for: a source or an ETag.
+
+    Returns
+    -------
+    str
+        The first 32 hex characters of its SHA-256.
+    """
     return hashlib.sha256(text.encode()).hexdigest()[:32]
 
 
 def version_of(meta: ObjectMeta) -> str:
-    """The version of the object ``meta`` describes, as it appears in keys and URLs."""
+    """Name the version of the object ``meta`` describes, as it appears in keys and URLs.
+
+    Parameters
+    ----------
+    meta
+        The metadata of the object.
+
+    Returns
+    -------
+    str
+        The digest of its ETag, or ``unversioned`` without one.
+    """
     return digest(meta.etag) if meta.etag else UNVERSIONED
 
 
@@ -72,7 +94,19 @@ class RangeCache:
         revalidate_seconds: float = 300.0,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        """``opener`` builds the store at the first use, off the event loop."""
+        """Prepare a cache whose store ``opener`` builds at the first use, off the event loop.
+
+        Parameters
+        ----------
+        opener
+            Builds the store that holds the entries.
+        max_bytes
+            The cap on the size of the entries.
+        revalidate_seconds
+            How many seconds a version read with a HEAD is trusted.
+        clock
+            The clock of the warnings and of the revalidation, in seconds.
+        """
         self._opener = opener
         self._store: ObjectStore | None = None
         self.max_bytes = max_bytes
@@ -90,7 +124,7 @@ class RangeCache:
 
     @classmethod
     def at(cls, location: str, *, max_bytes: int, revalidate_seconds: float = 300.0) -> RangeCache:
-        """A cache in a local directory readable by this user only, or in a store named by URL.
+        """Build a cache in a local directory only this user reads, or in a store named by URL.
 
         Nothing is created before the first read or write. A local directory
         is then created with mode 0700, or brought back to 0700 when it
@@ -114,6 +148,7 @@ class RangeCache:
         """
 
         def open_store() -> ObjectStore:
+            """Open the store of the entries, creating a local directory first."""
             if "://" not in location:
                 # Entries are bytes of the objects, private buckets included.
                 # makedirs leaves a directory that already exists as it is.
@@ -125,11 +160,42 @@ class RangeCache:
 
     @staticmethod
     def build_key(source: str, version: str, offset: int, length: int) -> str:
-        """Where a range lives; ``source`` and ``version`` are digests."""
+        """Build the key a range lives at.
+
+        Parameters
+        ----------
+        source
+            The digest of the object.
+        version
+            The digest of its version, from :func:`version_of`.
+        offset
+            The first byte of the range.
+        length
+            How many bytes the range has.
+
+        Returns
+        -------
+        str
+            ``source/version/offset-length``.
+        """
         return f"{source}/{version}/{offset}-{length}"
 
     def get(self, key: str, length: int) -> bytes | None:
-        """The entry at ``key``; None when it is missing, has another length, or the store fails."""
+        """Read the entry at ``key`` synchronously.
+
+        Parameters
+        ----------
+        key
+            The entry's key, from :meth:`build_key`.
+        length
+            The length the entry must have.
+
+        Returns
+        -------
+        bytes | None
+            The entry, or None when it is missing, has another length or
+            the store fails. An entry of another length is deleted.
+        """
         try:
             data = self._open().get(key)
         except FileNotFoundError:
@@ -143,7 +209,21 @@ class RangeCache:
         return data
 
     async def aget(self, key: str, length: int) -> bytes | None:
-        """Async twin of :meth:`get`."""
+        """Read the entry at ``key`` asynchronously.
+
+        Parameters
+        ----------
+        key
+            The entry's key, from :meth:`build_key`.
+        length
+            The length the entry must have.
+
+        Returns
+        -------
+        bytes | None
+            The entry, or None when it is missing, has another length or
+            the store fails. An entry of another length is deleted.
+        """
         try:
             data = await (await self._aopen()).aget(key)
         except FileNotFoundError:
@@ -186,6 +266,7 @@ class RangeCache:
             thread.start()
 
     def _sweep_in_background(self) -> None:
+        """Sweep on the current thread, then forget the thread."""
         try:
             self.sweep()
         finally:
@@ -193,7 +274,18 @@ class RangeCache:
                 self._sweep_threads.discard(threading.current_thread())
 
     async def aput(self, key: str, data: bytes) -> None:
-        """Async twin of :meth:`put`; the sweep it may start runs in the background."""
+        """Keep ``data`` at ``key`` asynchronously, unless it is larger than a tenth of the cap.
+
+        A write that fails is logged, and the entry is not kept. The sweep
+        the write may start runs as a task on the loop.
+
+        Parameters
+        ----------
+        key
+            The entry's key, from :meth:`build_key`.
+        data
+            The bytes of the range.
+        """
         if len(data) > self._tenth:
             return
         try:
@@ -207,7 +299,11 @@ class RangeCache:
             task.add_done_callback(self._sweeps.discard)
 
     def sweep(self) -> None:
-        """Delete the entries written first until the cache is back under its target."""
+        """Delete the entries written first, synchronously, until the cache is under its target.
+
+        Only the cache's own entries count and are deleted. A failure is
+        logged and ends the sweep.
+        """
         try:
             store = self._open()
             for path in self._find_surplus(store.list_entries()):
@@ -219,7 +315,11 @@ class RangeCache:
                 self._sweeping = False
 
     async def asweep(self) -> None:
-        """Async twin of :meth:`sweep`."""
+        """Delete the entries written first, asynchronously, until the cache is under its target.
+
+        Only the cache's own entries count and are deleted. A failure is
+        logged and ends the sweep.
+        """
         try:
             store = await self._aopen()
             for path in self._find_surplus(await store.alist_entries()):
@@ -243,6 +343,18 @@ class RangeCache:
             await asyncio.to_thread(thread.join)
 
     def _find_surplus(self, entries: list[ObjectMeta]) -> list[str]:
+        """Pick the entries to delete, oldest first, to bring the cache under its target.
+
+        Parameters
+        ----------
+        entries
+            The listing of the store that holds the cache.
+
+        Returns
+        -------
+        list[str]
+            The keys to delete; empty while the cache is under its cap.
+        """
         # The location may hold other objects: only the cache's own entries count and are deleted.
         entries = [entry for entry in entries if _ENTRY.fullmatch(entry.path)]
         total = sum(entry.size for entry in entries)
@@ -258,6 +370,21 @@ class RangeCache:
         return surplus
 
     def _is_sweep_due(self, written: int) -> bool:
+        """Count ``written`` bytes and tell whether a sweep should start now.
+
+        A sweep is due once a tenth of the cap has been written since the
+        last one and none is running; the caller then runs it.
+
+        Parameters
+        ----------
+        written
+            The bytes of the entry just written.
+
+        Returns
+        -------
+        bool
+            True when the caller should start a sweep.
+        """
         with self._lock:
             self._written += written
             if self._sweeping or self._written < self._tenth:
@@ -266,12 +393,26 @@ class RangeCache:
             return True
 
     def _open(self) -> ObjectStore:
+        """Open the store of the entries at the first call, synchronously.
+
+        Returns
+        -------
+        ObjectStore
+            The store, the same one at every call.
+        """
         with self._lock:
             if self._store is None:
                 self._store = self._opener()
             return self._store
 
     async def _aopen(self) -> ObjectStore:
+        """Open the store of the entries at the first call, on a thread.
+
+        Returns
+        -------
+        ObjectStore
+            The store, the same one at every call.
+        """
         store = self._store
         if store is None:
             # The opener may create a directory: that happens in a thread.
@@ -279,18 +420,44 @@ class RangeCache:
         return store
 
     def _discard(self, key: str) -> None:
+        """Delete the entry at ``key`` synchronously; a failure is only logged.
+
+        Parameters
+        ----------
+        key
+            The entry's key.
+        """
         try:
             self._open().delete(key)
         except Exception as error:
             self._warn("delete", error)
 
     async def _adiscard(self, key: str) -> None:
+        """Delete the entry at ``key`` asynchronously; a failure is only logged.
+
+        Parameters
+        ----------
+        key
+            The entry's key.
+        """
         try:
             await (await self._aopen()).adelete(key)
         except Exception as error:
             self._warn("delete", error)
 
     def _warn(self, kind: str, error: Exception, then: str = "the source is read instead") -> None:
+        """Log a failure of the store, at most once a minute for each kind.
+
+        Parameters
+        ----------
+        kind
+            What failed: read, write, sweep, delete or revalidation.
+        error
+            The error; only its type is logged, since its message may name
+            the object.
+        then
+            What happens instead, for the log line.
+        """
         now = self.clock()
         with self._lock:
             last = self._warned.get(kind)
@@ -312,7 +479,20 @@ class CachedRanges:
     """
 
     def __init__(self, store: ObjectStore, key: str, cache: RangeCache, *, source: str) -> None:
-        """``source`` names the object in cache keys, by its digest: a provider's ``data``, say."""
+        """Prepare the ranges of the object at ``key`` in ``store``.
+
+        Parameters
+        ----------
+        store
+            The store that holds the object.
+        key
+            The key of the object in ``store``.
+        cache
+            The cache the ranges are kept in.
+        source
+            What names the object in cache keys, by its digest: a
+            provider's ``data``, say.
+        """
         self.store = store
         self.key = key
         self.cache = cache
@@ -325,7 +505,7 @@ class CachedRanges:
         self._revalidating: asyncio.Task | None = None
 
     def meta(self) -> ObjectMeta:
-        """The object's metadata, read again with a HEAD once ``revalidate_seconds`` have passed.
+        """Read the object's metadata synchronously, again with a HEAD past ``revalidate_seconds``.
 
         When that HEAD fails, the version read last answers and a warning is
         logged; the next call past the TTL tries again. When it fails before
@@ -345,7 +525,17 @@ class CachedRanges:
             return self._fall_back_to_known(error)
 
     async def ameta(self) -> ObjectMeta:
-        """Async twin of :meth:`meta`, with the same fallback and the same errors."""
+        """Read the object's metadata asynchronously, again with a HEAD past ``revalidate_seconds``.
+
+        When that HEAD fails, the version read last answers and a warning is
+        logged. When it fails before any version was read, the store's
+        error reaches the caller.
+
+        Returns
+        -------
+        ObjectMeta
+            The size, the ETag and the modification time of the object.
+        """
         meta = self._get_fresh_meta()
         if meta is not None:
             return meta
@@ -355,6 +545,18 @@ class CachedRanges:
             return self._fall_back_to_known(error)
 
     def _fall_back_to_known(self, error: Exception) -> ObjectMeta:
+        """Answer a failed HEAD with the version read last, or raise ``error`` without one.
+
+        Parameters
+        ----------
+        error
+            The error of the HEAD, raised again when no version was read yet.
+
+        Returns
+        -------
+        ObjectMeta
+            The version read last.
+        """
         known = self.known_meta()
         if known is None:
             raise error
@@ -362,13 +564,18 @@ class CachedRanges:
         return known
 
     async def ameta_without_waiting(self) -> ObjectMeta:
-        """The version to read now: the known one, while a HEAD past the TTL runs behind.
+        """Pick the version to read now: the known one, while a HEAD past the TTL runs behind.
 
         Only a reader with no version known yet waits for the store. On a
         slow route a HEAD costs seconds, and a reader that cannot wait for
         it gets the version it read last; a change shows up once the HEAD
         behind it returns, or as soon as a pinned read finds the object
         changed.
+
+        Returns
+        -------
+        ObjectMeta
+            The version to read.
         """
         meta = self._get_fresh_meta()
         if meta is not None:
@@ -382,11 +589,18 @@ class CachedRanges:
         return known
 
     def known_meta(self) -> ObjectMeta | None:
-        """The version read last, however old; None before the first HEAD."""
+        """Return the version read last, however old.
+
+        Returns
+        -------
+        ObjectMeta | None
+            The version, or None before the first HEAD.
+        """
         with self._lock:
             return self._meta
 
     async def _arevalidate(self) -> None:
+        """Read the version again with a HEAD; a failure is only logged."""
         try:
             self._remember(await self.store.ahead(self.key))
         except Exception as error:
@@ -399,16 +613,37 @@ class CachedRanges:
             self._meta = None
 
     def find_known(self, version: str) -> ObjectMeta | None:
-        """The metadata of one of the last versions seen, by :func:`version_of`."""
+        """Find the metadata of one of the last versions seen.
+
+        Parameters
+        ----------
+        version
+            The version, as :func:`version_of` names it.
+
+        Returns
+        -------
+        ObjectMeta | None
+            Its metadata, or None when it is not among the last versions seen.
+        """
         with self._lock:
             return self._versions.get(version)
 
     def at(self, meta: ObjectMeta) -> ByteRanges:
-        """Ranged reads pinned to the version ``meta`` names.
+        """Give the ranged reads pinned to the version ``meta`` names.
 
         Identical reads in flight share one fetch. An object without an
         ETag has no version to pin, so its reads go to the store and are
         never kept.
+
+        Parameters
+        ----------
+        meta
+            The metadata of the version to read.
+
+        Returns
+        -------
+        ByteRanges
+            The reads of that version, the same object for the same version.
         """
         version = version_of(meta)
         with self._lock:
@@ -425,6 +660,13 @@ class CachedRanges:
             return pinned
 
     def _get_fresh_meta(self) -> ObjectMeta | None:
+        """Return the version read last while it is still trusted.
+
+        Returns
+        -------
+        ObjectMeta | None
+            The version, or None when none was read or ``revalidate_seconds`` have passed.
+        """
         with self._lock:
             if self._meta is None:
                 return None
@@ -433,6 +675,18 @@ class CachedRanges:
             return self._meta
 
     def _remember(self, meta: ObjectMeta) -> ObjectMeta:
+        """Keep ``meta`` as the current version, among the last versions seen.
+
+        Parameters
+        ----------
+        meta
+            The metadata a HEAD returned.
+
+        Returns
+        -------
+        ObjectMeta
+            ``meta`` itself.
+        """
         with self._lock:
             self._meta, self._checked = meta, self.cache.clock()
             version = version_of(meta)
@@ -447,7 +701,20 @@ class PinnedRanges:
     """:class:`ByteRanges` of one object at one version, kept in the cache."""
 
     def __init__(self, cached: CachedRanges, meta: ObjectMeta) -> None:
-        """``meta`` must carry the ETag the reads are pinned to."""
+        """Pin the reads to the version ``meta`` names.
+
+        Parameters
+        ----------
+        cached
+            The ranges of the object, which hold its store and the cache.
+        meta
+            The metadata of the version, with its ETag.
+
+        Raises
+        ------
+        ValueError
+            If ``meta`` has no ETag.
+        """
         if meta.etag is None:
             raise ValueError("a pinned read needs the object's ETag")
         self._cached = cached
@@ -455,7 +722,26 @@ class PinnedRanges:
         self._version = digest(meta.etag)
 
     def read(self, offset: int, length: int) -> bytes:
-        """``length`` bytes from ``offset``, from the cache or from the object at this version."""
+        """Read ``length`` bytes from ``offset`` synchronously, from the cache or the object.
+
+        Parameters
+        ----------
+        offset
+            The first byte to read.
+        length
+            How many bytes to read.
+
+        Returns
+        -------
+        bytes
+            The bytes of the range; a range past the end comes back short
+            and is not kept.
+
+        Raises
+        ------
+        ObjectChangedError
+            If the object no longer has this version.
+        """
         key = RangeCache.build_key(self._cached.source, self._version, offset, length)
         data = self._cached.cache.get(key, length)
         if data is None:
@@ -472,7 +758,26 @@ class PinnedRanges:
         return data
 
     async def aread(self, offset: int, length: int) -> bytes:
-        """Async twin of :meth:`read`."""
+        """Read ``length`` bytes from ``offset`` asynchronously, from the cache or the object.
+
+        Parameters
+        ----------
+        offset
+            The first byte to read.
+        length
+            How many bytes to read.
+
+        Returns
+        -------
+        bytes
+            The bytes of the range; a range past the end comes back short
+            and is not kept.
+
+        Raises
+        ------
+        ObjectChangedError
+            If the object no longer has this version.
+        """
         key = RangeCache.build_key(self._cached.source, self._version, offset, length)
         data = await self._cached.cache.aget(key, length)
         if data is None:
@@ -488,31 +793,99 @@ class PinnedRanges:
         return data
 
     def read_many(self, ranges: Sequence[tuple[int, int]]) -> list[bytes]:
-        """Several ranges, each through the cache, in request order."""
+        """Read several ranges synchronously, each through the cache, in request order.
+
+        Parameters
+        ----------
+        ranges
+            The ``(offset, length)`` pairs to read.
+
+        Returns
+        -------
+        list[bytes]
+            The bytes of each range, in the order of ``ranges``.
+        """
         return [self.read(offset, length) for offset, length in ranges]
 
     async def aread_many(self, ranges: Sequence[tuple[int, int]]) -> list[bytes]:
-        """Async twin of :meth:`read_many`."""
+        """Read several ranges concurrently, each through the cache, in request order.
+
+        Parameters
+        ----------
+        ranges
+            The ``(offset, length)`` pairs to read.
+
+        Returns
+        -------
+        list[bytes]
+            The bytes of each range, in the order of ``ranges``.
+        """
         return list(await asyncio.gather(*(self.aread(offset, n) for offset, n in ranges)))
 
 
 def _get_written_at(entry: ObjectMeta) -> tuple[float, str]:
+    """Sort key of an entry: when it was written, then its key.
+
+    Parameters
+    ----------
+    entry
+        An entry of the listing.
+
+    Returns
+    -------
+    tuple[float, str]
+        The timestamp, 0 without a date, and the key.
+    """
     written = entry.last_modified.timestamp() if entry.last_modified else 0.0
     return written, entry.path
 
 
 def get_cache_base_dir(cfg: Any) -> Path:
-    """The cache root: ``FASTGEOAPI_CACHE_DIR``, or ``.cache`` in the working directory."""
+    """Find the cache root in the settings.
+
+    Parameters
+    ----------
+    cfg
+        fastgeoapi's settings.
+
+    Returns
+    -------
+    Path
+        ``FASTGEOAPI_CACHE_DIR``, or ``.cache`` in the working directory.
+    """
     root = getattr(cfg, "FASTGEOAPI_CACHE_DIR", None)
     return Path(root) if root else Path.cwd() / ".cache"
 
 
 def _is_turned_off(location: str | None) -> bool:
+    """Tell whether ``FASTGEOAPI_RANGE_CACHE`` turns the cache off.
+
+    Parameters
+    ----------
+    location
+        The value of the setting, or None when it is not set.
+
+    Returns
+    -------
+    bool
+        True for ``off``, in any case and with any spaces around it.
+    """
     return location is not None and location.strip().lower() == OFF
 
 
 def build_range_cache(cfg: Any) -> RangeCache | None:
-    """The range cache fastgeoapi's settings describe, or None when they turn it off."""
+    """Build the range cache fastgeoapi's settings describe.
+
+    Parameters
+    ----------
+    cfg
+        fastgeoapi's settings.
+
+    Returns
+    -------
+    RangeCache | None
+        The cache, or None when the settings turn it off.
+    """
     location = getattr(cfg, "FASTGEOAPI_RANGE_CACHE", None)
     if _is_turned_off(location):
         return None
@@ -524,6 +897,13 @@ def build_range_cache(cfg: Any) -> RangeCache | None:
 
 
 def _get_settings() -> Any | None:
+    """Load fastgeoapi's settings, when this process has them.
+
+    Returns
+    -------
+    Any | None
+        The settings, or None when fastgeoapi is not configured.
+    """
     # Imported here: building the settings needs a configured fastgeoapi,
     # and providers are also built by tools that only have pygeoapi.
     try:
@@ -534,23 +914,40 @@ def _get_settings() -> Any | None:
 
 
 def get_default_cache_base_dir() -> Path | None:
-    """The cache root fastgeoapi's settings name; None without settings."""
+    """Find the cache root fastgeoapi's settings name.
+
+    Returns
+    -------
+    Path | None
+        The root, or None without settings.
+    """
     settings = _get_settings()
     return None if settings is None else get_cache_base_dir(settings)
 
 
 @lru_cache(maxsize=1)
 def default_range_cache() -> RangeCache | None:
-    """The range cache of this process, from fastgeoapi's settings; None without them."""
+    """Build the range cache of this process once, from fastgeoapi's settings.
+
+    Returns
+    -------
+    RangeCache | None
+        The cache, or None without settings or when they turn it off.
+    """
     settings = _get_settings()
     return None if settings is None else build_range_cache(settings)
 
 
 def range_cache_enabled() -> bool:
-    """Whether remote data is read through the range cache, as far as the settings tell.
+    """Tell whether remote data is read through the range cache, as far as the settings tell.
 
     Without settings the answer is the default, on: a definition checked
     by a tool is judged as the server will run it.
+
+    Returns
+    -------
+    bool
+        False only when the settings turn the cache off.
     """
     settings = _get_settings()
     return settings is None or not _is_turned_off(getattr(settings, "FASTGEOAPI_RANGE_CACHE", None))
