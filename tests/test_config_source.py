@@ -143,3 +143,36 @@ def test_a_parent_step_in_a_bucket_index_is_folded():
     )
 
     assert _index_of(resolved) == "s3://bucket/indexes/roads.parquet"
+
+
+def _with_id_index(location: str) -> dict:
+    id_index = {"type": "retrieved", "location": location, "columns": {"id": "id", "href": "h"}}
+    provider = {"type": "feature", "name": "GeoParquet", "data": "x", "id_index": id_index}
+    return {"resources": {"roads": {"type": "collection", "providers": [provider]}}}
+
+
+def _id_index_of(config: dict) -> str:
+    return config["resources"]["roads"]["providers"][0]["id_index"]["location"]
+
+
+def test_a_relative_id_index_beside_a_local_config_becomes_absolute(tmp_path):
+    source = str(tmp_path / "pygeoapi-config.yml")
+
+    resolved = resolve_file_indexes(_with_id_index("indexes/ids/*.parquet"), source)
+
+    assert _id_index_of(resolved) == str(tmp_path / "indexes" / "ids" / "*.parquet")
+
+
+def test_a_relative_id_index_beside_a_bucket_config_becomes_a_bucket_url():
+    resolved = resolve_file_indexes(
+        _with_id_index("../indexes/ids/*.parquet"), "s3://bucket/configs/demo.yml"
+    )
+
+    assert _id_index_of(resolved) == "s3://bucket/indexes/ids/*.parquet"
+
+
+@pytest.mark.parametrize("absolute", ["s3://other/registry/*.parquet", "/data/ids.parquet"])
+def test_an_absolute_id_index_is_left_alone(absolute):
+    resolved = resolve_file_indexes(_with_id_index(absolute), "s3://bucket/configs/demo.yml")
+
+    assert _id_index_of(resolved) == absolute

@@ -58,11 +58,12 @@ def _parse(raw: bytes, source: str) -> dict:
 
 
 def resolve_file_indexes(config: dict, source: str) -> dict:
-    """Make every relative ``file_index`` of ``config`` relative to ``source``.
+    """Resolve every relative index location of ``config`` against ``source``.
 
-    An index written beside the configuration is named relative to it, so
-    the two move together. A provider does not know where its configuration
-    came from, so the path is resolved here, after parsing; the text of the
+    The locations are ``file_index`` and ``id_index.location``. An index
+    written beside the configuration is named relative to it, so the two
+    move together. A provider does not know where its configuration came
+    from, so the path is resolved here, after parsing; the text of the
     configuration keeps the relative path.
 
     Parameters
@@ -75,9 +76,8 @@ def resolve_file_indexes(config: dict, source: str) -> dict:
     Returns
     -------
     dict
-        ``config``, with each relative ``file_index`` made absolute.
+        ``config``, with each relative index location made absolute.
     """
-    remote = urlsplit(source)
     resources = config.get("resources")
     # The schema validation reports a malformed configuration; leave it as it is.
     if not isinstance(resources, dict):
@@ -85,19 +85,27 @@ def resolve_file_indexes(config: dict, source: str) -> dict:
     for resource in resources.values():
         providers = resource.get("providers") if isinstance(resource, dict) else None
         for provider in providers if isinstance(providers, list) else []:
-            index = provider.get("file_index") if isinstance(provider, dict) else None
-            if not isinstance(index, str) or not index:
+            if not isinstance(provider, dict):
                 continue
-            if urlsplit(index).scheme or Path(index).is_absolute():
-                continue
-            if remote.scheme:
-                # urljoin does not know s3:// and keeps the key relative, so it is joined here;
-                # normpath folds a `..` that PurePosixPath keeps and S3 would read literally.
-                key = posixpath.normpath(str(PurePosixPath(remote.path).parent / index))
-                provider["file_index"] = f"{remote.scheme}://{remote.netloc}{key}"
-            else:
-                provider["file_index"] = str(Path(source).resolve().parent / index)
+            if isinstance(provider.get("file_index"), str):
+                provider["file_index"] = _resolve_beside(provider["file_index"], source)
+            id_index = provider.get("id_index")
+            if isinstance(id_index, dict) and isinstance(id_index.get("location"), str):
+                id_index["location"] = _resolve_beside(id_index["location"], source)
     return config
+
+
+def _resolve_beside(location: str, source: str) -> str:
+    """``location`` joined to the folder of ``source`` when it is relative, as written otherwise."""
+    if not location or urlsplit(location).scheme or Path(location).is_absolute():
+        return location
+    remote = urlsplit(source)
+    if remote.scheme:
+        # urljoin does not know s3:// and keeps the key relative, so it is joined here;
+        # normpath folds a `..` that PurePosixPath keeps and S3 would read literally.
+        key = posixpath.normpath(str(PurePosixPath(remote.path).parent / location))
+        return f"{remote.scheme}://{remote.netloc}{key}"
+    return str(Path(source).resolve().parent / location)
 
 
 def load_config_source(source: str) -> ConfigDocument:
