@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.12, <3.14"
 resolution-markers = [
     "python_full_version >= '3.13' and platform_machine == 'x86_64' and sys_platform == 'linux'",
@@ -942,6 +942,9 @@ geoparquet = [
 html = [
     { name = "fastgeoapi-html" },
 ]
+mapli = [
+    { name = "mapli", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
+]
 pmtiles = [
     { name = "pmtiles" },
 ]
@@ -1013,6 +1016,7 @@ requires-dist = [
     { name = "json-ref-dict", specifier = ">=0.7.2,<=1.0" },
     { name = "loguru", specifier = ">=0.7.3,<1.0" },
     { name = "mangum", specifier = ">=0.19,<1.0" },
+    { name = "mapli", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'mapli') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'mapli')", specifier = ">=0.4.1" },
     { name = "obstore", specifier = ">=0.12.1,<0.13" },
     { name = "openapi-pydantic", specifier = ">=0.5.1,<=1.0" },
     { name = "pmtiles", marker = "extra == 'pmtiles'", specifier = ">=3.7,<4" },
@@ -1028,7 +1032,7 @@ requires-dist = [
     { name = "starlette", specifier = ">=1.3.1,<2.0" },
     { name = "typer", specifier = ">=0.15.3,<0.28" },
 ]
-provides-extras = ["geoparquet", "pmtiles", "html", "portolan"]
+provides-extras = ["geoparquet", "pmtiles", "html", "portolan", "mapli"]
 
 [package.metadata.requires-dev]
 conformance = [{ name = "xpublish-ogc-core", specifier = ">=0.1.4" }]
@@ -1399,8 +1403,8 @@ name = "httpcore2"
 version = "2.16.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "h11" },
-    { name = "truststore" },
+    { name = "h11", marker = "sys_platform != 'emscripten'" },
+    { name = "truststore", marker = "sys_platform != 'emscripten'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c0/61/afa9d6b7452f9eca73f73d45324eb0bb52f098fd5e6049bf6b8263be9b4e/httpcore2-2.16.0.tar.gz", hash = "sha256:c72cd0413563b17e1cd8354677dff887466f8ec2551679759e93126534428643", size = 69886, upload-time = "2026-10-21T07:09:45.31Z" }
 wheels = [
@@ -1842,6 +1846,16 @@ wheels = [
 ]
 
 [[package]]
+name = "mapli"
+version = "0.4.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/21/57/7a9cd5af4c012221d7202bee1a752ad77133faaf45b5a13a6865e5159016/mapli-0.4.1.tar.gz", hash = "sha256:dd4ea204063a5aa5c4a7625283c54bb4a87c18df37b179c4bd28bf0275c488d7", size = 23569247, upload-time = "2026-10-22T14:57:32.087Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f2/59/eec3ae5029373d1d4a42d29f6dc206cd3dde66e53e50436a5bfb48591079/mapli-0.4.1-cp39-abi3-manylinux_2_34_aarch64.whl", hash = "sha256:e8c836380a26eceb83309cddf44faf816c09b48fbeedc310fab4931a39248df7", size = 21796691, upload-time = "2026-10-22T14:57:25.124Z" },
+    { url = "https://files.pythonhosted.org/packages/bd/9a/ddb193b67f4823866f190dd61957175cae677a0237220711c821e6868d2b/mapli-0.4.1-cp39-abi3-manylinux_2_34_x86_64.whl", hash = "sha256:7b827b174bda0fd224450796172999679b379786495db782d02a2a41c4a4e3d3", size = 22277233, upload-time = "2026-10-22T14:57:28.657Z" },
+]
+
+[[package]]
 name = "markdown"
 version = "3.11.2"
 source = { registry = "https://pypi.org/simple" }
@@ -2096,7 +2110,7 @@ resolution-markers = [
     "python_full_version < '3.13' and platform_machine == 'aarch64' and sys_platform == 'linux'",
 ]
 dependencies = [
-    { name = "shapely" },
+    { name = "shapely", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://github.com/francbartoli/mlnative/releases/download/v0.4.0.dev1/mlnative-0.4.0.dev1-py3-none-manylinux_2_39_aarch64.whl", hash = "sha256:08bd2445f83acf88ebdb55303fb1161109e84394310cf08ed0a90ada0c5dc2f3" },
@@ -2129,7 +2143,7 @@ resolution-markers = [
     "python_full_version < '3.13' and platform_machine == 'x86_64' and sys_platform == 'linux'",
 ]
 dependencies = [
-    { name = "shapely" },
+    { name = "shapely", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://github.com/francbartoli/mlnative/releases/download/v0.4.0.dev1/mlnative-0.4.0.dev1-py3-none-manylinux_2_39_x86_64.whl", hash = "sha256:ecfe6ae12f04898ab0e56de9bd082cf85203373f3ea833bce9d2040180dd39e4" },
@@ -2514,7 +2528,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess" },
+    { name = "ptyprocess", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
 wheels = [

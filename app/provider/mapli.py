@@ -170,7 +170,7 @@ class _UncachedObject:
         """Entry point shared with ``CachedRanges``."""
         return self._meta
 
-    def known(self, version: str) -> "ObjectMeta | None":
+    def find_known(self, version: str) -> "ObjectMeta | None":
         """Entry point shared with ``CachedRanges``."""
         return self._get_metadata_of_version(version)
 
@@ -303,7 +303,7 @@ class _MapliSchemeHandler:
         parts = urlsplit(request.url)
         source, version = parts.netloc, parts.path.strip("/")
         scheme_object = self._sources.get(source)
-        meta = scheme_object.known(version) if scheme_object is not None else None
+        meta = scheme_object.find_known(version) if scheme_object is not None else None
         if scheme_object is None or meta is None:
             return mapli.Response.error(mapli.ErrorReason.NOT_FOUND, f"unknown data {request.url}")
         if request.data_range is None:
