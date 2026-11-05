@@ -61,9 +61,7 @@ class RetrievedIdIndex:
     href_base: str | None
 
     @classmethod
-    def from_definition(
-        cls, definition: Mapping[str, Any]
-    ) -> RetrievedIdIndex | None:
+    def from_definition(cls, definition: Mapping[str, Any]) -> RetrievedIdIndex | None:
         """Read the ``id_index`` mapping of a provider.
 
         Parameters
@@ -86,27 +84,19 @@ class RetrievedIdIndex:
         """
         kind = definition.get("type")
         if kind == "generated":
-            logger.warning(
-                "an id_index of type generated is not read yet; get reads every file"
-            )
+            logger.warning("an id_index of type generated is not read yet; get reads every file")
             return None
         if kind != "retrieved":
             raise IdIndexError(f"unknown id_index type: {kind!r}")
         location = definition.get("location")
         columns = definition.get("columns")
-        if (
-            not isinstance(location, str)
-            or not location
-            or not isinstance(columns, Mapping)
-        ):
+        if not isinstance(location, str) or not location or not isinstance(columns, Mapping):
             raise IdIndexError("an id_index needs a location and columns")
         id_column = columns.get("id")
         href_column = columns.get("href")
         path_column = columns.get("path")
         if not id_column or not (href_column or path_column):
-            raise IdIndexError(
-                "the columns of an id_index name the id and an href or a path"
-            )
+            raise IdIndexError("the columns of an id_index name the id and an href or a path")
         href_base = definition.get("href_base")
         if path_column and not href_base:
             raise IdIndexError("an id_index that gives paths needs href_base")
@@ -136,9 +126,7 @@ class IdRow:
     bbox: tuple[float, float, float, float] | None
 
 
-def _list_files(
-    location: str, store_options: dict | None
-) -> list[tuple[str, str | None]]:
+def _list_files(location: str, store_options: dict | None) -> list[tuple[str, str | None]]:
     """List the files of the index with their ETags, in href order."""
     from app.provider.storage import load_store, split_source
 
@@ -146,9 +134,7 @@ def _list_files(
     try:
         entries = load_store(base, store_options).entries("")
     except OSError as error:
-        raise IdIndexError(
-            f"the id index {location} cannot be listed: {error}"
-        ) from error
+        raise IdIndexError(f"the id index {location} cannot be listed: {error}") from error
     files = [
         (f"{base.rstrip('/')}/{entry.path}", entry.etag)
         for entry in entries
@@ -159,9 +145,7 @@ def _list_files(
     return sorted(files)
 
 
-def _read_range(
-    href: str, column: str, store_options: dict | None
-) -> tuple[str, str, str]:
+def _read_range(href: str, column: str, store_options: dict | None) -> tuple[str, str, str]:
     """Read the type and the smallest and largest id of one index file from its footer."""
     from app.provider.duckdb_ import connect
 
@@ -193,24 +177,15 @@ def _read_ranges(
     from app.provider.storage.cache import digest
 
     files = _list_files(index.location, store_options)
-    entry = (
-        cache_dir / "id-index" / f"{digest(index.location)}.json"
-        if cache_dir
-        else None
-    )
+    entry = cache_dir / "id-index" / f"{digest(index.location)}.json" if cache_dir else None
     if entry is not None:
         try:
             cached = json.loads(entry.read_text())
         except (OSError, ValueError):
             cached = None
-        if isinstance(cached, dict) and cached.get("files") == [
-            list(f) for f in files
-        ]:
+        if isinstance(cached, dict) and cached.get("files") == [list(f) for f in files]:
             return [tuple(row) for row in cached["ranges"]]
-    ranges = [
-        (href, *_read_range(href, index.id_column, store_options))
-        for href, _ in files
-    ]
+    ranges = [(href, *_read_range(href, index.id_column, store_options)) for href, _ in files]
     if entry is not None:
         try:
             entry.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -225,9 +200,7 @@ def _read_ranges(
             )
             partial.replace(entry)
         except OSError as error:
-            logger.warning(
-                f"cannot keep the id ranges of {index.location} ({error})"
-            )
+            logger.warning(f"cannot keep the id ranges of {index.location} ({error})")
     return ranges
 
 
@@ -290,6 +263,22 @@ def look_up_id(
     IdRow | None
         The row of the id, or None when the index has none.
     """
+    # Here, not at the top: DuckDB comes with the geoparquet extra.
+    import duckdb
+
+    try:
+        return _look_up(index, identifier, store_options, cache_dir)
+    except duckdb.Error as error:
+        raise IdIndexError(f"the id index {index.location} cannot be read: {error}") from error
+
+
+def _look_up(
+    index: RetrievedIdIndex,
+    identifier: str,
+    store_options: dict | None,
+    cache_dir: Path | None,
+) -> IdRow | None:
+    """Look ``identifier`` up in the one index file whose range may hold it."""
     for href, kind, low, high in _read_ranges(index, store_options, cache_dir):
         if not _holds(kind, low, high, identifier):
             continue
