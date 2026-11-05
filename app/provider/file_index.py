@@ -148,9 +148,9 @@ def read_stac_geoparquet(
     of a request, so the answers stay right and only those files lose the
     pruning.
     """
-    import duckdb
+    from app.provider.duckdb_ import connect, load_duckdb
 
-    from app.provider.duckdb_ import connect
+    duckdb = load_duckdb()
 
     if not _ASSET_NAME.match(asset):
         raise FileIndexError(f"invalid asset name for the file index: {asset!r}")

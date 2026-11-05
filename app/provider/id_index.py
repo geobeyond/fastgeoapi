@@ -263,9 +263,9 @@ def look_up_id(
     IdRow | None
         The row of the id, or None when the index has none.
     """
-    # Here, not at the top: DuckDB comes with the geoparquet extra.
-    import duckdb
+    from app.provider.duckdb_ import load_duckdb
 
+    duckdb = load_duckdb()
     try:
         return _look_up(index, identifier, store_options, cache_dir)
     except duckdb.Error as error:

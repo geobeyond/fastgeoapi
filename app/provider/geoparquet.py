@@ -38,7 +38,7 @@ from pygeoapi.provider.base import (
 from app.config.logging import create_logger
 from app.provider import geoparquet_schema
 from app.provider.base import AsyncProviderMixin
-from app.provider.duckdb_ import connect, scan_expression, scan_files
+from app.provider.duckdb_ import connect, load_duckdb, scan_expression, scan_files
 from app.provider.file_index import (
     FileEntry,
     FileIndexError,
@@ -285,9 +285,7 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
 
     def _rows(self, sql: str, parameters: list | None = None) -> list:
         """The rows of ``sql``; a store that does not answer in time raises a 504."""
-        # Here, not at the top: DuckDB comes with the geoparquet extra, and the
-        # module is imported without it, as the maps lane does.
-        import duckdb
+        duckdb = load_duckdb()
 
         try:
             return self._cursor().execute(sql, parameters or []).fetchall()
@@ -611,8 +609,7 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         hrefs, local = select_page(self._files or [], int(offset), int(limit))
         if not hrefs:
             return collection
-        import duckdb
-
+        duckdb = load_duckdb()
         scan = scan_files(hrefs, union_by_name=self._union_by_name)
         try:
             features = self._select_features(
@@ -645,8 +642,7 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         file or a file outside the dataset, and when the index cannot be
         read.
         """
-        import duckdb
-
+        duckdb = load_duckdb()
         row = self._look_up(str(identifier))
         href = self._find_dataset_file(row.href) if row is not None and row.href else None
         if href is None:

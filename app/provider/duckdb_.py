@@ -83,6 +83,33 @@ class DuckDBUnavailableError(RuntimeError):
     """DuckDB or its spatial extension could not be prepared."""
 
 
+def load_duckdb():
+    """Import DuckDB where it is used.
+
+    DuckDB comes with the ``geoparquet`` extra, and the renderer lane
+    imports the modules that use it without that extra. They call this
+    function when they need DuckDB instead of importing it at their top.
+
+    Returns
+    -------
+    module
+        The ``duckdb`` module.
+
+    Raises
+    ------
+    DuckDBUnavailableError
+        If DuckDB is not installed.
+    """
+    try:
+        import duckdb
+    except ImportError as error:
+        raise DuckDBUnavailableError(
+            "the GeoParquet provider needs the 'geoparquet' extra: "
+            "pip install 'fastgeoapi[geoparquet]'"
+        ) from error
+    return duckdb
+
+
 def protocol_for(source: str) -> str | None:
     """The protocol to register for a source, or None when DuckDB reads it alone.
 
@@ -164,14 +191,7 @@ def connect(
     runtime, where the engine would otherwise size itself against the
     host's resources instead of the function's.
     """
-    try:
-        import duckdb
-    except ImportError as e:  # pragma: no cover - exercised by the extra
-        raise DuckDBUnavailableError(
-            "the GeoParquet provider needs the 'geoparquet' extra: "
-            "pip install 'fastgeoapi[geoparquet]'"
-        ) from e
-
+    duckdb = load_duckdb()
     con = duckdb.connect()
     on_interrupt(con.interrupt)
     con.execute(f"SET temp_directory='{_writable_temp_directory()}'")
