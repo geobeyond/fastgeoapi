@@ -16,6 +16,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from obstore.exceptions import BaseError
+from obstore.store import HTTPStore, LocalStore, from_url
 
 from app.provider.storage.base import ObjectStore
 from app.provider.storage.obstore_ import ObstoreStore
@@ -247,8 +248,6 @@ def load_store(base: str, store_options: dict | None = None) -> ObjectStore:
         If obstore cannot open the local folder for another reason.
     """
     if base.startswith(_URL_SCHEMES):
-        from obstore.store import HTTPStore, from_url
-
         if base.startswith(("http://", "https://")):
             # The HTTP store adds its own slash before the key: a base ending in
             # one asks for `prefix//key`, which some servers answer with 404.
@@ -265,8 +264,6 @@ def load_store(base: str, store_options: dict | None = None) -> ObjectStore:
                     from_url(base, config=config)  # ty: ignore[no-matching-overload]
                 )
         return ObstoreStore(from_url(base))
-    from obstore.store import LocalStore
-
     try:
         return ObstoreStore(LocalStore(base))
     except BaseError as error:
