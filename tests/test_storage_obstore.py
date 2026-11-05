@@ -1,6 +1,10 @@
 """obstore backend: real LocalStore on tmp_path, remote schemes at construction only."""
 
+from unittest.mock import patch
+
+import obstore
 import pytest
+from obstore.exceptions import GenericError
 from obstore.store import HTTPStore
 
 from app.provider.storage import load_store, split_source
@@ -117,3 +121,21 @@ async def test_aput_roundtrip(tmp_path):
 def test_backend_is_the_wrapped_obstore_object(local_store):
     """Libraries that speak obstore natively (async-tiff) need the object itself."""
     assert type(local_store.backend).__module__.startswith("obstore")
+
+
+def test_a_missing_local_folder_is_a_file_not_found_error(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        load_store(str(tmp_path / "missing"))
+
+
+def test_a_listing_that_fails_is_an_os_error(local_store):
+    with patch.object(obstore, "list", side_effect=GenericError("list request failed")):
+        with pytest.raises(OSError, match="list request failed"):
+            local_store.entries()
+
+
+@pytest.mark.asyncio
+async def test_an_async_listing_that_fails_is_an_os_error(local_store):
+    with patch.object(obstore, "list", side_effect=GenericError("list request failed")):
+        with pytest.raises(OSError, match="list request failed"):
+            await local_store.aentries()

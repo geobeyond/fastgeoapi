@@ -313,10 +313,11 @@ The answer follows the row:
 - A row naming a file of the dataset: only that file is read. With a
   `bbox` in the row and a covering column in the data, DuckDB also skips
   the row groups whose bounds do not meet it.
-- A row with no file, or naming a file that is not part of the dataset:
-  every file is read, as without an index. A file is part of the dataset
-  when the `file_index` lists it or, without one, when the `data` glob
-  matches it or it lies under the folder `data` names.
+- A row with no file, or naming a file that is not part of the dataset
+  or that the store cannot read: every file is read, as without an index.
+  A file is part of the dataset when the `file_index` lists it or,
+  without one, when the `data` glob matches it (`*` stays within one
+  folder, as in DuckDB) or it lies under the folder `data` names.
 - An index that cannot be read: a warning, and every file is read.
 
 The third rule covers a registry that spans other themes, or that has

@@ -3,7 +3,9 @@
 obstore returns a ``GetResult`` from ``get`` and a dict from ``head``:
 this module reduces both to the contract shapes (bytes,
 ``ObjectMeta``). When the object is missing obstore natively raises
-``FileNotFoundError``: it passes through unchanged.
+``FileNotFoundError``: it passes through unchanged. A listing that fails
+raises an ``OSError``, so no caller of the storage layer handles an obstore
+exception.
 """
 
 from __future__ import annotations
@@ -14,7 +16,7 @@ from datetime import timedelta
 from typing import Any
 
 import obstore
-from obstore.exceptions import PreconditionError
+from obstore.exceptions import BaseError, PreconditionError
 
 from app.provider.storage.base import ObjectChangedError, ObjectMeta
 
@@ -74,16 +76,56 @@ class ObstoreStore:
         return [entry["path"] for batch in self._store.list(prefix) for entry in batch]
 
     def entries(self, prefix: str = "") -> list[ObjectMeta]:
-        """The objects under a prefix, recursively, with their metadata."""
-        return [self._meta(entry) for batch in obstore.list(self._store, prefix) for entry in batch]
+        """List the objects under a prefix, recursively, with their metadata.
+
+        Parameters
+        ----------
+        prefix
+            The key prefix; empty lists the whole store.
+
+        Returns
+        -------
+        list[ObjectMeta]
+            One entry per object.
+
+        Raises
+        ------
+        OSError
+            If obstore cannot list the store.
+        """
+        try:
+            return [
+                self._meta(entry) for batch in obstore.list(self._store, prefix) for entry in batch
+            ]
+        except BaseError as error:
+            raise OSError(str(error)) from error
 
     async def aentries(self, prefix: str = "") -> list[ObjectMeta]:
-        """Async twin of :meth:`entries`."""
-        return [
-            self._meta(entry)
-            async for batch in obstore.list(self._store, prefix)
-            for entry in batch
-        ]
+        """List the objects under a prefix, asynchronously, as :meth:`entries` does.
+
+        Parameters
+        ----------
+        prefix
+            The key prefix; empty lists the whole store.
+
+        Returns
+        -------
+        list[ObjectMeta]
+            One entry per object.
+
+        Raises
+        ------
+        OSError
+            If obstore cannot list the store.
+        """
+        try:
+            return [
+                self._meta(entry)
+                async for batch in obstore.list(self._store, prefix)
+                for entry in batch
+            ]
+        except BaseError as error:
+            raise OSError(str(error)) from error
 
     def delete(self, path: str) -> None:
         """Remove the object; a local store raises for a missing one, a bucket does not."""

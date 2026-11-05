@@ -24,6 +24,11 @@ from app.config.logging import create_logger
 logger = create_logger("app.provider.id_index")
 
 _TEXT_TYPES = ("VARCHAR", "UUID")
+_NUMBER_TYPES = (
+    *("TINYINT", "SMALLINT", "INTEGER", "BIGINT", "HUGEINT"),
+    *("UTINYINT", "USMALLINT", "UINTEGER", "UBIGINT", "UHUGEINT"),
+    *("FLOAT", "DOUBLE", "DECIMAL"),
+)
 
 
 class IdIndexError(ValueError):
@@ -145,8 +150,13 @@ def _list_files(location: str, store_options: dict | None) -> list[tuple[str, st
     return sorted(files)
 
 
-def _read_range(href: str, column: str, store_options: dict | None) -> tuple[str, str, str]:
-    """Read the type and the smallest and largest id of one index file from its footer."""
+def _read_range(
+    href: str, column: str, store_options: dict | None
+) -> tuple[str, str | None, str | None]:
+    """Read the type and the smallest and largest id of one index file from its footer.
+
+    A row group without statistics leaves both bounds None: the file may hold any id.
+    """
     from app.provider.duckdb_ import connect
 
     con = connect(href, store_options=store_options)
@@ -158,17 +168,20 @@ def _read_range(href: str, column: str, store_options: dict | None) -> tuple[str
     )
     if column not in types:
         raise IdIndexError(f"the id index file {href} has no column {column}")
-    low, high = con.execute(
-        "SELECT min(stats_min_value), max(stats_max_value)"
+    low, high, unbounded = con.execute(
+        "SELECT min(stats_min_value), max(stats_max_value),"
+        " count(*) FILTER (WHERE stats_min_value IS NULL OR stats_max_value IS NULL)"
         " FROM parquet_metadata(?) WHERE path_in_schema = ?",
         [href, column],
     ).fetchone()
+    if unbounded or low is None or high is None:
+        return str(types[column]), None, None
     return str(types[column]), str(low), str(high)
 
 
 def _read_ranges(
     index: RetrievedIdIndex, store_options: dict | None, cache_dir: Path | None
-) -> list[tuple[str, str, str, str]]:
+) -> list[tuple[str, str, str | None, str | None]]:
     """The ``(href, type, smallest id, largest id)`` of each file of the index.
 
     The ranges are kept under ``cache_dir`` with the ETag of each file, and
@@ -204,13 +217,23 @@ def _read_ranges(
     return ranges
 
 
-def _holds(kind: str, low: str, high: str, identifier: str) -> bool:
-    """Whether the range ``low``..``high`` of a column of type ``kind`` may hold ``identifier``."""
-    if kind.upper().startswith(_TEXT_TYPES):
+def _holds(kind: str, low: str | None, high: str | None, identifier: str) -> bool:
+    """Whether the range ``low``..``high`` of a column of type ``kind`` may hold ``identifier``.
+
+    Without bounds, or for a type compared neither as text nor as a number,
+    the file may hold any id and is searched.
+    """
+    if low is None or high is None:
+        return True
+    kind = kind.upper()
+    if kind.startswith(_TEXT_TYPES):
         return low <= identifier <= high
+    if not kind.startswith(_NUMBER_TYPES):
+        return True
     try:
         return float(low) <= float(identifier) <= float(high)
     except ValueError:
+        # An identifier that is not a number never equals the text of one.
         return False
 
 

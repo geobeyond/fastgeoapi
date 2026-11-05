@@ -15,6 +15,8 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 
+from obstore.exceptions import BaseError
+
 from app.provider.storage.base import ObjectStore
 from app.provider.storage.obstore_ import ObstoreStore
 
@@ -173,4 +175,10 @@ def load_store(base: str, store_options: dict | None = None) -> ObjectStore:
         return ObstoreStore(from_url(base))
     from obstore.store import LocalStore
 
-    return ObstoreStore(LocalStore(base))
+    try:
+        return ObstoreStore(LocalStore(base))
+    except BaseError as error:
+        # obstore refuses a root it cannot canonicalize, which is how a missing folder fails.
+        if not Path(base).exists():
+            raise FileNotFoundError(f"no such folder: {base}") from error
+        raise OSError(str(error)) from error

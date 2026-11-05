@@ -120,3 +120,29 @@ def test_a_generated_index_is_ignored_with_a_warning():
 def test_a_malformed_mapping_is_refused(definition):
     with pytest.raises(IdIndexError):
         RetrievedIdIndex.from_definition(definition)
+
+
+def test_a_file_without_statistics_is_searched(registry, tmp_path):
+    with patch.object(id_index_module, "_read_range", return_value=("VARCHAR", None, None)):
+        row = look_up_id(registry, "c", cache_dir=tmp_path / "cache")
+
+    assert row is not None
+    assert row.href == "s3://bucket/release/1/theme=x/part-c.parquet"
+
+
+def test_an_id_column_of_another_type_is_searched(registry, tmp_path):
+    with patch.object(id_index_module, "_read_range", return_value=("BLOB", "a", "m")):
+        assert look_up_id(registry, "c", cache_dir=tmp_path / "cache") is not None
+
+
+def test_a_location_that_cannot_be_listed_is_an_id_index_error(tmp_path):
+    index = RetrievedIdIndex.from_definition(
+        {
+            "type": "retrieved",
+            "location": f"{tmp_path}/missing/*.parquet",
+            "columns": {"id": "id", "href": "href"},
+        }
+    )
+
+    with pytest.raises(IdIndexError):
+        look_up_id(index, "c", cache_dir=tmp_path / "cache")
