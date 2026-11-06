@@ -1,6 +1,11 @@
 """obstore backend: real LocalStore on tmp_path, remote schemes at construction only."""
 
+from unittest.mock import patch
+
+import obstore
 import pytest
+from obstore.exceptions import GenericError
+from obstore.store import HTTPStore
 
 from app.provider.storage import load_store, split_source
 from app.provider.storage.base import ObjectMeta, ObjectStore
@@ -93,6 +98,13 @@ def test_an_http_store_ignores_the_options_of_a_bucket():
     assert isinstance(store, ObjectStore)
 
 
+def test_an_https_url_of_a_bucket_is_read_over_plain_https():
+    """obstore takes an amazonaws.com URL for a bucket, and a bucket store signs every request."""
+    store = load_store("https://overturemaps-extras-us-west-2.s3.us-west-2.amazonaws.com/tiles/x/")
+
+    assert isinstance(store.backend, HTTPStore)
+
+
 def test_put_roundtrip(tmp_path):
     store = load_store(str(tmp_path))
     store.put("artifact.yml", b"openapi: 3.0.2\n")
@@ -109,3 +121,21 @@ async def test_aput_roundtrip(tmp_path):
 def test_backend_is_the_wrapped_obstore_object(local_store):
     """Libraries that speak obstore natively (async-tiff) need the object itself."""
     assert type(local_store.backend).__module__.startswith("obstore")
+
+
+def test_a_missing_local_folder_is_a_file_not_found_error(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        load_store(str(tmp_path / "missing"))
+
+
+def test_a_listing_that_fails_is_an_os_error(local_store):
+    with patch.object(obstore, "list", side_effect=GenericError("list request failed")):
+        with pytest.raises(OSError, match="list request failed"):
+            local_store.list_entries()
+
+
+@pytest.mark.asyncio
+async def test_an_async_listing_that_fails_is_an_os_error(local_store):
+    with patch.object(obstore, "list", side_effect=GenericError("list request failed")):
+        with pytest.raises(OSError, match="list request failed"):
+            await local_store.alist_entries()

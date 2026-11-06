@@ -20,14 +20,20 @@ dependencies = [
     "httpx2>=2.12,<3", # direct dependency: the client FastMCP 4's OpenAPI provider expects
     "typer>=0.15.3,<0.28",
     "fastapi-key-auth>=0.15.4,<0.16.0",
-    "sqlalchemy>=2.0.40,<2.1",
-    "geoalchemy2>=0.18.1,<0.19",
+    "sqlalchemy>=2.1,<2.2",
+    "geoalchemy2>=0.20,<0.21",
     "shapely>=2.0,<3",
     "psycopg2-binary>=2.9.10,<3",
     "openapi-pydantic>=0.5.1,<=1.0",
     "pygeofilter>=0.4,<0.5",
     "pydantic-settings>=2.9.1,<3",
-    "authlib>=1.7.2,<2",
+    # 1.9.0 fixes the empty-signature JWS JSON check (CVE-2026-96760) and five
+    # more advisories; 1.9.1 is the release the suite runs on.
+    "authlib>=1.9.1,<2",
+    # Our code does not import it; it comes with authlib, which still accepts
+    # 1.6.8. The floor keeps out the JWE recipient and size exhaustions fixed
+    # in 1.7.5 and 1.7.6 (CVE-2026-119283, CVE-2026-119284).
+    "joserfc>=1.7.6,<2",
     "cachetools>=7,<8",
     "json-ref-dict>=0.7.2,<=1.0",
     "pyyaml>=6.0.2,<7",
@@ -40,7 +46,7 @@ dependencies = [
     # on `fastmcp-slim[client, server]` at the same version, so naming it
     # alone is enough.
     "fastmcp>=4.0.10,<5",
-    "obstore>=0.11.1,<0.12",
+    "obstore>=0.12.1,<0.13",
     "h11>=0.16,<0.17", # direct dependency: the loopback server of byte ranges speaks HTTP/1.1 through it
 ]
 
@@ -56,6 +62,11 @@ allow-direct-references = true
 [project.scripts]
 fastgeoapi = "app.cli:app"
 
+# The editor's save rule, for `portolan fastgeoapi ingest`: the plugin finds
+# it here without importing fastgeoapi.
+[project.entry-points."fastgeoapi_portolan.validators"]
+fastgeoapi = "app.editor.inspect:validation_problems"
+
 [project.optional-dependencies]
 geoparquet = [
     "duckdb>=1.5,<2",
@@ -70,6 +81,11 @@ pmtiles = [
 html = [
     "fastgeoapi-html==0.4.0",
 ]
+# `fastgeoapi config ingest --from-portolan`, with the providers its resources need.
+portolan = [
+    "fastgeoapi-portolan==0.4.0",
+    "fastgeoapi[geoparquet,pmtiles]",
+]
 # The mapli map provider
 mapli = [
     "mapli>=0.4.1; sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')",
@@ -78,6 +94,9 @@ mapli = [
 [dependency-groups]
 dev = [
     "pytest>=9.0.2,<10",
+    # The tests of scripts/generate_api_reference.py import its generator,
+    # which the `docs` group installs only for the docs build.
+    "mkdocs-openapi>=0.3.3",
     # Local S3 for the end-to-end test of the bucket read path. Kept in
     # `dev` and never near the `geoparquet` extra: it drags in botocore,
     # which is 15 MB the runtime has no use for.
@@ -91,25 +110,21 @@ dev = [
     "pre-commit-hooks>=6,<7",
     "termynal>=0.13.0",
     "bandit>=1.9.2,<2",
-    "ipython<9.12",
+    "ipython<9.18",
     "ty>=0.0.8",
     "commitizen>=4.11,<5",
     "openapi-resolver>=0.0.6,<0.0.7",
     "schemathesis>=4.26",
-    "pytest-asyncio>=1.3,<1.4",
+    "pytest-asyncio>=1.4,<1.5",
     "nox[uv]>=2025.11.12",
     "pytest-iam>=0.2.0",
-    "canaille[sqlite]>=0.0.74",
-    # joserfc >= 1.7 rejects canaille's signing key ("Invalid key_op 'sign'
-    # for public key") and 500s the test IdP token endpoint; pin until the
-    # canaille/joserfc incompatibility is fixed upstream.
-    "joserfc>=1.6,<1.7",
     "blockbuster>=1.5,<2",
     "ogcapi-registry==0.4.0",
     # Pillow decodes PNGs in the map tests; the renderer gets it from the maps group.
     "pillow>=11",
 ]
 docs = [
+    "mkdocs-openapi>=0.3.3",
     "mkdocstrings-python>=2.0.7",
     "zensical>=0.0.58",
 ]
@@ -120,6 +135,11 @@ maps = [
     "mlnative==0.4.0.dev1; sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')",
     "pillow>=11",
 ]
+conformance = [
+    # The tests in tests/conformance validate responses with its copies of the
+    # official OGC schemas.
+    "xpublish-ogc-core>=0.1.4",
+]
 
 [tool.uv]
 
@@ -128,6 +148,7 @@ members = ["packages/*"]
 
 [tool.uv.sources]
 fastgeoapi-html = { workspace = true }
+fastgeoapi-portolan = { workspace = true }
 mlnative = [
     { url = "https://github.com/francbartoli/mlnative/releases/download/v0.4.0.dev1/mlnative-0.4.0.dev1-py3-none-manylinux_2_39_x86_64.whl", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
     { url = "https://github.com/francbartoli/mlnative/releases/download/v0.4.0.dev1/mlnative-0.4.0.dev1-py3-none-manylinux_2_39_aarch64.whl", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
@@ -179,7 +200,15 @@ python-version = "3.12"
 # facade in front of it (`app/pygeoapi/config_models/__init__.py`) is
 # checked, and tests pin that the models accept the configurations we
 # actually ship.
-exclude = ["app/pygeoapi/config_models/_generated.py"]
+exclude = [
+    "app/pygeoapi/config_models/_generated.py",
+    # The document types of the Portolan reader, generated from the STAC
+    # schemas: their `allOf` compositions redeclare fields, which is valid at
+    # runtime and refused by a static checker. `catalog/types.py` and
+    # `models/__init__.py`, written by hand, are checked.
+    "packages/fastgeoapi-portolan/fastgeoapi_portolan/catalog/_generated",
+    "packages/fastgeoapi-portolan/fastgeoapi_portolan/models/[a-z]*.py",
+]
 
 [tool.ty.rules]
 # ty is still in alpha, ignoring some rules temporarily
@@ -258,6 +287,8 @@ indent-style = "space"
 docstring-code-format = true
 
 [tool.pytest.ini_options]
+# The packages under packages/ run their own tests in their own lanes.
+testpaths = ["tests"]
 asyncio_mode = "strict"
 markers = [
     "renderer: draws with the real MapLibre Native renderer (the maps group, on Linux)",
@@ -277,11 +308,14 @@ name = "cz_conventional_commits"
 tag_format = "v$version"
 version_scheme = "semver"
 version_provider = "pep621"
-# The package of the HTML pages carries the same version, and the html
-# extra pins it: a bump moves both with the project.
+# The packages of the HTML pages and of the Portolan ingest carry the
+# project's version, and the html and portolan extras pin it: a bump moves
+# both packages and both pins with the project.
 version_files = [
     "packages/fastgeoapi-html/pyproject.toml:^version",
     "pyproject.toml:fastgeoapi-html==",
+    "packages/fastgeoapi-portolan/pyproject.toml:^version",
+    "pyproject.toml:fastgeoapi-portolan==",
 ]
 update_changelog_on_bump = true
 major_version_zero = true

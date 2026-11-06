@@ -101,6 +101,12 @@ A public bucket must say so and name its region, exactly as for the
 process carries, and a public bucket answers a signed request with
 `403 Forbidden`.
 
+An `https://` URL is read over plain HTTPS, unsigned and without
+`store_options`, even when it names a bucket
+(`https://<bucket>.s3.<region>.amazonaws.com/...`), which is how a public
+object is read. An object that needs credentials is named with `s3://`,
+`gs://` or `az://`, with its `store_options`.
+
 **An explicit `endpoint` wins over the environment.** A deployment that
 keeps its own data on an S3-compatible service carries
 `AWS_ENDPOINT_URL_S3` for it. The object-store layer would otherwise

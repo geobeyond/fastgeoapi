@@ -1,0 +1,42 @@
+{
+  "type": "Collection",
+  "stac_version": "1.1.0",
+  "stac_extensions": [
+    "https://schemas.portolan-sdi.org/portolan/v0.2.0/schema.json",
+    "https://stac-extensions.github.io/table/v1.2.0/schema.json",
+    "https://stac-extensions.github.io/alternate-assets/v1.2.0/schema.json"
+  ],
+  "id": "bathymetry",
+  "title": "Bathymetry",
+  "description": "Depth contours as one GeoParquet file.",
+  "license": "CC-BY-4.0",
+  "extent": {
+    "spatial": { "bbox": [[-180.0, -90.0, 180.0, 90.0]] },
+    "temporal": { "interval": [["2026-08-19T00:00:00Z", null]] }
+  },
+  "providers": [
+    { "name": "Example producer", "roles": ["producer"] },
+    { "name": "Example host", "roles": ["host"], "url": "https://example.org" }
+  ],
+  "table:columns": [
+    { "name": "id", "type": "string" },
+    { "name": "geometry", "type": "binary" }
+  ],
+  "table:primary_geometry": "geometry",
+  "links": [
+    { "rel": "root", "href": "../catalog.json", "type": "application/json" },
+    { "rel": "parent", "href": "../catalog.json", "type": "application/json" },
+    { "rel": "agents", "href": "./AGENTS.md", "type": "text/markdown" },
+    { "rel": "describedby", "href": "./README.md", "type": "text/markdown" }
+  ],
+  "assets": {
+    "data": {
+      "href": "https://example-bucket.s3.us-west-2.amazonaws.com/bathymetry/part-0.parquet",
+      "type": "application/vnd.apache.parquet",
+      "roles": ["data"],
+      "alternate": {
+        "s3": { "href": "s3://example-bucket/bathymetry/part-0.parquet" }
+      }
+    }
+  }
+}

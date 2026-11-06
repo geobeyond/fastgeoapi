@@ -1,20 +1,20 @@
 # OWASP API Security Top 10 ruleset for the generated pygeoapi document.
 #
-# The ruleset version is PINNED. It used to track `@latest` while this file
-# named rules from an older release, and the drift silenced the whole check:
-# `owasp:api4:2023-define-cors-origin` moved to `api8` and
-# `owasp:api4:2023-integer-limit` became `integer-limit-legacy`, so Spectral
-# aborted with "Cannot extend non-existing rule" before validating anything.
-# The failure was swallowed by `continue-on-error`, and the job reported a
-# clean run it had never performed. Bump this pin deliberately, reading the
-# changelog, rather than letting it float.
-extends:
-  ["https://unpkg.com/@stoplight/spectral-owasp-ruleset@2.0.1/dist/ruleset.mjs"]
+# The ruleset is Stoplight's 2.0.1, vendored by scripts/vendor_owasp_ruleset.py
+# with its Spectral imports pointed at OpenLint's packages. The version is
+# pinned there, with its digest. A floating version once silenced the whole
+# check: rules named here moved in a newer release
+# (`owasp:api4:2023-define-cors-origin` to `api8`,
+# `owasp:api4:2023-integer-limit` to `integer-limit-legacy`), the linter
+# aborted with "Cannot extend non-existing rule" before validating anything,
+# and the job reported a clean run it had never performed. Bump the pin
+# deliberately, reading the changelog.
+extends: ["./.openlint/owasp-ruleset.mjs"]
 
 rules:
   # --- Noise from the OGC schemas we resolve, not from our contract -------
   #
-  # Spectral follows `$ref`s into schemas.opengis.net, and those documents
+  # OpenLint follows `$ref`s into schemas.opengis.net, and those documents
   # predate these rules. They are outside our control, and every one of
   # these findings sits in a remote file — verified, not assumed.
   owasp:api4:2023-string-limit: warn

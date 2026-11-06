@@ -1,0 +1,22 @@
+{
+  "$comment": "The Portolan STAC profile's extension registry (stac/README.md), vendored by scripts/vendor_spec_fixtures.py. Do not edit by hand.",
+  "extensions": {
+    "Portolan": "https://schemas.portolan-sdi.org/portolan/v0.2.0/schema.json",
+    "File Info": "https://stac-extensions.github.io/file/v2.1.0/schema.json",
+    "Web Map Links": "https://stac-extensions.github.io/web-map-links/v1.3.0/schema.json",
+    "Version": "https://stac-extensions.github.io/version/v1.2.0/schema.json",
+    "Raster": "https://stac-extensions.github.io/raster/v2.0.0/schema.json",
+    "Language": "https://stac-extensions.github.io/language/v1.0.0/schema.json",
+    "Vector": "https://stac-extensions.github.io/vector/v0.1.0/schema.json",
+    "Partition": "https://schemas.portolan-sdi.org/incubating/partition/v1.0.0/schema.json",
+    "Table": "https://stac-extensions.github.io/table/v1.2.0/schema.json",
+    "Alternate Assets": "https://stac-extensions.github.io/alternate-assets/v1.2.0/schema.json",
+    "Render": "https://stac-extensions.github.io/render/v2.0.0/schema.json",
+    "Projection": "https://stac-extensions.github.io/projection/v2.0.0/schema.json",
+    "Scientific": "https://stac-extensions.github.io/scientific/v1.0.0/schema.json",
+    "Contacts": "https://stac-extensions.github.io/contacts/v0.1.1/schema.json",
+    "Attribution": "https://stac-extensions.github.io/attribution/v0.1.0/schema.json",
+    "Themes": "https://stac-extensions.github.io/themes/v1.0.0/schema.json",
+    "Iceberg": "https://schemas.portolan-sdi.org/incubating/iceberg/v1.1.0/schema.json"
+  }
+}

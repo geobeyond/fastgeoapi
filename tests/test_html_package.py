@@ -47,7 +47,7 @@ def test_both_packages_carry_one_version():
 def test_a_version_bump_moves_the_package_and_the_pin():
     root = tomllib.loads((ROOT / "pyproject.toml").read_text())
 
-    assert root["tool"]["commitizen"]["version_files"] == [
-        "packages/fastgeoapi-html/pyproject.toml:^version",
-        "pyproject.toml:fastgeoapi-html==",
-    ]
+    version_files = root["tool"]["commitizen"]["version_files"]
+
+    assert "packages/fastgeoapi-html/pyproject.toml:^version" in version_files
+    assert "pyproject.toml:fastgeoapi-html==" in version_files

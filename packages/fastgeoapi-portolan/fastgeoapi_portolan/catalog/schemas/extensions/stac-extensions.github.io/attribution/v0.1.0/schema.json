@@ -1,0 +1,252 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://stac-extensions.github.io/attribution/v0.1.0/schema.json#",
+  "title": "Attribution Extension",
+  "description": "STAC Attribution Extension for STAC Items and STAC Collections.",
+  "type": "object",
+  "required": [
+    "stac_extensions",
+    "type"
+  ],
+  "properties": {
+    "stac_extensions": {
+      "type": "array",
+      "contains": {
+        "const": "https://stac-extensions.github.io/attribution/v0.1.0/schema.json"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "Items",
+      "if": {
+        "properties": {
+          "type": {
+            "const": "Feature"
+          }
+        }
+      },
+      "then": {
+        "allOf": [
+          {
+            "properties": {
+              "properties": {
+                "$ref": "#/definitions/validate_properties"
+              }
+            }
+          },
+          {
+            "$ref": "#/definitions/validate_assets"
+          },
+          {
+            "$ref": "#/definitions/validate_links"
+          }
+        ],
+        "anyOf": [
+          {
+            "required": [
+              "properties"
+            ],
+            "properties": {
+              "properties": {
+                "$ref": "#/definitions/require_properties"
+              }
+            }
+          },
+          {
+            "$ref": "#/definitions/require_assets"
+          },
+          {
+            "$ref": "#/definitions/require_links"
+          }
+        ]
+      }
+    },
+    {
+      "$comment": "Collections",
+      "if": {
+        "properties": {
+          "type": {
+            "const": "Collection"
+          }
+        }
+      },
+      "then": {
+        "allOf": [
+          {
+            "$ref": "#/definitions/validate_properties"
+          },
+          {
+            "$ref": "#/definitions/validate_assets"
+          },
+          {
+            "properties": {
+              "item_assets": {
+                "additionalProperties": {
+                  "$ref": "#/definitions/validate_properties"
+                }
+              }
+            }
+          },
+          {
+            "$ref": "#/definitions/validate_links"
+          },
+          {
+            "properties": {
+              "summaries": {
+                "type": "object",
+                "properties": {
+                  "attribution": {
+                    "type": [
+                      "array",
+                      "object"
+                    ],
+                    "items": {
+                      "$ref": "#/definitions/attribution"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "anyOf": [
+          {
+            "$ref": "#/definitions/require_properties"
+          },
+          {
+            "$ref": "#/definitions/require_assets"
+          },
+          {
+            "required": [
+              "item_assets"
+            ],
+            "properties": {
+              "item_assets": {
+                "$ref": "#/definitions/asset_contains"
+              }
+            }
+          },
+          {
+            "$ref": "#/definitions/require_links"
+          },
+          {
+            "required": [
+              "summaries"
+            ],
+            "properties": {
+              "summaries": {
+                "$ref": "#/definitions/require_properties"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "$comment": "Catalogs",
+      "if": {
+        "properties": {
+          "type": {
+            "const": "Catalog"
+          }
+        }
+      },
+      "then": {
+        "allOf": [
+          {
+            "$ref": "#/definitions/validate_properties"
+          },
+          {
+            "$ref": "#/definitions/validate_links"
+          }
+        ],
+        "anyOf": [
+          {
+            "$ref": "#/definitions/require_properties"
+          },
+          {
+            "$ref": "#/definitions/require_links"
+          }
+        ]
+      }
+    }
+  ],
+  "definitions": {
+    "require_properties": {
+      "$ref": "#/definitions/require_fields"
+    },
+    "validate_properties": {
+      "$ref": "#/definitions/fields"
+    },
+    "require_assets": {
+      "required": [
+        "assets"
+      ],
+      "properties": {
+        "assets": {
+          "$ref": "#/definitions/asset_contains"
+        }
+      }
+    },
+    "validate_assets": {
+      "properties": {
+        "assets": {
+          "additionalProperties": {
+            "$ref": "#/definitions/fields"
+          }
+        }
+      }
+    },
+    "require_links": {
+      "required": [
+        "links"
+      ],
+      "properties": {
+        "links": {
+          "type": "array",
+          "contains": {
+            "$ref": "#/definitions/require_fields"
+          }
+        }
+      }
+    },
+    "validate_links": {
+      "properties": {
+        "links": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fields"
+          }
+        }
+      }
+    },
+    "asset_contains": {
+      "type": "object",
+      "not": {
+        "additionalProperties": {
+          "not": {
+            "$ref": "#/definitions/require_fields"
+          }
+        }
+      }
+    },
+    "require_fields": {
+      "required": [
+        "attribution"
+      ]
+    },
+    "fields": {
+      "type": "object",
+      "properties": {
+        "attribution": {
+          "$ref": "#/definitions/attribution"
+        }
+      }
+    },
+    "attribution": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

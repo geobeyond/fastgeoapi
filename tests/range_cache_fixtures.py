@@ -43,14 +43,14 @@ class CountingStore:
     async def aget(self, path: str) -> bytes:
         return await self.inner.aget(path)
 
-    def keys(self, prefix: str = "") -> list[str]:
-        return self.inner.keys(prefix)
+    def list_keys(self, prefix: str = "") -> list[str]:
+        return self.inner.list_keys(prefix)
 
-    def entries(self, prefix: str = "") -> Any:
-        return self.inner.entries(prefix)
+    def list_entries(self, prefix: str = "") -> Any:
+        return self.inner.list_entries(prefix)
 
-    async def aentries(self, prefix: str = "") -> Any:
-        return await self.inner.aentries(prefix)
+    async def alist_entries(self, prefix: str = "") -> Any:
+        return await self.inner.alist_entries(prefix)
 
     def delete(self, path: str) -> None:
         self.inner.delete(path)

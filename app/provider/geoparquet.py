@@ -19,16 +19,37 @@ Configure it by dotted path::
 
 from __future__ import annotations
 
+import fnmatch
+import glob
+import posixpath
 import re
+from collections.abc import Mapping
 from datetime import datetime
 from http import HTTPStatus
+from pathlib import Path
+from urllib.parse import urlsplit
 
-from pygeoapi.provider.base import BaseProvider, ProviderConnectionError, ProviderQueryError
+from pygeoapi.provider.base import (
+    BaseProvider,
+    ProviderConnectionError,
+    ProviderItemNotFoundError,
+    ProviderQueryError,
+)
 
 from app.config.logging import create_logger
 from app.provider import geoparquet_schema
 from app.provider.base import AsyncProviderMixin
-from app.provider.duckdb_ import connect, scan_expression
+from app.provider.duckdb_ import connect, load_duckdb, scan_expression, scan_files
+from app.provider.file_index import (
+    FileEntry,
+    FileIndexError,
+    count_rows,
+    read_file_index,
+    select_files,
+    select_page,
+)
+from app.provider.id_index import IdIndexError, IdRow, RetrievedIdIndex, look_up_id
+from app.provider.interrupts import on_interrupt
 from app.provider.storage import is_remote
 
 logger = create_logger("app.provider.geoparquet")
@@ -84,6 +105,27 @@ def _instant(value: str) -> str:
         raise ProviderQueryError(f"datetime is not RFC 3339: {value}") from error
 
 
+def _normalize_href(href: str) -> str:
+    """``href`` in one spelling: a resolved path on disk, a normalised key in a bucket."""
+    parts = urlsplit(href)
+    if not parts.scheme:
+        return str(Path(href).resolve())
+    return f"{parts.scheme}://{parts.netloc}{posixpath.normpath(parts.path or '/')}"
+
+
+def _match_glob(path: str, pattern: str) -> bool:
+    """Whether ``path`` is one of the files the glob ``pattern`` reads.
+
+    As in DuckDB, ``*`` stays within one folder and only ``**`` crosses folders.
+    """
+    if "**" in pattern:
+        return fnmatch.fnmatchcase(path, pattern)
+    parts, pieces = path.split("/"), pattern.split("/")
+    return len(parts) == len(pieces) and all(
+        fnmatch.fnmatchcase(part, piece) for part, piece in zip(parts, pieces, strict=True)
+    )
+
+
 class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
     """OGC API Features provider for GeoParquet on object storage.
 
@@ -118,11 +160,22 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         self.geometry_column = provider_def.get("geometry_column", "geom")
         self._configured_covering = provider_def.get("bbox_column")
         self._store_options = provider_def.get("store_options")
-        self._scan = scan_expression(
-            self.data,
-            store_options=provider_def.get("store_options"),
-            engine_options=provider_def.get("engine_options"),
-        )
+        self._union_by_name = provider_def.get("union_by_name", True)
+        self._files = self._read_file_index(provider_def)
+        self._id_index = self._read_id_index(provider_def)
+        if self._files:
+            self._scan = scan_files(
+                [entry.href for entry in self._files], union_by_name=self._union_by_name
+            )
+            self._schema_source = self._files[0].href
+        else:
+            self._scan = scan_expression(
+                self.data,
+                store_options=provider_def.get("store_options"),
+                engine_options=provider_def.get("engine_options"),
+                union_by_name=self._union_by_name,
+            )
+            self._schema_source = self.data
         # Per-dataset store options (region, skip_signature for public
         # data, endpoint for an S3-compatible service) travel with the
         # provider definition — credentials themselves stay in the
@@ -146,6 +199,85 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         # carries the same call for the same reason.
         self.get_fields()
 
+    def _read_file_index(self, provider_def: dict) -> list[FileEntry] | None:
+        """Read the index of the files of the dataset, when the definition names one."""
+        location = provider_def.get("file_index")
+        if not location:
+            return None
+        try:
+            entries = read_file_index(
+                location,
+                asset=provider_def.get("file_index_asset", "data"),
+                store_options=self._store_options,
+                cache_dir=geoparquet_schema.get_default_cache_base_dir(),
+            )
+        except (FileIndexError, OSError) as error:
+            logger.warning(f"file index {location} not used, every file is read: {error}")
+            return None
+        return entries or None
+
+    def _read_id_index(self, provider_def: dict) -> RetrievedIdIndex | None:
+        """Read the ``id_index`` mapping, when the definition has one."""
+        definition = provider_def.get("id_index")
+        if not isinstance(definition, Mapping):
+            return None
+        try:
+            return RetrievedIdIndex.from_definition(definition)
+        except IdIndexError as error:
+            logger.warning(f"id index not used, get reads every file: {error}")
+            return None
+
+    def _find_dataset_file(self, href: str) -> str | None:
+        """``href`` as the dataset spells it, or None when it is not a file of the dataset.
+
+        With a file index the files are its entries; without one, the files
+        the ``data`` glob matches or that lie under the folder it names.
+        """
+        normalized = _normalize_href(href)
+        if self._files:
+            hrefs = {_normalize_href(entry.href) for entry in self._files}
+            return normalized if normalized in hrefs else None
+        data = _normalize_href(str(self.data))
+        if (
+            normalized == data
+            or _match_glob(normalized, data)
+            or (not glob.has_magic(data) and normalized.startswith(data.rstrip("/") + "/"))
+        ):
+            return normalized
+        return None
+
+    def _look_up(self, identifier: str) -> IdRow | None:
+        """The row of ``identifier`` in the id index; raises a 404 when the index has none.
+
+        None means the index cannot answer, and every file is read.
+        """
+        if self._id_index is None:
+            return None
+        try:
+            row = look_up_id(
+                self._id_index,
+                identifier,
+                store_options=self._store_options,
+                cache_dir=geoparquet_schema.get_default_cache_base_dir(),
+            )
+        except IdIndexError as error:
+            logger.warning(
+                f"id index {self._id_index.location} not used, every file is read: {error}"
+            )
+            return None
+        if row is None:
+            raise ProviderItemNotFoundError(f"no such item: {identifier}")
+        return row
+
+    def _scan_for(self, bbox: list) -> str | None:
+        """The scan of the files a request with ``bbox`` meets, or None when it meets none."""
+        if not self._files or not bbox:
+            return self._scan
+        hrefs = select_files(self._files, bbox)
+        if not hrefs:
+            return None
+        return scan_files(hrefs, union_by_name=self._union_by_name)
+
     def _cursor(self):
         """A cursor for one operation.
 
@@ -156,14 +288,18 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         (measured: 4 of 24 with 6 workers). ``cursor()`` is DuckDB's
         documented pattern for concurrent use — it shares the database
         while keeping the result state per operation.
+
+        DuckDB interrupts a query on the cursor that runs it, not on the
+        connection the cursor came from, so each cursor is registered
+        with the request on its own.
         """
-        return self._connection.cursor()
+        cursor = self._connection.cursor()
+        on_interrupt(cursor.interrupt)
+        return cursor
 
     def _rows(self, sql: str, parameters: list | None = None) -> list:
         """The rows of ``sql``; a store that does not answer in time raises a 504."""
-        # Here, not at the top: DuckDB comes with the geoparquet extra, and the
-        # module is imported without it, as the maps lane does.
-        import duckdb
+        duckdb = load_duckdb()
 
         try:
             return self._cursor().execute(sql, parameters or []).fetchall()
@@ -176,9 +312,9 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
 
     def _describe(self) -> dict[str, str]:
         """Column name → DuckDB type, read once per version of a remote dataset's objects."""
-        if is_remote(self.data):
+        if is_remote(self._schema_source):
             types = geoparquet_schema.remote_schema(
-                self.data,
+                self._schema_source,
                 store_options=self._store_options,
                 cache_dir=geoparquet_schema.schema_cache_dir(),
             )
@@ -188,10 +324,12 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
 
     def _describe_natively(self) -> dict[str, str]:
         """Column name → DuckDB type, from DuckDB's own read of the dataset."""
-        # `_scan` is derived from the provider definition's `data`, never
-        # from request input, and nothing else is interpolated here.
+        scan = scan_files([self._schema_source], union_by_name=False) if self._files else self._scan
+        # The scan is derived from the provider definition's `data` or its
+        # file index, never from request input, and nothing else is
+        # interpolated here.
         # ruff: ignore[hardcoded-sql-expression]
-        describe_sql = f"DESCRIBE SELECT * FROM {self._scan}"  # nosec B608
+        describe_sql = f"DESCRIBE SELECT * FROM {scan}"  # nosec B608
         rows = self._cursor().execute(describe_sql).fetchall()
         return {row[0]: str(row[1]).upper() for row in rows}
 
@@ -290,15 +428,22 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         minx, miny, maxx, maxy = (float(value) for value in bbox[:4])
         envelope = f"ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy})"
         exact = f"ST_Intersects({self._geometry_expression()}, {envelope})"
+        overlap = self._overlap_clause(bbox)
+        if overlap is None:
+            return exact
+        return f"({overlap} AND {exact})"
+
+    def _overlap_clause(self, bbox: list) -> str | None:
+        """Envelope overlap of the covering column with ``bbox``, or None without one."""
         covering = self.covering_bbox_column
         if covering is None:
-            return exact
+            return None
+        minx, miny, maxx, maxy = (float(value) for value in bbox[:4])
         column = f'"{covering}"'
-        overlap = (
+        return (
             f"{column}.xmin <= {maxx} AND {column}.xmax >= {minx} AND "
             f"{column}.ymin <= {maxy} AND {column}.ymax >= {miny}"
         )
-        return f"({overlap} AND {exact})"
 
     def _datetime_clause(self, datetime_: str) -> str:
         """Instant or interval on ``time_field`` (RFC 3339, '..' open ends)."""
@@ -388,13 +533,25 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
             filterq=filterq,
         )
         clause = f" WHERE {' AND '.join(where)}" if where else ""
+        indexed_rows = count_rows(self._files) if self._files and not where and not sortby else None
+        if indexed_rows is not None:
+            return self._query_counted(
+                indexed_rows, offset, limit, resulttype, skip_geometry, select_properties
+            )
+        scan = self._scan_for(bbox or [])
+        if scan is None:
+            # The index places every file outside the bbox: nothing to read.
+            empty = {"type": "FeatureCollection", "features": [], "numberReturned": 0}
+            if self.count or resulttype == "hits":
+                empty["numberMatched"] = 0
+            return empty
 
         # `clause` never carries raw request input: CQL2 properties pass
         # through `field_mapping`, which doubles as an identifier allowlist,
         # and our dialect escapes quotes in literals and LIKE patterns;
         # bbox and datetime emit numeric or quoted values.
         # ruff: ignore[hardcoded-sql-expression]
-        count_sql = f"SELECT count(*) FROM {self._scan}{clause}"  # nosec B608
+        count_sql = f"SELECT count(*) FROM {scan}{clause}"  # nosec B608
         # Counting a remote dataset is not free: 15s on the Overture file.
         # `count: false` in the provider definition drops it, exactly as
         # upstream's SQL provider does — a hits request always counts,
@@ -410,22 +567,15 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
                 "numberReturned": 0,
             }
 
-        columns = self._select_columns(select_properties or [])
-        if self.id_field not in columns:
-            columns = [self.id_field, *columns]
-        projection = ", ".join(f'"{name}"' for name in columns)
-        geometry = "NULL" if skip_geometry else f"ST_AsGeoJSON({self._geometry_expression()})"
-        # `projection` quotes column names taken from the dataset schema,
-        # `clause` is built as described in `_where_clauses`, and the paging
-        # values are cast to int before they reach the string.
-        sql = (
-            # ruff: ignore[hardcoded-sql-expression]
-            f"SELECT {projection}, {geometry} FROM {self._scan}{clause}"  # nosec B608
-            f"{self._order_by(sortby or [])} LIMIT {int(limit)} OFFSET {int(offset)}"
+        features = self._select_features(
+            scan,
+            clause,
+            self._order_by(sortby or []),
+            limit,
+            offset,
+            skip_geometry,
+            select_properties,
         )
-        logger.debug(f"GeoParquet query: {sql}")
-        rows = self._rows(sql)
-        features = self._rows_to_features(rows, columns, skip_geometry)
         collection = {
             "type": "FeatureCollection",
             "features": features,
@@ -433,6 +583,60 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         }
         if matched is not None:
             collection["numberMatched"] = matched
+        return collection
+
+    def _select_features(
+        self, scan, clause, order_by, limit, offset, skip_geometry, select_properties
+    ) -> list[dict]:
+        """Select one page of features from ``scan``."""
+        columns = self._select_columns(select_properties or [])
+        if self.id_field not in columns:
+            columns = [self.id_field, *columns]
+        projection = ", ".join(f'"{name}"' for name in columns)
+        geometry = "NULL" if skip_geometry else f"ST_AsGeoJSON({self._geometry_expression()})"
+        # `projection` quotes column names taken from the dataset schema,
+        # `clause` is built as described in `_where_clauses`, and the paging
+        # values are cast to int before they reach the string. With an OFFSET
+        # in the same SELECT, DuckDB scans every file before it skips rows;
+        # a LIMIT inside lets it stop once it has the rows of the page.
+        sql = (
+            # ruff: ignore[hardcoded-sql-expression]
+            f"SELECT * FROM (SELECT {projection}, {geometry} FROM {scan}{clause}"  # nosec B608
+            f"{order_by} LIMIT {int(offset) + int(limit)}) OFFSET {int(offset)}"
+        )
+        logger.debug(f"GeoParquet query: {sql}")
+        return self._rows_to_features(self._rows(sql), columns, skip_geometry)
+
+    def _query_counted(
+        self, matched, offset, limit, resulttype, skip_geometry, select_properties
+    ) -> dict:
+        """Answer a request without filters from the row counts of the index.
+
+        The count is the sum of the counts, and the page reads only the
+        files its rows fall in, so no other file is opened.
+        """
+        collection: dict = {"type": "FeatureCollection", "features": [], "numberReturned": 0}
+        if self.count or resulttype == "hits":
+            collection["numberMatched"] = matched
+        if resulttype == "hits":
+            return collection
+        hrefs, local = select_page(self._files or [], int(offset), int(limit))
+        if not hrefs:
+            return collection
+        duckdb = load_duckdb()
+        scan = scan_files(hrefs, union_by_name=self._union_by_name)
+        try:
+            features = self._select_features(
+                scan, "", "", limit, local, skip_geometry, select_properties
+            )
+        except duckdb.BinderException:
+            # The schema comes from the first file; when the files of the page
+            # lack one of its columns, only the whole dataset fills it with NULL.
+            features = self._select_features(
+                self._scan, "", "", limit, offset, skip_geometry, select_properties
+            )
+        collection["features"] = features
+        collection["numberReturned"] = len(features)
         return collection
 
     def get(self, identifier, **kwargs) -> dict:
@@ -444,20 +648,56 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         the scan as a constant, which lets it skip row groups by their
         statistics. As text, the match stays exact: ``2.0`` does not name
         the item ``2``, and an identifier that does not convert names none.
-        """
-        from pygeoapi.provider.base import ProviderItemNotFoundError
 
+        With an id index, an id it lacks answers 404 without reading data,
+        and an id it places in a file of the dataset reads only that file,
+        pruned by the feature's bbox when the index gives one and the data
+        has a covering column. Every file is read when the row names no
+        file, a file outside the dataset or a file that cannot be read, and
+        when the index cannot be read.
+        """
+        duckdb = load_duckdb()
+        row = self._look_up(str(identifier))
+        href = self._find_dataset_file(row.href) if row is not None and row.href else None
+        if href is None:
+            return self._get_from(self._scan, "", identifier)
+        named = scan_files([href], union_by_name=self._union_by_name)
+        overlap = self._overlap_clause(list(row.bbox)) if row.bbox else None
+        try:
+            if overlap:
+                try:
+                    return self._get_from(named, f" AND {overlap}", identifier)
+                except ProviderItemNotFoundError:
+                    # The index and the covering column may round one envelope
+                    # to different precisions, and then the two do not meet.
+                    pass
+            return self._get_from(named, "", identifier)
+        except duckdb.BinderException:
+            # The schema comes from the first file; a file that lacks one of its
+            # columns is read as part of the whole dataset, which fills it with NULL.
+            return self._get_from(self._scan, "", identifier)
+        except (duckdb.IOException, duckdb.HTTPException) as error:
+            # A registry of another release names files the glob matches but
+            # the store no longer holds. A timeout is a StoreTimeoutError instead.
+            logger.warning(
+                f"{href}, named by the id index, cannot be read; every file is read: {error}"
+            )
+            return self._get_from(self._scan, "", identifier)
+
+    def _get_from(self, scan: str, clause: str, identifier) -> dict:
+        """The feature ``identifier`` in ``scan``, under the extra predicate ``clause``."""
         columns = self._select_columns([])
         if self.id_field not in columns:
             columns = [self.id_field, *columns]
         projection = ", ".join(f'"{name}"' for name in columns)
         # The identifier itself is bound as a parameter, not interpolated;
-        # only schema-derived column names reach the string.
+        # only schema-derived column names, the quoted hrefs of `scan_files`
+        # and the numbers of `_overlap_clause` reach the string.
         sql = (
             # ruff: ignore[hardcoded-sql-expression]
             f"SELECT {projection}, ST_AsGeoJSON({self._geometry_expression()}) "  # nosec B608
-            f'FROM {self._scan} WHERE "{self.id_field}" = ? '
-            f'AND CAST("{self.id_field}" AS VARCHAR) = ? LIMIT 1'
+            f'FROM {scan} WHERE "{self.id_field}" = ? '
+            f'AND CAST("{self.id_field}" AS VARCHAR) = ?{clause} LIMIT 1'
         )
         rows = self._rows(sql, [str(identifier), str(identifier)])
         if not rows:

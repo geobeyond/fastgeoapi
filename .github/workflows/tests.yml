@@ -34,6 +34,16 @@ jobs:
           # - { python: "3.12", os: "macos-latest", session: "tests" }
           - { python: "3.12", os: "ubuntu-22.04", session: "typeguard" }
           - { python: "3.12", os: "ubuntu-24.04", session: "maps" }
+          - { python: "3.12", os: "ubuntu-24.04", session: "conformance" }
+          - { python: "3.11", os: "ubuntu-22.04", session: "portolan" }
+          - { python: "3.12", os: "ubuntu-22.04", session: "portolan" }
+          - { python: "3.11", os: "ubuntu-22.04", session: "portolan-rashid" }
+          - { python: "3.12", os: "ubuntu-22.04", session: "portolan-rashid" }
+          - {
+              python: "3.12",
+              os: "ubuntu-22.04",
+              session: "portolan-types-check",
+            }
           - { python: "3.12", os: "ubuntu-22.04", session: "xdoctest" }
           - { python: "3.12", os: "ubuntu-22.04", session: "docs-build" }
 
@@ -43,7 +53,8 @@ jobs:
       PRE_COMMIT_COLOR: "always"
       UV_SYSTEM_PYTHON: 1
       UV_BREAK_SYSTEM_PACKAGES: 1
-      SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
+      # Only the safety session reads the key; every session installs from PyPI.
+      SAFETY_API_KEY: ${{ matrix.session == 'safety' && secrets.SAFETY_API_KEY || '' }}
 
     steps:
       - name: Check out the repository
@@ -94,6 +105,15 @@ jobs:
           Xvfb :99 -screen 0 1280x1024x24 -nolisten tcp &
           echo "DISPLAY=:99" >> "$GITHUB_ENV"
           echo "LIBGL_ALWAYS_SOFTWARE=1" >> "$GITHUB_ENV"
+
+      # The demo configuration has a mapli collection, so building its OpenAPI
+      # document imports mapli, whose native core links the system's EGL and GL.
+      # Nothing is drawn here, so neither a GL driver nor a display is needed.
+      - name: Install the libraries mapli links
+        if: matrix.session == 'conformance'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libgl1
 
       - name: Compute pre-commit cache key
         if: matrix.session == 'pre-commit'

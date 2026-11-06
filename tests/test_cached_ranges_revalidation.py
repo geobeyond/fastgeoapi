@@ -149,3 +149,63 @@ async def test_a_revalidation_slower_than_the_loop_is_waited_for():
     await _settled(cached)
 
     assert cached.known_meta() != first
+
+
+class FailingHeads(CountingStore):
+    """A store whose HEADs fail while ``failing``, the sync one and the async one."""
+
+    def __init__(self, inner: Any) -> None:
+        super().__init__(inner)
+        self.failing = False
+
+    def head(self, path: str) -> Any:
+        if self.failing:
+            self.heads += 1
+            raise OSError("the store is unreachable")
+        return super().head(path)
+
+    async def ahead(self, path: str) -> Any:
+        if self.failing:
+            self.heads += 1
+            raise OSError("the store is unreachable")
+        return await super().ahead(path)
+
+
+def _failing(clock):
+    store = FailingHeads(memory_store())
+    store.put(KEY, b"v1")
+    return store, _cached(store, clock)
+
+
+def test_past_the_ttl_a_failed_head_keeps_the_known_version():
+    clock = Clock()
+    store, cached = _failing(clock)
+    known = cached.meta()
+    store.failing = True
+    clock.now += 301
+
+    assert cached.meta() == known
+    assert store.heads == 2
+
+
+@pytest.mark.asyncio
+async def test_past_the_ttl_a_failed_async_head_keeps_the_known_version():
+    clock = Clock()
+    store, cached = _failing(clock)
+    known = await cached.ameta()
+    store.failing = True
+    clock.now += 301
+
+    assert await cached.ameta() == known
+    assert store.heads == 2
+
+
+@pytest.mark.asyncio
+async def test_a_failed_head_with_no_known_version_fails():
+    store, cached = _failing(Clock())
+    store.failing = True
+
+    with pytest.raises(OSError):
+        cached.meta()
+    with pytest.raises(OSError):
+        await cached.ameta()

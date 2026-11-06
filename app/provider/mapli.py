@@ -63,10 +63,19 @@ if TYPE_CHECKING:
 
 try:
     import mapli
-except ImportError as error:
+except ModuleNotFoundError as error:
+    if error.name != "mapli":
+        raise
     raise ImportError(
         "the mapli map provider needs the 'mapli' extra, available on Linux only: "
         "pip install 'fastgeoapi[mapli]'"
+    ) from error
+except ImportError as error:
+    # mapli is installed, but its native core could not be loaded
+    raise ImportError(
+        f"mapli is installed but could not be loaded ({error}). Its native core "
+        "links the system's EGL and GL libraries: on Debian and Ubuntu, "
+        "apt-get install libegl1 libgl1"
     ) from error
 
 logger = create_logger("app.provider.mapli")
@@ -170,7 +179,7 @@ class _UncachedObject:
         """Entry point shared with ``CachedRanges``."""
         return self._meta
 
-    def known(self, version: str) -> "ObjectMeta | None":
+    def find_known(self, version: str) -> "ObjectMeta | None":
         """Entry point shared with ``CachedRanges``."""
         return self._get_metadata_of_version(version)
 
@@ -303,7 +312,7 @@ class _MapliSchemeHandler:
         parts = urlsplit(request.url)
         source, version = parts.netloc, parts.path.strip("/")
         scheme_object = self._sources.get(source)
-        meta = scheme_object.known(version) if scheme_object is not None else None
+        meta = scheme_object.find_known(version) if scheme_object is not None else None
         if scheme_object is None or meta is None:
             return mapli.Response.error(mapli.ErrorReason.NOT_FOUND, f"unknown data {request.url}")
         if request.data_range is None:

@@ -56,11 +56,13 @@ INGEST_SCHEMA: dict[str, Any] = {
             "type": "string",
             "description": "The catalog, as a URL or a path",
             "minLength": 1,
+            "pattern": "\\S",
         },
         "collection": {
             "type": "string",
             "description": "The id of the collection in the catalog",
             "minLength": 1,
+            "pattern": "\\S",
         },
         "schema": {
             "type": "string",
