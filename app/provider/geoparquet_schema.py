@@ -72,7 +72,9 @@ def _objects(data: str, options: dict) -> tuple[dict[str, str | None], list[str]
         return {key: meta.etag}, [data]
     base = data if data.endswith("/") else f"{data}/"
     entries = [
-        entry for entry in load_store(base, options).entries() if entry.path.endswith(".parquet")
+        entry
+        for entry in load_store(base, options).list_entries()
+        if entry.path.endswith(".parquet")
     ]
     if not entries:
         raise ValueError("no parquet objects")

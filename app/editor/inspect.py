@@ -467,7 +467,7 @@ def _unreachable_sources(config: dict):
                     # reads and writes one object, and asking it to list
                     # would turn "nothing is there" into an AttributeError
                     # the operator would read as a fact about their config.
-                    if not any(k.startswith(key) for k in store.keys(key)):
+                    if not any(k.startswith(key) for k in store.list_keys(key)):
                         yield name, data, "nothing is there"
             except Exception as e:  # unreadable store, bad credentials, bad URL
                 yield name, data, f"{type(e).__name__}: {str(e).splitlines()[0][:100]}"

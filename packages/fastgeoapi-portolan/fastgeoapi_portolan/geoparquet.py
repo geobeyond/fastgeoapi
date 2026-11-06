@@ -20,7 +20,7 @@ from fastgeoapi_portolan.catalog.locations import (
     is_url,
     resolve,
 )
-from fastgeoapi_portolan.file_index import IndexRow, read_planar_bbox
+from fastgeoapi_portolan.file_index import IndexRow, read_planar_bbox, read_row_count
 from fastgeoapi_portolan.handlers import (
     IngestOptions,
     ProviderMatch,
@@ -126,11 +126,14 @@ def _index_rows(collection: Collection, items: Iterable[Mapping[str, Any]]) -> l
             return []
         location = resolve(href, found["href"])
         rewritten = s3_from_https(location)
+        properties = item.get("properties")
+        count = properties.get("table:row_count") if isinstance(properties, Mapping) else None
         rows.append(
             IndexRow(
                 id=str(item.get("id", "")),
                 bbox=bbox,
                 href=rewritten[0] if rewritten is not None else location,
+                rows=read_row_count(count),
             )
         )
     return rows

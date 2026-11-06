@@ -16,12 +16,15 @@ from app.provider.duckdb_ import connect, scan_files
 from app.provider.file_index import (
     FileEntry,
     FileIndexError,
+    count_rows,
     read_file_index,
     read_stac_collection,
     read_stac_geoparquet,
     resolve_href,
     select_files,
+    select_page,
 )
+from app.provider.storage.cache import digest
 
 #: One point per file, in three boxes that do not touch.
 BOXES = {"a": (0.0, 0.0, 1.0, 1.0), "b": (10.0, 10.0, 11.0, 11.0), "c": (20.0, 20.0, 21.0, 21.0)}
@@ -298,3 +301,123 @@ def test_a_file_across_the_antimeridian_is_kept_for_both_sides():
     assert select_files([across], [-178.0, -5.0, -175.0, 5.0]) == ["across.parquet"]
     assert select_files([across], [175.0, -5.0, -175.0, 5.0]) == ["across.parquet"]
     assert select_files([across], [0.0, -5.0, 1.0, 5.0]) == []
+
+
+def _counted_index(path, counts) -> str:
+    """An index of one row per count, ``NULL`` where the count is None."""
+    selects = [
+        f"SELECT '{name}' AS id,"
+        f" {{'xmin': {n}.0, 'ymin': 0.0, 'xmax': {n}.5, 'ymax': 1.0}} AS bbox,"
+        f" {{'data': {{'href': '{name}.parquet'}}}} AS assets,"
+        f' {"NULL" if count is None else count}::BIGINT AS "table:row_count"'
+        for n, (name, count) in enumerate(counts.items())
+    ]
+    return _write_sql_index(path, " UNION ALL ".join(selects))
+
+
+def test_the_index_reads_the_row_count_of_each_file(tmp_path):
+    index = _counted_index(tmp_path / "index.parquet", {"a": 1, "b": 2, "c": 3})
+
+    assert [entry.rows for entry in read_stac_geoparquet(index)] == [1, 2, 3]
+
+
+def test_an_index_without_row_counts_reads_none(dataset):
+    _, index = dataset
+
+    assert {entry.rows for entry in read_stac_geoparquet(index)} == {None}
+
+
+def test_a_count_that_is_not_a_count_reads_as_missing(tmp_path):
+    index = _counted_index(tmp_path / "index.parquet", {"a": None, "b": -1, "c": 4})
+
+    assert [entry.rows for entry in read_stac_geoparquet(index)] == [None, None, 4]
+
+
+def _set_row_count(root, identifier, count) -> None:
+    item = root / "items" / f"{identifier}.json"
+    document = json.loads(item.read_text())
+    document["properties"] = {"table:row_count": count}
+    item.write_text(json.dumps(document))
+
+
+@pytest.mark.parametrize(("count", "expected"), [(7, 7), (True, None), (3.5, None), ("7", None)])
+def test_a_collection_item_gives_its_row_count(tmp_path, count, expected):
+    collection = _write_collection(tmp_path, ITEMS)
+    _set_row_count(tmp_path, "b", count)
+
+    entries = read_stac_collection(collection)
+
+    assert [entry.rows for entry in entries] == [None, expected, None]
+
+
+def test_the_cache_keeps_the_row_counts(tmp_path):
+    collection = _write_collection(tmp_path, ITEMS)
+    _set_row_count(tmp_path, "a", 5)
+    cache = tmp_path / "cache"
+
+    read_stac_collection(collection, cache_dir=cache)
+    with patch.object(file_index_module, "read_stac_item") as reads:
+        cached = read_stac_collection(collection, cache_dir=cache)
+
+    assert reads.call_count == 0
+    assert [entry.rows for entry in cached] == [5, None, None]
+
+
+def test_a_cache_written_without_row_counts_is_read_again(tmp_path):
+    collection = _write_collection(tmp_path, ITEMS)
+    _set_row_count(tmp_path, "a", 5)
+    cache = tmp_path / "cache"
+    old = cache / "file-index" / f"{digest(collection + 'data')}.json"
+    old.parent.mkdir(parents=True)
+    etag = file_index_module._etag(collection, None)
+    hrefs = [str(tmp_path / f"{name}.parquet") for name in "abc"]
+    old.write_text(json.dumps({"etag": etag, "entries": [[href, None] for href in hrefs]}))
+
+    with patch.object(
+        file_index_module, "read_stac_item", wraps=file_index_module.read_stac_item
+    ) as reads:
+        entries = read_stac_collection(collection, cache_dir=cache)
+
+    assert reads.call_count == 3
+    assert [entry.rows for entry in entries] == [5, None, None]
+
+
+COUNTED = [
+    FileEntry(href=name, bbox=None, rows=rows)
+    for name, rows in (("a", 3), ("b", 0), ("c", 4), ("d", 5))
+]
+
+
+def test_count_rows_sums_the_counts():
+    assert count_rows(COUNTED) == 12
+    assert count_rows([*COUNTED, FileEntry(href="e", bbox=None)]) is None
+
+
+def test_select_page_starts_in_the_file_that_holds_the_offset():
+    assert select_page(COUNTED, 4, 2) == (["c"], 1)
+
+
+def test_select_page_spans_files():
+    assert select_page(COUNTED, 2, 3) == (["a", "c"], 2)
+
+
+def test_select_page_past_the_end_is_empty():
+    assert select_page(COUNTED, 12, 10) == ([], 0)
+    assert select_page(COUNTED, 0, 0) == ([], 0)
+
+
+def test_an_index_written_by_the_ingest_gives_its_row_counts(tmp_path):
+    writer = pytest.importorskip("fastgeoapi_portolan.file_index")
+    location = str(tmp_path / "index.parquet")
+    writer.write_index(
+        [
+            writer.IndexRow(id="a", bbox=(0.0, 0.0, 1.0, 1.0), href="a.parquet", rows=2),
+            writer.IndexRow(id="b", bbox=(2.0, 2.0, 3.0, 3.0), href="b.parquet", rows=3),
+        ],
+        location,
+    )
+
+    entries = read_stac_geoparquet(location)
+
+    assert [entry.rows for entry in entries] == [2, 3]
+    assert count_rows(entries) == 5

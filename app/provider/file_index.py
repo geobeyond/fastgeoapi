@@ -22,6 +22,9 @@ from app.config.logging import create_logger
 
 logger = create_logger("app.provider.file_index")
 
+_CACHE_VERSION = 2
+"""The layout of a cached collection index: ``[href, bbox, rows]`` per file."""
+
 _ASSET_NAME = re.compile(r"^[A-Za-z0-9_\-]+$")
 """Asset names reach the SQL as quoted identifiers, so only these characters pass."""
 
@@ -41,10 +44,21 @@ class FileEntry:
     bbox
         ``(xmin, ymin, xmax, ymax)`` of the file, or None when the index
         gives none; such a file is never left out.
+    rows
+        The number of rows of the file, from ``table:row_count``, or None
+        when the index gives no usable count.
     """
 
     href: str
     bbox: tuple[float, float, float, float] | None
+    rows: int | None = None
+
+
+def _read_row_count(value: object) -> int | None:
+    """Read a ``table:row_count`` as a count; None when it is not a whole number of rows."""
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return None
+    return value
 
 
 def resolve_href(href: str, base: str) -> str:
@@ -134,9 +148,9 @@ def read_stac_geoparquet(
     of a request, so the answers stay right and only those files lose the
     pruning.
     """
-    import duckdb
+    from app.provider.duckdb_ import connect, load_duckdb
 
-    from app.provider.duckdb_ import connect
+    duckdb = load_duckdb()
 
     if not _ASSET_NAME.match(asset):
         raise FileIndexError(f"invalid asset name for the file index: {asset!r}")
@@ -156,23 +170,31 @@ def read_stac_geoparquet(
     for name in ("id", "bbox", "assets"):
         if name not in columns:
             raise FileIndexError(f"the file index {location} has no {name}")
+    count = '"table:row_count"' if "table:row_count" in columns else "NULL"
     try:
-        # The asset name passed `_ASSET_NAME` above, and the location is a parameter.
+        # The asset name passed `_ASSET_NAME` above, `count` is one of two constants,
+        # and the location is a parameter.
         rows = con.execute(
             # ruff: ignore[hardcoded-sql-expression]
-            f'SELECT id, assets."{asset}".href, bbox FROM read_parquet(?)',  # nosec B608
+            f'SELECT id, assets."{asset}".href, bbox, {count} FROM read_parquet(?)',  # nosec B608
             [location],
         ).fetchall()
     except duckdb.BinderException as error:
         # The three columns are there, so what is missing is the asset or its href.
         raise FileIndexError(f"the file index {location} has no assets.{asset}.href") from error
     entries = []
-    for identifier, href, bbox in rows:
+    for identifier, href, bbox, row_count in rows:
         if not href:
             raise FileIndexError(
                 f"the file index {location} has no href for the row {identifier!r}"
             )
-        entries.append(FileEntry(href=resolve_href(href, location), bbox=_planar(bbox)))
+        entries.append(
+            FileEntry(
+                href=resolve_href(href, location),
+                bbox=_planar(bbox),
+                rows=_read_row_count(row_count),
+            )
+        )
     unbounded = sum(entry.bbox is None for entry in entries)
     if unbounded:
         logger.warning(
@@ -223,6 +245,63 @@ def select_files(entries: Sequence[FileEntry], bbox: Sequence[float] | None) -> 
         return [entry.href for entry in entries]
     minx, miny, maxx, maxy = (float(value) for value in bbox[:4])
     return [entry.href for entry in entries if _meets(entry, minx, miny, maxx, maxy)]
+
+
+def count_rows(entries: Sequence[FileEntry]) -> int | None:
+    """Count the rows of the dataset from the counts of its files.
+
+    Parameters
+    ----------
+    entries
+        The files of the dataset.
+
+    Returns
+    -------
+    int | None
+        The sum of the counts, or None when a file has none.
+    """
+    if any(entry.rows is None for entry in entries):
+        return None
+    return sum(entry.rows or 0 for entry in entries)
+
+
+def select_page(entries: Sequence[FileEntry], offset: int, limit: int) -> tuple[list[str], int]:
+    """Select the files a page of rows falls in.
+
+    The rows are numbered in the order of ``entries``, as a scan of the
+    files in that order returns them.
+
+    Parameters
+    ----------
+    entries
+        The files of the dataset, each with a count.
+    offset
+        The first row of the page.
+    limit
+        The number of rows of the page.
+
+    Returns
+    -------
+    tuple[list[str], int]
+        The hrefs of the files that hold the rows ``[offset, offset + limit)``,
+        in order and without the empty ones, and the offset of the first row
+        inside the first of them; ``([], 0)`` when the page holds no row.
+    """
+    hrefs: list[str] = []
+    local = 0
+    start = 0
+    end = offset + limit
+    for entry in entries:
+        rows = entry.rows or 0
+        stop = start + rows
+        if rows and stop > offset and start < end:
+            if not hrefs:
+                local = offset - start
+            hrefs.append(entry.href)
+        start = stop
+        if start >= end:
+            break
+    return (hrefs, local) if hrefs else ([], 0)
 
 
 def _read_json(location: str, store_options: dict | None) -> dict:
@@ -279,7 +358,11 @@ def read_stac_item(href: str, *, asset: str, store_options: dict | None) -> File
         planar = _planar(
             {"xmin": bbox[0], "ymin": bbox[1], "xmax": bbox[half], "ymax": bbox[half + 1]}
         )
-    return FileEntry(href=resolve_href(data["href"], href), bbox=planar)
+    properties = item.get("properties")
+    count = properties.get("table:row_count") if isinstance(properties, dict) else None
+    return FileEntry(
+        href=resolve_href(data["href"], href), bbox=planar, rows=_read_row_count(count)
+    )
 
 
 def _cache_path(location: str, asset: str, cache_dir: Path | None) -> Path | None:
@@ -287,7 +370,8 @@ def _cache_path(location: str, asset: str, cache_dir: Path | None) -> Path | Non
 
     if cache_dir is None:
         return None
-    return cache_dir / "file-index" / f"{digest(location + asset)}.json"
+    # The version keeps an entry of another layout from being read as this one.
+    return cache_dir / "file-index" / f"{digest(f'{_CACHE_VERSION}:{location}{asset}')}.json"
 
 
 def _read_cached(entry: Path | None, etag: str | None) -> list[FileEntry] | None:
@@ -299,9 +383,12 @@ def _read_cached(entry: Path | None, etag: str | None) -> list[FileEntry] | None
         return None
     if not isinstance(cached, dict) or cached.get("etag") != etag:
         return None
+    rows = cached.get("entries", [])
+    if not all(isinstance(row, list) and len(row) == 3 for row in rows):
+        return None
     return [
-        FileEntry(href=href, bbox=tuple(bbox) if bbox else None)
-        for href, bbox in cached.get("entries", [])
+        FileEntry(href=href, bbox=tuple(bbox) if bbox else None, rows=_read_row_count(count))
+        for href, bbox, count in rows
     ]
 
 
@@ -310,7 +397,7 @@ def _write_cached(entry: Path, etag: str, entries: Sequence[FileEntry]) -> None:
         entry.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         partial = entry.with_name(f"{entry.name}.{os.getpid()}.partial")
         partial.write_text(
-            json.dumps({"etag": etag, "entries": [[e.href, e.bbox] for e in entries]})
+            json.dumps({"etag": etag, "entries": [[e.href, e.bbox, e.rows] for e in entries]})
         )
         partial.replace(entry)
     except OSError as error:

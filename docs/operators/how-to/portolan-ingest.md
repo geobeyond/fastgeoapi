@@ -156,7 +156,8 @@ the GeoParquet guide). The index is, in this order:
   role `collection-mirror`;
 - with `--into`, a stac-geoparquet file the command writes as
   `indexes/<resource id>.parquet` in the folder of the configuration, on
-  disk or in the bucket, and names relative to it. Every run writes it
+  disk or in the bucket, and names relative to it. Each row carries the
+  `table:row_count` of its item when the item has one. Every run writes it
   again. The command needs duckdb for it; without duckdb it says so and
   takes the next choice;
 - the collection itself, whose items the provider then reads once.

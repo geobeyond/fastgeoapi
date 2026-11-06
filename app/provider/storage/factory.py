@@ -15,6 +15,9 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 
+from obstore.exceptions import BaseError
+from obstore.store import HTTPStore, LocalStore, from_url
+
 from app.provider.storage.base import ObjectStore
 from app.provider.storage.obstore_ import ObstoreStore
 
@@ -35,7 +38,20 @@ _URL_SCHEMES = (
 
 
 def split_source(source: str) -> tuple[str, str]:
-    """Split an object reference into (base, relative key)."""
+    """Split an object reference into its base and its key.
+
+    Parameters
+    ----------
+    source
+        A bucket or http(s) URL, or a local path, absolute or relative to
+        the working directory.
+
+    Returns
+    -------
+    tuple[str, str]
+        The base, a URL ending in ``/`` or an absolute folder, and the key
+        of the object under it.
+    """
     if source.startswith(_URL_SCHEMES):
         base, _, key = source.rpartition("/")
         return f"{base}/", key
@@ -46,7 +62,19 @@ def split_source(source: str) -> tuple[str, str]:
 
 
 def is_remote(source: str) -> bool:
-    """Whether ``source`` names an object across a network: a bucket key or an http(s) URL."""
+    """Tell whether ``source`` names an object across a network.
+
+    Parameters
+    ----------
+    source
+        An object reference, as :func:`split_source` takes it.
+
+    Returns
+    -------
+    bool
+        True for a bucket key or an http(s) URL, False for a local path or
+        a ``file://`` URL.
+    """
     return source.startswith(_URL_SCHEMES) and not source.startswith("file://")
 
 
@@ -60,6 +88,18 @@ def _virtual_hosted(endpoint: str, base: str) -> str:
     ``store_options`` is written once, in DuckDB's vocabulary, the
     translation reconciles them here — and leaves an endpoint that already
     names the bucket alone, rather than doubling it.
+
+    Parameters
+    ----------
+    endpoint
+        The endpoint as the store options give it.
+    base
+        The bucket URL the store is built for.
+
+    Returns
+    -------
+    str
+        The endpoint with the bucket in its host.
     """
     bucket = base.split("://", 1)[-1].split("/", 1)[0]
     scheme, _, host = endpoint.rpartition("://")
@@ -78,6 +118,19 @@ def _for_obstore(store_options: dict, base: str = "") -> dict:
     dict does not degrade — it makes a perfectly readable bucket look
     unreachable, which is how the editor came to report a source as
     missing in the same run that served features from it.
+
+    Parameters
+    ----------
+    store_options
+        The options of the dataset, in DuckDB's vocabulary.
+    base
+        The bucket URL the store is built for, which a virtual-hosted
+        endpoint needs.
+
+    Returns
+    -------
+    dict
+        The same options in obstore's vocabulary.
     """
     options = dict(store_options)
     translated: dict = {}
@@ -107,7 +160,20 @@ def _for_obstore(store_options: dict, base: str = "") -> dict:
 
 
 def obstore_options(store_options: dict | None, base: str = "") -> dict:
-    """``store_options`` spelled for obstore, as :func:`load_store` builds a store with them."""
+    """Spell ``store_options`` for obstore, as :func:`load_store` builds a store with them.
+
+    Parameters
+    ----------
+    store_options
+        The options of the dataset, in DuckDB's vocabulary, or None.
+    base
+        The bucket URL the store is built for.
+
+    Returns
+    -------
+    dict
+        The options in obstore's vocabulary; empty without options.
+    """
     return _for_obstore(dict(store_options or {}), base)
 
 
@@ -128,6 +194,16 @@ def _explicit_endpoint_wins(config: dict) -> Generator[None]:
     stay visible, since a store on the deployment's own service still
     needs them. The lock keeps two concurrent constructions from seeing
     each other's half-restored environment.
+
+    Parameters
+    ----------
+    config
+        The obstore configuration the store is built with.
+
+    Yields
+    ------
+    None
+        While the store is built.
     """
     if "endpoint" not in config:
         yield
@@ -151,10 +227,27 @@ def load_store(base: str, store_options: dict | None = None) -> ObjectStore:
     shares the options of its data in a bucket, and the HTTP store
     refuses any. An http(s) URL is read unsigned, even one that names a
     bucket; an object that needs credentials is named by its bucket URL.
+
+    Parameters
+    ----------
+    base
+        A bucket or http(s) URL, a ``file://`` URL or a local folder.
+    store_options
+        The cloud store settings of the dataset, or None.
+
+    Returns
+    -------
+    ObjectStore
+        The store, with keys relative to ``base``.
+
+    Raises
+    ------
+    FileNotFoundError
+        If ``base`` is a local folder that does not exist.
+    OSError
+        If obstore cannot open the local folder for another reason.
     """
     if base.startswith(_URL_SCHEMES):
-        from obstore.store import HTTPStore, from_url
-
         if base.startswith(("http://", "https://")):
             # The HTTP store adds its own slash before the key: a base ending in
             # one asks for `prefix//key`, which some servers answer with 404.
@@ -171,6 +264,10 @@ def load_store(base: str, store_options: dict | None = None) -> ObjectStore:
                     from_url(base, config=config)  # ty: ignore[no-matching-overload]
                 )
         return ObstoreStore(from_url(base))
-    from obstore.store import LocalStore
-
-    return ObstoreStore(LocalStore(base))
+    try:
+        return ObstoreStore(LocalStore(base))
+    except BaseError as error:
+        # obstore refuses a root it cannot canonicalize, which is how a missing folder fails.
+        if not Path(base).exists():
+            raise FileNotFoundError(f"no such folder: {base}") from error
+        raise OSError(str(error)) from error
