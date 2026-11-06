@@ -79,7 +79,7 @@ async def test_a_sweep_deletes_the_entries_written_first_down_to_nine_tenths_of_
 
     await range_cache(store, max_bytes=100).asweep()
 
-    kept = sorted(entry.path for entry in store.entries())
+    kept = sorted(entry.path for entry in store.list_entries())
     assert kept == [_entry(index) for index in range(3, 12)]  # 90 bytes left
 
 
@@ -90,9 +90,9 @@ class SlowListing(CountingStore):
         super().__init__(inner)
         self.listed = threading.Event()
 
-    def entries(self, prefix: str = ""):
+    def list_entries(self, prefix: str = ""):
         self.listed.wait(timeout=5)
-        return super().entries(prefix)
+        return super().list_entries(prefix)
 
 
 @pytest.mark.asyncio
@@ -103,12 +103,12 @@ async def test_a_sync_write_leaves_its_sweep_to_another_thread():
     cache = range_cache(store, max_bytes=100)
 
     cache.put(_entry(12), bytes(10))  # the first write is due for a sweep
-    swept_before = len(store.inner.entries())
+    swept_before = len(store.inner.list_entries())
     store.listed.set()
     await cache.drain()
 
     assert swept_before == 13
-    assert len(store.inner.entries()) < 13
+    assert len(store.inner.list_entries()) < 13
 
 
 @pytest.mark.asyncio
@@ -118,7 +118,7 @@ async def test_under_the_cap_a_sweep_deletes_nothing():
 
     await range_cache(store, max_bytes=100).asweep()
 
-    assert [entry.path for entry in store.entries()] == [_entry(0)]
+    assert [entry.path for entry in store.list_entries()] == [_entry(0)]
 
 
 @pytest.mark.asyncio
@@ -130,7 +130,7 @@ async def test_a_sweep_leaves_the_objects_the_cache_did_not_write():
 
     await range_cache(store, max_bytes=100).asweep()
 
-    kept = sorted(entry.path for entry in store.entries())
+    kept = sorted(entry.path for entry in store.list_entries())
     assert kept == sorted(["roads.pmtiles", *(_entry(index) for index in range(3, 12))])
 
 

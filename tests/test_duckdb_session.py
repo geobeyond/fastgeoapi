@@ -10,12 +10,15 @@ inside a test would bind a SECOND ``DuckDBUnavailableError`` class and
 ``pytest.raises`` would not catch the one ``connect`` actually raises.
 """
 
+import sys
+
 import pytest
 
 from app.provider.duckdb_ import (
     _CLOUD_SCHEMES,
     DuckDBUnavailableError,
     connect,
+    load_duckdb,
     protocol_for,
     scan_expression,
 )
@@ -446,3 +449,17 @@ def test_scan_expression_can_take_the_schema_of_the_first_file(tmp_path):
     columns = [row[0] for row in con.execute(f"DESCRIBE SELECT * FROM {scan}").fetchall()]
 
     assert "extra" not in columns
+
+
+def test_load_duckdb_gives_the_module():
+    duckdb = pytest.importorskip("duckdb")
+
+    assert load_duckdb() is duckdb
+
+
+def test_without_duckdb_the_error_names_the_extra(monkeypatch):
+    # None in sys.modules makes `import duckdb` raise ImportError.
+    monkeypatch.setitem(sys.modules, "duckdb", None)
+
+    with pytest.raises(DuckDBUnavailableError, match="geoparquet"):
+        load_duckdb()

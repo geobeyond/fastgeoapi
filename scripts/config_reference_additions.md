@@ -23,6 +23,7 @@ adds them to the schema the editor serves, so the form has fields for them.
 | `union_by_name`                | GeoParquet          | `false` takes the schema from the first file instead of all      |
 | `file_index`                   | GeoParquet          | A stac-geoparquet file or a STAC collection naming the files     |
 | `file_index_asset`             | GeoParquet          | The asset of the index that holds each file's href (`data`)      |
+| `id_index`                     | GeoParquet          | A published index of ids naming the file that holds each feature |
 | `store_options`                | GeoParquet, PMTiles | Store settings: `region`, `skip_signature`, `endpoint`           |
 | `engine_options`               | GeoParquet          | DuckDB settings, e.g. `memory_limit`, `threads`                  |
 | `options.inline_inflate_limit` | PMTiles             | Bytes above which a tile is decompressed in a worker (256 KiB)   |
