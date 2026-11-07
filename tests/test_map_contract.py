@@ -117,6 +117,16 @@ class TwoFormats(Explicit):
     capabilities = _build_capabilities_property((WEB_MERCATOR,), ("png", "jpeg"))
 
 
+class Wider(Explicit):
+    """A native map provider that draws larger maps than ``Explicit``."""
+
+    @property
+    def limits(self):
+        from app.interfaces.providers import MapLimits
+
+        return MapLimits(128, 128, None)
+
+
 class NoCapabilities(BaseProvider):
     """A native map provider without ``capabilities``."""
 
@@ -335,3 +345,53 @@ def test_the_conformance_classes_come_from_the_capabilities():
 
     assert {f"{MAPS}/core", f"{MAPS}/collection-map", f"{MAPS}/png", f"{MAPS}/jpeg"} <= declared
     assert f"{MAPS}/tiff" not in declared
+
+
+def _serve(collection: dict) -> TestClient:
+    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp, normalize_config
+
+    config = _config({"lakes": collection})
+    normalize_config(config)
+    return TestClient(build_pygeoapi_subapp(config, build_openapi(config)))
+
+
+@pytest.mark.parametrize(
+    ("asked", "media_type", "drawn"),
+    [("jpeg", "image/jpeg", "jpeg"), ("png", "image/png", "png"), ("html", "image/png", "png")],
+)
+def test_a_map_carries_the_type_of_the_format_it_was_drawn_in(asked, media_type, drawn):
+    Explicit.received.clear()
+    client = _serve(_collection("Lakes", [_definition("tests.test_map_contract.TwoFormats")]))
+
+    r = client.get(
+        "/collections/lakes/map",
+        params={"bbox": "12.4,41.8,12.6,42.0", "width": 16, "height": 8, "f": asked},
+    )
+
+    assert r.status_code == 200
+    assert r.headers["content-type"] == media_type
+    assert Explicit.received[-1]["format_"] == drawn
+
+
+def test_the_map_responses_list_every_format_drawn():
+    from app.pygeoapi.factory import build_openapi
+
+    config = _config(
+        {"lakes": _collection("Lakes", [_definition("tests.test_map_contract.TwoFormats")])}
+    )
+    document = build_openapi(config)
+    content = document["paths"]["/collections/lakes/map"]["get"]["responses"]["200"]["content"]
+
+    assert set(content) == {"image/png", "image/jpeg"}
+
+
+def test_the_published_limits_are_those_of_the_provider_the_route_serves():
+    from app.pygeoapi.factory import build_openapi
+
+    first = _definition("tests.test_map_contract.Explicit")
+    second = _definition("tests.test_map_contract.Wider")
+    document = build_openapi(_config({"lakes": _collection("Lakes", [first, second])}))
+    parameters = document["paths"]["/collections/lakes/map"]["get"]["parameters"]
+    width = next(p for p in parameters if p.get("name") == "width")
+
+    assert width["schema"]["maximum"] == 64
