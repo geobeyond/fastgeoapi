@@ -9,12 +9,19 @@ from app.interfaces.conformance import (
     GenericConformance,
 )
 from app.interfaces.http_client import AsyncHTTPClient
-from app.interfaces.providers import AsyncFeatureProvider, AsyncTileProvider
+from app.interfaces.providers import (
+    AsyncFeatureProvider,
+    AsyncMapProvider,
+    AsyncTileProvider,
+    MapFormat,
+)
 
 __all__ = [
     "AsyncFeatureProvider",
     "AsyncHTTPClient",
+    "AsyncMapProvider",
     "AsyncTileProvider",
     "FeatureRecordConformance",
     "GenericConformance",
+    "MapFormat",
 ]

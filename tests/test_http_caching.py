@@ -13,10 +13,10 @@ from loguru import logger
 from app.config.app import DevConfig, ProdConfig
 from app.pygeoapi.api_async.caching import (
     HttpCache,
-    cache_headers,
-    default_http_cache,
-    not_modified,
-    sources_digest,
+    digest_sources,
+    get_cache_headers,
+    get_default_http_cache,
+    is_not_modified,
 )
 
 POLICY = HttpCache(max_age=300, protected=False, code="code-1")
@@ -25,13 +25,13 @@ ETAG = '"abc"'
 
 
 def test_the_same_input_gives_the_same_etag():
-    assert POLICY.etag(*BASE) == POLICY.etag(*BASE)
+    assert POLICY.build_etag(*BASE) == POLICY.build_etag(*BASE)
 
 
 def test_the_policy_itself_does_not_count_in_the_etag():
     other = HttpCache(max_age=60, protected=True, code="code-1")
 
-    assert other.etag(*BASE) == POLICY.etag(*BASE)
+    assert other.build_etag(*BASE) == POLICY.build_etag(*BASE)
 
 
 @pytest.mark.parametrize(
@@ -45,21 +45,23 @@ def test_the_policy_itself_does_not_count_in_the_etag():
     ids=["dataset", "kind", "version", "arguments"],
 )
 def test_every_ingredient_changes_the_etag(changed):
-    assert POLICY.etag(*changed) != POLICY.etag(*BASE)
+    assert POLICY.build_etag(*changed) != POLICY.build_etag(*BASE)
 
 
 def test_another_code_changes_the_etag():
     newer = HttpCache(max_age=300, protected=False, code="code-2")
 
-    assert newer.etag(*BASE) != POLICY.etag(*BASE)
+    assert newer.build_etag(*BASE) != POLICY.build_etag(*BASE)
 
 
 def test_the_order_of_the_arguments_does_not_count():
-    assert POLICY.etag("roads", "tile", "v1", {"y": 3, "x": 2, "z": 1}) == POLICY.etag(*BASE)
+    assert POLICY.build_etag("roads", "tile", "v1", {"y": 3, "x": 2, "z": 1}) == POLICY.build_etag(
+        *BASE
+    )
 
 
 def test_an_etag_is_a_quoted_strong_validator():
-    etag = POLICY.etag(*BASE)
+    etag = POLICY.build_etag(*BASE)
 
     assert etag.startswith('"') and etag.endswith('"')
     assert not etag.startswith("W/")
@@ -67,26 +69,26 @@ def test_an_etag_is_a_quoted_strong_validator():
 
 @pytest.mark.parametrize("header", ['"abc"', 'W/"abc"', '"other", "abc"', '"other",W/"abc"', " * "])
 def test_if_none_match_naming_the_etag_is_not_modified(header):
-    assert not_modified(header, ETAG)
+    assert is_not_modified(header, ETAG)
 
 
 @pytest.mark.parametrize("header", [None, "", '"other"', "abc", '"abcd"'])
 def test_if_none_match_naming_another_etag_is_modified(header):
-    assert not not_modified(header, ETAG)
+    assert not is_not_modified(header, ETAG)
 
 
 def test_a_public_instance_lets_any_cache_keep_the_answer():
-    assert POLICY.cache_control() == "public, max-age=300"
+    assert POLICY.build_cache_control() == "public, max-age=300"
 
 
 def test_a_protected_instance_lets_only_the_browser_keep_it():
     protected = HttpCache(max_age=300, protected=True, code="code-1")
 
-    assert protected.cache_control() == "private, max-age=300"
+    assert protected.build_cache_control() == "private, max-age=300"
 
 
 def test_the_headers_name_the_etag_the_policy_and_what_the_answer_varies_on():
-    assert POLICY.headers(ETAG) == {
+    assert POLICY.build_headers(ETAG) == {
         "ETag": ETAG,
         "Cache-Control": "public, max-age=300",
         "Vary": "Accept, Accept-Encoding",
@@ -124,7 +126,7 @@ def test_the_default_policy_reads_the_settings_of_the_process(monkeypatch):
     monkeypatch.setattr(settings, "FASTGEOAPI_HTTP_MAX_AGE_SECONDS", 120)
     monkeypatch.setattr(settings, "JWKS_ENABLED", True)
 
-    assert default_http_cache().cache_control() == "private, max-age=120"
+    assert get_default_http_cache().build_cache_control() == "private, max-age=120"
 
 
 def test_the_max_age_defaults_to_five_minutes(monkeypatch):
@@ -146,21 +148,21 @@ def test_the_code_digest_follows_the_sources_and_nothing_else(tmp_path):
     (package / "__pycache__").mkdir(parents=True)
     module = package / "module.py"
     module.write_text("A = 1\n")
-    first = sources_digest(tmp_path)
+    first = digest_sources(tmp_path)
 
     (package / "__pycache__" / "module.cpython-312.pyc").write_bytes(b"compiled")
     (package / "notes.txt").write_text("not code")
-    unchanged = sources_digest(tmp_path)
+    unchanged = digest_sources(tmp_path)
     module.write_text("A = 2\n")
 
     assert unchanged == first
-    assert sources_digest(tmp_path) != first
+    assert digest_sources(tmp_path) != first
 
 
 class _Unreachable:
     """A provider whose store fails while the version is asked."""
 
-    async def aversion(self, **kwargs):
+    async def aget_version(self, **kwargs):
         raise OSError("s3://bucket/roads.pmtiles?X-Amz-Signature=SECRET")
 
 
@@ -170,7 +172,9 @@ async def test_a_failing_version_is_logged_by_its_type_once_a_minute():
     sink = logger.add(lambda message: messages.append(str(message)), level="WARNING")
     try:
         for _ in range(3):
-            assert await cache_headers(POLICY, _Unreachable(), "logged-once", "tile", {}, {}) == {}
+            assert (
+                await get_cache_headers(POLICY, _Unreachable(), "logged-once", "tile", {}, {}) == {}
+            )
     finally:
         logger.remove(sink)
 

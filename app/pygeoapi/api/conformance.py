@@ -27,6 +27,7 @@ from pygeoapi.api import (
 )
 from pygeoapi.util import render_j2_template
 
+from app.pygeoapi.map_limits import collect_native_map_capabilities, derive_map_conformance
 from app.pygeoapi.plugin import resolve_provider_class
 
 if TYPE_CHECKING:
@@ -179,6 +180,10 @@ def build_conformance_list(
             for provider_name in resource.provider_names:
                 declared = getattr(resolve_provider_class(provider_name), "conformance_classes", ())
                 conformance_set.update(declared or ())
+
+    # A native map provider declares no classes: they follow from what it draws.
+    for capabilities in collect_native_map_capabilities({"resources": resources}).values():
+        conformance_set.update(derive_map_conformance(capabilities))
 
     if has_pubsub:
         conformance_set.update(apis_dict["pubsub"].CONFORMANCE_CLASSES)
