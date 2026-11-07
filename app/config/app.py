@@ -109,6 +109,12 @@ class DevConfig(GlobalConfig):
     # A directory of templates that replace the native pages of the same
     # name; the others still come from the package.
     FASTGEOAPI_HTML_TEMPLATES: str | None = None
+    # The largest map size for every collection, published in the OpenAPI
+    # document as `x-OGC-limits.maps`: a collection may lower it, never
+    # raise it. No pixel limit when unset.
+    FASTGEOAPI_MAPS_MAX_WIDTH: int = 2048
+    FASTGEOAPI_MAPS_MAX_HEIGHT: int = 2048
+    FASTGEOAPI_MAPS_MAX_PIXELS: int | None = None
 
     model_config = SettingsConfigDict(
         env_prefix="DEV_",
@@ -198,6 +204,12 @@ class ProdConfig(GlobalConfig):
     # A directory of templates that replace the native pages of the same
     # name; the others still come from the package.
     FASTGEOAPI_HTML_TEMPLATES: str | None = None
+    # The largest map size for every collection, published in the OpenAPI
+    # document as `x-OGC-limits.maps`: a collection may lower it, never
+    # raise it. No pixel limit when unset.
+    FASTGEOAPI_MAPS_MAX_WIDTH: int = 2048
+    FASTGEOAPI_MAPS_MAX_HEIGHT: int = 2048
+    FASTGEOAPI_MAPS_MAX_PIXELS: int | None = None
 
     model_config = SettingsConfigDict(
         env_prefix="PROD_",
