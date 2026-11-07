@@ -7,10 +7,10 @@ icon: material/map-outline
 A native map provider draws the images of `/collections/{collectionId}/map`
 and `/collections/{collectionId}/styles/{styleId}/map`. The route awaits it on
 the event loop, and it handles everything that does not depend on the engine:
-it reads and checks the parameters, applies the limits, queues the maps,
-times them out and sets the cache headers. The provider only draws. This page
-describes what it must give the
-route, what it gets back, and how to check it against the contract suite.
+it reads and checks the parameters, applies the limits and sets the cache
+headers. The provider draws the maps, and its queue and timeouts are its own.
+This page describes what it must give the route, what it gets back, and how to
+check it against the contract suite.
 [Writing an async provider](writing-an-async-provider.md) covers the general
 shape of a provider and the mixins.
 
