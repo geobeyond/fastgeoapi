@@ -52,8 +52,8 @@ def test_a_tile_provider_is_a_versioned_provider(tmp_path):
 async def test_two_providers_of_one_definition_give_one_version(tmp_path):
     definition = _definition(_archive(tmp_path / "roads.pmtiles"))
 
-    first = await _provider(definition).aversion(z=0, y=0, x=0)
-    second = await _provider(dict(definition)).aversion(z=0, y=0, x=0)
+    first = await _provider(definition).aget_version(z=0, y=0, x=0)
+    second = await _provider(dict(definition)).aget_version(z=0, y=0, x=0)
 
     assert first is not None
     assert first == second
@@ -63,13 +63,13 @@ async def test_two_providers_of_one_definition_give_one_version(tmp_path):
 async def test_a_local_archive_written_again_gives_a_new_version(tmp_path):
     path = _archive(tmp_path / "roads.pmtiles")
     provider = _provider(_definition(path))
-    before = await provider.aversion(z=0, y=0, x=0)
+    before = await provider.aget_version(z=0, y=0, x=0)
 
     _archive(path, label=b"a longer tile")
     later = path.stat().st_mtime + 10
     os.utime(path, (later, later))
 
-    assert await provider.aversion(z=0, y=0, x=0) != before
+    assert await provider.aget_version(z=0, y=0, x=0) != before
 
 
 @pytest.mark.asyncio
@@ -94,8 +94,8 @@ async def test_a_copy_with_the_same_size_and_time_has_the_same_data_version(tmp_
 async def test_another_definition_gives_another_version(tmp_path):
     path = _archive(tmp_path / "roads.pmtiles")
 
-    narrow = await _provider(_definition(path)).aversion(z=0, y=0, x=0)
-    wide = await _provider(_definition(path, zoom={"min": 0, "max": 3})).aversion(z=0, y=0, x=0)
+    narrow = await _provider(_definition(path)).aget_version(z=0, y=0, x=0)
+    wide = await _provider(_definition(path, zoom={"min": 0, "max": 3})).aget_version(z=0, y=0, x=0)
 
     assert narrow != wide
 
@@ -104,8 +104,8 @@ async def test_another_definition_gives_another_version(tmp_path):
 async def test_a_tile_outside_the_limits_has_no_version(tmp_path):
     provider = _provider(_definition(_archive(tmp_path / "roads.pmtiles")))
 
-    assert await provider.aversion(z=5, y=0, x=0) is None
-    assert await provider.aversion(z="{z}", y=0, x=0) is None
+    assert await provider.aget_version(z=5, y=0, x=0) is None
+    assert await provider.aget_version(z="{z}", y=0, x=0) is None
 
 
 @pytest.mark.asyncio
@@ -120,13 +120,13 @@ async def test_a_bucket_archive_has_the_etag_the_range_cache_knows(tmp_path):
         origin, KEY, range_cache(memory_store(), clock=clock), source=DATA
     )
 
-    first = await provider.aversion(z=0, y=0, x=0)
-    again = await provider.aversion(z=0, y=0, x=0)
+    first = await provider.aget_version(z=0, y=0, x=0)
+    again = await provider.aget_version(z=0, y=0, x=0)
     origin.put(KEY, _archive(tmp_path / "v2.pmtiles", label=b"new").read_bytes())
     clock.now += 301
-    stale = await provider.aversion(z=0, y=0, x=0)
+    stale = await provider.aget_version(z=0, y=0, x=0)
     await _settled(provider.cached_ranges)
-    fresh = await provider.aversion(z=0, y=0, x=0)
+    fresh = await provider.aget_version(z=0, y=0, x=0)
 
     assert first is not None
     assert first == again == stale
@@ -138,4 +138,4 @@ async def test_a_bucket_archive_has_the_etag_the_range_cache_knows(tmp_path):
 async def test_a_bucket_archive_read_without_the_range_cache_has_no_version():
     provider = _provider(_definition(DATA, range_cache=False))
 
-    assert await provider.aversion(z=0, y=0, x=0) is None
+    assert await provider.aget_version(z=0, y=0, x=0) is None

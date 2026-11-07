@@ -32,10 +32,11 @@ def served(tmp_path_factory):
 def test_the_map_provider_declares_its_classes(served):
     _, declaration = served
 
-    assert {f"{MAPS}/core", f"{MAPS}/scaling", f"{MAPS}/spatial-subsetting"} <= set(
-        declaration["conformsTo"]
-    )
-    assert f"{MAPS}/crs" not in declaration["conformsTo"]
+    declared = set(declaration["conformsTo"])
+    unread = {f"{MAPS}/{name}" for name in ("scaling", "spatial-subsetting", "background", "crs")}
+
+    assert {f"{MAPS}/core", f"{MAPS}/collection-map", f"{MAPS}/png"} <= declared
+    assert not unread & declared
 
 
 def test_the_validator_finds_every_declared_class_described(served):
