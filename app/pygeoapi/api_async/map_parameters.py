@@ -202,7 +202,8 @@ def parse_map_parameters(
         height=height,
         crs=crs,
         transparent=transparent == "true",
-        format_=format_ if format_ is not None else capabilities.formats[0],
+        # Without f, and for f=html, the map is drawn in the first format the provider declares.
+        format_=asked if asked in capabilities.formats else capabilities.formats[0],
         datetime_=datetime_,
         subsets=_parse_subsets(params, extents),
     )
