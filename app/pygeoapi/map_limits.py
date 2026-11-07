@@ -17,12 +17,22 @@ from typing import Any
 
 from pygeoapi import plugin as pygeoapi_plugin
 from pygeoapi.provider.base import ProviderGenericError, ProviderTypeError
+from pyproj import CRS
+from pyproj.exceptions import CRSError
 
 from app.config.logging import create_logger
-from app.interfaces.providers import AsyncMapProvider, MapCapabilities, MapLimits
+from app.interfaces.providers import (
+    MAPS_CONFORMANCE_PREFIX,
+    AsyncMapProvider,
+    MapCapabilities,
+    MapFormat,
+    MapLimits,
+)
 from app.pygeoapi.map_contract import iter_native_map_definitions
 
 logger = create_logger("app.pygeoapi.map_limits")
+
+_OGC_CRS_URIS = ("http://www.opengis.net/def/crs/", "https://www.opengis.net/def/crs/")
 
 
 @dataclass(frozen=True)
@@ -149,6 +159,80 @@ def collect_native_map_capabilities(config: dict[str, Any]) -> dict[str, MapCapa
         is left out, as in :func:`collect_native_map_limits`.
     """
     return {name: provider.capabilities for name, _, provider in _iter_native_map_providers(config)}
+
+
+def derive_map_conformance(capabilities: MapCapabilities) -> tuple[str, ...]:
+    """Derive the OGC API - Maps classes the route passes with a provider's capabilities.
+
+    Parameters
+    ----------
+    capabilities
+        The capabilities of a native map provider.
+
+    Returns
+    -------
+    tuple of str
+        ``core``, ``collection-map`` and the class of each encoding the
+        provider draws.
+    """
+    # scaling, spatial-subsetting, background and crs stay out until the route reads
+    # scale-denominator, center, a spatial subset, bgcolor and void-color, and until
+    # the collection description lists the CRSs.
+    encodings = tuple(MapFormat(format_).conformance_class for format_ in capabilities.formats)
+    return (
+        f"{MAPS_CONFORMANCE_PREFIX}/core",
+        f"{MAPS_CONFORMANCE_PREFIX}/collection-map",
+        *encodings,
+    )
+
+
+def find_map_capability_problem(config: dict[str, Any]) -> tuple[str, str] | None:
+    """Find the first native map provider whose capabilities fall outside the standard.
+
+    A format must be one of :class:`~app.interfaces.providers.MapFormat`,
+    and a CRS an OGC CRS URI that pyproj knows. A provider that does not
+    load is left out, as in :func:`collect_native_map_limits`.
+
+    Parameters
+    ----------
+    config
+        The pygeoapi configuration.
+
+    Returns
+    -------
+    tuple of (str, str) or None
+        The provider's place in the configuration, as
+        ``resources.<name>.providers.<index>``, and a message that names
+        the class and the capability; None when every capability is valid.
+    """
+    for name, index, definition, _ in iter_native_map_definitions(config):
+        try:
+            provider = pygeoapi_plugin.load_plugin("provider", definition)
+        except (KeyError, ProviderTypeError, ProviderGenericError):
+            continue
+        capabilities = getattr(provider, "capabilities", None)
+        if not isinstance(capabilities, MapCapabilities):
+            continue
+        where = f"resources.{name}.providers.{index}"
+        cls = definition.get("name")
+        for format_ in capabilities.formats:
+            if format_ not in set(MapFormat):
+                return where, f"{cls} draws {format_}, which is not a format of OGC API - Maps"
+        for crs in capabilities.crs:
+            if not _is_ogc_crs_uri(crs):
+                return where, f"{cls} names the CRS {crs}, which is not an OGC CRS URI"
+    return None
+
+
+def _is_ogc_crs_uri(value: str) -> bool:
+    """Tell whether ``value`` is an OGC CRS URI that pyproj knows."""
+    if not str(value).startswith(_OGC_CRS_URIS):
+        return False
+    try:
+        CRS.from_user_input(value)
+    except CRSError:
+        return False
+    return True
 
 
 def choose_default_map_crs(provider_def: dict[str, Any], capabilities: MapCapabilities) -> str:
