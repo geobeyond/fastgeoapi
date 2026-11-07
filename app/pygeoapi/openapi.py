@@ -22,7 +22,7 @@ from pygeoapi.openapi import generate_openapi_document as _upstream_generate_ope
 
 from app.auth.models import unauthorized
 from app.config.logging import create_logger
-from app.interfaces.providers import MapCapabilities, MapLimits
+from app.interfaces.providers import MapCapabilities, MapFormat, MapLimits
 from app.pygeoapi.map_limits import MapCeiling, choose_default_map_crs
 from app.pygeoapi.models import not_found
 
@@ -593,9 +593,10 @@ def fix_map_operations(
             _publish_parameters(operation, resource, provider, capabilities[name])
         if name in limits:
             _publish_sizes(operation, limits[name])
-        mimetype = (provider.get("format") or {}).get("mimetype", "image/png")
         ok = operation.responses.get("200")
-        if isinstance(ok, Response):
+        if name not in capabilities and isinstance(ok, Response):
+            # A native provider's types come from its capabilities; pygeoapi's from the config.
+            mimetype = (provider.get("format") or {}).get("mimetype", "image/png")
             ok.content = {mimetype: MediaType()}
         styles = ((provider.get("options") or {}).get("styles")) or {}
         target = f"/collections/{name}/styles/{{styleId}}/map"
@@ -619,6 +620,23 @@ def fix_map_operations(
                 )
             )
     return openapi
+
+
+def _publish_map_media_types(operation: Operation, capabilities: MapCapabilities) -> None:
+    """List the media type of every format the provider draws in the map's 200 response.
+
+    Parameters
+    ----------
+    operation
+        The map operation of a collection.
+    capabilities
+        The capabilities of its native map provider.
+    """
+    ok = (operation.responses or {}).get("200")
+    if isinstance(ok, Response):
+        ok.content = {
+            MapFormat(format_).media_type: MediaType() for format_ in capabilities.formats
+        }
 
 
 def _publish_parameters(
@@ -655,6 +673,7 @@ def _publish_parameters(
             choose_default_map_crs(provider_def, capabilities),
         )
     )
+    _publish_map_media_types(operation, capabilities)
     if "temporal" in extents:
         published.append(
             Parameter(

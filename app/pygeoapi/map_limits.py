@@ -261,7 +261,28 @@ def choose_default_map_crs(provider_def: dict[str, Any], capabilities: MapCapabi
 def _iter_native_map_providers(
     config: dict[str, Any],
 ) -> Iterator[tuple[str, dict, AsyncMapProvider]]:
-    for name, _, definition, _ in iter_native_map_definitions(config):
+    """Load the map provider the route serves for each collection, when it is native.
+
+    The route serves a collection's first map provider, so a later one is
+    left out even when it is native.
+
+    Parameters
+    ----------
+    config
+        The pygeoapi configuration.
+
+    Yields
+    ------
+    tuple of (str, dict, AsyncMapProvider)
+        The collection's name, the provider's definition and the provider.
+    """
+    for name, index, definition, _ in iter_native_map_definitions(config):
+        providers = config["resources"][name].get("providers") or []
+        first = next(
+            i for i, p in enumerate(providers) if isinstance(p, dict) and p.get("type") == "map"
+        )
+        if index != first:
+            continue
         try:
             provider = pygeoapi_plugin.load_plugin("provider", definition)
         except (KeyError, ProviderTypeError, ProviderGenericError):

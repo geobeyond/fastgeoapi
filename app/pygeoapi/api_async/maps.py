@@ -25,7 +25,7 @@ from pygeoapi.provider.base import (
 )
 from pygeoapi.util import filter_dict_by_key_value, get_from_headers
 
-from app.interfaces.providers import AsyncMapProvider
+from app.interfaces.providers import AsyncMapProvider, MapFormat
 from app.provider.maps import MapParameterError
 from app.pygeoapi.api_async.caching import (
     HttpCache,
@@ -136,8 +136,9 @@ async def get_collection_map(
 
     cached = await get_cache_headers(http_cache, provider, dataset, "map", arguments, headers)
     asked = get_from_headers(request.headers, "if-none-match")
+    media_type = MapFormat(parameters.format_).media_type
     if cached and is_not_modified(asked, cached["ETag"]):
-        headers["Content-Type"] = collection_def["format"]["mimetype"]
+        headers["Content-Type"] = media_type
         return answer_not_modified(headers, cached)
 
     try:
@@ -165,7 +166,7 @@ async def get_collection_map(
     datetime_ = format_content_datetime(api.config["resources"][dataset]["extents"])
     if datetime_ is not None:
         headers["Content-Datetime"] = datetime_
-    headers["Content-Type"] = collection_def["format"]["mimetype"]
+    headers["Content-Type"] = media_type
     headers.update(cached)
     return headers, HTTPStatus.OK, data
 
