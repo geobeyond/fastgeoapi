@@ -41,7 +41,7 @@ async def test_an_elevation_archive_is_shaded_by_the_real_renderer(tmp_path):
     archive = terrarium_archive(tmp_path / "terrain.pmtiles")
     provider = MapLibreMapProvider(map_provider(archive, renderer=REAL, dem="terrarium"))
     try:
-        png = await provider.aquery(
+        png = await provider.arender_map(
             bbox=AROUND_THE_CONE, width=256, height=256, crs=WEB_MERCATOR, transparent=False
         )
     finally:
