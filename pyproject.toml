@@ -69,7 +69,7 @@ fastgeoapi = "app.editor.inspect:validation_problems"
 
 [project.optional-dependencies]
 geoparquet = [
-    "duckdb>=1.5,<2",
+    "duckdb>=2.1.0.dev0,<3",
     # obstore ships `obstore.fsspec` but declares neither an `fsspec`
     # extra nor the dependency: `obstore[fsspec]` installs nothing.
     "fsspec>=2024.6",
