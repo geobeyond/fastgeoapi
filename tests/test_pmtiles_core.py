@@ -9,11 +9,11 @@ from pygeoapi.provider.base import ProviderQueryError
 from app.provider.pmtiles import (
     HEADER_LENGTH,
     LeafCache,
+    get_zoom_limits,
     inflate,
     locate,
     open_archive,
     read_tile,
-    zoom_limits,
 )
 from app.provider.sansio import drive, drive_sync
 from tests.pmtiles_fixtures import TILE_BYTES, leafy_archive, write_archive
@@ -59,7 +59,7 @@ def test_opening_costs_three_reads_and_the_first_is_the_header(small):
     assert small.reads[0] == (0, HEADER_LENGTH)
     assert len(small.reads) == 3
     assert archive.metadata["name"] == "small"
-    assert zoom_limits(archive) == (0, 2)
+    assert get_zoom_limits(archive) == (0, 2)
 
 
 def test_a_present_tile_is_one_read_once_the_root_is_known(small):

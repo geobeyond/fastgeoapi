@@ -6,11 +6,15 @@ would take — LocalStore and bucket differ only in credentials.
 """
 
 import re
+from unittest.mock import patch
 
 import pytest
-from pygeoapi.provider.base import BaseProvider
+from loguru import logger
+from pygeoapi.provider.base import BaseProvider, ProviderItemNotFoundError
 
 from app.interfaces import AsyncFeatureProvider
+from app.provider import geoparquet as geoparquet_module
+from app.provider import id_index as id_index_module
 from app.provider.base import AsyncProviderMixin, async_view
 from app.provider.duckdb_ import connect
 from app.provider.geoparquet import GeoParquetProvider
@@ -600,3 +604,479 @@ def test_the_provider_module_imports_without_duckdb():
     )  # nosec B603
 
     assert result.returncode == 0, result.stderr[-300:]
+
+
+def _two_schemas(root) -> str:
+    """A dataset of two files, the second with a column the first lacks."""
+    con = connect(str(root))
+    con.execute(f"COPY (SELECT 1 AS id, ST_Point(12.5, 41.9) AS geom) TO '{root}/a.parquet'")
+    con.execute(
+        f"COPY (SELECT 2 AS id, ST_Point(9.2, 45.5) AS geom, 'x' AS extra) TO '{root}/b.parquet'"
+    )
+    return f"{root}/*.parquet"
+
+
+@pytest.mark.parametrize(("union_by_name", "has_extra"), [(None, True), (False, False)])
+def test_union_by_name_decides_where_the_schema_comes_from(tmp_path, union_by_name, has_extra):
+    definition = {
+        "name": "app.provider.geoparquet.GeoParquetProvider",
+        "type": "feature",
+        "data": _two_schemas(tmp_path),
+        "id_field": "id",
+        "geometry_column": "geom",
+    }
+    if union_by_name is not None:
+        definition["union_by_name"] = union_by_name
+
+    provider = GeoParquetProvider(definition)
+
+    assert ("extra" in provider.get_fields()) is has_extra
+
+
+@pytest.fixture
+def indexed(tmp_path):
+    """Three one-point files in boxes that do not touch, and their stac-geoparquet index."""
+    con = connect(str(tmp_path))
+    boxes = {"a": (0.0, 0.0), "b": (10.0, 10.0), "c": (20.0, 20.0)}
+    for number, (name, (x, y)) in enumerate(boxes.items(), start=1):
+        con.execute(
+            f"COPY (SELECT {number} AS id, ST_Point({x + 0.5}, {y + 0.5}) AS geom)"
+            f" TO '{tmp_path}/{name}.parquet' (FORMAT parquet)"
+        )
+    rows = " UNION ALL ".join(
+        f"SELECT '{name}' AS id, {{'xmin': {x}, 'ymin': {y}, 'xmax': {x + 1}, 'ymax': {y + 1}}} AS bbox,"
+        f" {{'data': {{'href': '../{name}.parquet'}}}} AS assets"
+        for name, (x, y) in boxes.items()
+    )
+    # Beside the data the glob would read the index too, so it gets a folder of its own.
+    (tmp_path / "meta").mkdir()
+    con.execute(f"COPY ({rows}) TO '{tmp_path}/meta/index.parquet' (FORMAT parquet)")
+    return tmp_path
+
+
+def _indexed_provider(root, **extra) -> GeoParquetProvider:
+    return GeoParquetProvider(
+        {
+            "name": "app.provider.geoparquet.GeoParquetProvider",
+            "type": "feature",
+            "data": f"{root}/*.parquet",
+            "id_field": "id",
+            "geometry_column": "geom",
+            "union_by_name": False,
+            "file_index": f"{root}/meta/index.parquet",
+            **extra,
+        }
+    )
+
+
+def test_a_request_reads_only_the_files_its_bbox_meets(indexed):
+    provider = _indexed_provider(indexed)
+    (indexed / "c.parquet").write_bytes(b"not parquet")
+
+    result = provider.query(bbox=[0, 0, 1, 1])
+
+    assert [feature["id"] for feature in result["features"]] == [1]
+
+
+def test_a_bbox_that_meets_no_file_answers_zero_features(indexed):
+    provider = _indexed_provider(indexed)
+
+    result = provider.query(bbox=[50, 50, 51, 51])
+
+    assert result["features"] == []
+    assert result["numberMatched"] == 0
+
+
+def test_count_and_rows_read_the_same_files(indexed):
+    provider = _indexed_provider(indexed)
+
+    result = provider.query(bbox=[0, 0, 11, 11], limit=1, offset=1)
+
+    assert result["numberMatched"] == 2
+    assert result["numberReturned"] == 1
+
+
+def test_without_bbox_the_index_answers_as_the_glob(indexed):
+    provider = _indexed_provider(indexed)
+    glob = _indexed_provider(indexed, file_index=None)
+
+    assert provider.query(limit=10)["features"] == glob.query(limit=10)["features"]
+
+
+def test_get_finds_an_id_in_any_file(indexed):
+    provider = _indexed_provider(indexed)
+
+    assert provider.get(3)["id"] == 3
+
+
+def test_a_missing_index_falls_back_to_the_glob_with_a_warning(indexed):
+    messages: list[str] = []
+    sink = logger.add(lambda message: messages.append(str(message)), level="WARNING")
+    try:
+        provider = _indexed_provider(indexed, file_index=f"{indexed}/meta/missing.parquet")
+    finally:
+        logger.remove(sink)
+
+    assert len(provider.query(limit=10)["features"]) == 3
+    assert any("missing.parquet" in message for message in messages)
+
+
+@pytest.fixture
+def counted(tmp_path):
+    """Files of 1, 1, 1 and 2 rows in boxes that do not touch, indexed with their row counts."""
+    con = connect(str(tmp_path))
+    files = {
+        "a": ((0.0, 0.0), 1),
+        "b": ((10.0, 10.0), 1),
+        "c": ((20.0, 20.0), 1),
+        "d": ((30.0, 30.0), 2),
+    }
+    first = 1
+    for name, ((x, y), rows) in files.items():
+        con.execute(
+            f"COPY (SELECT i AS id, ST_Point({x + 0.5}, {y + 0.5}) AS geom"
+            f" FROM range({first}, {first + rows}) t(i))"
+            f" TO '{tmp_path}/{name}.parquet' (FORMAT parquet)"
+        )
+        first += rows
+    index = " UNION ALL ".join(
+        f"SELECT '{name}' AS id, {{'xmin': {x}, 'ymin': {y}, 'xmax': {x + 1}, 'ymax': {y + 1}}} AS bbox,"
+        f" {{'data': {{'href': '../{name}.parquet'}}}} AS assets, {rows}::BIGINT AS \"table:row_count\""
+        for name, ((x, y), rows) in files.items()
+    )
+    (tmp_path / "meta").mkdir()
+    con.execute(f"COPY ({index}) TO '{tmp_path}/meta/index.parquet' (FORMAT parquet)")
+    return tmp_path
+
+
+def _ids(result) -> list[int]:
+    return [feature["id"] for feature in result["features"]]
+
+
+def test_without_filters_the_count_comes_from_the_index(counted):
+    provider = _indexed_provider(counted)
+    (counted / "c.parquet").write_bytes(b"not parquet")
+
+    assert provider.query(limit=1)["numberMatched"] == 5
+    assert provider.query(resulttype="hits")["numberMatched"] == 5
+
+
+def test_a_page_across_two_files_matches_the_glob(counted):
+    provider = _indexed_provider(counted)
+    glob = _indexed_provider(counted, file_index=None)
+
+    assert _ids(provider.query(offset=2, limit=2)) == _ids(glob.query(offset=2, limit=2)) == [3, 4]
+
+
+def test_a_file_without_rows_does_not_shift_the_page(counted):
+    con = connect(str(counted))
+    con.execute(
+        "COPY (SELECT i AS id, ST_Point(10.5, 10.5) AS geom FROM range(0) t(i))"
+        f" TO '{counted}/b.parquet' (FORMAT parquet)"
+    )
+    con.execute(
+        f"COPY (SELECT id, bbox, assets, CASE WHEN id = 'b' THEN 0 ELSE \"table:row_count\" END"
+        f" AS \"table:row_count\" FROM '{counted}/meta/index.parquet')"
+        f" TO '{counted}/meta/index.parquet' (FORMAT parquet)"
+    )
+    provider = _indexed_provider(counted)
+    glob = _indexed_provider(counted, file_index=None)
+
+    for offset in range(4):
+        assert _ids(provider.query(offset=offset, limit=2)) == _ids(
+            glob.query(offset=offset, limit=2)
+        )
+
+
+def test_an_offset_past_the_end_answers_no_feature(counted):
+    result = _indexed_provider(counted).query(offset=50, limit=10)
+
+    assert result["features"] == []
+    assert result["numberMatched"] == 5
+
+
+def test_one_file_without_a_count_counts_as_before(counted):
+    con = connect(str(counted))
+    con.execute(
+        f"COPY (SELECT id, bbox, assets, CASE WHEN id = 'a' THEN NULL ELSE \"table:row_count\" END"
+        f" AS \"table:row_count\" FROM '{counted}/meta/index.parquet')"
+        f" TO '{counted}/meta/index.parquet' (FORMAT parquet)"
+    )
+    provider = _indexed_provider(counted)
+
+    assert provider.query(limit=1)["numberMatched"] == 5
+    (counted / "c.parquet").write_bytes(b"not parquet")
+    # duckdb is imported here: the renderer lane collects this module without it.
+    duckdb = pytest.importorskip("duckdb")
+    with pytest.raises(duckdb.InvalidInputException):
+        provider.query(limit=1)
+
+
+@pytest.mark.parametrize(
+    "request_args",
+    [{"sortby": [{"property": "id", "order": "-"}]}, {"properties": [("id", "1")]}],
+)
+def test_sortby_and_filters_keep_the_full_scan(counted, request_args):
+    provider = _indexed_provider(counted)
+    (counted / "c.parquet").write_bytes(b"not parquet")
+    duckdb = pytest.importorskip("duckdb")
+
+    with pytest.raises(duckdb.InvalidInputException):
+        provider.query(limit=1, **request_args)
+
+
+def test_the_selection_limits_before_it_skips(provider):
+    statements: list[str] = []
+    rows = provider._rows
+
+    def record(sql):
+        statements.append(sql)
+        return rows(sql)
+
+    with patch.object(provider, "_rows", side_effect=record):
+        provider.query(offset=1, limit=1, bbox=[-180, -90, 180, 90])
+
+    assert statements[-1].endswith("LIMIT 2) OFFSET 1")
+
+
+@pytest.mark.parametrize("sortby", [[], [{"property": "pop", "order": "-"}]])
+@pytest.mark.parametrize("offset", [0, 1, 2])
+def test_the_nested_selection_returns_the_same_rows(provider, sortby, offset):
+    order = " ORDER BY pop DESC" if sortby else ""
+    expected = [
+        row[0]
+        for row in provider._rows(f"SELECT id FROM {provider._scan}{order} LIMIT 1 OFFSET {offset}")
+    ]
+
+    result = provider.query(offset=offset, limit=1, sortby=sortby, bbox=[-180, -90, 180, 90])
+
+    assert [feature["id"] for feature in result["features"]] == expected
+
+
+def test_a_page_of_files_without_a_column_of_the_first_reads_it_as_null(tmp_path):
+    con = connect(str(tmp_path))
+    con.execute(
+        "COPY (SELECT 1 AS id, 'x' AS extra, ST_Point(0.5, 0.5) AS geom)"
+        f" TO '{tmp_path}/s0.parquet' (FORMAT parquet)"
+    )
+    con.execute(
+        f"COPY (SELECT 2 AS id, ST_Point(10.5, 10.5) AS geom) TO '{tmp_path}/s1.parquet' (FORMAT parquet)"
+    )
+    index = " UNION ALL ".join(
+        f"SELECT '{name}' AS id, {{'xmin': {x}, 'ymin': {x}, 'xmax': {x + 1}, 'ymax': {x + 1}}} AS bbox,"
+        f" {{'data': {{'href': '../{name}.parquet'}}}} AS assets, 1::BIGINT AS \"table:row_count\""
+        for name, x in (("s0", 0), ("s1", 10))
+    )
+    (tmp_path / "meta").mkdir()
+    con.execute(f"COPY ({index}) TO '{tmp_path}/meta/index.parquet' (FORMAT parquet)")
+    provider = _indexed_provider(tmp_path, union_by_name=True)
+
+    (feature,) = provider.query(offset=1, limit=1)["features"]
+
+    assert feature["id"] == 2
+    assert feature["properties"]["extra"] is None
+
+
+def _write_id_index(root, rows, bbox_type="DOUBLE") -> dict:
+    """An id index in the registry form, text ids with a path and a bbox, and its mapping."""
+    t = bbox_type
+    selects = " UNION ALL ".join(
+        f"SELECT '{identifier}' AS id, {'NULL' if path is None else repr(path)} AS path,"
+        f" {{'xmin': {x}::{t}, 'xmax': {x}::{t}, 'ymin': {y}::{t}, 'ymax': {y}::{t}}}"
+        " AS bbox"
+        for identifier, path, (x, y) in rows
+    )
+    (root / "registry").mkdir(exist_ok=True)
+    connect(str(root)).execute(
+        f"COPY ({selects} ORDER BY id) TO '{root}/registry/ids.parquet' (FORMAT parquet)"
+    )
+    return {
+        "type": "retrieved",
+        "location": f"{root}/registry/*.parquet",
+        "columns": {"id": "id", "path": "path", "bbox": "bbox"},
+        "href_base": str(root),
+    }
+
+
+@pytest.fixture
+def id_indexed(indexed):
+    """The three files of ``indexed`` and an id index that places each id in its file."""
+    rows = [("1", "a.parquet", (0.5, 0.5)), ("2", "b.parquet", (10.5, 10.5))]
+    rows.append(("3", "c.parquet", (20.5, 20.5)))
+    return indexed, _write_id_index(indexed, rows)
+
+
+def _spy_on_the_lookup():
+    return patch.object(
+        geoparquet_module, "look_up_id", wraps=id_index_module.look_up_id, create=True
+    )
+
+
+@pytest.mark.parametrize("identifier", ["2", 2])
+def test_get_reads_only_the_file_the_id_index_names(id_indexed, identifier):
+    root, id_index = id_indexed
+    provider = _indexed_provider(root, id_index=id_index)
+    (root / "a.parquet").write_bytes(b"not parquet")
+    (root / "c.parquet").write_bytes(b"not parquet")
+
+    assert provider.get(identifier)["id"] == 2
+
+
+def test_an_id_the_index_does_not_have_answers_404_without_reading_data(id_indexed):
+    root, id_index = id_indexed
+    provider = _indexed_provider(root, id_index=id_index)
+    for name in ("a", "b", "c"):
+        (root / f"{name}.parquet").write_bytes(b"not parquet")
+
+    with pytest.raises(ProviderItemNotFoundError):
+        provider.get(9)
+
+
+def test_a_row_without_a_path_falls_back_to_the_scan(indexed):
+    id_index = _write_id_index(indexed, [("3", None, (20.5, 20.5))])
+    provider = _indexed_provider(indexed, id_index=id_index)
+
+    with _spy_on_the_lookup() as lookups:
+        assert provider.get(3)["id"] == 3
+
+    assert lookups.call_count == 1
+
+
+def test_a_row_outside_the_dataset_falls_back_to_the_scan(indexed):
+    (indexed / "other").mkdir()
+    connect(str(indexed)).execute(
+        "COPY (SELECT 2 AS id, ST_Point(99.5, 99.5) AS geom)"
+        f" TO '{indexed}/other/b.parquet' (FORMAT parquet)"
+    )
+    id_index = _write_id_index(indexed, [("2", "other/b.parquet", (99.5, 99.5))])
+    provider = _indexed_provider(indexed, id_index=id_index)
+
+    with _spy_on_the_lookup() as lookups:
+        feature = provider.get(2)
+
+    assert lookups.call_count == 1
+    assert feature["geometry"]["coordinates"] == [10.5, 10.5]
+
+
+def test_an_unreadable_id_index_falls_back_to_the_scan_with_a_warning(id_indexed):
+    root, id_index = id_indexed
+    (root / "registry" / "ids.parquet").write_bytes(b"not parquet")
+    provider = _indexed_provider(root, id_index=id_index)
+    messages: list[str] = []
+    sink = logger.add(lambda message: messages.append(str(message)), level="WARNING")
+    try:
+        feature = provider.get(3)
+    finally:
+        logger.remove(sink)
+
+    assert feature["id"] == 3
+    assert any("ids.parquet" in message or "registry" in message for message in messages)
+
+
+def test_an_id_with_quotes_is_looked_up_as_a_parameter(id_indexed):
+    root, id_index = id_indexed
+    provider = _indexed_provider(root, id_index=id_index)
+
+    with _spy_on_the_lookup() as lookups, pytest.raises(ProviderItemNotFoundError):
+        provider.get("2' OR '1'='1")
+
+    assert lookups.call_count == 1
+
+
+def test_an_integer_id_matches_a_text_index(id_indexed):
+    root, id_index = id_indexed
+    provider = _indexed_provider(root, id_index=id_index)
+
+    with _spy_on_the_lookup() as lookups:
+        assert provider.get(1)["id"] == 1
+
+    assert lookups.call_args.args[1] == "1"
+
+
+@pytest.fixture
+def covered_points(tmp_path):
+    """Two files of points with a float32 covering column, and an id index of double bboxes."""
+    con = connect(str(tmp_path))
+    for number, x in ((1, 0.7), (2, 10.7)):
+        con.execute(
+            f"COPY (SELECT {number} AS id, ST_Point({x}, {x}) AS geom,"
+            f" {{'xmin': {x}::FLOAT, 'xmax': {x}::FLOAT, 'ymin': {x}::FLOAT, 'ymax': {x}::FLOAT}}"
+            f" AS bbox) TO '{tmp_path}/p{number}.parquet' (FORMAT parquet)"
+        )
+    id_index = _write_id_index(
+        tmp_path, [("1", "p1.parquet", (0.7, 0.7)), ("2", "p2.parquet", (10.7, 10.7))]
+    )
+    return GeoParquetProvider(
+        {
+            "name": "app.provider.geoparquet.GeoParquetProvider",
+            "type": "feature",
+            "data": f"{tmp_path}/*.parquet",
+            "id_field": "id",
+            "geometry_column": "geom",
+            "id_index": id_index,
+        }
+    )
+
+
+def test_the_bbox_of_the_row_prunes_the_file(covered_points):
+    statements: list[str] = []
+    rows = covered_points._rows
+
+    def record(sql, parameters=None):
+        statements.append(sql)
+        return rows(sql, parameters)
+
+    with patch.object(covered_points, "_rows", side_effect=record):
+        covered_points.get(2)
+
+    assert "p2.parquet" in statements[-1]
+    assert "p1.parquet" not in statements[-1]
+    assert '"bbox".xmin <=' in statements[-1]
+
+
+def test_a_float32_covering_still_meets_the_double_bbox_of_the_row(covered_points):
+    # float32(0.7) is 0.699999988, below the double the index holds; the
+    # comparison casts the literal to the column's FLOAT, so they meet.
+    assert covered_points.get(1)["id"] == 1
+
+
+def test_a_row_naming_a_missing_file_falls_back_to_the_scan(indexed):
+    # The glob matches the name, but the file is gone: a registry of another release.
+    id_index = _write_id_index(indexed, [("2", "gone.parquet", (10.5, 10.5))])
+    provider = _indexed_provider(indexed, file_index=None, id_index=id_index)
+
+    assert provider.get(2)["id"] == 2
+
+
+def test_a_row_in_a_subfolder_of_the_glob_falls_back_to_the_scan(indexed):
+    (indexed / "sub").mkdir()
+    connect(str(indexed)).execute(
+        "COPY (SELECT 2 AS id, ST_Point(99.5, 99.5) AS geom)"
+        f" TO '{indexed}/sub/x.parquet' (FORMAT parquet)"
+    )
+    id_index = _write_id_index(indexed, [("2", "sub/x.parquet", (99.5, 99.5))])
+    provider = _indexed_provider(indexed, file_index=None, id_index=id_index)
+
+    assert provider.get(2)["geometry"]["coordinates"] == [10.5, 10.5]
+
+
+def test_a_float32_index_bbox_still_finds_a_double_covering(tmp_path):
+    connect(str(tmp_path)).execute(
+        "COPY (SELECT 1 AS id, ST_Point(0.7, 0.7) AS geom,"
+        " {'xmin': 0.7::DOUBLE, 'xmax': 0.7::DOUBLE, 'ymin': 0.7::DOUBLE, 'ymax': 0.7::DOUBLE}"
+        f" AS bbox) TO '{tmp_path}/p1.parquet' (FORMAT parquet)"
+    )
+    # float32(0.7) is 0.699999988: a box rounded to nearest, below the double.
+    id_index = _write_id_index(tmp_path, [("1", "p1.parquet", (0.7, 0.7))], bbox_type="FLOAT")
+    provider = GeoParquetProvider(
+        {
+            "name": "app.provider.geoparquet.GeoParquetProvider",
+            "type": "feature",
+            "data": f"{tmp_path}/*.parquet",
+            "id_field": "id",
+            "geometry_column": "geom",
+            "id_index": id_index,
+        }
+    )
+
+    assert provider.get(1)["id"] == 1

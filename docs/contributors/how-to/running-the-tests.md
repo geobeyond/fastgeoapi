@@ -19,6 +19,33 @@ uv run nox -s models-check  # the generated config models are current
 uv run nox -s docs-build   # the site, in strict mode
 ```
 
+## The OGC schemas
+
+The tests in `tests/conformance` build the sub-app of
+`pygeoapi-config.yml` and of `pygeoapi-config.demo.yml` in process and
+validate the JSON they return against the official OGC schemas. The
+schemas, and the validator, come from xpublish-ogc-core, which only the
+`conformance` dependency group installs. The demo also needs the
+`geoparquet` and `pmtiles` extras, without which its OpenAPI document
+cannot be built:
+
+```bash
+uv sync --group conformance --extra geoparquet --extra pmtiles
+uv run pytest tests/conformance
+```
+
+Without the group the folder is skipped, which is what happens in the
+`tests` and `typeguard` sessions. CI runs it in a lane of its own:
+
+```bash
+uv run nox -s conformance
+```
+
+Building the demo's document reads the schema of its remote Parquet
+datasets, so its cases need the network, though no credentials. When
+that data cannot be read, because the network is down or a release has
+left the bucket, they are skipped with the error as the reason.
+
 ## The frontend
 
 The editor's page and the scripts of the HTML pages share a suite, and it

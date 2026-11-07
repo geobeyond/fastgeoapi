@@ -23,7 +23,7 @@ from pathlib import Path
 from app.config.logging import create_logger
 from app.provider.duckdb_ import connect, protocol_for
 from app.provider.storage import load_store, split_source
-from app.provider.storage.cache import default_cache_base_dir, digest
+from app.provider.storage.cache import digest, get_default_cache_base_dir
 
 logger = create_logger("app.provider.geoparquet_schema")
 
@@ -32,7 +32,7 @@ _ENVIRONMENT_ENDPOINTS = ("AWS_ENDPOINT_URL_S3", "AWS_ENDPOINT_URL")
 
 def schema_cache_dir() -> Path | None:
     """Where schemas are kept: ``schemas`` under fastgeoapi's cache root, or nowhere."""
-    base = default_cache_base_dir()
+    base = get_default_cache_base_dir()
     return None if base is None else base / "schemas"
 
 
@@ -72,7 +72,9 @@ def _objects(data: str, options: dict) -> tuple[dict[str, str | None], list[str]
         return {key: meta.etag}, [data]
     base = data if data.endswith("/") else f"{data}/"
     entries = [
-        entry for entry in load_store(base, options).entries() if entry.path.endswith(".parquet")
+        entry
+        for entry in load_store(base, options).list_entries()
+        if entry.path.endswith(".parquet")
     ]
     if not entries:
         raise ValueError("no parquet objects")

@@ -1,3 +1,5 @@
+# `spectral:oas` is the name OpenLint 1.0.0 knows for its OpenAPI ruleset;
+# the `openlint:openapi` of its README comes with a later release.
 extends: ["spectral:oas"]
 rules:
   no-$ref-siblings: off

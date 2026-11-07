@@ -1,0 +1,4 @@
+These JSON Schemas are copied unchanged from rashid, the Portolan validator
+(https://github.com/portolan-sdi/rashid, Apache-2.0). rashid copies them from
+the STAC specification, the STAC extensions and the Portolan specification,
+each under the license of its own project.

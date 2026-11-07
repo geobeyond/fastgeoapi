@@ -77,11 +77,13 @@ def _install_project(session: Session) -> None:
             "sync",
             "--extra",
             "html",
+            "--extra",
+            "portolan",
             env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
         )
     else:
         # Use pip install for release (PyPI versions)
-        session.install(".", "./packages/fastgeoapi-html")
+        session.install(".", "./packages/fastgeoapi-html", "./packages/fastgeoapi-portolan")
 
 
 nox.options.sessions = [
@@ -166,6 +168,11 @@ def safety(session: Session) -> None:
     Requires SAFETY_API_KEY environment variable to be set.
     Get a free API key at https://safetycli.com
     """
+    # Empty on pull requests from forks, which GitHub gives no secrets: skip
+    # before installing anything, as safety would only stop at a login prompt
+    key = os.environ.get("SAFETY_API_KEY")
+    if not key:
+        session.skip("SAFETY_API_KEY is not set: skipping safety scan")
     _install_project(session)
     # safety is deliberately NOT in the dev dependency-group: inside the
     # project's resolution universe its typer caps (3.3+ wants
@@ -183,15 +190,7 @@ def safety(session: Session) -> None:
     # unlocked venv does. Pin here, in the tool venv only, until safety
     # moves to httpx2 (tracked in .claude/TODO.md).
     session.install("safety>=3.8,<4", "typer>=0.16,<0.26", "authlib<1.8")
-    # Build command with API key if available
-    cmd = ["safety"]
-    if "SAFETY_API_KEY" in os.environ:
-        cmd.extend(["--key", os.environ["SAFETY_API_KEY"]])
-    else:
-        session.warn(
-            "SAFETY_API_KEY not set. Running locally may prompt for confirmation. "
-            "Set the environment variable or run: safety auth login"
-        )
+    cmd = ["safety", "--key", key]
     # Use explicit `--output screen` (a string from the CLI Choice) instead of
     # `--detailed-output`. `--detailed-output` leaves `--output` at its enum
     # default `ScanOutput.SCREEN`, which safety 3.8.x then fails to validate
@@ -229,7 +228,7 @@ def models(session: Session) -> None:
     # can write the same models in another form, which would fail the check
     # on branches that change nothing of the kind. Upgrade it on purpose,
     # with the regenerated module in the same change.
-    session.install("datamodel-code-generator==0.85.0")
+    session.install("datamodel-code-generator==0.87.0")
     session.install(".")
     session.run("python", "scripts/generate_config_models.py", *session.posargs)
 
@@ -248,9 +247,28 @@ def models_check(session: Session) -> None:
     schema could notice.
     """
     # The version `models` pins: see the comment there.
-    session.install("datamodel-code-generator==0.85.0")
+    session.install("datamodel-code-generator==0.87.0")
     session.install(".")
     session.run("python", "scripts/generate_config_models.py", "--check")
+
+
+@session(name="portolan-types", python="3.12")
+def portolan_types(session: Session) -> None:
+    """Regenerate the document types of the Portolan reader from its bundled schemas.
+
+    The `http` extra resolves the draft-07 meta-schema the STAC schemas
+    reference; only generation goes to the network, the reader never does.
+    """
+    # The version `models` pins: see the comment there.
+    session.install("datamodel-code-generator[http]==0.87.0")
+    session.run("python", "packages/fastgeoapi-portolan/scripts/generate_types.py")
+
+
+@session(name="portolan-types-check", python="3.12")
+def portolan_types_check(session: Session) -> None:
+    """Fail when the committed types of the Portolan reader no longer match its schemas."""
+    session.install("datamodel-code-generator[http]==0.87.0")
+    session.run("python", "packages/fastgeoapi-portolan/scripts/generate_types.py", "--check")
 
 
 @session(python=python_versions)
@@ -270,6 +288,8 @@ def ty(session: Session) -> None:
         # The OGC conformance validator for `tests/test_ogc_conformance_local.py`
         # in the `dev` group, which these sessions do not install.
         "ogcapi-registry==0.4.0",
+        # The generator that tests/test_generate_api_reference.py imports.
+        "mkdocs-openapi>=0.3.3",
         "ty",
         "pytest",
         "schemathesis>=4.26",
@@ -277,11 +297,6 @@ def ty(session: Session) -> None:
         # Mirror the `tests` session test deps so ty can resolve imports
         # in tests/test_mcp_oauth_e2e.py (pytest-iam pulls in portpicker).
         "pytest-iam",
-        "canaille[sqlite]",
-        # joserfc >= 1.7 rejects canaille's signing key ("Invalid key_op
-        # 'sign' for public key") and 500s the test IdP token endpoint;
-        # pin until the canaille/joserfc incompatibility is fixed upstream.
-        "joserfc>=1.6,<1.7",
         "faker",
         # The `geoparquet` extra: the suite imports the provider directly,
         # so both lanes need the engine and obstore's fsspec layer (the
@@ -315,17 +330,14 @@ def tests(session: Session) -> None:
         # The OGC conformance validator for `tests/test_ogc_conformance_local.py`
         # in the `dev` group, which these sessions do not install.
         "ogcapi-registry==0.4.0",
+        # The generator that tests/test_generate_api_reference.py imports.
+        "mkdocs-openapi>=0.3.3",
         "coverage[toml]",
         "pytest",
         "pygments",
         "schemathesis>=4.26",
         "pytest-asyncio",
         "pytest-iam",
-        "canaille[sqlite]",
-        # joserfc >= 1.7 rejects canaille's signing key ("Invalid key_op
-        # 'sign' for public key") and 500s the test IdP token endpoint;
-        # pin until the canaille/joserfc incompatibility is fixed upstream.
-        "joserfc>=1.6,<1.7",
         "faker",
         # The `geoparquet` extra: the suite imports the provider directly,
         # so both lanes need the engine and obstore's fsspec layer (the
@@ -374,17 +386,14 @@ def typeguard(session: Session) -> None:
         # The OGC conformance validator for `tests/test_ogc_conformance_local.py`
         # in the `dev` group, which these sessions do not install.
         "ogcapi-registry==0.4.0",
+        # The generator that tests/test_generate_api_reference.py imports.
+        "mkdocs-openapi>=0.3.3",
         "pytest",
         "typeguard",
         "pygments",
         "schemathesis>=4.26",
         "pytest-asyncio",
         "pytest-iam",
-        "canaille[sqlite]",
-        # joserfc >= 1.7 rejects canaille's signing key ("Invalid key_op
-        # 'sign' for public key") and 500s the test IdP token endpoint;
-        # pin until the canaille/joserfc incompatibility is fixed upstream.
-        "joserfc>=1.6,<1.7",
         "faker",
         # The `geoparquet` extra: the suite imports the provider directly,
         # so both lanes need the engine and obstore's fsspec layer (the
@@ -426,6 +435,62 @@ def maps(session: Session) -> None:
 
 
 @session(python=python_versions)
+def conformance(session: Session) -> None:
+    """Validate the responses against the official OGC schemas."""
+    # The demo configuration names the GeoParquet and PMTiles providers, and
+    # its OpenAPI document cannot be built without them.
+    session.run_install(
+        "uv",
+        "sync",
+        "--group",
+        "conformance",
+        "--extra",
+        "geoparquet",
+        "--extra",
+        "pmtiles",
+        env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
+    )
+    session.run("pytest", "tests/conformance", "-rs", *session.posargs)
+
+
+@session(python=["3.11", "3.12"])
+def portolan(session: Session) -> None:
+    """Run the tests of the package that ingests Portolan catalogs."""
+    # The package supports Python 3.11 for the users of portolan-cli, so its
+    # lane runs there as well; fastgeoapi itself needs 3.12.
+    session.install(
+        # With its Pydantic models, so their round trip runs on both Pythons.
+        "./packages/fastgeoapi-portolan[models]",
+        # The plugin tests run the command through portolan-cli. Its command
+        # plugins exist only on its main branch, so the session installs a
+        # commit from there until a release ships them.
+        "portolan-cli @ git+https://github.com/portolan-sdi/portolan-cli@eaca65b1576b7a1f1808a6d0c5b5a7ac1bdbd3c7",
+        "pytest",
+        "pytest-asyncio",
+        "ministack>=1.5,<2",
+        "boto3>=1.35",
+        "duckdb>=1.5,<2",
+        # The reference reader reads back the file index the ingest writes.
+        "stac-geoparquet>=0.8,<0.9",
+        "pyarrow>=17",
+    )
+    session.chdir("packages/fastgeoapi-portolan")
+    session.run("pytest", *session.posargs)
+
+
+@session(name="portolan-rashid", python=["3.11", "3.12"])
+def portolan_rashid(session: Session) -> None:
+    """Check the conformance kit against rashid, the Portolan validator."""
+    # portolan-cli 0.8 pins rashid below 0.2, and the schemas come from 0.3,
+    # so the comparison runs without portolan-cli.
+    session.install(
+        "./packages/fastgeoapi-portolan", "rashid>=0.3,<0.4", "pytest", "pytest-asyncio"
+    )
+    session.chdir("packages/fastgeoapi-portolan")
+    session.run("pytest", "tests/test_rashid_agreement.py", *session.posargs)
+
+
+@session(python=python_versions)
 def xdoctest(session: Session) -> None:
     """Run examples with xdoctest."""
     if session.posargs:
@@ -444,7 +509,13 @@ def xdoctest(session: Session) -> None:
 #: replaced Material for MkDocs and most of its plugins with settings of
 #: its own; what is left is the API reference handler and the terminal
 #: animation, both of which it reads as extensions.
-DOCS_DEPENDENCIES = ("zensical>=0.0.58", "mkdocstrings-python", "termynal")
+DOCS_DEPENDENCIES = (
+    "zensical>=0.0.58",
+    "mkdocstrings-python",
+    "termynal",
+    # Its generator writes the API reference pages; Zensical does not run it as a plugin.
+    "mkdocs-openapi>=0.3.3",
+)
 
 
 @session(name="docs-build", python="3.12")
@@ -462,6 +533,7 @@ def docs_build(session: Session) -> None:
     if build_dir.exists():
         shutil.rmtree(build_dir)
 
+    session.run("python", "scripts/generate_api_reference.py")
     session.run("python", "-m", "zensical", "build", *args)
 
 
@@ -476,4 +548,5 @@ def docs(session: Session) -> None:
     if build_dir.exists():
         shutil.rmtree(build_dir)
 
+    session.run("python", "scripts/generate_api_reference.py")
     session.run("python", "-m", "zensical", "serve", *args)

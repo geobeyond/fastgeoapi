@@ -10,12 +10,15 @@ inside a test would bind a SECOND ``DuckDBUnavailableError`` class and
 ``pytest.raises`` would not catch the one ``connect`` actually raises.
 """
 
+import sys
+
 import pytest
 
 from app.provider.duckdb_ import (
     _CLOUD_SCHEMES,
     DuckDBUnavailableError,
     connect,
+    load_duckdb,
     protocol_for,
     scan_expression,
 )
@@ -421,3 +424,51 @@ def test_the_obstore_bridge_stays_available_as_a_fallback():
 def test_local_sources_need_no_reader_configuration(tmp_path):
     con = connect(str(tmp_path))
     assert con.execute("SELECT count(*) FROM duckdb_secrets()").fetchone()[0] == 0
+
+
+def _write_two_schemas(root) -> str:
+    """Two files of one dataset, the second with a column the first lacks."""
+    con = connect(str(root))
+    (root / "two").mkdir()
+    con.execute(f"COPY (SELECT 1 AS id, ST_Point(12.5, 41.9) AS geom) TO '{root}/two/a.parquet'")
+    con.execute(
+        f"COPY (SELECT 2 AS id, ST_Point(9.2, 45.5) AS geom, 'x' AS extra)"
+        f" TO '{root}/two/b.parquet'"
+    )
+    return f"{root}/two/*.parquet"
+
+
+def test_scan_expression_unions_the_schemas_of_the_files_by_default(tmp_path):
+    dataset = _write_two_schemas(tmp_path)
+    con = connect(dataset)
+
+    columns = [
+        row[0]
+        for row in con.execute(f"DESCRIBE SELECT * FROM {scan_expression(dataset)}").fetchall()
+    ]
+
+    assert "extra" in columns
+
+
+def test_scan_expression_can_take_the_schema_of_the_first_file(tmp_path):
+    dataset = _write_two_schemas(tmp_path)
+    con = connect(dataset)
+    scan = scan_expression(dataset, union_by_name=False)
+
+    columns = [row[0] for row in con.execute(f"DESCRIBE SELECT * FROM {scan}").fetchall()]
+
+    assert "extra" not in columns
+
+
+def test_load_duckdb_gives_the_module():
+    duckdb = pytest.importorskip("duckdb")
+
+    assert load_duckdb() is duckdb
+
+
+def test_without_duckdb_the_error_names_the_extra(monkeypatch):
+    # None in sys.modules makes `import duckdb` raise ImportError.
+    monkeypatch.setitem(sys.modules, "duckdb", None)
+
+    with pytest.raises(DuckDBUnavailableError, match="geoparquet"):
+        load_duckdb()

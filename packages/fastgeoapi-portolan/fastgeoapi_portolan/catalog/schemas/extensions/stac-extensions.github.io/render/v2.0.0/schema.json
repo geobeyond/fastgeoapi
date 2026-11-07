@@ -1,0 +1,284 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://stac-extensions.github.io/render/v2.0.0/schema.json#",
+  "title": "Rendering Extension",
+  "description": "STAC Rendering Extension for STAC Items and STAC Collections.",
+  "oneOf": [
+    {
+      "$comment": "This is the schema for STAC Items.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/stac_extensions"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "properties",
+            "assets"
+          ],
+          "properties": {
+            "type": {
+              "const": "Feature"
+            },
+            "properties": {
+              "type": "object",
+              "required": [
+                "renders"
+              ],
+              "properties": {
+                "renders": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/definitions/fields"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "stac_extensions": {
+                "contains": {
+                  "type": "string",
+                  "pattern": "https://stac-extensions\\.github\\.io/web-map-links/.*"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "links": {
+                "type": "array",
+                "contains": {
+                  "type": "object",
+                  "required": [
+                    "rel",
+                    "render"
+                  ],
+                  "properties": {
+                    "render": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "$comment": "This is the schema for STAC Collections.",
+      "type": "object",
+      "allOf": [
+        {
+          "required": [
+            "type",
+            "renders"
+          ],
+          "properties": {
+            "type": {
+              "const": "Collection"
+            }
+          }
+        },
+        {
+          "$ref": "#/definitions/stac_extensions"
+        }
+      ],
+      "anyOf": [
+        {
+          "$comment": "This validates the fields in Collection Assets, but does not require them.",
+          "anyOf": [
+            {
+              "type": "object",
+              "required": [
+                "assets"
+              ]
+            },
+            {
+              "type": "object",
+              "required": [
+                "item_assets"
+              ]
+            }
+          ],
+          "properties": {
+            "renders": {
+              "type": "object",
+              "not": {
+                "additionalProperties": {
+                  "not": {
+                    "allOf": [
+                      {
+                        "$ref": "#/definitions/require_any_field"
+                      },
+                      {
+                        "$ref": "#/definitions/fields"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "definitions": {
+    "stac_extensions": {
+      "type": "object",
+      "required": [
+        "stac_extensions"
+      ],
+      "properties": {
+        "stac_extensions": {
+          "type": "array",
+          "contains": {
+            "const": "https://stac-extensions.github.io/render/v2.0.0/schema.json"
+          }
+        }
+      }
+    },
+    "require_any_field": {
+      "$comment": "Please list all fields here so that we can force the existence of one of them in other parts of the schemas.",
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "assets"
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "title"
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "rescale"
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "nodata"
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "colormap_name"
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "colormap"
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "color_formula"
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "resampling"
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "expression"
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "minmax_zoom"
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "bidx"
+          ]
+        }
+      ]
+    },
+    "fields": {
+      "$comment": "Add your new fields here. Don't require them here, do that above in the corresponding schema.",
+      "type": "object",
+      "required": [
+        "assets"
+      ],
+      "properties": {
+        "assets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "title": {
+          "type": "string"
+        },
+        "rescale": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "nodata": {
+          "type": [
+            "number",
+            "string"
+          ]
+        },
+        "colormap_name": {
+          "type": "string"
+        },
+        "colormap": {
+          "type": "object"
+        },
+        "color_formula": {
+          "type": "string"
+        },
+        "resampling": {
+          "type": "string"
+        },
+        "expression": {
+          "type": [
+            "string",
+            "object",
+            "array"
+          ]
+        },
+        "minmax_zoom": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "bidx": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

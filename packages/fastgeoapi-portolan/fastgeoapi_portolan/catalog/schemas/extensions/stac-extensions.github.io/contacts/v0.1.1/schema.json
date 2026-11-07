@@ -1,0 +1,257 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://stac-extensions.github.io/contacts/v0.1.1/schema.json#",
+  "title": "Contacts Extension",
+  "description": "STAC Contacts Extension for STAC Catalogs, Collections and Items.",
+  "type": "object",
+  "required": [
+    "stac_extensions"
+  ],
+  "properties": {
+    "stac_extensions": {
+      "type": "array",
+      "contains": {
+        "const": "https://stac-extensions.github.io/contacts/v0.1.1/schema.json"
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "$comment": "This is the schema for STAC Items.",
+      "type": "object",
+      "required": [
+        "type",
+        "properties"
+      ],
+      "properties": {
+        "type": {
+          "const": "Feature"
+        },
+        "properties": {
+          "$ref": "#/definitions/fields"
+        }
+      }
+    },
+    {
+      "$comment": "This is the schema for STAC Catalogs.",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "const": "Catalog"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/fields"
+        }
+      ]
+    },
+    {
+      "$comment": "This is the schema for STAC Collections.",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "const": "Collection"
+        }
+      },
+      "anyOf": [
+        {
+          "$ref": "#/definitions/fields"
+        },
+        {
+          "$comment": "This is the schema for the fields in Summaries. By default, only checks the existance of the properties, but not the schema of the summaries.",
+          "required": [
+            "summaries"
+          ],
+          "properties": {
+            "summaries": {
+              "required": [
+                "contacts"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "definitions": {
+    "fields": {
+      "type": "object",
+      "required": [
+        "contacts"
+      ],
+      "properties": {
+        "contacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "identifier": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "positionName": {
+                "type": "string"
+              },
+              "organization": {
+                "type": "string"
+              },
+              "logo": {
+                "allOf": [
+                  {
+                    "$ref": "#/definitions/link"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "rel",
+                      "type"
+                    ],
+                    "properties": {
+                      "rel": {
+                        "const": "icon"
+                      }
+                    }
+                  }
+                ]
+              },
+              "phones": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "value"
+                  ],
+                  "properties": {
+                    "value": {
+                      "type": "string",
+                      "pattern": "^\\+[1-9]{1}[0-9]{3,14}$"
+                    },
+                    "roles": {
+                      "$ref": "#/definitions/roles"
+                    }
+                  }
+                }
+              },
+              "emails": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "value"
+                  ],
+                  "properties": {
+                    "value": {
+                      "type": "string",
+                      "format": "email"
+                    },
+                    "roles": {
+                      "$ref": "#/definitions/roles"
+                    }
+                  }
+                }
+              },
+              "addresses": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "deliveryPoint": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "city": {
+                      "type": "string"
+                    },
+                    "administrativeArea": {
+                      "type": "string"
+                    },
+                    "postalCode": {
+                      "type": "string"
+                    },
+                    "country": {
+                      "type": "string"
+                    },
+                    "roles": {
+                      "$ref": "#/definitions/roles"
+                    }
+                  }
+                }
+              },
+              "links": {
+                "type": "array",
+                "items": {
+                  "allOf": [
+                    {
+                      "$ref": "#/definitions/link"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "type"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "contactInstructions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "roles": {
+                "$ref": "#/definitions/roles"
+              }
+            }
+          }
+        }
+      }
+    },
+    "roles": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "link": {
+      "type": "object",
+      "required": [
+        "rel",
+        "href"
+      ],
+      "properties": {
+        "href": {
+          "type": "string",
+          "format": "iri-reference",
+          "minLength": 1
+        },
+        "rel": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
