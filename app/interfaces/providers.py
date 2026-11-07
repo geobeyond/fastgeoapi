@@ -15,7 +15,11 @@ describe the built instance.
 """
 
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Any, ClassVar, Protocol, runtime_checkable
+
+MAPS_CONFORMANCE_PREFIX = "http://www.opengis.net/spec/ogcapi-maps-1/1.0/conf"
+"""The start of the URI of every OGC API - Maps conformance class."""
 
 
 @runtime_checkable
@@ -87,22 +91,59 @@ class MapLimits:
     max_pixels: int | None
 
 
+class MapFormat(StrEnum):
+    """The encodings of OGC API - Maps, one per conformance class.
+
+    A member is the value of ``f`` that asks for it, so it compares equal
+    to that string.
+    """
+
+    PNG = "png"
+    JPEG = "jpeg"
+    JPEGXL = "jpegxl"
+    TIFF = "tiff"
+    SVG = "svg"
+    HTML = "html"
+
+    @property
+    def media_type(self) -> str:
+        """The media type of a map in this encoding."""
+        return _MEDIA_TYPES[self]
+
+    @property
+    def conformance_class(self) -> str:
+        """The URI of the conformance class of this encoding (/req/<format>/content)."""
+        return f"{MAPS_CONFORMANCE_PREFIX}/{self.value}"
+
+
+_MEDIA_TYPES = {
+    MapFormat.PNG: "image/png",
+    MapFormat.JPEG: "image/jpeg",
+    MapFormat.JPEGXL: "image/jxl",
+    MapFormat.TIFF: "image/tiff",
+    MapFormat.SVG: "image/svg+xml",
+    MapFormat.HTML: "text/html",
+}
+
+
 @dataclass(frozen=True)
 class MapCapabilities:
-    """The CRSs a map provider draws in and the formats it encodes maps in.
+    """The CRSs a map provider draws in and the formats offered to encode it.
 
     Attributes
     ----------
     crs
-        The URIs of the CRSs, in the provider's order of preference: the
-        first is the default when the collection's ``storage_crs`` is not
-        among them (/req/crs/crs-definition).
+        The OGC URIs of the CRSs, such as
+        ``http://www.opengis.net/def/crs/EPSG/0/3857``, in the provider's
+        order of preference: the first is the default when the collection's
+        ``storage_crs`` is not among them (/req/crs/crs-definition).
     formats
-        The values of ``f`` the provider answers, such as ``png``.
+        The encodings the provider draws maps in. The conformance classes
+        of the encodings are declared from them.
     """
 
     crs: tuple[str, ...]
-    formats: tuple[str, ...]
+    formats: tuple[MapFormat, ...]
 
 
 @runtime_checkable

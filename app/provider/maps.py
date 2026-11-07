@@ -44,17 +44,6 @@ logger = create_logger("app.provider.maps")
 WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
 """The only CRS maps are drawn in."""
 
-_MAPS = "http://www.opengis.net/spec/ogcapi-maps-1/1.0/conf"
-
-# scaling, spatial-subsetting and background stay out until the map route reads
-# scale-denominator, center, a spatial subset, bgcolor and void-color.
-MAPS_CONFORMANCE: tuple[str, ...] = (
-    f"{_MAPS}/core",
-    f"{_MAPS}/collection-map",
-    f"{_MAPS}/png",
-)
-"""The OGC API Maps classes a provider built from these parts passes."""
-
 
 class _MapError(ProviderGenericError):
     """A map error whose message, when none is given, is its ``default_msg``.

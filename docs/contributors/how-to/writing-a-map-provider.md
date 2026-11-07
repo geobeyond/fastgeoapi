@@ -26,7 +26,7 @@ service.
 ```python
 from pygeoapi.provider.base import BaseProvider
 
-from app.interfaces.providers import MapCapabilities, MapLimits
+from app.interfaces.providers import MapCapabilities, MapFormat, MapLimits
 from app.provider.base import AsyncProviderMixin, StorageBackedMixin
 
 WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
@@ -46,7 +46,7 @@ class MyMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
     @property
     def capabilities(self) -> MapCapabilities:
-        return MapCapabilities(crs=(WEB_MERCATOR,), formats=("png",))
+        return MapCapabilities(crs=(WEB_MERCATOR,), formats=(MapFormat.PNG,))
 
     async def arender_map(self, *, style, bbox, width, height, crs,
                           transparent, format_, datetime_, subsets) -> bytes: ...
@@ -57,17 +57,25 @@ class MyMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
     def close(self) -> None: ...
 ```
 
-`limits` gives the largest map the engine draws, how many maps it draws at
-the same time, how many more may wait for a slot, and how many seconds a map
-may take, the wait included. The route publishes the sizes in the OpenAPI
-document as the `maximum` of `width` and `height`. When the server ceiling is
+`limits` gives the largest map the engine draws. The route publishes the
+sizes in the OpenAPI document as the `maximum` of `width` and `height`. When the server ceiling is
 smaller (`FASTGEOAPI_MAPS_MAX_WIDTH`, `FASTGEOAPI_MAPS_MAX_HEIGHT`,
 `FASTGEOAPI_MAPS_MAX_PIXELS`), the ceiling applies, and a warning at startup
 names the collection.
 
-`capabilities` gives the CRSs the engine draws in and the values of `f` it
-encodes. The document publishes them as the `crs` and `f` enums. A request
-for anything else gets a 400 before the provider is called.
+`capabilities` gives the CRSs the engine draws in and the encodings it
+draws maps in. A CRS is an OGC CRS URI, such as
+`http://www.opengis.net/def/crs/EPSG/0/3857`, that pyproj knows; an
+encoding is a member of `MapFormat`, one per encoding class of OGC API -
+Maps (PNG, JPEG, JPEG XL, TIFF, SVG and HTML). A configuration whose
+provider declares anything else is refused at startup, with an error that
+names the class and the value. The document publishes them as the `crs` and
+`f` enums, and a request for anything else gets a 400 before the provider
+is called.
+
+The provider declares no conformance classes. `/conformance` derives them
+from the capabilities: `core`, `collection-map` and the class of each
+encoding.
 
 `arender_map` returns the encoded image. `aget_version` returns the version
 of the image `arender_map` would draw for the same arguments, without drawing

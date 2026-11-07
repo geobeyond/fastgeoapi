@@ -52,6 +52,7 @@ from app.pygeoapi.map_limits import (
     MapCeiling,
     collect_native_map_capabilities,
     collect_native_map_limits,
+    find_map_capability_problem,
     get_default_map_ceiling,
 )
 from app.pygeoapi.openapi import (
@@ -144,7 +145,11 @@ def normalize_config(config: dict) -> dict:
     bind.setdefault("port", int(os.environ.get("PORT", "5000")))
 
     _validate(config)
-    problem = extension_problem(config) or find_map_contract_problem(config)
+    problem = (
+        extension_problem(config)
+        or find_map_contract_problem(config)
+        or find_map_capability_problem(config)
+    )
     if problem is not None:
         where, message = problem
         raise ConfigValidationError(f"invalid fastgeoapi configuration at {where}: {message}")

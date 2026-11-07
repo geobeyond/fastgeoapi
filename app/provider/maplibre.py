@@ -17,17 +17,16 @@ from collections.abc import Sequence
 from copy import deepcopy
 from datetime import timedelta
 from functools import lru_cache
-from typing import Any, ClassVar
+from typing import Any
 
 from pygeoapi.provider.base import BaseProvider, ProviderGenericError
 
-from app.interfaces.providers import MAP_ARGUMENTS, MapCapabilities, MapLimits
+from app.interfaces.providers import MAP_ARGUMENTS, MapCapabilities, MapFormat, MapLimits
 from app.maps.contract import MapRequest, MapSource, MapStyles
 from app.maps.queue import RenderQueue
 from app.maps.sources import ObjectUrl, SourceContext
 from app.provider.base import AsyncProviderMixin, StorageBackedMixin
 from app.provider.maps import (
-    MAPS_CONFORMANCE,
     WEB_MERCATOR,
     StyleDocuments,
     build_map_request,
@@ -97,7 +96,6 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
     THREAD_SAFE = True
     native_async = True
-    conformance_classes: ClassVar[tuple[str, ...]] = MAPS_CONFORMANCE
 
     def __init__(self, provider_def: dict) -> None:
         """Read the options; no I/O happens until the first map."""
@@ -126,7 +124,7 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
     @property
     def capabilities(self) -> MapCapabilities:
         """Web Mercator and PNG, the only CRS and format MapLibre Native draws here."""
-        return MapCapabilities(crs=(WEB_MERCATOR,), formats=("png",))
+        return MapCapabilities(crs=(WEB_MERCATOR,), formats=(MapFormat.PNG,))
 
     @property
     def renderer_is_built(self) -> bool:
