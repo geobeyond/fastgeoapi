@@ -79,6 +79,44 @@ class Explicit(BaseProvider):
         """Nothing to release."""
 
 
+def _build_capabilities_property(crs, formats):
+    """Build a ``capabilities`` property that declares ``crs`` and ``formats``."""
+
+    @property
+    def capabilities(self):
+        from app.interfaces.providers import MapCapabilities
+
+        return MapCapabilities(crs=crs, formats=formats)
+
+    return capabilities
+
+
+class UnknownFormat(Explicit):
+    """A native map provider that draws a format outside the standard."""
+
+    capabilities = _build_capabilities_property((WEB_MERCATOR,), ("gif",))
+
+
+class CurieCrs(Explicit):
+    """A native map provider that writes its CRS as a CURIE."""
+
+    capabilities = _build_capabilities_property(("EPSG:3857",), ("png",))
+
+
+class UnknownCrs(Explicit):
+    """A native map provider that names a CRS no registry has."""
+
+    capabilities = _build_capabilities_property(
+        ("http://www.opengis.net/def/crs/EPSG/0/999999",), ("png",)
+    )
+
+
+class TwoFormats(Explicit):
+    """A native map provider that draws PNG and JPEG and declares no classes."""
+
+    capabilities = _build_capabilities_property((WEB_MERCATOR,), ("png", "jpeg"))
+
+
 class NoCapabilities(BaseProvider):
     """A native map provider without ``capabilities``."""
 
@@ -239,3 +277,61 @@ def test_the_map_family_protocol_is_exported():
     import app.interfaces.providers
 
     assert app.interfaces.AsyncMapProvider is app.interfaces.providers.AsyncMapProvider
+
+
+MAPS = "http://www.opengis.net/spec/ogcapi-maps-1/1.0/conf"
+
+
+def test_the_map_formats_are_the_encodings_of_the_standard():
+    from app.interfaces.providers import MapFormat
+
+    assert {member.value for member in MapFormat} == {
+        "png",
+        "jpeg",
+        "jpegxl",
+        "tiff",
+        "svg",
+        "html",
+    }
+    assert MapFormat("png").media_type == "image/png"
+    assert MapFormat("jpeg").conformance_class == f"{MAPS}/jpeg"
+
+
+@pytest.mark.parametrize(
+    ("provider", "message"),
+    [
+        ("UnknownFormat", "draws gif, which is not a format of OGC API - Maps"),
+        ("CurieCrs", "names the CRS EPSG:3857, which is not an OGC CRS URI"),
+        (
+            "UnknownCrs",
+            "names the CRS http://www.opengis.net/def/crs/EPSG/0/999999, which is not an OGC CRS URI",
+        ),
+    ],
+)
+def test_a_native_map_provider_with_capabilities_outside_the_standard_is_refused(provider, message):
+    from app.pygeoapi.factory import ConfigValidationError, normalize_config
+
+    name = f"tests.test_map_contract.{provider}"
+    config = _config({"lakes": _collection("Lakes", [_definition(name)])})
+
+    with pytest.raises(
+        ConfigValidationError,
+        match=re.escape(f"configuration at resources.lakes.providers.0: {name} {message}"),
+    ):
+        normalize_config(config)
+
+
+def test_the_conformance_classes_come_from_the_capabilities():
+    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
+
+    config = _config(
+        {"lakes": _collection("Lakes", [_definition("tests.test_map_contract.TwoFormats")])}
+    )
+    declared = set(
+        TestClient(build_pygeoapi_subapp(config, build_openapi(config)))
+        .get("/conformance", params={"f": "json"})
+        .json()["conformsTo"]
+    )
+
+    assert {f"{MAPS}/core", f"{MAPS}/collection-map", f"{MAPS}/png", f"{MAPS}/jpeg"} <= declared
+    assert f"{MAPS}/tiff" not in declared

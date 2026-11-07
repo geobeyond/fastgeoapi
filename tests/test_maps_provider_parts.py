@@ -95,18 +95,17 @@ async def test_another_family_keeps_the_limits_and_errors_of_the_parts(tmp_path)
         await provider.arender_map(bbox=ROME, width=16, height=16, crs="EPSG:4326")
 
 
-def test_the_maps_classes_declared_are_only_those_the_route_passes():
-    from app.provider.maps import MAPS_CONFORMANCE
+def test_the_maplibre_classes_follow_from_its_capabilities(tmp_path):
+    from app.provider.maplibre import MapLibreMapProvider
+    from app.pygeoapi.map_limits import derive_map_conformance
 
     maps = "http://www.opengis.net/spec/ogcapi-maps-1/1.0/conf"
-
-    assert set(MAPS_CONFORMANCE) == {f"{maps}/core", f"{maps}/collection-map", f"{maps}/png"}
-
-
-def test_the_maplibre_provider_declares_the_maps_conformance_of_the_parts(tmp_path):
-    from app.provider.maplibre import MapLibreMapProvider
-    from app.provider.maps import MAPS_CONFORMANCE
-
     archive = write_archive(tmp_path / "roads.pmtiles", {(0, 0, 0): TILE_BYTES(0, 0, 0)})
+    provider = MapLibreMapProvider(map_provider(archive))
 
-    assert MapLibreMapProvider(map_provider(archive)).conformance_classes == MAPS_CONFORMANCE
+    assert not hasattr(MapLibreMapProvider, "conformance_classes")
+    assert set(derive_map_conformance(provider.capabilities)) == {
+        f"{maps}/core",
+        f"{maps}/collection-map",
+        f"{maps}/png",
+    }
