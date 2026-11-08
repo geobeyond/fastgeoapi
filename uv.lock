@@ -1035,7 +1035,7 @@ dev = [
     { name = "ministack", specifier = ">=1.5,<2" },
     { name = "mkdocs-openapi", specifier = ">=0.3.3" },
     { name = "nox", extras = ["uv"], specifier = ">=2025.11.12" },
-    { name = "ogcapi-registry", specifier = "==0.6.0" },
+    { name = "ogcapi-registry", specifier = "==0.6.1" },
     { name = "openapi-resolver", specifier = ">=0.0.6,<0.0.7" },
     { name = "pillow", specifier = ">=11" },
     { name = "pre-commit", specifier = ">=4.0.0,<5" },
@@ -2279,7 +2279,7 @@ wheels = [
 
 [[package]]
 name = "ogcapi-registry"
-version = "0.6.0"
+version = "0.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
@@ -2287,9 +2287,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "pyyaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f9/94/8790ecd9e786a93691a133d5e3b94b648bf8813da2904fd8802f9168458d/ogcapi_registry-0.6.0.tar.gz", hash = "sha256:6d07b57b734a6669a3f7014d36b31aaffd53b55467eebcc2756fda8bb73d9ee9", size = 82646, upload-time = "2026-11-08T21:57:34.68Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/17/c6/52bafae97107e86c85f45d42921987a7c29573f66119c3a8f95b06b1686b/ogcapi_registry-0.6.1.tar.gz", hash = "sha256:cedf650069671c24c227c0faa1ad7b797109b8ba19b35e0f50eb8c3664445f3a", size = 82828, upload-time = "2026-11-08T23:21:24.495Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b6/4c/e9a39d415976114adf9931361a41fe667bacdb530aa4fcf278727d39a2e7/ogcapi_registry-0.6.0-py3-none-any.whl", hash = "sha256:b3ac9371d6f68bd48748d653aa6a6e292a964c0fef3e8db358ac4f5a6d0feb3f", size = 96105, upload-time = "2026-11-08T21:57:32.807Z" },
+    { url = "https://files.pythonhosted.org/packages/12/d1/1c38566d8e02706cf1f26db00a88985c15d7a5011f6dab18fff7ff2fb463/ogcapi_registry-0.6.1-py3-none-any.whl", hash = "sha256:8db40d1e30349ac833ae8f3f277739687ccef05391ae8e83cd0529010c64c352", size = 96288, upload-time = "2026-11-08T23:21:23.177Z" },
 ]
 
 [[package]]

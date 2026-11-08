@@ -115,7 +115,7 @@ dev = [
     "nox[uv]>=2025.11.12",
     "pytest-iam>=0.2.0",
     "blockbuster>=1.5,<2",
-    "ogcapi-registry==0.6.0",
+    "ogcapi-registry==0.6.1",
     # Pillow decodes PNGs in the map tests; the renderer gets it from the maps group.
     "pillow>=11",
 ]
