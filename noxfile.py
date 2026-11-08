@@ -301,7 +301,7 @@ def ty(session: Session) -> None:
         # The `geoparquet` extra: the suite imports the provider directly,
         # so both lanes need the engine and obstore's fsspec layer (the
         # bridge DuckDB reads bucket URLs through).
-        "duckdb>=1.5,<2",
+        "duckdb>=2.1.0.dev0,<3",
         # obstore ships the fsspec adapter module but declares neither an
         # `fsspec` extra nor the dependency, so name it explicitly.
         "fsspec>=2024.6",
@@ -342,7 +342,7 @@ def tests(session: Session) -> None:
         # The `geoparquet` extra: the suite imports the provider directly,
         # so both lanes need the engine and obstore's fsspec layer (the
         # bridge DuckDB reads bucket URLs through).
-        "duckdb>=1.5,<2",
+        "duckdb>=2.1.0.dev0,<3",
         # obstore ships the fsspec adapter module but declares neither an
         # `fsspec` extra nor the dependency, so name it explicitly.
         "fsspec>=2024.6",
@@ -398,7 +398,7 @@ def typeguard(session: Session) -> None:
         # The `geoparquet` extra: the suite imports the provider directly,
         # so both lanes need the engine and obstore's fsspec layer (the
         # bridge DuckDB reads bucket URLs through).
-        "duckdb>=1.5,<2",
+        "duckdb>=2.1.0.dev0,<3",
         # obstore ships the fsspec adapter module but declares neither an
         # `fsspec` extra nor the dependency, so name it explicitly.
         "fsspec>=2024.6",
