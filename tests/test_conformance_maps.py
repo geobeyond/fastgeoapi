@@ -33,9 +33,9 @@ def test_the_map_provider_declares_its_classes(served):
     _, declaration = served
 
     declared = set(declaration["conformsTo"])
-    unread = {f"{MAPS}/{name}" for name in ("scaling", "spatial-subsetting", "background", "crs")}
+    unread = {f"{MAPS}/{name}" for name in ("scaling", "spatial-subsetting", "background")}
 
-    assert {f"{MAPS}/core", f"{MAPS}/collection-map", f"{MAPS}/png"} <= declared
+    assert {f"{MAPS}/core", f"{MAPS}/collection-map", f"{MAPS}/crs", f"{MAPS}/png"} <= declared
     assert not unread & declared
 
 

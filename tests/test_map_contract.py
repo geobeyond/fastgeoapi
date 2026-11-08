@@ -395,3 +395,47 @@ def test_the_published_limits_are_those_of_the_provider_the_route_serves():
     width = next(p for p in parameters if p.get("name") == "width")
 
     assert width["schema"]["maximum"] == 64
+
+
+def test_the_collection_describes_the_crss_of_its_map():
+    client = _serve(_collection("Lakes", [_definition("tests.test_map_contract.TwoFormats")]))
+
+    collection = client.get("/collections/lakes", params={"f": "json"}).json()
+
+    assert WEB_MERCATOR in collection["crs"]
+    assert collection["storageCrs"] == WEB_MERCATOR
+    (bbox,) = collection["extent"]["spatial"]["storageCrsBbox"]
+    assert len(bbox) == 4
+    assert all(abs(value) <= 20037508.35 for value in bbox)
+
+
+def test_the_collection_links_a_map_per_format():
+    client = _serve(_collection("Lakes", [_definition("tests.test_map_contract.TwoFormats")]))
+
+    collection = client.get("/collections/lakes", params={"f": "json"}).json()
+    maps = [link for link in collection["links"] if link["rel"].endswith("/ogc/1.0/map")]
+
+    assert {link["type"] for link in maps} == {"image/png", "image/jpeg"}
+    assert {link["href"].rsplit("f=", 1)[-1] for link in maps} == {"png", "jpeg"}
+
+
+def test_a_safe_curie_names_the_map_crs():
+    client = _serve(_collection("Lakes", [_definition("tests.test_map_contract.TwoFormats")]))
+
+    r = client.get(
+        "/collections/lakes/map",
+        params={"bbox": "12.4,41.8,12.6,42.0", "width": 16, "height": 8, "crs": "[EPSG:3857]"},
+    )
+
+    assert r.status_code == 200
+    assert WEB_MERCATOR in r.headers["content-crs"]
+
+
+def test_the_crs_class_is_declared_once_the_collection_lists_the_crss():
+    declared = set(
+        _serve(_collection("Lakes", [_definition("tests.test_map_contract.TwoFormats")]))
+        .get("/conformance", params={"f": "json"})
+        .json()["conformsTo"]
+    )
+
+    assert f"{MAPS}/crs" in declared
