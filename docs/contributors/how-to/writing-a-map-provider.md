@@ -74,8 +74,11 @@ names the class and the value. The document publishes them as the `crs` and
 is called.
 
 The provider declares no conformance classes. `/conformance` derives them
-from the capabilities: `core`, `collection-map` and the class of each
-encoding.
+from the capabilities: `core`, `collection-map`, `crs` and the class of each
+encoding. The collection description lists the CRSs in `crs`, with
+`storageCrs` and `storageCrsBbox` when maps are drawn by default in a CRS
+other than CRS84, and
+links one map per encoding.
 
 `arender_map` returns the encoded image. `aget_version` returns the version
 of the image `arender_map` would draw for the same arguments, without drawing

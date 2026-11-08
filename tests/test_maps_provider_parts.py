@@ -107,5 +107,6 @@ def test_the_maplibre_classes_follow_from_its_capabilities(tmp_path):
     assert set(derive_map_conformance(provider.capabilities)) == {
         f"{maps}/core",
         f"{maps}/collection-map",
+        f"{maps}/crs",
         f"{maps}/png",
     }
