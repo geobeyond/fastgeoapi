@@ -172,16 +172,16 @@ def derive_map_conformance(capabilities: MapCapabilities) -> tuple[str, ...]:
     Returns
     -------
     tuple of str
-        ``core``, ``collection-map`` and the class of each encoding the
-        provider draws.
+        ``core``, ``collection-map``, ``crs`` and the class of each
+        encoding the provider draws.
     """
-    # scaling, spatial-subsetting, background and crs stay out until the route reads
-    # scale-denominator, center, a spatial subset, bgcolor and void-color, and until
-    # the collection description lists the CRSs.
+    # scaling, spatial-subsetting and background stay out until the route reads
+    # scale-denominator, center, a spatial subset, bgcolor and void-color.
     encodings = tuple(MapFormat(format_).conformance_class for format_ in capabilities.formats)
     return (
         f"{MAPS_CONFORMANCE_PREFIX}/core",
         f"{MAPS_CONFORMANCE_PREFIX}/collection-map",
+        f"{MAPS_CONFORMANCE_PREFIX}/crs",
         *encodings,
     )
 
