@@ -73,6 +73,9 @@ The module runs in the `conformance` lane with the schema tests:
 uv run nox -s conformance
 ```
 
-The demo reads remote GeoParquet data to build its OpenAPI document. When
-that data cannot be read, its cases are skipped with the error as the
-reason.
+The declared classes come from the function that answers `/conformance`,
+applied to each configuration, so the check needs neither the data nor the
+network. One more test compares them with what the served `/conformance`
+returns. That one builds the server, which reads the demo's remote
+GeoParquet data, and it is skipped, with the error as the reason, when the
+data cannot be read.

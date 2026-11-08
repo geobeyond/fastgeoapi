@@ -37,6 +37,25 @@ class Served:
     config: dict
 
 
+def load_config(name: str) -> dict:
+    """Load one configuration, its placeholders resolved.
+
+    Parameters
+    ----------
+    name
+        The id of the configuration in ``CONFIGURATIONS``.
+
+    Returns
+    -------
+    dict
+        The configuration.
+    """
+    from pygeoapi.util import yaml_load
+
+    with Path(CONFIGURATIONS[name]).open() as handle:
+        return yaml_load(handle)
+
+
 def build_served(name: str) -> Served:
     """Build the sub-app of one configuration.
 
@@ -57,12 +76,10 @@ def build_served(name: str) -> Served:
         The client and the configuration it serves.
     """
     import duckdb
-    from pygeoapi.util import yaml_load
 
     from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
 
-    with Path(CONFIGURATIONS[name]).open() as handle:
-        config = yaml_load(handle)
+    config = load_config(name)
     try:
         openapi = build_openapi(config)
     except duckdb.IOException as error:
