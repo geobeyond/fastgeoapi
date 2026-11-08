@@ -287,7 +287,7 @@ def ty(session: Session) -> None:
     session.install(
         # The OGC conformance validator for `tests/test_ogc_conformance_local.py`
         # in the `dev` group, which these sessions do not install.
-        "ogcapi-registry==0.5.0",
+        "ogcapi-registry==0.6.0",
         # The generator that tests/test_generate_api_reference.py imports.
         "mkdocs-openapi>=0.3.3",
         "ty",
@@ -329,7 +329,7 @@ def tests(session: Session) -> None:
     session.install(
         # The OGC conformance validator for `tests/test_ogc_conformance_local.py`
         # in the `dev` group, which these sessions do not install.
-        "ogcapi-registry==0.5.0",
+        "ogcapi-registry==0.6.0",
         # The generator that tests/test_generate_api_reference.py imports.
         "mkdocs-openapi>=0.3.3",
         "coverage[toml]",
@@ -385,7 +385,7 @@ def typeguard(session: Session) -> None:
     session.install(
         # The OGC conformance validator for `tests/test_ogc_conformance_local.py`
         # in the `dev` group, which these sessions do not install.
-        "ogcapi-registry==0.5.0",
+        "ogcapi-registry==0.6.0",
         # The generator that tests/test_generate_api_reference.py imports.
         "mkdocs-openapi>=0.3.3",
         "pytest",
