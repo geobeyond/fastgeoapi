@@ -2,22 +2,31 @@
 
 import ast
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from ogcapi_registry import KNOWN_CONFORMANCE_CLASSES, KNOWN_REQUIREMENTS, list_requirements
 
-from tests.conformance.conftest import Served
+from app.pygeoapi import factory
+from app.pygeoapi.api.conformance import build_conformance_list
+from tests.conformance.conftest import CONFIGURATIONS, Served, load_config
 from tests.conformance.requirements import CHECKED, DRAFTS, WAIVED
 
+COLLECTION_MAP = "http://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/collection-map"
 
-@pytest.fixture(name="declared", scope="module")
-def list_declared_classes(served: Served) -> list[str]:
+
+def list_declared_classes(config: dict) -> list[str]:
     """List the conformance classes a configuration declares.
+
+    The list comes from the function that answers ``/conformance``, which
+    reads the configuration and loads the providers. Building the OpenAPI
+    document would read the schemas of the remote data, so a network failure
+    would skip the check instead of running it.
 
     Parameters
     ----------
-    served
-        The configuration to ask.
+    config
+        The loaded configuration.
 
     Returns
     -------
@@ -25,8 +34,41 @@ def list_declared_classes(served: Served) -> list[str]:
         The URIs of ``/conformance``, with ``http://`` as the catalogue
         writes them.
     """
+    response = build_conformance_list(config["resources"], has_pubsub="pubsub" in config)
+    return [uri.replace("https://", "http://", 1) for uri in response.conforms_to]
+
+
+@pytest.fixture(name="declared", scope="module", params=list(CONFIGURATIONS))
+def list_configured_classes(request: pytest.FixtureRequest) -> list[str]:
+    """List the conformance classes one configuration declares.
+
+    Parameters
+    ----------
+    request
+        Carries the id of the configuration in ``CONFIGURATIONS``.
+
+    Returns
+    -------
+    list of str
+        The URIs of its ``/conformance``.
+    """
+    return list_declared_classes(load_config(request.param))
+
+
+def test_the_declared_classes_need_no_data():
+    with patch.object(factory, "build_openapi", side_effect=AssertionError("read the data")):
+        declared = list_declared_classes(load_config("demo"))
+
+    assert COLLECTION_MAP in declared
+
+
+def test_the_declared_classes_are_those_conformance_serves(served: Served):
     response = served.client.get("/conformance", params={"f": "json"})
-    return [uri.replace("https://", "http://", 1) for uri in response.json()["conformsTo"]]
+    served_classes = [
+        uri.replace("https://", "http://", 1) for uri in response.json()["conformsTo"]
+    ]
+
+    assert list_declared_classes(served.config) == served_classes
 
 
 def list_test_names(path: Path) -> set[str]:
