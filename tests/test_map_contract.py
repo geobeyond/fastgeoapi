@@ -331,6 +331,25 @@ def test_a_native_map_provider_with_capabilities_outside_the_standard_is_refused
         normalize_config(config)
 
 
+@pytest.mark.parametrize("provider", ["NoVersion", "NoCapabilities", "UnknownFormat", "CurieCrs"])
+def test_the_editor_refuses_the_map_providers_the_start_refuses(provider):
+    import copy
+
+    import yaml
+
+    from app.editor.inspect import validation_problems
+    from app.pygeoapi.factory import ConfigValidationError, normalize_config
+
+    name = f"tests.test_map_contract.{provider}"
+    config = _config({"lakes": _collection("Lakes", [_definition(name)])})
+    with pytest.raises(ConfigValidationError) as refused:
+        normalize_config(copy.deepcopy(config))
+
+    problems = validation_problems(yaml.safe_dump(config))
+
+    assert problems == [str(refused.value).removeprefix("invalid fastgeoapi configuration at ")]
+
+
 def test_the_conformance_classes_come_from_the_capabilities():
     from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
 

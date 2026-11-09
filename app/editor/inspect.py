@@ -111,11 +111,12 @@ def _schema_problems(config: dict, forgive_placeholders: bool) -> list[str]:
             continue
         where = ".".join(str(part) for part in error.absolute_path) or "the document root"
         problems.append(f"{where}: {error.message}")
-    # fastgeoapi's own keys sit where pygeoapi's schema lets anything in; the
-    # factory refuses a broken one at start, so the editor must too.
-    from app.pygeoapi.config_extensions import extension_problem
+    # fastgeoapi's own keys and its native map providers sit where pygeoapi's
+    # schema lets anything in; the factory refuses a broken one at start, so
+    # the editor must too.
+    from app.pygeoapi.factory import find_configuration_problem
 
-    problem = extension_problem(document)
+    problem = find_configuration_problem(document)
     if problem is not None:
         where, message = problem
         if not (forgive_placeholders and _placeholder_at(document, where)):
