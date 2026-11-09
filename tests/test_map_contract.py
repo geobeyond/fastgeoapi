@@ -308,6 +308,23 @@ def test_the_map_formats_are_the_encodings_of_the_standard():
 
 
 @pytest.mark.parametrize(
+    ("format_", "media_type"),
+    [
+        ("png", "image/png"),
+        ("jpeg", "image/jpeg"),
+        ("jpegxl", "image/jxl"),
+        ("tiff", "image/tiff"),
+        ("svg", "image/svg+xml"),
+        ("html", "text/html"),
+    ],
+)
+def test_each_map_format_has_its_media_type(format_, media_type):
+    from app.interfaces.providers import MapFormat
+
+    assert MapFormat(format_).media_type == media_type
+
+
+@pytest.mark.parametrize(
     ("provider", "message"),
     [
         ("UnknownFormat", "draws gif, which is not a format of OGC API - Maps"),
