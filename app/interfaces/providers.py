@@ -108,22 +108,24 @@ class MapFormat(StrEnum):
     @property
     def media_type(self) -> str:
         """The media type of a map in this encoding."""
-        return _MEDIA_TYPES[self]
+        match self:
+            case MapFormat.PNG:
+                return "image/png"
+            case MapFormat.JPEG:
+                return "image/jpeg"
+            case MapFormat.JPEGXL:
+                return "image/jxl"
+            case MapFormat.TIFF:
+                return "image/tiff"
+            case MapFormat.SVG:
+                return "image/svg+xml"
+            case MapFormat.HTML:
+                return "text/html"
 
     @property
     def conformance_class(self) -> str:
         """The URI of the conformance class of this encoding (/req/<format>/content)."""
         return f"{MAPS_CONFORMANCE_PREFIX}/{self.value}"
-
-
-_MEDIA_TYPES = {
-    MapFormat.PNG: "image/png",
-    MapFormat.JPEG: "image/jpeg",
-    MapFormat.JPEGXL: "image/jxl",
-    MapFormat.TIFF: "image/tiff",
-    MapFormat.SVG: "image/svg+xml",
-    MapFormat.HTML: "text/html",
-}
 
 
 @dataclass(frozen=True)
