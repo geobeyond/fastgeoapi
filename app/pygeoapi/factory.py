@@ -111,6 +111,32 @@ def _validate(config: dict) -> None:
         ) from e
 
 
+def find_configuration_problem(config: dict) -> tuple[str, str] | None:
+    """Find the first problem fastgeoapi refuses a configuration for.
+
+    These are the checks beyond pygeoapi's schema: fastgeoapi's own keys and
+    the native map providers. The start, every reload and every save from
+    the editor or the CLI run the same ones, so a document that can be saved
+    can also start.
+
+    Parameters
+    ----------
+    config
+        The configuration, as loaded.
+
+    Returns
+    -------
+    tuple of (str, str) or None
+        The dotted path of the problem and what is wrong there; None when
+        there is nothing to refuse.
+    """
+    return (
+        extension_problem(config)
+        or find_map_contract_problem(config)
+        or find_map_capability_problem(config)
+    )
+
+
 def normalize_config(config: dict) -> dict:
     """Validate the configuration, then fill the keys the runtime assumes.
 
@@ -145,11 +171,7 @@ def normalize_config(config: dict) -> dict:
     bind.setdefault("port", int(os.environ.get("PORT", "5000")))
 
     _validate(config)
-    problem = (
-        extension_problem(config)
-        or find_map_contract_problem(config)
-        or find_map_capability_problem(config)
-    )
+    problem = find_configuration_problem(config)
     if problem is not None:
         where, message = problem
         raise ConfigValidationError(f"invalid fastgeoapi configuration at {where}: {message}")
