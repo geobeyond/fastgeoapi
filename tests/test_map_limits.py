@@ -116,3 +116,11 @@ def test_the_sides_default_to_2048_in_the_settings(monkeypatch, setting):
     monkeypatch.delenv(f"DEV_{setting}", raising=False)
 
     assert getattr(DevConfig(), setting) == 2048
+
+
+def test_a_provider_without_an_area_limit_names_only_the_sides():
+    from app.interfaces.providers import MapLimits
+
+    limits = MapLimits(max_width=1024, max_height=512)
+
+    assert limits.max_pixels is None

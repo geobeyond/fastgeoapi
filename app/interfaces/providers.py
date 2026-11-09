@@ -88,7 +88,7 @@ class MapLimits:
 
     max_width: int
     max_height: int
-    max_pixels: int | None
+    max_pixels: int | None = None
 
 
 class MapFormat(StrEnum):
