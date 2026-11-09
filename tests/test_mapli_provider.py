@@ -1,0 +1,1123 @@
+"""The mapli map provider: configuration, parameters and styles, with a pool that draws nothing."""
+
+import asyncio
+import math
+from http import HTTPStatus
+from typing import Any
+from unittest import mock
+
+import pytest
+
+from tests.maps_fixtures import tiny_png
+from tests.mvt_fixtures import land_archive
+from tests.pmtiles_fixtures import raster_archive, terrarium_archive
+
+mapli = pytest.importorskip("mapli")
+
+ROME = [1379000.0, 5140000.0, 1403000.0, 5160000.0]  # EPSG:3857 metres
+WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
+BUCKET_DATA = "s3://bucket/tiles/land.pmtiles"
+
+
+class FakeRenderPool:
+    """Stands in for ``mapli.RenderPool``: records the styles and renders, draws flat PNGs."""
+
+    instances: list["FakeRenderPool"] = []
+
+    def __init__(self, workers: int = 1, max_renderers_per_worker: int = 8) -> None:
+        self.workers = workers
+        self.max_renderers_per_worker = max_renderers_per_worker
+        self.styles: dict[str, Any] = {}
+        self.renders: list[dict] = []
+        self.fail: BaseException | None = None
+        FakeRenderPool.instances.append(self)
+
+    def has_style(self, style_id: str) -> bool:
+        return style_id in self.styles
+
+    def register_style(self, style_id, *, url=None, path=None, json=None) -> None:
+        self.styles[style_id] = url if url is not None else json
+
+    async def arender_bbox(self, style_id, *, bbox, width, height, **kwargs) -> bytes:
+        if self.fail is not None:
+            raise self.fail
+        self.renders.append({"style_id": style_id, "bbox": tuple(bbox), "size": (width, height)})
+        return tiny_png(width, height)
+
+    def rendered_style(self, index: int = -1) -> Any:
+        return self.styles[self.renders[index]["style_id"]]
+
+
+@pytest.fixture(autouse=True)
+def fake_pool(monkeypatch):
+    FakeRenderPool.instances.clear()
+    monkeypatch.setattr(mapli, "RenderPool", FakeRenderPool)
+    yield
+    FakeRenderPool.instances.clear()
+
+
+@pytest.fixture
+def archive(tmp_path):
+    return land_archive(tmp_path / "land.pmtiles")
+
+
+def _definition(data, options=None, **top_level) -> dict:
+    return {
+        "type": "map",
+        "name": "app.provider.mapli.MapliMapProvider",
+        "data": str(data),
+        "storage_crs": WEB_MERCATOR,
+        "options": options or {},
+        "format": {"name": "png", "mimetype": "image/png"},
+        **top_level,
+    }
+
+
+def _provider(data, options=None, **top_level):
+    from app.provider.mapli import MapliMapProvider
+
+    return MapliMapProvider(_definition(data, options, **top_level))
+
+
+async def _map(provider, **kwargs):
+    args = {"bbox": list(ROME), "width": 64, "height": 64, "crs": WEB_MERCATOR}
+    return await provider.aquery(**{**args, **kwargs})
+
+
+def _pool() -> FakeRenderPool:
+    (pool,) = FakeRenderPool.instances
+    return pool
+
+
+def _background(style: dict) -> dict:
+    (layer,) = [layer for layer in style["layers"] if layer["type"] == "background"]
+    return layer
+
+
+# Configuration
+
+
+def test_building_a_provider_creates_no_render_pool(archive):
+    _provider(archive)
+
+    assert FakeRenderPool.instances == []
+
+
+@pytest.mark.asyncio
+async def test_the_first_map_creates_the_render_pool_and_the_next_ones_reuse_it(archive):
+    provider = _provider(archive)
+    await _map(provider)
+    await _map(provider)
+
+    assert len(_pool().renders) == 2
+
+
+@pytest.mark.asyncio
+async def test_the_defaults_suit_a_slim_node(archive):
+    await _map(_provider(archive))
+
+    assert (_pool().workers, _pool().max_renderers_per_worker) == (1, 4)
+
+
+@pytest.mark.asyncio
+async def test_the_pool_size_is_configurable(archive):
+    await _map(_provider(archive, {"num_workers": 2, "max_renderers_per_worker": 3}))
+
+    assert (_pool().workers, _pool().max_renderers_per_worker) == (2, 3)
+
+
+@pytest.mark.asyncio
+async def test_the_render_pool_is_created_off_the_event_loop(archive, monkeypatch):
+    import threading
+
+    created_on = []
+
+    class ThreadRecordingPool(FakeRenderPool):
+        def __init__(self, *args, **kwargs) -> None:
+            created_on.append(threading.get_ident())
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(mapli, "RenderPool", ThreadRecordingPool)
+    await _map(_provider(archive))
+
+    assert len(created_on) == 1
+    assert created_on[0] != threading.get_ident()
+
+
+def test_the_constructor_reads_nothing(tmp_path):
+    _provider(tmp_path / "missing.pmtiles")
+
+
+def test_another_storage_crs_is_refused(archive):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    with pytest.raises(ProviderGenericError):
+        _provider(archive, storage_crs="http://www.opengis.net/def/crs/OGC/1.3/CRS84")
+
+
+def test_a_default_style_that_is_not_configured_is_refused(archive):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    with pytest.raises(ProviderGenericError, match="not among the configured styles"):
+        _provider(archive, {"default_style": "night"})
+
+
+@pytest.mark.parametrize(
+    "style", ["styles/roads.json", "/srv/styles/roads.json", "s3://bucket/roads.json"]
+)
+def test_a_style_that_is_neither_a_url_nor_inline_is_refused(archive, style):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    with pytest.raises(ProviderGenericError, match="must be an http\\(s\\) or file URL"):
+        _provider(archive, {"styles": {"roads": style}})
+
+
+@pytest.mark.parametrize(
+    "style",
+    ["https://example.org/roads.json", "HTTP://example.org/roads.json", "file:///srv/roads.json"],
+)
+def test_a_style_url_is_accepted(archive, style):
+    _provider(archive, {"styles": {"roads": style}})
+
+
+def test_an_unknown_dem_encoding_is_refused(tmp_path):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    with pytest.raises(ProviderGenericError, match="dem must be one of"):
+        _provider(raster_archive(tmp_path / "t.pmtiles"), {"dem": "srtm"})
+
+
+def test_a_source_no_format_reads_is_refused(tmp_path):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    with pytest.raises(ProviderGenericError, match="map source not supported"):
+        _provider(tmp_path / "roads.geojson")
+
+
+def test_a_bucket_does_not_need_the_range_cache():
+    _provider(BUCKET_DATA, {"range_cache": False})
+
+
+# Bounding boxes
+
+
+def test_the_world_in_web_mercator_is_the_world_in_crs84():
+    from app.maps.camera import HALF_WORLD
+    from app.provider.mapli import parse_web_mercator_bbox_as_crs84_bbox
+
+    west, south, east, north = parse_web_mercator_bbox_as_crs84_bbox(
+        [-HALF_WORLD, -HALF_WORLD, HALF_WORLD, HALF_WORLD]
+    )
+
+    assert (west, east) == pytest.approx((-180, 180))
+    assert (south, north) == pytest.approx((-85.0511, 85.0511), abs=1e-4)
+
+
+def test_the_world_stays_within_the_latitudes_mapli_draws():
+    from app.maps.camera import HALF_WORLD
+    from app.provider.mapli import parse_web_mercator_bbox_as_crs84_bbox
+
+    _, south, _, north = parse_web_mercator_bbox_as_crs84_bbox(
+        [-HALF_WORLD, -HALF_WORLD, HALF_WORLD, HALF_WORLD]
+    )
+
+    assert -mapli.MAX_LAT <= south < north <= mapli.MAX_LAT
+
+
+def test_a_bbox_beyond_the_poles_is_clamped():
+    from app.maps.camera import HALF_WORLD
+    from app.provider.mapli import parse_web_mercator_bbox_as_crs84_bbox
+
+    _, south, _, north = parse_web_mercator_bbox_as_crs84_bbox(
+        [0, -3 * HALF_WORLD, 1, 3 * HALF_WORLD]
+    )
+
+    assert (south, north) == pytest.approx((-85.0511, 85.0511), abs=1e-4)
+
+
+def test_a_bbox_across_the_antimeridian_keeps_its_west_east_of_its_east():
+    from app.maps.camera import HALF_WORLD
+    from app.provider.mapli import parse_web_mercator_bbox_as_crs84_bbox
+
+    west, _, east, _ = parse_web_mercator_bbox_as_crs84_bbox(
+        [0.9 * HALF_WORLD, -1e6, -0.9 * HALF_WORLD, 1e6]
+    )
+
+    assert (west, east) == pytest.approx((162, -162))
+
+
+@pytest.mark.parametrize(
+    ("worlds", "longitudes"),
+    [
+        # shifted past the antimeridian, as a panning client sends it
+        ((0.9, 1.5), (162, -90)),
+        ((-1.5, -0.9), (90, -162)),
+        ((2.1, 2.2), (18, 36)),
+        # one world wide or wider
+        ((-1.2, 1.2), (-180, 180)),
+        ((-1, 1.01), (-180, 180)),
+        ((-3, 3), (-180, 180)),
+        ((0.5, 2.6), (-180, 180)),
+    ],
+)
+def test_a_bbox_beyond_web_mercator_is_drawn_where_it_points(worlds, longitudes):
+    from app.maps.camera import HALF_WORLD
+    from app.provider.mapli import parse_web_mercator_bbox_as_crs84_bbox
+
+    xmin, xmax = (value * HALF_WORLD for value in worlds)
+    west, _, east, _ = parse_web_mercator_bbox_as_crs84_bbox([xmin, -1e6, xmax, 1e6])
+
+    assert (west, east) == pytest.approx(longitudes)
+
+
+# Parameters
+
+
+@pytest.mark.asyncio
+async def test_a_map_is_drawn_over_the_bbox_in_crs84(archive):
+    png = await _map(_provider(archive))
+
+    (render,) = _pool().renders
+    west, south, east, north = render["bbox"]
+    assert png.startswith(b"\x89PNG")
+    assert render["size"] == (64, 64)
+    assert 12.3 < west < east < 12.7
+    assert 41.7 < south < north < 42.1
+
+
+@pytest.mark.asyncio
+async def test_a_map_without_bbox_is_the_world(archive):
+    await _provider(archive).aquery(width=32, height=32)
+
+    west, _, east, _ = _pool().renders[0]["bbox"]
+    assert (west, east) == pytest.approx((-180, 180))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "parameters",
+    [
+        {"crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"},
+        {"format_": "jpeg"},
+        {"width": 0},
+        {"height": 0},
+        {"bbox": [math.nan, 0, 1, 1]},
+        {"bbox": [math.inf, 0, math.inf, 1]},
+        {"bbox": [0, -math.inf, 1, 1]},
+        {"bbox": [1379000.0, 5140000.0, 1379000.0, 5160000.0]},  # no width
+        {"bbox": [1379000.0, 5160000.0, 1403000.0, 5140000.0]},  # south above north
+        {"bbox": [0.0, 21000000.0, 1.0, 22000000.0]},  # beyond the north pole
+        {"transparent": "1"},
+        {"transparent": "yes"},
+    ],
+)
+async def test_a_bad_parameter_answers_400(archive, parameters):
+    from app.provider.maps import MapParameterError
+
+    with pytest.raises(MapParameterError) as error:
+        await _map(_provider(archive), **parameters)
+    assert error.value.http_status_code == HTTPStatus.BAD_REQUEST
+    assert all(pool.renders == [] for pool in FakeRenderPool.instances)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("parameters", [{"width": 2049}, {"height": 2049}])
+async def test_a_map_larger_than_the_maximum_answers_413(archive, parameters):
+    from app.provider.maps import MapTooLargeError
+
+    with pytest.raises(MapTooLargeError) as error:
+        await _map(_provider(archive), **parameters)
+    assert error.value.http_status_code == HTTPStatus.REQUEST_ENTITY_TOO_LARGE
+    assert all(pool.renders == [] for pool in FakeRenderPool.instances)
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_style_answers_404(archive):
+    from pygeoapi.provider.base import ProviderItemNotFoundError
+
+    with pytest.raises(ProviderItemNotFoundError) as error:
+        await _map(_provider(archive), style="night")
+    assert error.value.http_status_code == HTTPStatus.NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_a_tiny_map_is_drawn(archive):
+    await _map(_provider(archive), width=1, height=5)
+
+    assert _pool().renders[-1]["size"] == (1, 5)
+
+
+@pytest.mark.asyncio
+async def test_a_bbox_across_the_antimeridian_is_drawn(archive):
+    await _map(_provider(archive), bbox=[19000000.0, 0.0, -19000000.0, 1000000.0])
+
+    assert len(_pool().renders) == 1
+
+
+@pytest.mark.asyncio
+async def test_max_size_bounds_the_width_and_height(archive):
+    from app.provider.maps import MapParameterError
+
+    provider = _provider(archive, {"max_size": 100})
+    await _map(provider, width=100, height=100)
+
+    with pytest.raises(MapParameterError):
+        await _map(provider, width=101)
+
+
+@pytest.mark.asyncio
+async def test_web_mercator_is_recognised_whatever_the_case(archive):
+    await _map(_provider(archive), crs=WEB_MERCATOR.lower())
+
+    assert len(_pool().renders) == 1
+
+
+@pytest.mark.asyncio
+async def test_html_is_answered_with_the_image(archive):
+    assert (await _map(_provider(archive), format_="html")).startswith(b"\x89PNG")
+
+
+def test_the_sync_face_draws_with_the_arguments_it_is_given(archive):
+    png = _provider(archive).query(bbox=list(ROME), width=40, height=20, crs=WEB_MERCATOR)
+
+    assert png.startswith(b"\x89PNG")
+    assert _pool().renders[0]["size"] == (40, 20)
+
+
+# Styles
+
+
+@pytest.mark.asyncio
+async def test_the_default_style_draws_every_layer_of_the_archive(archive):
+    provider = _provider(archive)
+    await _map(provider)
+
+    style = _pool().rendered_style()
+    assert style["sources"]["dataset"]["type"] == "vector"
+    assert style["sources"]["dataset"]["url"].startswith(
+        f"pmtiles://fastgeoapi://{provider._scheme_source_key}/"
+    )
+    assert {layer["source-layer"] for layer in style["layers"] if "source" in layer} == {"land"}
+
+
+@pytest.mark.asyncio
+async def test_the_default_background_colour_is_configurable(archive):
+    await _map(_provider(archive, {"default_background_color": "#ffff00"}), transparent=False)
+
+    assert _background(_pool().rendered_style())["paint"]["background-color"] == "#ffff00"
+
+
+@pytest.mark.asyncio
+async def test_the_default_vector_colours_are_configurable(archive):
+    await _map(_provider(archive, {"default_vector_colors": ["#123456"]}))
+
+    fill = next(layer for layer in _pool().rendered_style()["layers"] if layer["type"] == "fill")
+    assert fill["paint"]["fill-color"] == "#123456"
+
+
+@pytest.mark.asyncio
+async def test_the_default_hillshade_background_colour_is_configurable(tmp_path):
+    archive = terrarium_archive(tmp_path / "t.pmtiles")
+    options = {"dem": "terrarium", "default_hillshade_background_color": "#abcdef"}
+    await _map(_provider(archive, options), transparent=False)
+
+    assert _background(_pool().rendered_style())["paint"]["background-color"] == "#abcdef"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("transparent", "visibility"),
+    [(True, "none"), ("true", "none"), ("TRUE", "none"), (False, "visible"), ("false", "visible")],
+)
+async def test_transparent_hides_the_background(archive, transparent, visibility):
+    await _map(_provider(archive), transparent=transparent)
+
+    assert _background(_pool().rendered_style())["layout"]["visibility"] == visibility
+
+
+@pytest.mark.asyncio
+async def test_transparent_and_opaque_maps_are_registered_apart(archive):
+    provider = _provider(archive)
+    await _map(provider, transparent=True)
+    await _map(provider, transparent=False)
+    await _map(provider, transparent=True)
+
+    first, second, third = (render["style_id"] for render in _pool().renders)
+    assert first != second
+    assert first == third
+    assert len(_pool().styles) == 2
+
+
+@pytest.mark.asyncio
+async def test_drawing_leaves_the_configured_style_as_it_was(archive):
+    provider = _provider(archive)
+    await _map(provider, transparent=True)
+    await _map(provider, transparent=False)
+
+    template = provider._get_map_styles().styles["default"]
+    assert "layout" not in _background(template)
+    assert "url" not in template["sources"]["dataset"]
+
+
+@pytest.mark.asyncio
+async def test_a_named_style_is_drawn(archive):
+    night = {"version": 8, "sources": {}, "layers": [{"id": "night", "type": "background"}]}
+    await _map(_provider(archive, {"styles": {"night": night}}), style="night")
+
+    assert [layer["id"] for layer in _pool().rendered_style()["layers"]] == ["night"]
+
+
+@pytest.mark.asyncio
+async def test_the_default_style_option_picks_the_style_drawn_without_one(archive):
+    night = {"version": 8, "sources": {}, "layers": [{"id": "night", "type": "background"}]}
+    await _map(_provider(archive, {"styles": {"night": night}, "default_style": "night"}))
+
+    assert [layer["id"] for layer in _pool().rendered_style()["layers"]] == ["night"]
+
+
+@pytest.mark.asyncio
+async def test_a_style_naming_the_dataset_source_gets_the_url_of_the_data(archive):
+    roads = {
+        "version": 8,
+        "sources": {"dataset": {"type": "vector"}},
+        "layers": [{"id": "land", "type": "fill", "source": "dataset", "source-layer": "land"}],
+    }
+    provider = _provider(archive, {"styles": {"roads": roads}})
+    await _map(provider, style="roads")
+
+    url = _pool().rendered_style()["sources"]["dataset"]["url"]
+    assert url.startswith(f"pmtiles://fastgeoapi://{provider._scheme_source_key}/")
+
+
+@pytest.mark.asyncio
+async def test_a_style_given_as_a_url_is_registered_as_a_url(archive):
+    styles = {"remote": "https://example.org/style.json"}
+    await _map(_provider(archive, {"styles": styles}), style="remote")
+
+    assert _pool().rendered_style() == "https://example.org/style.json"
+
+
+@pytest.mark.asyncio
+async def test_a_raster_archive_tells_its_tile_size(tmp_path):
+    await _map(_provider(raster_archive(tmp_path / "r.pmtiles", size=256)))
+
+    style = _pool().rendered_style()
+    assert style["sources"]["dataset"]["type"] == "raster"
+    assert style["sources"]["dataset"]["tileSize"] == 256
+    assert style["layers"][-1]["type"] == "raster"
+
+
+@pytest.mark.asyncio
+async def test_an_elevation_archive_is_drawn_as_a_hillshade(tmp_path):
+    await _map(_provider(terrarium_archive(tmp_path / "t.pmtiles"), {"dem": "terrarium"}))
+
+    style = _pool().rendered_style()
+    assert style["sources"]["dataset"]["type"] == "raster-dem"
+    assert style["sources"]["dataset"]["encoding"] == "terrarium"
+    assert style["layers"][-1]["type"] == "hillshade"
+
+
+@pytest.mark.asyncio
+async def test_the_styles_are_read_once(archive):
+    provider = _provider(archive)
+    await _map(provider)
+    template = provider._get_map_styles().styles["default"]
+    await _map(provider)
+
+    assert provider._get_map_styles().styles["default"] is template
+
+
+# Errors of mapli
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("error", "message"),
+    [
+        (mapli.RenderError("boom"), "the map renderer failed"),
+        (mapli.GraphicsUnavailableError("no GPU"), "the map renderer failed"),
+        (mapli.StyleLoadError("bad json"), "style default could not be loaded"),
+    ],
+)
+async def test_a_mapli_error_is_a_provider_error(archive, error, message):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    provider = _provider(archive)
+    await _map(provider)
+    _pool().fail = error
+
+    with pytest.raises(ProviderGenericError) as raised:
+        await _map(provider)
+    assert raised.value.message == message
+
+
+@pytest.mark.asyncio
+async def test_a_render_pool_that_cannot_be_created_is_a_provider_error(archive, monkeypatch):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    def fail_to_create_pool(**kwargs):
+        raise mapli.GraphicsUnavailableError("no EGL")
+
+    monkeypatch.setattr(mapli, "RenderPool", fail_to_create_pool)
+
+    with pytest.raises(ProviderGenericError) as raised:
+        await _map(_provider(archive))
+    assert raised.value.message == "the map renderer failed"
+
+
+# Data in a bucket, read through the mapli scheme handler
+
+
+def _bucket_provider(tmp_path, origin=None):
+    from app.provider.storage import CachedRanges
+    from tests.range_cache_fixtures import CountingStore, memory_store, range_cache
+
+    provider = _provider(BUCKET_DATA)
+    origin = origin if origin is not None else CountingStore(memory_store())
+    origin.put("land.pmtiles", land_archive(tmp_path / "land.pmtiles").read_bytes())
+    provider.cached_ranges = CachedRanges(
+        origin, "land.pmtiles", range_cache(memory_store()), source=BUCKET_DATA
+    )
+    return provider, origin
+
+
+def _rendered_url() -> str:
+    return _pool().rendered_style()["sources"]["dataset"]["url"].removeprefix("pmtiles://")
+
+
+def _serve(url: str, data_range: tuple[int, int] | None = None):
+    from app.provider.mapli import _SCHEME_HANDLER
+
+    return _SCHEME_HANDLER(mapli.ResourceRequest(url=url, kind="source", data_range=data_range))
+
+
+def _is_error(response, reason: str) -> bool:
+    # mapli's Response exposes nothing but its repr, e.g. 'Response.error(NotFound, "...")'
+    return repr(response).startswith(f"Response.error({reason},")
+
+
+@pytest.mark.asyncio
+async def test_a_bucket_is_read_through_the_scheme_handler(tmp_path):
+    from app.provider.storage.cache import version_of
+
+    provider, _ = _bucket_provider(tmp_path)
+    await _map(provider)
+    url = _rendered_url()
+    cached = provider.cached_ranges
+
+    assert url == f"fastgeoapi://{provider._scheme_source_key}/{version_of(cached.meta())}"
+    assert bytes(_serve(url, (0, 6))) == b"PMTiles"
+
+
+@pytest.mark.asyncio
+async def test_a_range_past_the_end_is_clamped_and_one_beyond_it_is_not_found(tmp_path):
+    provider, origin = _bucket_provider(tmp_path)
+    await _map(provider)
+    url, size = _rendered_url(), len(origin.get("land.pmtiles"))
+
+    assert len(_serve(url, (size - 3, size + 100))) == 3
+    assert len(_serve(url)) == size
+    assert _is_error(_serve(url, (size, size + 10)), "NotFound")
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_source_or_version_is_not_found(tmp_path):
+    provider, _ = _bucket_provider(tmp_path)
+    await _map(provider)
+    source, version = _rendered_url().removeprefix("fastgeoapi://").split("/")
+
+    assert _is_error(_serve(f"fastgeoapi://nope/{version}", (0, 6)), "NotFound")
+    assert _is_error(_serve(f"fastgeoapi://{source}/nope", (0, 6)), "NotFound")
+
+
+@pytest.mark.asyncio
+async def test_data_that_changed_under_its_version_is_not_found(tmp_path):
+    provider, origin = _bucket_provider(tmp_path)
+    await _map(provider)
+    url = _rendered_url()
+    origin.put("land.pmtiles", origin.get("land.pmtiles") + b"\x00")
+
+    assert _is_error(_serve(url, (0, 6)), "NotFound")
+
+
+@pytest.mark.asyncio
+async def test_a_failing_read_is_a_server_error(tmp_path):
+    provider, _ = _bucket_provider(tmp_path)
+    await _map(provider)
+    url = _rendered_url()
+
+    with mock.patch.object(provider.cached_ranges, "at", side_effect=OSError("boom")):
+        assert _is_error(_serve(url, (0, 6)), "Server")
+
+
+@pytest.mark.asyncio
+async def test_a_new_version_of_the_data_is_drawn_with_a_new_style(tmp_path):
+    provider, origin = _bucket_provider(tmp_path)
+    await _map(provider)
+    first_url, first_style = _rendered_url(), _pool().renders[-1]["style_id"]
+    origin.put("land.pmtiles", origin.get("land.pmtiles") + b"\x00")
+    provider.cached_ranges.invalidate()
+    await _map(provider)
+    second_url, second_style = _rendered_url(), _pool().renders[-1]["style_id"]
+
+    assert first_url != second_url
+    assert first_style != second_style
+
+
+@pytest.mark.asyncio
+async def test_the_first_map_of_a_bucket_blocks_nothing_on_the_loop(tmp_path):
+    from tests.loop_guard import loop_guard
+
+    provider, _ = _bucket_provider(tmp_path)
+    with loop_guard():
+        png = await _map(provider)
+
+    assert png.startswith(b"\x89PNG")
+
+
+# Data in a bucket without the range cache, read straight from its store
+
+
+def _uncached_bucket_provider(tmp_path, options=None, store_options=None):
+    from tests.range_cache_fixtures import CountingStore, memory_store
+
+    provider = _provider(
+        BUCKET_DATA, {"range_cache": False, **(options or {})}, store_options=store_options
+    )
+    origin = CountingStore(memory_store())
+    origin.put("land.pmtiles", land_archive(tmp_path / "land.pmtiles").read_bytes())
+    provider.store = origin
+    return provider, origin
+
+
+@pytest.mark.asyncio
+async def test_a_bucket_without_the_range_cache_is_read_from_its_store(tmp_path):
+    from app.provider.storage.cache import version_of
+
+    provider, origin = _uncached_bucket_provider(tmp_path)
+    await _map(provider)
+    url = _rendered_url()
+    reads_before = len(origin.range_reads)
+    version = version_of(origin.head("land.pmtiles"))
+
+    assert provider.cached_ranges is None
+    assert url == f"fastgeoapi://{provider._scheme_source_key}/{version}"
+    assert bytes(_serve(url, (0, 6))) == b"PMTiles"
+    assert len(origin.range_reads) == reads_before + 1
+
+
+@pytest.mark.asyncio
+async def test_a_bucket_without_the_range_cache_is_looked_up_for_each_map(tmp_path):
+    provider, origin = _uncached_bucket_provider(tmp_path)
+    for _ in range(3):
+        await _map(provider)
+
+    assert origin.heads == 3
+
+
+@pytest.mark.asyncio
+async def test_a_replaced_bucket_object_is_not_read_under_its_old_version(tmp_path):
+    provider, origin = _uncached_bucket_provider(tmp_path)
+    await _map(provider)
+    old_url = _rendered_url()
+    origin.put("land.pmtiles", origin.get("land.pmtiles") + b"\x00")
+
+    assert _is_error(_serve(old_url, (0, 6)), "NotFound")
+
+
+@pytest.mark.asyncio
+async def test_a_replaced_bucket_object_is_drawn_from_the_next_map_on(tmp_path):
+    provider, origin = _uncached_bucket_provider(tmp_path)
+    await _map(provider)
+    first_url, first_style = _rendered_url(), _pool().renders[-1]["style_id"]
+    origin.put("land.pmtiles", origin.get("land.pmtiles") + b"\x00")
+    await _map(provider)
+    second_url, second_style = _rendered_url(), _pool().renders[-1]["style_id"]
+
+    assert first_url != second_url
+    assert first_style != second_style
+    assert bytes(_serve(second_url, (0, 6))) == b"PMTiles"
+
+
+# A local archive, read through the scheme handler
+
+
+@pytest.mark.asyncio
+async def test_a_local_archive_is_read_through_the_scheme_handler(archive):
+    provider = _provider(archive)
+    await _map(provider)
+
+    assert _rendered_url().startswith("fastgeoapi://")
+    assert bytes(_serve(_rendered_url(), (0, 6))) == b"PMTiles"
+
+
+@pytest.mark.asyncio
+async def test_the_same_data_through_other_store_options_is_served_by_its_own_store(tmp_path):
+    first, first_origin = _uncached_bucket_provider(tmp_path)
+    second, _ = _uncached_bucket_provider(tmp_path, store_options={"endpoint": "other.example.org"})
+    await _map(first)
+    await _map(second)
+    first_url = first._get_map_styles().dataset_url.removeprefix("pmtiles://")
+    second_url = second._get_map_styles().dataset_url.removeprefix("pmtiles://")
+    first_reads = len(first_origin.range_reads)
+
+    assert first_url != second_url
+    assert bytes(_serve(first_url, (0, 6))) == b"PMTiles"
+    assert len(first_origin.range_reads) == first_reads + 1
+
+
+@pytest.mark.asyncio
+async def test_the_data_of_a_dropped_provider_is_no_longer_served(archive):
+    import gc
+
+    provider = _provider(archive)
+    await _map(provider)
+    url = _rendered_url()
+    del provider
+    gc.collect()
+
+    assert _is_error(_serve(url, (0, 6)), "NotFound")
+
+
+@pytest.mark.asyncio
+async def test_a_replaced_local_archive_is_not_read_under_its_old_version(tmp_path):
+    archive = land_archive(tmp_path / "land.pmtiles")
+    provider = _provider(archive)
+    await _map(provider)
+    old_url = _rendered_url()
+    raster_archive(tmp_path / "raster.pmtiles").replace(archive)
+
+    assert _is_error(_serve(old_url, (0, 6)), "NotFound")
+
+
+@pytest.mark.asyncio
+async def test_a_replaced_local_archive_is_drawn_from_the_next_map_on(tmp_path):
+    archive = land_archive(tmp_path / "land.pmtiles")
+    provider = _provider(archive)
+    await _map(provider)
+    first_url = _rendered_url()
+    raster_archive(tmp_path / "raster.pmtiles").replace(archive)
+    await _map(provider)
+    second_url = _rendered_url()
+
+    assert first_url != second_url
+    assert bytes(_serve(second_url, (0, 6))) == b"PMTiles"
+
+
+@pytest.mark.asyncio
+async def test_the_version_of_a_local_archive_does_not_depend_on_its_inode(tmp_path):
+    import shutil
+
+    archive = land_archive(tmp_path / "land.pmtiles")
+    provider = _provider(archive)
+    first = await provider.aversion()
+    # A copy that keeps the size and modification time, as on another machine
+    shutil.copy2(archive, tmp_path / "copy.pmtiles")
+    (tmp_path / "copy.pmtiles").replace(archive)
+
+    assert first is not None
+    assert await provider.aversion() == first
+
+
+@pytest.mark.asyncio
+async def test_the_version_of_a_local_archive_follows_the_file(tmp_path):
+    archive = land_archive(tmp_path / "land.pmtiles")
+    provider = _provider(archive)
+    first = await provider.aversion()
+    raster_archive(tmp_path / "raster.pmtiles").replace(archive)
+
+    assert await provider.aversion() != first
+
+
+# The default style follows the version of the data
+
+
+@pytest.mark.asyncio
+async def test_a_replaced_local_archive_gets_a_new_default_style(tmp_path):
+    archive = land_archive(tmp_path / "land.pmtiles")
+    provider = _provider(archive)
+    await _map(provider)
+    raster_archive(tmp_path / "raster.pmtiles").replace(archive)
+    await _map(provider)
+
+    assert _pool().rendered_style(0)["sources"]["dataset"]["type"] == "vector"
+    assert _pool().rendered_style(1)["sources"]["dataset"]["type"] == "raster"
+
+
+@pytest.mark.asyncio
+async def test_a_replaced_bucket_object_gets_a_new_default_style(tmp_path):
+    provider, origin = _bucket_provider(tmp_path)
+    await _map(provider)
+    origin.put("land.pmtiles", raster_archive(tmp_path / "raster.pmtiles").read_bytes())
+    provider.cached_ranges.invalidate()
+    await _map(provider)
+
+    assert _pool().rendered_style(0)["sources"]["dataset"]["type"] == "vector"
+    assert _pool().rendered_style(1)["sources"]["dataset"]["type"] == "raster"
+
+
+@pytest.mark.asyncio
+async def test_a_replaced_bucket_object_without_the_range_cache_gets_a_new_default_style(
+    tmp_path,
+):
+    provider, origin = _uncached_bucket_provider(tmp_path)
+    await _map(provider)
+    origin.put("land.pmtiles", raster_archive(tmp_path / "raster.pmtiles").read_bytes())
+    await _map(provider)
+
+    assert _pool().rendered_style(0)["sources"]["dataset"]["type"] == "vector"
+    assert _pool().rendered_style(1)["sources"]["dataset"]["type"] == "raster"
+
+
+@pytest.mark.asyncio
+async def test_an_https_archive_without_the_range_cache_is_read_through_the_scheme_handler(
+    tmp_path,
+):
+    from app.provider.storage.cache import version_of
+    from tests.range_cache_fixtures import CountingStore, memory_store
+
+    data = "https://example.org/tiles/land.pmtiles"
+    provider = _provider(data, {"range_cache": False})
+    origin = CountingStore(memory_store())
+    origin.put("land.pmtiles", land_archive(tmp_path / "land.pmtiles").read_bytes())
+    provider.store = origin
+    await _map(provider)
+
+    assert _rendered_url() == (
+        f"fastgeoapi://{provider._scheme_source_key}/{version_of(origin.head('land.pmtiles'))}"
+    )
+    assert bytes(_serve(_rendered_url(), (0, 6))) == b"PMTiles"
+
+
+@pytest.mark.asyncio
+async def test_concurrent_first_maps_share_one_pool_and_register_the_style_once(archive):
+    provider = _provider(archive)
+    await asyncio.gather(*(_map(provider) for _ in range(5)))
+
+    assert len(_pool().renders) == 5
+    assert len(_pool().styles) == 1
+
+
+# The /map route
+
+
+def _client(archive, options=None):
+    from starlette.testclient import TestClient
+
+    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
+    from tests.test_tiles_async_route import _collection, _config
+
+    config = _config({"land": _collection("Land", [_definition(archive, options)])})
+    return TestClient(
+        build_pygeoapi_subapp(config, build_openapi(config)), raise_server_exceptions=False
+    )
+
+
+def test_the_route_awaits_the_provider(archive):
+    client = _client(archive)
+
+    response = client.get(
+        "/collections/land/map",
+        params={"bbox": "12.4,41.8,12.6,42.0", "width": 64, "height": 48, "transparent": "false"},
+    )
+
+    assert response.status_code == 200, response.text[:200]
+    assert response.headers["content-type"] == "image/png"
+    assert _pool().renders[-1]["size"] == (64, 48)
+    assert _background(_pool().rendered_style())["layout"]["visibility"] == "visible"
+
+
+def test_the_route_draws_a_style_configured_under_options(archive):
+    night = {"version": 8, "sources": {}, "layers": [{"id": "night", "type": "background"}]}
+    client = _client(archive, {"styles": {"night": night}})
+
+    response = client.get("/collections/land/styles/night/map", params={"width": 16, "height": 16})
+
+    assert response.status_code == 200, response.text[:200]
+    assert [layer["id"] for layer in _pool().rendered_style()["layers"]] == ["night"]
+
+
+def test_the_route_answers_a_renderer_failure_in_json(archive):
+    client = _client(archive)
+    client.get("/collections/land/map", params={"width": 16, "height": 16})
+    _pool().fail = mapli.RenderError("boom")
+
+    response = client.get("/collections/land/map", params={"width": 16, "height": 16})
+
+    assert response.status_code == 500
+    assert response.json()["description"] == "the map renderer failed"
+
+
+@pytest.mark.parametrize(
+    ("path", "params", "status"),
+    [
+        ("/collections/land/styles/night/map", {"width": 16, "height": 16}, 404),
+        ("/collections/land/map", {"width": 4096, "height": 16}, 413),
+        ("/collections/land/map", {"width": 5, "height": 5}, 200),
+        ("/collections/land/map", {"bbox": "12.4,41.8,12.4,42.0", "width": 16}, 400),
+        ("/collections/land/map", {"transparent": "1", "width": 16, "height": 16}, 400),
+    ],
+)
+def test_the_route_answers_each_request_with_its_status(archive, path, params, status):
+    response = _client(archive).get(path, params=params)
+
+    assert response.status_code == status, response.text[:200]
+
+
+# HTTP caching
+
+
+def test_the_provider_tells_the_version_of_its_maps(archive):
+    from app.interfaces.providers import VersionedProvider
+
+    assert isinstance(_provider(archive), VersionedProvider)
+
+
+@pytest.mark.asyncio
+async def test_two_providers_of_one_definition_give_one_version_without_rendering(archive):
+    first = await _provider(archive).aversion()
+    second = await _provider(archive).aversion()
+
+    assert first is not None
+    assert first == second
+    assert FakeRenderPool.instances == []
+
+
+@pytest.mark.asyncio
+async def test_a_local_archive_written_again_gives_a_new_version(tmp_path):
+    import os
+
+    path = land_archive(tmp_path / "land.pmtiles")
+    provider = _provider(path)
+    before = await provider.aversion()
+    path.write_bytes(path.read_bytes() + b"\x00")
+    later = path.stat().st_mtime + 10
+    os.utime(path, (later, later))
+
+    assert await provider.aversion() != before
+
+
+@pytest.mark.asyncio
+async def test_another_definition_gives_another_version(archive):
+    default = await _provider(archive).aversion()
+    recoloured = await _provider(archive, {"default_vector_colors": ["#000000"]}).aversion()
+
+    assert default != recoloured
+
+
+@pytest.mark.asyncio
+async def test_the_version_reads_the_metadata_of_the_archive_only(tmp_path):
+    provider, origin = _uncached_bucket_provider(tmp_path)
+
+    assert await provider.aversion() is not None
+    assert origin.heads == 1
+    assert origin.range_reads == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "parameters",
+    [
+        {"crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"},
+        {"format_": "jpeg"},
+        {"width": 0},
+        {"width": 2049},
+        {"height": 0},
+        {"height": 2049},
+        {"bbox": [math.nan, 0, 1, 1]},
+        {"bbox": [1379000.0, 5160000.0, 1403000.0, 5140000.0]},
+        {"transparent": "1"},
+        {"style": "night"},
+    ],
+)
+async def test_a_bad_parameter_gets_no_version(archive, parameters):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    with pytest.raises(ProviderGenericError):
+        await _provider(archive).aversion(**parameters)
+
+
+@pytest.mark.asyncio
+async def test_a_bucket_map_follows_the_version_the_range_cache_knows(tmp_path):
+    provider, origin = _bucket_provider(tmp_path)
+    first = await provider.aversion()
+    origin.put("land.pmtiles", origin.get("land.pmtiles") + b"\x00")
+    provider.cached_ranges.invalidate()
+
+    assert first is not None
+    assert await provider.aversion() != first
+
+
+@pytest.mark.asyncio
+async def test_a_bucket_map_without_the_range_cache_follows_the_store_version(tmp_path):
+    provider, origin = _uncached_bucket_provider(tmp_path)
+    first = await provider.aversion()
+    origin.put("land.pmtiles", origin.get("land.pmtiles") + b"\x00")
+
+    assert first is not None
+    assert await provider.aversion() != first
+    assert origin.heads == 2
+
+
+def _caching_client(archive, options=None):
+    from starlette.testclient import TestClient
+
+    from app.pygeoapi.api_async.caching import HttpCache
+    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
+    from tests.test_tiles_async_route import _collection, _config
+
+    config = _config({"land": _collection("Land", [_definition(archive, options)])})
+    http_cache = HttpCache(max_age=300, protected=False, code="test")
+    return TestClient(
+        build_pygeoapi_subapp(config, build_openapi(config), http_cache=http_cache),
+        raise_server_exceptions=False,
+    )
+
+
+def test_the_route_gives_another_etag_to_another_style_or_background(archive):
+    night = {"version": 8, "sources": {}, "layers": [{"id": "night", "type": "background"}]}
+    client = _caching_client(archive, {"styles": {"night": night}})
+    size = {"width": 64, "height": 64}
+
+    responses = [
+        client.get("/collections/land/map", params={**size, "transparent": "true"}),
+        client.get("/collections/land/map", params={**size, "transparent": "false"}),
+        client.get("/collections/land/styles/night/map", params=size),
+    ]
+
+    assert [response.status_code for response in responses] == [200, 200, 200]
+    assert len({response.headers["etag"] for response in responses}) == 3
+
+
+def test_the_route_sends_a_map_with_its_etag_and_how_long_to_keep_it(archive):
+    response = _caching_client(archive).get(
+        "/collections/land/map", params={"width": 64, "height": 64}
+    )
+
+    assert response.status_code == 200, response.text[:200]
+    assert response.headers["etag"].startswith('"')
+    assert response.headers["cache-control"] == "public, max-age=300"
+
+
+def test_the_route_answers_304_to_a_map_asked_with_its_etag_without_rendering_it(archive):
+    client = _caching_client(archive)
+    params = {"width": 64, "height": 64}
+    etag = client.get("/collections/land/map", params=params).headers["etag"]
+    renders = len(_pool().renders)
+
+    response = client.get("/collections/land/map", params=params, headers={"If-None-Match": etag})
+
+    assert (response.status_code, response.content) == (304, b"")
+    assert response.headers["etag"] == etag
+    assert len(_pool().renders) == renders
+
+
+def test_the_route_answers_400_to_a_bad_map_asked_with_any_etag(archive):
+    response = _caching_client(archive).get(
+        "/collections/land/map",
+        params={"width": 0, "height": 64},
+        headers={"If-None-Match": "*"},
+    )
+
+    assert response.status_code == 400
+    assert "etag" not in response.headers

@@ -86,6 +86,10 @@ portolan = [
     "fastgeoapi-portolan==0.4.0",
     "fastgeoapi[geoparquet,pmtiles]",
 ]
+# The mapli map provider
+mapli = [
+    "mapli>=0.5.0; sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')",
+]
 
 [dependency-groups]
 dev = [
