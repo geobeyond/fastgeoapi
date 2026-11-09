@@ -38,7 +38,7 @@ class FakeRenderPool:
     def register_style(self, style_id, *, url=None, path=None, json=None) -> None:
         self.styles[style_id] = url if url is not None else json
 
-    async def arender_from_bounds(self, style_id, *, bbox, width, height, **kwargs) -> bytes:
+    async def arender_bbox(self, style_id, *, bbox, width, height, **kwargs) -> bytes:
         if self.fail is not None:
             raise self.fail
         self.renders.append({"style_id": style_id, "bbox": tuple(bbox), "size": (width, height)})
@@ -215,13 +215,13 @@ def test_the_world_in_web_mercator_is_the_world_in_crs84():
 
 def test_the_world_stays_within_the_latitudes_mapli_draws():
     from app.maps.camera import HALF_WORLD
-    from app.provider.mapli import MAX_LATITUDE, parse_web_mercator_bbox_as_crs84_bbox
+    from app.provider.mapli import parse_web_mercator_bbox_as_crs84_bbox
 
     _, south, _, north = parse_web_mercator_bbox_as_crs84_bbox(
         [-HALF_WORLD, -HALF_WORLD, HALF_WORLD, HALF_WORLD]
     )
 
-    assert -MAX_LATITUDE <= south < north <= MAX_LATITUDE
+    assert -mapli.MAX_LAT <= south < north <= mapli.MAX_LAT
 
 
 def test_a_bbox_beyond_the_poles_is_clamped():

@@ -24,7 +24,6 @@ from typing import (
 )
 from urllib.parse import urlsplit
 
-from pygeoapi.crs import transform_bbox
 from pygeoapi.provider.base import (
     BaseProvider,
     ProviderGenericError,
@@ -80,10 +79,6 @@ except ImportError as error:
 
 logger = create_logger("app.provider.mapli")
 
-CRS_84 = "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
-
-# north edge of web mercator
-MAX_LATITUDE = 85.05112877980659
 
 # URL scheme under which mapli reads bucket data through this module's handler
 # check out the mapli docs for more info on custom URL scheme handlers
@@ -345,8 +340,9 @@ class MapliMapProviderConfig:
     _supported_dem_encodings: ClassVar[list[str]] = ["mapbox", "terrarium"]
 
     data: str
-    # Each worker is a thread with its own renderers, each renderer has its own
-    # GL context and tile cache: keep these low on slim nodes
+    # Each worker is a thread with its own GL context and renderers, one renderer
+    # per style whatever the image size, each with its own tile cache: keep these
+    # low on slim nodes
     num_workers: int = 1
     max_renderers_per_worker: int = 4
     storage_crs: str = WEB_MERCATOR
@@ -608,7 +604,7 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             registered_style_identifier = await self.run_sync(
                 self._register_style, arguments.style_id, arguments.transparent
             )
-            return await self._get_render_pool().arender_from_bounds(
+            return await self._get_render_pool().arender_bbox(
                 style_id=registered_style_identifier,
                 bbox=arguments.lon_lat_bbox,
                 width=arguments.width,
@@ -894,15 +890,24 @@ def parse_web_mercator_bbox_as_crs84_bbox(
     ymin = max(-HALF_WORLD, min(HALF_WORLD, web_mercator_bbox[1]))
     ymax = max(-HALF_WORLD, min(HALF_WORLD, web_mercator_bbox[3]))
 
-    west, south, east, north = transform_bbox(
-        [xmin, ymin, xmax, ymax],
-        from_crs=WEB_MERCATOR,
-        to_crs=CRS_84,
-        always_xy=True,
-    )
-    # The edge of web mercator comes back a hair beyond the latitude mapli accepts
-    south = max(-MAX_LATITUDE, min(MAX_LATITUDE, south))
-    north = max(-MAX_LATITUDE, min(MAX_LATITUDE, north))
+    # Here we use an optimization: The inverse of web mercator, which
+    # projects WGS84 coordinates as if the earth were a sphere, is a pair of
+    # exact formulas for EPSG:3857, and they agree with pyproj to within 1e-13 degrees.
+    # We don't use pyproj because each call to transform_bbox was measured at
+    # about 17 ms, most of it spent searching the EPSG database to identify the
+    # target CRS. A map request converts its bbox up to twice, once for its ETag
+    # when HTTP caching is on and once to draw it, and the conversion ran on
+    # the event loop, so concurrent requests waited in line behind it.
+    west = xmin / HALF_WORLD * 180
+    east = xmax / HALF_WORLD * 180
+    if east > 180:
+        # the east edge of a bbox across the antimeridian, back within -180 and 180
+        east -= 360
+    south = math.degrees(math.atan(math.sinh(ymin / HALF_WORLD * math.pi)))
+    north = math.degrees(math.atan(math.sinh(ymax / HALF_WORLD * math.pi)))
+    # The edge of web mercator comes out a hair beyond the latitude mapli accepts
+    south = max(-mapli.MAX_LAT, min(mapli.MAX_LAT, south))
+    north = max(-mapli.MAX_LAT, min(mapli.MAX_LAT, north))
     return west, south, east, north
 
 

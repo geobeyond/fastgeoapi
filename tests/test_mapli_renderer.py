@@ -79,6 +79,62 @@ async def test_a_bbox_across_the_antimeridian_is_drawn(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_a_bbox_is_stretched_over_an_image_of_another_aspect(tmp_path):
+    import math
+
+    from app.maps.camera import HALF_WORLD
+
+    # A black square whose south-west corner lies 250 m east and 750 m north of the
+    # south-west corner of a 1000 m bbox: a quarter of the way across, three
+    # quarters of the way up.
+    west = 250 / HALF_WORLD * 180
+    south = math.degrees(math.atan(math.sinh(750 / HALF_WORLD * math.pi)))
+    square = [[west, south], [1, south], [1, 1], [west, 1], [west, south]]
+    corner_style = {
+        "version": 8,
+        "sources": {
+            "square": {
+                "type": "geojson",
+                "data": {"type": "Polygon", "coordinates": [square]},
+            }
+        },
+        "layers": [
+            {"id": "background", "type": "background", "paint": {"background-color": "#ffffff"}},
+            {
+                "id": "square",
+                "type": "fill",
+                "source": "square",
+                # antialiasing would soften the edges by half a pixel outwards
+                "paint": {"fill-color": "#000000", "fill-antialias": False},
+            },
+        ],
+    }
+    provider = _provider(
+        land_archive(tmp_path / "land.pmtiles"), {"styles": {"corner": corner_style}}
+    )
+
+    # The bbox is square, the image twice as wide as it is tall: the corner is at
+    # column 32 and row 16. Stretching doubles the width, so the vertical edge
+    # blurs over the two columns either side of 32; the horizontal edge stays sharp.
+    image = _image(
+        await _map(
+            provider,
+            style="corner",
+            bbox=[0.0, 0.0, 1000.0, 1000.0],
+            width=128,
+            height=64,
+            transparent=False,
+        )
+    )
+
+    black, white = (0, 0, 0, 255), (255, 255, 255, 255)
+    assert _close_to(image.getpixel((30, 13)), white)
+    assert _close_to(image.getpixel((33, 13)), black)
+    assert _close_to(image.getpixel((40, 15)), black)
+    assert _close_to(image.getpixel((40, 16)), white)
+
+
+@pytest.mark.asyncio
 async def test_an_elevation_archive_is_shaded(tmp_path):
     provider = _provider(terrarium_archive(tmp_path / "t.pmtiles"), {"dem": "terrarium"})
 
