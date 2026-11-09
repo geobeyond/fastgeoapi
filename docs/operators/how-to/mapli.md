@@ -87,7 +87,7 @@ The provider's own settings go under `options`:
 | `max_image_width`, `max_image_height` | `max_size`                                                       | The largest `width` and `height`, set separately.                                                                                                                |
 | `min_image_width`, `min_image_height` | 1                                                                | The smallest `width` and `height`.                                                                                                                               |
 | `num_workers`                         | 1                                                                | Number of rendering threads used by mapli.                                                                                                                       |
-| `max_renderers_per_worker`            | 4                                                                | Renderers each thread keeps. Each renderer holds its own GL context and tile cache.                                                                              |
+| `max_renderers_per_worker`            | 4                                                                | Renderers each thread keeps: one per style, whatever the image size. Each holds its own tile cache; a thread's renderers share its GL context.                   |
 | `range_cache`                         | true                                                             | Read a bucket archive through the range cache. `false` reads each range from the bucket.                                                                         |
 
 ### Styles
