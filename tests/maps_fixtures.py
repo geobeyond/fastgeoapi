@@ -12,6 +12,27 @@ if TYPE_CHECKING:
     from app.maps.contract import MapRequest
 
 
+def build_map_parameters(**overrides):
+    """Build the ``MapParameters`` of one map, with defaults for what a test leaves out."""
+    from app.interfaces.providers import MapParameters
+
+    values = {
+        "style": None,
+        "bbox": None,
+        "width": 500,
+        "height": 300,
+        "crs": "http://www.opengis.net/def/crs/EPSG/0/3857",
+        "transparent": True,
+        "format_": "png",
+        "datetime_": None,
+        "subsets": None,
+        **overrides,
+    }
+    if values["bbox"] is not None:
+        values["bbox"] = tuple(values["bbox"])
+    return MapParameters(**values)
+
+
 def tiny_png(width: int = 1, height: int = 1) -> bytes:
     """A valid, fully transparent RGBA PNG of the given size."""
 

@@ -148,9 +148,58 @@ class MapCapabilities:
     formats: tuple[MapFormat, ...]
 
 
+@dataclass(frozen=True)
+class MapParameters:
+    """A parameters container of one map, as passed from the route to the provider.
+
+    Attributes
+    ----------
+    style
+        The name of a configured style, from the ``{styleId}`` of
+        ``/collections/{collectionId}/styles/{styleId}/map``, or None for the
+        default one (/req/styled-map/map-operation).
+    bbox
+        ``(xmin, ymin, xmax, ymax)`` in ``crs``, where the route has already
+        moved it from ``bbox-crs`` and clipped it to the CRS; ``xmin > xmax``
+        means that the box crosses the antimeridian
+        (/req/spatial-subsetting/bbox-definition).
+    width
+        The width of the image in pixels, a positive integer
+        (/req/scaling/width-definition).
+    height
+        The height of the image in pixels, a positive integer
+        (/req/scaling/height-definition).
+    crs
+        The URI of the CRS the map is drawn in, written as the provider
+        declares it (/req/crs/crs-definition).
+    transparent
+        Whether the background is transparent
+        (/req/background/transparent-definition).
+    format_
+        The format to encode the map in, one the provider declares
+        (/req/core/map-response).
+    datetime_
+        The ``datetime`` of the request, checked against the collection's
+        temporal extent, or None (/req/datetime/datetime-definition).
+    subsets
+        The values asked with ``subset``, by additional dimension, or None
+        (/req/general-subsetting/subset-definition).
+    """
+
+    style: str | None
+    bbox: tuple[float, float, float, float]
+    width: int
+    height: int
+    crs: str
+    transparent: bool
+    format_: str
+    datetime_: str | None
+    subsets: dict[str, list[Any]] | None
+
+
 @runtime_checkable
 class AsyncMapProvider(Protocol):
-    """A map provider that can be awaited for a rendered map.
+    """A map provider protocol that defines the contract for a rendered map.
 
     The contract cannot type the definition the provider is built from, so
     it types what the provider makes of it: ``limits`` says which sizes it
@@ -177,51 +226,13 @@ class AsyncMapProvider(Protocol):
         """The CRSs it draws in and the formats it encodes."""
         ...
 
-    async def arender_map(
-        self,
-        *,
-        style: str | None,
-        bbox: tuple[float, float, float, float],
-        width: int,
-        height: int,
-        crs: str,
-        transparent: bool,
-        format_: str,
-        datetime_: str | None,
-        subsets: dict[str, list[Any]] | None,
-    ) -> bytes:
-        """Draw the map and return the image, encoded as ``format_``.
+    async def arender_map(self, parameters: MapParameters) -> bytes:
+        """Draw the map and return the image, encoded as ``parameters.format_``.
 
         Parameters
         ----------
-        style
-            The name of a configured style, from the ``{styleId}`` of
-            ``/collections/{collectionId}/styles/{styleId}/map``, or None for
-            the default one (/req/styled-map/map-operation).
-        bbox
-            ``(xmin, ymin, xmax, ymax)`` in ``crs``, where the route has already
-            moved it from ``bbox-crs``; ``xmin > xmax`` means that the box
-            crosses the antimeridian (/req/spatial-subsetting/bbox-definition).
-        width
-            The width of the image in pixels, a positive integer
-            (/req/scaling/width-definition).
-        height
-            The height of the image in pixels, a positive integer
-            (/req/scaling/height-definition).
-        crs
-            The URI of the CRS the map is drawn in (/req/crs/crs-definition).
-        transparent
-            Whether the background is transparent
-            (/req/background/transparent-definition).
-        format_
-            The format the client asked for with ``f``; maps are drawn as
-            PNG (/req/png/content).
-        datetime_
-            The ``datetime`` of the request, checked against the collection's
-            temporal extent, or None (/req/datetime/datetime-definition).
-        subsets
-            The values asked with ``subset``, by additional dimension, or None
-            (/req/general-subsetting/subset-definition).
+        parameters
+            The checked parameters of the map.
 
         Raises
         ------
@@ -232,25 +243,13 @@ class AsyncMapProvider(Protocol):
         """
         ...
 
-    async def aget_version(
-        self,
-        *,
-        style: str | None,
-        bbox: tuple[float, float, float, float],
-        width: int,
-        height: int,
-        crs: str,
-        transparent: bool,
-        format_: str,
-        datetime_: str | None,
-        subsets: dict[str, list[Any]] | None,
-    ) -> str | None:
-        """The version of the map ``arender_map`` would draw, without drawing it.
+    async def aget_version(self, parameters: MapParameters) -> str | None:
+        """Get the map's version that would be drawn, without drawing it.
 
         The route builds the response's ``ETag`` from it (RFC 9110, section
         8.8.3) and answers 304 to an ``If-None-Match`` that names that
         ``ETag`` (RFC 9110, section 13.1.2). So the version changes whenever
-        the image for these arguments can change: the data, the definition,
+        the image for these parameters can change: the data, the definition,
         the style or the engine. It reads metadata only. A map served under a
         version is drawn from the data that version names, so a provider whose
         reads are not pinned to one version returns None, and the map gets no
@@ -258,34 +257,8 @@ class AsyncMapProvider(Protocol):
 
         Parameters
         ----------
-        style
-            The name of a configured style, from the ``{styleId}`` of
-            ``/collections/{collectionId}/styles/{styleId}/map``, or None for
-            the default one (/req/styled-map/map-operation).
-        bbox
-            ``(xmin, ymin, xmax, ymax)`` in ``crs``, where the route has already
-            moved it from ``bbox-crs``; ``xmin > xmax`` means that the box
-            crosses the antimeridian (/req/spatial-subsetting/bbox-definition).
-        width
-            The width of the image in pixels, a positive integer
-            (/req/scaling/width-definition).
-        height
-            The height of the image in pixels, a positive integer
-            (/req/scaling/height-definition).
-        crs
-            The URI of the CRS the map is drawn in (/req/crs/crs-definition).
-        transparent
-            Whether the background is transparent
-            (/req/background/transparent-definition).
-        format_
-            The format the client asked for with ``f``; maps are drawn as
-            PNG (/req/png/content).
-        datetime_
-            The ``datetime`` of the request, checked against the collection's
-            temporal extent, or None (/req/datetime/datetime-definition).
-        subsets
-            The values asked with ``subset``, by additional dimension, or None
-            (/req/general-subsetting/subset-definition).
+        parameters
+            The checked parameters of the map, as ``arender_map`` gets them.
 
         Returns
         -------
@@ -306,29 +279,6 @@ class AsyncMapProvider(Protocol):
         ...
 
 
-NATIVE_MAP_MEMBERS: tuple[str, ...] = (
-    "arender_map",
-    "aget_version",
-    "limits",
-    "capabilities",
-    "close",
-)
-"""The members a map provider class with ``native_async`` must define."""
-
-MAP_ARGUMENTS: tuple[str, ...] = (
-    "style",
-    "bbox",
-    "width",
-    "height",
-    "crs",
-    "transparent",
-    "format_",
-    "datetime_",
-    "subsets",
-)
-"""The keyword arguments the map route passes to ``arender_map`` and ``aget_version``."""
-
-
 @runtime_checkable
 class VersionedProvider(Protocol):
     """A provider that tells which version of its answer a request would get.
@@ -340,18 +290,18 @@ class VersionedProvider(Protocol):
     ``aget_version`` gets no cache headers.
     """
 
-    async def aget_version(self, **kwargs: Any) -> str | None:
-        """The version of the answer to these arguments, without computing the answer.
+    async def aget_version(self, *args: Any, **kwargs: Any) -> str | None:
+        """Get the answer's version for these arguments, without computing it.
 
         It changes whenever the answer can change, and it reads metadata
         only: neither the tiles nor the data a map is drawn from.
 
         Parameters
         ----------
-        **kwargs
-            The arguments of the provider's data method: those of
-            ``aget_tiles`` for a tile provider, those of ``arender_map`` for a
-            map provider.
+        *args, **kwargs
+            The arguments of the provider's data method: the keyword
+            arguments of ``aget_tiles`` for a tile provider, the
+            ``MapParameters`` of ``arender_map`` for a map provider.
 
         Returns
         -------

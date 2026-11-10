@@ -4,7 +4,12 @@ import pytest
 from pygeoapi.provider.base import BaseProvider
 
 from app.provider.base import AsyncProviderMixin, StorageBackedMixin
-from tests.maps_fixtures import FakeRenderer, create_fake_renderer, map_provider
+from tests.maps_fixtures import (
+    FakeRenderer,
+    build_map_parameters,
+    create_fake_renderer,
+    map_provider,
+)
 from tests.pmtiles_fixtures import TILE_BYTES, write_archive
 
 ROME = [1379000.0, 5140000.0, 1403000.0, 5160000.0]  # EPSG:3857 metres
@@ -48,13 +53,23 @@ class PlainMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
         return MapCapabilities(crs=(WEB_MERCATOR,), formats=("png",))
 
-    async def arender_map(self, **kwargs):
+    async def arender_map(self, parameters):
         from app.provider.maps import build_map_request, draw_map
 
-        request = build_map_request(self._style, max_size=32, **kwargs)
+        request = build_map_request(
+            self._style,
+            max_size=32,
+            style=parameters.style,
+            bbox=parameters.bbox,
+            width=parameters.width,
+            height=parameters.height,
+            crs=parameters.crs,
+            transparent=parameters.transparent,
+            format_=parameters.format_,
+        )
         return await draw_map(self._queue, request)
 
-    async def aget_version(self, **kwargs):
+    async def aget_version(self, parameters):
         return None
 
     def close(self):
@@ -76,7 +91,9 @@ async def test_another_family_draws_by_composing_the_same_parts(tmp_path):
 
     provider = PlainMapProvider(map_provider(tmp_path / "roads.bin"))
 
-    png = await provider.arender_map(bbox=ROME, width=16, height=16, crs=WEB_MERCATOR)
+    png = await provider.arender_map(
+        build_map_parameters(bbox=ROME, width=16, height=16, crs=WEB_MERCATOR)
+    )
 
     assert isinstance(provider, AsyncMapProvider)
     assert png.startswith(b"\x89PNG")
@@ -90,9 +107,13 @@ async def test_another_family_keeps_the_limits_and_errors_of_the_parts(tmp_path)
     provider = PlainMapProvider(map_provider(tmp_path / "roads.bin"))
 
     with pytest.raises(MapTooLargeError):
-        await provider.arender_map(bbox=ROME, width=64, height=16, crs=WEB_MERCATOR)
+        await provider.arender_map(
+            build_map_parameters(bbox=ROME, width=64, height=16, crs=WEB_MERCATOR)
+        )
     with pytest.raises(MapParameterError):
-        await provider.arender_map(bbox=ROME, width=16, height=16, crs="EPSG:4326")
+        await provider.arender_map(
+            build_map_parameters(bbox=ROME, width=16, height=16, crs="EPSG:4326")
+        )
 
 
 def test_the_maplibre_classes_follow_from_its_capabilities(tmp_path):

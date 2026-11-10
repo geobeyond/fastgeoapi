@@ -48,6 +48,7 @@ dependencies = [
     "fastmcp>=4.0.10,<5",
     "obstore>=0.12.1,<0.13",
     "h11>=0.16,<0.17", # direct dependency: the loopback server of byte ranges speaks HTTP/1.1 through it
+    "typing-extensions>=4.12",
 ]
 
 [project.urls]

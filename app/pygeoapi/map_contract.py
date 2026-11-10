@@ -1,8 +1,8 @@
 """The native map providers of a configuration that miss a member of the contract.
 
 A map provider class that sets ``native_async`` is awaited on the event
-loop, and must define every member in
-:data:`~app.interfaces.providers.NATIVE_MAP_MEMBERS`. A configuration
+loop, and must define every member of
+:class:`~app.interfaces.providers.AsyncMapProvider`. A configuration
 where one misses a member is refused at load. Otherwise the map route
 would not take the provider for a native one, and would hand its maps to
 pygeoapi's route in the threadpool.
@@ -13,7 +13,9 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Any
 
-from app.interfaces.providers import NATIVE_MAP_MEMBERS
+from typing_extensions import get_protocol_members
+
+from app.interfaces.providers import AsyncMapProvider
 from app.pygeoapi.plugin import resolve_provider_class
 
 
@@ -67,7 +69,7 @@ def find_map_contract_problem(config: dict[str, Any]) -> tuple[str, str] | None:
         provider has all the members.
     """
     for name, index, provider, cls in iter_native_map_definitions(config):
-        for member in NATIVE_MAP_MEMBERS:
+        for member in sorted(get_protocol_members(AsyncMapProvider)):
             if not hasattr(cls, member):
                 return (
                     f"resources.{name}.providers.{index}",

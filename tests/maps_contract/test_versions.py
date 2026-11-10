@@ -98,11 +98,11 @@ def test_a_replaced_archive_gives_a_new_etag_with_its_map(contract):
     provider.cached_ranges = cached
     draw = provider.arender_map
 
-    async def draw_once_the_head_returned(**arguments):
+    async def draw_once_the_head_returned(parameters):
         origin.gate.set()
         while version_of(cached.known_meta()) == old_version:
             await asyncio.sleep(0.01)
-        return await draw(**arguments)
+        return await draw(parameters)
 
     drawn = []
     try:
