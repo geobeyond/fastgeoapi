@@ -18,7 +18,10 @@ from openapi_pydantic.v3.v3_0 import (
 from pydantic import BaseModel
 from pydantic_core import ValidationError
 from pygeoapi.crs import DEFAULT_CRS
-from pygeoapi.openapi import generate_openapi_document as _upstream_generate_openapi_document
+from pygeoapi.openapi import OPENAPI_YAML
+from pygeoapi.openapi import (
+    generate_openapi_document as _upstream_generate_openapi_document,
+)
 
 from app.auth.models import unauthorized
 from app.config.logging import create_logger
@@ -212,7 +215,10 @@ def fix_conformance_and_collections_responses(openapi: OpenAPI) -> OpenAPI:
     fragment of the reference changes. Remove once fixed upstream in
     pygeoapi.
     """
-    own_response = {"/conformance": "ConformanceDeclaration", "/collections": "Collections"}
+    own_response = {
+        "/conformance": "ConformanceDeclaration",
+        "/collections": "Collections",
+    }
     for path, name in own_response.items():
         item = (openapi.paths or {}).get(path)
         response = item.get.responses.get("200") if item and item.get else None
@@ -504,8 +510,6 @@ def describe_tilesets(openapi: OpenAPI) -> OpenAPI:
     references, so the addition reads like the rest of the document
     instead of like a patch. Remove once fixed upstream in pygeoapi.
     """
-    from pygeoapi.openapi import OPENAPI_YAML
-
     tiles_openapi = OPENAPI_YAML["oapit"]
     tile_set_response = f"{tiles_openapi.rsplit('/', 1)[0]}/responses/tiles-core/rTileSet.yaml"
 
@@ -545,15 +549,19 @@ def fix_map_operations(
 ) -> OpenAPI:
     """Give each map path its own id, an image response, its parameters and its styled path.
 
-    pygeoapi writes ``operationId: getMap`` for the map path of every
-    collection (``api/maps.py``, ``get_oas_30``, 0.24), while OpenAPI
-    wants the ids unique; it describes the 200 as ``application/json``
-    for what is an image; and it routes
-    ``/collections/{id}/styles/{styleId}/map`` without writing it. The id
-    follows pygeoapi's own ``get<Collection>Features`` form, the
-    response takes the provider's format, and the styled path is written
-    only for a provider with ``options.styles``. These three go once
-    pygeoapi is fixed upstream.
+    Each map operation gets an ``operationId`` of the ``get<Collection>Features``
+    form, a 200 response with the provider's format, and, for a provider with
+    ``options.styles``, the path ``/collections/{id}/styles/{styleId}/map``.
+    pygeoapi 0.24 writes ``getMap`` for every collection, ``application/json``
+    for the image and no styled path (``api/maps.py``, ``get_oas_30``); each fix
+    goes once pygeoapi makes it.
+
+    For a native map provider, both paths also publish the parameters the
+    route applies: ``width`` and ``height`` from 1 to the collection's limits,
+    ``bbox`` with four numbers, ``bbox-crs`` with CRS84 and the CRSs the
+    provider draws, ``crs`` with those CRSs, ``f`` with its formats,
+    ``datetime`` only with a temporal extent, and ``subset`` only with an
+    extent beyond ``spatial`` and ``temporal``.
 
     Parameters
     ----------
@@ -562,16 +570,9 @@ def fix_map_operations(
     config
         The pygeoapi configuration the document was generated from.
     limits
-        The limits of each collection whose map provider is native, by
-        collection name. The ``width`` and ``height`` of their maps get
-        ``minimum: 1`` and the collection's ``maximum``, on both paths.
+        The limits of each native map provider, by collection name.
     capabilities
-        The capabilities of each collection whose map provider is native,
-        by collection name. Their maps publish the parameters the route
-        applies, on both paths: ``bbox`` with four numbers, ``bbox-crs``
-        with CRS84 and the CRSs the provider draws, ``crs`` with those
-        CRSs, ``f`` with its formats, ``datetime`` only with a temporal extent, and ``subset``
-        only with an extent beyond ``spatial`` and ``temporal``.
+        The capabilities of each native map provider, by collection name.
 
     Returns
     -------
@@ -583,7 +584,8 @@ def fix_map_operations(
         item = paths.get(f"/collections/{name}/map")
         providers = (resource.get("providers") or []) if isinstance(resource, dict) else []
         provider = next(
-            (p for p in providers if isinstance(p, dict) and p.get("type") == "map"), None
+            (p for p in providers if isinstance(p, dict) and p.get("type") == "map"),
+            None,
         )
         if item is None or item.get is None or provider is None:
             continue
@@ -640,11 +642,17 @@ def _publish_map_media_types(operation: Operation, capabilities: MapCapabilities
 
 
 def _publish_parameters(
-    operation: Operation, resource: dict, provider_def: dict, capabilities: MapCapabilities
+    operation: Operation,
+    resource: dict,
+    provider_def: dict,
+    capabilities: MapCapabilities,
 ) -> None:
     extents = resource.get("extents") or {}
     additional = set(extents) - {"spatial", "temporal"}
-    bbox_crs = [DEFAULT_CRS, *(c for c in capabilities.crs if c.lower() != DEFAULT_CRS.lower())]
+    bbox_crs = [
+        DEFAULT_CRS,
+        *(c for c in capabilities.crs if c.lower() != DEFAULT_CRS.lower()),
+    ]
     published: list[Parameter | Reference] = []
     for parameter in operation.parameters or []:
         if isinstance(parameter, Reference):
@@ -654,7 +662,10 @@ def _publish_parameters(
             elif target == "bbox-crs-epsg":
                 published.append(
                     _build_crs_parameter(
-                        "bbox-crs", "The CRS of the bbox coordinates.", bbox_crs, DEFAULT_CRS
+                        "bbox-crs",
+                        "The CRS of the bbox coordinates.",
+                        bbox_crs,
+                        DEFAULT_CRS,
                     )
                 )
             elif target != "subset" or additional:
@@ -716,7 +727,12 @@ def _build_crs_parameter(name: str, description: str, uris: list[str], default: 
         required=False,
         style="form",
         explode=False,
-        param_schema=Schema(type=DataType.STRING, schema_format="uri", enum=uris, default=default),
+        param_schema=Schema(
+            type=DataType.STRING,
+            schema_format="uri",
+            enum=uris,
+            default=default,
+        ),
     )
 
 
@@ -748,7 +764,10 @@ def publish_map_ceiling(openapi: OpenAPI, ceiling: MapCeiling) -> OpenAPI:
     OpenAPI
         The same document.
     """
-    maps: dict[str, int] = {"maxWidth": ceiling.max_width, "maxHeight": ceiling.max_height}
+    maps: dict[str, int] = {
+        "maxWidth": ceiling.max_width,
+        "maxHeight": ceiling.max_height,
+    }
     if ceiling.max_pixels is not None:
         maps["maxPixels"] = ceiling.max_pixels
     setattr(openapi.info, "x-OGC-limits", {"maps": maps})
@@ -758,24 +777,26 @@ def publish_map_ceiling(openapi: OpenAPI, ceiling: MapCeiling) -> OpenAPI:
 def fix_tileset_list_response(openapi: OpenAPI) -> OpenAPI:
     """Describe the tileset list with the response OGC API - Tiles gives it.
 
-    pygeoapi answers `GET /collections/{collectionId}/tiles` with a
-    TileSetsList, `{links, tilesets}` (`api/tiles.py:110-174`, 0.24),
-    which is what the `tilesets-list` class it declares asks for. The
-    document points the 200 at `#/components/responses/Tiles`
-    (`api/tiles.py:491`) and from there at a local schema from an
-    earlier draft that requires `tileMatrixSetLinks`
-    (`openapi.py:526-543`). No answer has that field, so a client that
-    checks results against the tool schema drops every one of them: the
-    Claude connector did, on the demo.
+    The 200 of ``GET /collections/{collectionId}/tiles`` points at
+    ``responses/tiles-core/rTileSetsList.yaml`` of the OGC document, which
+    requires only ``tilesets``, as the answer gives it. The draft components
+    are removed once nothing refers to them.
 
-    The function points the 200 at `responses/tiles-core/rTileSetsList.yaml`
-    of the OGC document, which requires only `tilesets`, as
-    `describe_tilesets` does with `rTileSet.yaml` for a single tileset.
-    The draft components go once nothing refers to them. Remove once
-    fixed upstream in pygeoapi.
+    Current pygeoapi's version points the 200 at a local schema from an earlier
+    draft that requires ``tileMatrixSetLinks``, a field that doesn't have an
+    answer, so a client that checks results against the schema drops them all.
+    The fix goes away once pygeoapi makes it.
+
+    Parameters
+    ----------
+    openapi
+        The document to correct.
+
+    Returns
+    -------
+    OpenAPI
+        The same document.
     """
-    from pygeoapi.openapi import OPENAPI_YAML
-
     tiles_openapi = OPENAPI_YAML["oapit"]
     tile_sets_list = f"{tiles_openapi.rsplit('/', 1)[0]}/responses/tiles-core/rTileSetsList.yaml"
 
