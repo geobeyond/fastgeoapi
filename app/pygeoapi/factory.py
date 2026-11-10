@@ -115,9 +115,8 @@ def find_configuration_problem(config: dict) -> tuple[str, str] | None:
     """Find the first problem fastgeoapi refuses a configuration for.
 
     These are the checks beyond pygeoapi's schema: fastgeoapi's own keys and
-    the native map providers. The start, every reload and every save from
-    the editor or the CLI run the same ones, so a document that can be saved
-    can also start.
+    the native map providers. The start, the reloads and the saves from the
+    editor and the CLI all run them.
 
     Parameters
     ----------
@@ -203,7 +202,8 @@ def build_openapi(config: dict, *, map_ceiling: MapCeiling | None = None) -> dic
     """Generate the OpenAPI in memory, with the fastgeoapi fixes at the source.
 
     The document goes through the openapi-pydantic model once: validated,
-    corrected, dumped.
+    corrected, dumped. With a native map provider in the configuration, it
+    publishes the server's ceiling and the limits of each collection.
 
     Parameters
     ----------
@@ -211,8 +211,7 @@ def build_openapi(config: dict, *, map_ceiling: MapCeiling | None = None) -> dic
         The pygeoapi configuration.
     map_ceiling
         The server's ceiling on map sizes; None takes the one of the
-        settings. With a native map provider in the configuration, the
-        document publishes it and the limits of each collection.
+        settings.
 
     Returns
     -------
@@ -325,13 +324,22 @@ async def _wait_for_disconnect(request: Request) -> None:
 
 
 async def _run_unless_disconnected[T](request: Request, work: Awaitable[T]) -> T | None:
-    """The result of ``work``, or None once the client has gone and ``work`` is cancelled.
+    """Await ``work``, and cancel it when the client disconnects.
 
-    Starlette runs a handler to its end even when the client leaves. A map
-    waiting for its renderer would keep its place in the queue until its
-    timeout, and turn away the maps of the clients still there. When the
-    wait for a disconnect fails, which a middleware's receive can cause,
-    the client's state is unknown and ``work`` runs to its end.
+    When the wait for a disconnect fails, which a middleware's receive can
+    cause, the client's state is unknown and ``work`` runs to its end.
+
+    Parameters
+    ----------
+    request
+        The request whose client is watched.
+    work
+        The awaitable that answers the request.
+
+    Returns
+    -------
+    T or None
+        The result of ``work``, or None when the client disconnected first.
     """
     task = asyncio.ensure_future(work)
     gone = asyncio.ensure_future(_wait_for_disconnect(request))
@@ -408,13 +416,12 @@ def build_routes(
     http_cache: HttpCache | None = None,
     map_ceiling: MapCeiling | None = None,
 ) -> list[Route]:
-    """The route table, closed over the ``api`` instance.
+    """Build the route table, closed over the ``api`` instance.
 
-    Adapted 1:1 from ``pygeoapi/starlette_app.py`` (admin excluded: in
-    its place fastgeoapi has the reload webhook). Every entry is tagged
-    with its spec group (ADR-0005): ``specs=None`` returns the COMPLETE
-    table — the coverage contract the parity test checks against
-    upstream — while the sub-app mounts only the active groups.
+    The routes are those of ``pygeoapi/starlette_app.py`` except admin, whose
+    place the reload webhook takes. Each is tagged with its spec group:
+    ``specs=None`` returns the whole table, which the parity test compares
+    with pygeoapi's, and the sub-app mounts only the active groups.
 
     Parameters
     ----------
@@ -933,11 +940,11 @@ def build_pygeoapi_subapp(
     pages: NativePages | None = None,
     map_ceiling: MapCeiling | None = None,
 ) -> Starlette:
-    """Complete Starlette sub-app, same shape as the former APP import.
+    """Build the Starlette sub-app of a configuration.
 
-    Mounts only the spec groups the config activates (ADR-0005): the
-    reload webhook rebuilds the sub-app, so the mounted set follows
-    every config update.
+    It mounts only the spec groups the configuration activates; a reload
+    builds the sub-app again, so the mounted groups follow the
+    configuration.
 
     Parameters
     ----------
