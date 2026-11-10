@@ -1,11 +1,8 @@
-"""The native map providers of a configuration that miss a member of the contract.
+"""The check that every native map provider of a configuration defines the whole contract.
 
-A map provider class that sets ``native_async`` is awaited on the event
-loop, and must define every member of
-:class:`~app.interfaces.providers.AsyncMapProvider`. A configuration
-where one misses a member is refused at load. Otherwise the map route
-would not take the provider for a native one, and would hand its maps to
-pygeoapi's route in the threadpool.
+A map provider class that sets ``native_async`` must define every member of
+:class:`~app.interfaces.providers.AsyncMapProvider`; a configuration that
+names one missing a member is refused when it loads.
 """
 
 from __future__ import annotations
@@ -20,10 +17,10 @@ from app.pygeoapi.plugin import resolve_provider_class
 
 
 def iter_native_map_definitions(config: dict[str, Any]) -> Iterator[tuple[str, int, dict, type]]:
-    """The map provider definitions of a configuration whose class sets ``native_async``.
+    """Yield the map provider definitions whose class sets ``native_async``.
 
-    Entries of another shape and classes that do not import are skipped,
-    as are pygeoapi's short names.
+    Entries of another shape, classes that do not import and pygeoapi's
+    short names are skipped.
 
     Parameters
     ----------
@@ -49,11 +46,10 @@ def iter_native_map_definitions(config: dict[str, Any]) -> Iterator[tuple[str, i
 
 
 def find_map_contract_problem(config: dict[str, Any]) -> tuple[str, str] | None:
-    """Where the first native map provider misses a member, and which.
+    """Find the first native map provider that misses a member of the contract.
 
-    The check reads the classes and builds no provider. Providers without
-    ``native_async`` are left to pygeoapi, and so are those named with one
-    of pygeoapi's short names or with a name that does not import.
+    Only classes that set ``native_async`` are checked. The check reads the
+    classes and builds no provider.
 
     Parameters
     ----------
