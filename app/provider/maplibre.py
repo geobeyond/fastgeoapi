@@ -121,7 +121,7 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
     @property
     def limits(self) -> MapLimits:
-        """``max_size`` on both sides, no pixel limit."""
+        """The limits of the drawn maps: ``max_size`` on both sides, no limit on the area."""
         size = int(self.options["max_size"])
         return MapLimits(
             max_width=size,
@@ -131,7 +131,7 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
     @property
     def capabilities(self) -> MapCapabilities:
-        """Web Mercator and PNG, the only CRS and format MapLibre Native draws here."""
+        """Web Mercator and PNG as the CRS and the encoding of the drawn maps."""
         return MapCapabilities(crs=(WEB_MERCATOR,), formats=(MapFormat.PNG,))
 
     @property
@@ -153,7 +153,9 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         if cached is not None and server is not None:
             # The renderer reads the object through this process, by version.
             return ObjectUrl(
-                resolver=lambda: server.url_for(cached, cached.known_meta() or cached.meta())
+                resolver=lambda: server.url_for(
+                    cached, cached.known_meta() or cached.meta()
+                )
             )
         return build_object_url(
             self.provider_def["data"],
@@ -181,12 +183,16 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             documents = StyleDocuments(
                 self.options["styles"], self.provider_def.get("store_options")
             )
-            self._map_styles = build_styles(self._build_source(), documents, self.options)
+            self._map_styles = build_styles(
+                self._build_source(), documents, self.options
+            )
         return self._map_styles
 
     def _build_request(self, parameters: MapParameters) -> MapRequest:
         return build_map_request(
-            lambda name, transparent: self._load_styles().style(name, transparent),
+            lambda name, transparent: self._load_styles().style(
+                name, transparent
+            ),
             max_size=int(self.options["max_size"]),
             style=parameters.style,
             bbox=parameters.bbox,
@@ -203,13 +209,22 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         return f"{drawn}|{get_renderer_version()}"
 
     async def aget_version(self, parameters: MapParameters) -> str | None:
-        """Get the map's version that would be drawn, without drawing it.
+        """Get the version of the drawn map, without drawing it.
 
         It joins the archive's version, the definition's digest, the digest
         of the style the renderer would get and the renderer's version. The
-        request is built as :meth:`arender_map` builds it, with the same
-        checks: a map that :meth:`arender_map` refuses raises the same error
-        here. None when the archive's version is unknown.
+        request is built as :meth:`arender_map` builds it, so a map that
+        :meth:`arender_map` refuses raises the same error here.
+
+        Parameters
+        ----------
+        parameters
+            The checked parameters of the map.
+
+        Returns
+        -------
+        str or None
+            The version, or None when the archive's version is unknown.
         """
         data = await self.adata_version()
         if data is None:
@@ -222,12 +237,22 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         return f"{data}|{self.definition_digest()}|{drawn}"
 
     async def arender_map(self, parameters: MapParameters) -> bytes:
-        """Get the map as raw bytes.
+        """Draw the map and return the PNG.
 
         :func:`~app.provider.maps.build_map_request` checks its parameters, and its
         render waits in the :class:`~app.maps.queue.RenderQueue`. An archive
         has no time and no other dimension, so ``datetime_`` and ``subsets``
         change nothing.
+
+        Parameters
+        ----------
+        parameters
+            The checked parameters of the map.
+
+        Returns
+        -------
+        bytes
+            The PNG.
         """
         cached = self.cached_ranges
         if cached is not None:
@@ -242,9 +267,10 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         return await draw_map(self._queue, request)
 
     def query(self, **kwargs: Any) -> bytes:
-        """The synchronous face pygeoapi calls.
+        """Draw the map for pygeoapi's synchronous route.
 
-        The map is drawn on the loop that owns the renderer.
+        The map is drawn on the event loop that owns the renderer. Outside
+        fastgeoapi no loop owns it, and the call fails.
         """
         loop = self._queue.loop
         if loop is None or not loop.is_running():
@@ -252,10 +278,12 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
                 user_msg="maps are drawn on the async route; no event loop owns the renderer"
             )
         parameters = read_pygeoapi_arguments(kwargs)
-        return asyncio.run_coroutine_threadsafe(self.arender_map(parameters), loop).result()
+        return asyncio.run_coroutine_threadsafe(
+            self.arender_map(parameters), loop
+        ).result()
 
     async def aclose(self) -> None:
-        """Close the map's renderer.
+        """Close the renderer and wait until it is closed.
 
         The loopback server stops serving the data once the renderer is gone.
         """
