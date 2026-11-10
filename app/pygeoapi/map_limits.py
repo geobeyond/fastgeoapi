@@ -1,11 +1,7 @@
-"""What each collection's native map provider accepts, and the server's ceiling on map sizes.
+"""The server's ceiling on map sizes, and what each native map provider accepts and draws.
 
-The ceiling comes from the settings. A collection's provider may lower
-it, never raise it, and declares the CRSs and formats it draws. The
-OpenAPI document publishes all of it: the ceiling in
-``x-OGC-limits.maps``, and on each collection's map the ``maximum`` of
-``width`` and ``height`` and the values of ``crs``, ``bbox-crs`` and
-``f``.
+The ceiling comes from the settings. A collection's provider may lower it,
+never raise it.
 """
 
 from __future__ import annotations
@@ -46,7 +42,7 @@ class MapCeiling:
     max_height
         The largest ``height`` of a map, in pixels.
     max_pixels
-        The largest ``width * height``, or None for no limit on the product.
+        The largest ``width * height``, or None for no limit on the area.
     """
 
     max_width: int = 2048
@@ -55,7 +51,7 @@ class MapCeiling:
 
     @classmethod
     def from_settings(cls, settings: Any) -> MapCeiling:
-        """The ceiling fastgeoapi's settings set.
+        """Read the ceiling from fastgeoapi's settings.
 
         Parameters
         ----------
@@ -78,7 +74,13 @@ class MapCeiling:
 
 
 def get_default_map_ceiling() -> MapCeiling:
-    """The ceiling of fastgeoapi's settings, or the defaults without them."""
+    """Get the ceiling of fastgeoapi's settings, or the defaults without them.
+
+    Returns
+    -------
+    MapCeiling
+        The ceiling.
+    """
     # Imported here: building the settings needs a configured fastgeoapi, and
     # the document is also built by tools that only have pygeoapi.
     try:
@@ -89,7 +91,7 @@ def get_default_map_ceiling() -> MapCeiling:
 
 
 def cut_limits_to_ceiling(limits: MapLimits, ceiling: MapCeiling) -> MapLimits:
-    """The limits of a collection: its provider's, cut to the ceiling.
+    """Cut a provider's limits to the ceiling.
 
     Parameters
     ----------
@@ -101,8 +103,8 @@ def cut_limits_to_ceiling(limits: MapLimits, ceiling: MapCeiling) -> MapLimits:
     Returns
     -------
     MapLimits
-        The smaller of each side and of the two pixel limits; the other
-        fields as the provider declares them.
+        The smaller of each limit; a pixel limit set on one side only is
+        kept.
     """
     pixels = [value for value in (limits.max_pixels, ceiling.max_pixels) if value is not None]
     return dataclasses.replace(
@@ -114,7 +116,7 @@ def cut_limits_to_ceiling(limits: MapLimits, ceiling: MapCeiling) -> MapLimits:
 
 
 def collect_native_map_limits(config: dict[str, Any], ceiling: MapCeiling) -> dict[str, MapLimits]:
-    """The limits of every collection whose map provider is native, cut to the ceiling.
+    """Collect the limits of every native map provider, cut to the ceiling.
 
     A collection whose provider asks for more than the ceiling is logged
     once, with what it asked and what it gets.
@@ -130,7 +132,7 @@ def collect_native_map_limits(config: dict[str, Any], ceiling: MapCeiling) -> di
     -------
     dict of str to MapLimits
         The limits by collection name. A provider that does not load is left
-        out: its map fails on the route as it would without limits.
+        out.
     """
     limits: dict[str, MapLimits] = {}
     for name, _, provider in _iter_native_map_providers(config):
@@ -145,7 +147,7 @@ def collect_native_map_limits(config: dict[str, Any], ceiling: MapCeiling) -> di
 
 
 def collect_native_map_capabilities(config: dict[str, Any]) -> dict[str, MapCapabilities]:
-    """The capabilities of every collection whose map provider is native.
+    """Collect the capabilities of every native map provider.
 
     Parameters
     ----------
@@ -225,7 +227,18 @@ def find_map_capability_problem(config: dict[str, Any]) -> tuple[str, str] | Non
 
 
 def _is_ogc_crs_uri(value: str) -> bool:
-    """Tell whether ``value`` is an OGC CRS URI that pyproj knows."""
+    """Tell whether ``value`` is an OGC CRS URI that pyproj knows.
+
+    Parameters
+    ----------
+    value
+        The CRS to check.
+
+    Returns
+    -------
+    bool
+        True for an OGC CRS URI that pyproj can build a CRS from.
+    """
     if not str(value).startswith(_OGC_CRS_URIS):
         return False
     try:
@@ -236,7 +249,7 @@ def _is_ogc_crs_uri(value: str) -> bool:
 
 
 def choose_default_map_crs(provider_def: dict[str, Any], capabilities: MapCapabilities) -> str:
-    """The CRS of a map whose request names none.
+    """Choose the CRS of a map whose request names none.
 
     Parameters
     ----------
@@ -261,10 +274,10 @@ def choose_default_map_crs(provider_def: dict[str, Any], capabilities: MapCapabi
 def _iter_native_map_providers(
     config: dict[str, Any],
 ) -> Iterator[tuple[str, dict, AsyncMapProvider]]:
-    """Load the map provider the route serves for each collection, when it is native.
+    """Load the native map provider of each collection.
 
-    The route serves a collection's first map provider, so a later one is
-    left out even when it is native.
+    Only a collection's first map provider is loaded, since it is the one
+    its maps are drawn with.
 
     Parameters
     ----------
