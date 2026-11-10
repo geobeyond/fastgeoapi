@@ -1,11 +1,8 @@
-"""Maps served with ``await`` when the provider is natively async.
+"""The map route of the native map providers.
 
-The route answers what ``pygeoapi/api/maps.py::get_collection_map``
-answers, with the same headers, and differs in three ways. The provider
-is awaited on the event loop instead of being called in the threadpool.
-The parameters are checked once, by :mod:`.map_parameters`, before the
-provider is called. And the provider gets the contract's arguments only:
-the route moves the bbox into ``crs`` and keeps ``bbox-crs`` for itself.
+It checks the parameters with :mod:`.map_parameters`, awaits the provider
+on the event loop, and answers with the statuses and headers of
+``pygeoapi/api/maps.py::get_collection_map``.
 """
 
 from __future__ import annotations
@@ -37,7 +34,7 @@ from app.pygeoapi.map_limits import MapCeiling, cut_limits_to_ceiling, get_defau
 
 
 def find_native_map_provider(api: API, dataset: str) -> tuple[dict, AsyncMapProvider] | None:
-    """The map provider of a collection, when it is native async.
+    """Find the native map provider of a collection.
 
     Parameters
     ----------
@@ -78,6 +75,12 @@ async def get_collection_map(
 ) -> tuple[dict, int, Any]:
     """Answer one map request, awaiting the provider.
 
+    With a cache policy, a provider that knows its version gives the map an
+    ``ETag``, and a request that names it gets a 304 without a draw. The
+    version is read again after the draw, and a map whose version changed
+    meanwhile goes without cache headers. The map is held to the smaller of
+    the server's ceiling and the provider's limits.
+
     Parameters
     ----------
     api
@@ -93,14 +96,10 @@ async def get_collection_map(
     provider
         The collection's map provider.
     http_cache
-        The cache policy. With it, a provider that knows its version gives
-        the map an ``ETag``, and a request that names it gets a 304 without
-        the map being drawn. The version is read again after the draw, and
-        a map whose version changed meanwhile gets no cache headers.
+        The cache policy, or None for no cache headers.
     map_ceiling
         The server's ceiling on map sizes; None takes the one of the
-        settings. The map is held to the smaller of it and the provider's
-        limits.
+        settings.
 
     Returns
     -------
@@ -171,9 +170,6 @@ async def get_collection_map(
 
 def _is_expected(error: ProviderGenericError | ProviderInvalidDataError) -> bool:
     """Tell an answer the route expects from a server fault.
-
-    A refused request (4xx), a full queue (503) and a map that took too long
-    (504) are part of serving maps, so their answers need no traceback.
 
     Parameters
     ----------

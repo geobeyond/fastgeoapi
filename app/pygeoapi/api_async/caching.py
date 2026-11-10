@@ -135,7 +135,7 @@ async def get_cache_headers(
     arguments: dict[str, Any] | MapParameters,
     response_headers: dict,
 ) -> dict[str, str]:
-    """The cache headers of the answer to ``arguments``; empty when it gets none.
+    """Build the cache headers of the answer to ``arguments``; empty when it gets none.
 
     ``arguments`` is what the provider's data method takes: keyword
     arguments for a tile provider, the ``MapParameters`` object for a map
@@ -143,11 +143,30 @@ async def get_cache_headers(
     is built from its values.
 
     A provider without ``aget_version``, or one that does not know its version,
-    gives none. A provider error means the request fails, and the data
-    call that follows reports it. Any other failure is logged, and the
-    request goes on without cache headers. The content coding already in
-    ``response_headers`` takes part in the ETag, since gzip gives other
-    bytes.
+    gives none, and so does a provider error, which the data call reports.
+    Any other failure is logged, and the request goes on without cache
+    headers. The content coding already in ``response_headers`` takes part
+    in the ETag, since gzip gives other bytes.
+
+    Parameters
+    ----------
+    http_cache
+        The cache policy, or None for no cache headers.
+    provider
+        The provider that answers the request.
+    dataset
+        The collection's name.
+    kind
+        What the answer is, ``"tile"`` or ``"map"``; it takes part in the ETag.
+    arguments
+        The arguments of the provider's data method.
+    response_headers
+        The headers of the response so far.
+
+    Returns
+    -------
+    dict of str to str
+        The ``ETag``, ``Cache-Control`` and ``Vary`` headers, or an empty dict.
     """
     if http_cache is None or not http_cache.enabled:
         return {}
