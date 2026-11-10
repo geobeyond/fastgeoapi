@@ -4,7 +4,12 @@ import pytest
 from pygeoapi.provider.base import BaseProvider
 
 from app.provider.base import AsyncProviderMixin, StorageBackedMixin
-from tests.maps_fixtures import FakeRenderer, create_fake_renderer, map_provider
+from tests.maps_fixtures import (
+    FakeRenderer,
+    build_map_parameters,
+    create_fake_renderer,
+    map_provider,
+)
 from tests.pmtiles_fixtures import TILE_BYTES, write_archive
 
 ROME = [1379000.0, 5140000.0, 1403000.0, 5160000.0]  # EPSG:3857 metres
@@ -36,11 +41,39 @@ class PlainMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             raise KeyError(name)
         return {"data": self.provider_def["data"]}
 
-    async def aquery(self, **kwargs):
-        from app.provider.maps import draw_map, map_request
+    @property
+    def limits(self):
+        from app.interfaces.providers import MapLimits
 
-        request = map_request(self._style, max_size=32, **kwargs)
+        return MapLimits(32, 32, None)
+
+    @property
+    def capabilities(self):
+        from app.interfaces.providers import MapCapabilities
+
+        return MapCapabilities(crs=(WEB_MERCATOR,), formats=("png",))
+
+    async def arender_map(self, parameters):
+        from app.provider.maps import build_map_request, draw_map
+
+        request = build_map_request(
+            self._style,
+            max_size=32,
+            style=parameters.style,
+            bbox=parameters.bbox,
+            width=parameters.width,
+            height=parameters.height,
+            crs=parameters.crs,
+            transparent=parameters.transparent,
+            format_=parameters.format_,
+        )
         return await draw_map(self._queue, request)
+
+    async def aget_version(self, parameters):
+        return None
+
+    def close(self):
+        self._queue.close()
 
 
 def test_the_maplibre_provider_is_one_line_of_bases_like_the_others():
@@ -58,7 +91,9 @@ async def test_another_family_draws_by_composing_the_same_parts(tmp_path):
 
     provider = PlainMapProvider(map_provider(tmp_path / "roads.bin"))
 
-    png = await provider.aquery(bbox=ROME, width=16, height=16, crs=WEB_MERCATOR)
+    png = await provider.arender_map(
+        build_map_parameters(bbox=ROME, width=16, height=16, crs=WEB_MERCATOR)
+    )
 
     assert isinstance(provider, AsyncMapProvider)
     assert png.startswith(b"\x89PNG")
@@ -72,15 +107,27 @@ async def test_another_family_keeps_the_limits_and_errors_of_the_parts(tmp_path)
     provider = PlainMapProvider(map_provider(tmp_path / "roads.bin"))
 
     with pytest.raises(MapTooLargeError):
-        await provider.aquery(bbox=ROME, width=64, height=16, crs=WEB_MERCATOR)
+        await provider.arender_map(
+            build_map_parameters(bbox=ROME, width=64, height=16, crs=WEB_MERCATOR)
+        )
     with pytest.raises(MapParameterError):
-        await provider.aquery(bbox=ROME, width=16, height=16, crs="EPSG:4326")
+        await provider.arender_map(
+            build_map_parameters(bbox=ROME, width=16, height=16, crs="EPSG:4326")
+        )
 
 
-def test_the_maplibre_provider_declares_the_maps_conformance_of_the_parts(tmp_path):
+def test_the_maplibre_classes_follow_from_its_capabilities(tmp_path):
     from app.provider.maplibre import MapLibreMapProvider
-    from app.provider.maps import MAPS_CONFORMANCE
+    from app.pygeoapi.map_limits import derive_map_conformance
 
+    maps = "http://www.opengis.net/spec/ogcapi-maps-1/1.0/conf"
     archive = write_archive(tmp_path / "roads.pmtiles", {(0, 0, 0): TILE_BYTES(0, 0, 0)})
+    provider = MapLibreMapProvider(map_provider(archive))
 
-    assert MapLibreMapProvider(map_provider(archive)).conformance_classes == MAPS_CONFORMANCE
+    assert not hasattr(MapLibreMapProvider, "conformance_classes")
+    assert set(derive_map_conformance(provider.capabilities)) == {
+        f"{maps}/core",
+        f"{maps}/collection-map",
+        f"{maps}/crs",
+        f"{maps}/png",
+    }

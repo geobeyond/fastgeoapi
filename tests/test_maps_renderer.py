@@ -10,7 +10,7 @@ import signal
 import pytest
 from PIL import Image
 
-from tests.maps_fixtures import map_provider
+from tests.maps_fixtures import build_map_parameters, map_provider
 from tests.mvt_fixtures import land_archive
 from tests.pmtiles_fixtures import raster_archive
 
@@ -51,7 +51,7 @@ def _provider(definition):
 
 async def _map(provider, **kwargs):
     args = {"bbox": ROME, "width": 256, "height": 256, "crs": WEB_MERCATOR, "transparent": False}
-    return await provider.aquery(**{**args, **kwargs})
+    return await provider.arender_map(build_map_parameters(**{**args, **kwargs}))
 
 
 def _request(archive, width, height, transparent=False):

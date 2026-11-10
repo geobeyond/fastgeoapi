@@ -8,7 +8,7 @@ import statistics
 import pytest
 from PIL import Image
 
-from tests.maps_fixtures import map_provider
+from tests.maps_fixtures import build_map_parameters, map_provider
 from tests.pmtiles_fixtures import terrarium_archive
 
 pytestmark = pytest.mark.renderer
@@ -41,8 +41,10 @@ async def test_an_elevation_archive_is_shaded_by_the_real_renderer(tmp_path):
     archive = terrarium_archive(tmp_path / "terrain.pmtiles")
     provider = MapLibreMapProvider(map_provider(archive, renderer=REAL, dem="terrarium"))
     try:
-        png = await provider.aquery(
-            bbox=AROUND_THE_CONE, width=256, height=256, crs=WEB_MERCATOR, transparent=False
+        png = await provider.arender_map(
+            build_map_parameters(
+                bbox=AROUND_THE_CONE, width=256, height=256, crs=WEB_MERCATOR, transparent=False
+            )
         )
     finally:
         await provider.aclose()

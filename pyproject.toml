@@ -48,6 +48,7 @@ dependencies = [
     "fastmcp>=4.0.10,<5",
     "obstore>=0.12.1,<0.13",
     "h11>=0.16,<0.17", # direct dependency: the loopback server of byte ranges speaks HTTP/1.1 through it
+    "typing-extensions>=4.12",
 ]
 
 [project.urls]
@@ -115,7 +116,7 @@ dev = [
     "nox[uv]>=2025.11.12",
     "pytest-iam>=0.2.0",
     "blockbuster>=1.5,<2",
-    "ogcapi-registry==0.4.0",
+    "ogcapi-registry==0.6.1",
     # Pillow decodes PNGs in the map tests; the renderer gets it from the maps group.
     "pillow>=11",
 ]

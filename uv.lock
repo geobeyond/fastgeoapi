@@ -925,6 +925,7 @@ dependencies = [
     { name = "sqlalchemy" },
     { name = "starlette" },
     { name = "typer" },
+    { name = "typing-extensions" },
 ]
 
 [package.optional-dependencies]
@@ -1020,6 +1021,7 @@ requires-dist = [
     { name = "sqlalchemy", specifier = ">=2.1,<2.2" },
     { name = "starlette", specifier = ">=1.3.1,<2.0" },
     { name = "typer", specifier = ">=0.15.3,<0.28" },
+    { name = "typing-extensions", specifier = ">=4.12" },
 ]
 provides-extras = ["geoparquet", "pmtiles", "html", "portolan"]
 
@@ -1035,7 +1037,7 @@ dev = [
     { name = "ministack", specifier = ">=1.5,<2" },
     { name = "mkdocs-openapi", specifier = ">=0.3.3" },
     { name = "nox", extras = ["uv"], specifier = ">=2025.11.12" },
-    { name = "ogcapi-registry", specifier = "==0.4.0" },
+    { name = "ogcapi-registry", specifier = "==0.6.1" },
     { name = "openapi-resolver", specifier = ">=0.0.6,<0.0.7" },
     { name = "pillow", specifier = ">=11" },
     { name = "pre-commit", specifier = ">=4.0.0,<5" },
@@ -2279,7 +2281,7 @@ wheels = [
 
 [[package]]
 name = "ogcapi-registry"
-version = "0.4.0"
+version = "0.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
@@ -2287,9 +2289,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "pyyaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4a/2e/42a7766f1aef89a05e090178868c68de9e283cca63b80803b5a41d1b7cee/ogcapi_registry-0.4.0.tar.gz", hash = "sha256:4a81fdfbdd83ee25112f12e3ad9a312335437b18815ff9094633cd1163939d80", size = 38648, upload-time = "2026-09-16T16:30:36.876Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/17/c6/52bafae97107e86c85f45d42921987a7c29573f66119c3a8f95b06b1686b/ogcapi_registry-0.6.1.tar.gz", hash = "sha256:cedf650069671c24c227c0faa1ad7b797109b8ba19b35e0f50eb8c3664445f3a", size = 82828, upload-time = "2026-11-08T23:21:24.495Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/de/61/2d20496699e6485ab0e28a0ae200833a71da2bfa9d1c6fce329680dc762c/ogcapi_registry-0.4.0-py3-none-any.whl", hash = "sha256:518e67c56da563f6aae1859f074c53977e5c0967534dc55b38306cc750071f35", size = 51393, upload-time = "2026-09-16T16:30:35.617Z" },
+    { url = "https://files.pythonhosted.org/packages/12/d1/1c38566d8e02706cf1f26db00a88985c15d7a5011f6dab18fff7ff2fb463/ogcapi_registry-0.6.1-py3-none-any.whl", hash = "sha256:8db40d1e30349ac833ae8f3f277739687ccef05391ae8e83cd0529010c64c352", size = 96288, upload-time = "2026-11-08T23:21:23.177Z" },
 ]
 
 [[package]]

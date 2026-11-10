@@ -16,30 +16,40 @@ import json
 from copy import deepcopy
 from datetime import timedelta
 from functools import lru_cache
-from typing import Any, ClassVar
+from typing import Any
 
 from pygeoapi.provider.base import BaseProvider, ProviderGenericError
 
+from app.interfaces.providers import (
+    MapCapabilities,
+    MapFormat,
+    MapLimits,
+    MapParameters,
+)
 from app.maps.contract import MapRequest, MapSource, MapStyles
 from app.maps.queue import RenderQueue
 from app.maps.sources import ObjectUrl, SourceContext
 from app.provider.base import AsyncProviderMixin, StorageBackedMixin
 from app.provider.maps import (
-    MAPS_CONFORMANCE,
+    WEB_MERCATOR,
     StyleDocuments,
+    build_map_request,
+    build_object_url,
     build_renderer,
     build_styles,
     check_definition,
     draw_map,
-    map_request,
-    object_url,
     render_limit,
 )
-from app.provider.storage.loopback import SOURCES, RangeServer, ensure_range_server
+from app.provider.storage.loopback import (
+    SOURCES,
+    RangeServer,
+    ensure_range_server,
+)
 
 
 @lru_cache(maxsize=1)
-def renderer_version() -> str:
+def get_renderer_version() -> str:
     """The version of the installed mlnative, or ``none`` without it."""
     try:
         return importlib.metadata.version("mlnative")
@@ -47,7 +57,7 @@ def renderer_version() -> str:
         return "none"
 
 
-def style_digest(style: dict[str, Any], source_id: str) -> str:
+def digest_style(style: dict[str, Any], source_id: str) -> str:
     """A digest of a style as the renderer gets it, without the address of the collection's data.
 
     That address names this process's loopback server, with its port and
@@ -94,7 +104,6 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
     THREAD_SAFE = True
     native_async = True
-    conformance_classes: ClassVar[tuple[str, ...]] = MAPS_CONFORMANCE
 
     def __init__(self, provider_def: dict) -> None:
         """Read the options; no I/O happens until the first map."""
@@ -111,6 +120,21 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         )
 
     @property
+    def limits(self) -> MapLimits:
+        """The limits of the drawn maps: ``max_size`` on both sides, no limit on the area."""
+        size = int(self.options["max_size"])
+        return MapLimits(
+            max_width=size,
+            max_height=size,
+            max_pixels=None,
+        )
+
+    @property
+    def capabilities(self) -> MapCapabilities:
+        """Web Mercator and PNG as the CRS and the encoding of the drawn maps."""
+        return MapCapabilities(crs=(WEB_MERCATOR,), formats=(MapFormat.PNG,))
+
+    @property
     def renderer_is_built(self) -> bool:
         """Whether a renderer is currently alive."""
         return self._queue.renderer_is_built
@@ -120,30 +144,30 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         """How many maps are being drawn or are waiting for the renderer."""
         return self._queue.waiting
 
-    def style_names(self) -> list[str]:
+    def list_style_names(self) -> list[str]:
         """The configured style names."""
         return sorted(self.options["styles"])
 
-    def _object_url(self) -> ObjectUrl:
+    def _locate_object(self) -> ObjectUrl:
         cached, server = self.cached_ranges, self._range_server
         if cached is not None and server is not None:
             # The renderer reads the object through this process, by version.
             return ObjectUrl(
                 resolver=lambda: server.url_for(cached, cached.known_meta() or cached.meta())
             )
-        return object_url(
+        return build_object_url(
             self.provider_def["data"],
             public_url=self.options["data_url"],
             sign=lambda ttl: self.signed_url(ttl),
             ttl=timedelta(seconds=self.options["sign_ttl"]),
         )
 
-    def _source(self) -> MapSource:
+    def _build_source(self) -> MapSource:
         cached = self.cached_ranges
         context = SourceContext(
             data=self.provider_def["data"],
             options=self.options,
-            location=self._object_url,
+            location=self._locate_object,
             ranges=(
                 (lambda: cached.at(cached.meta()).read)
                 if cached is not None
@@ -152,44 +176,49 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         )
         return self._source_format.build(context)
 
-    def _styles(self) -> MapStyles:
+    def _load_styles(self) -> MapStyles:
         if self._map_styles is None:
             documents = StyleDocuments(
                 self.options["styles"], self.provider_def.get("store_options")
             )
-            self._map_styles = build_styles(self._source(), documents, self.options)
+            self._map_styles = build_styles(self._build_source(), documents, self.options)
         return self._map_styles
 
-    def _request(self, **parameters: Any) -> MapRequest:
-        return map_request(
-            lambda name, transparent: self._styles().style(name, transparent),
+    def _build_request(self, parameters: MapParameters) -> MapRequest:
+        return build_map_request(
+            lambda name, transparent: self._load_styles().style(name, transparent),
             max_size=int(self.options["max_size"]),
-            **parameters,
+            style=parameters.style,
+            bbox=parameters.bbox,
+            width=parameters.width,
+            height=parameters.height,
+            crs=parameters.crs,
+            transparent=parameters.transparent,
+            format_=parameters.format_,
         )
 
-    def _drawn_version(self, **parameters: Any) -> str:
-        request = self._request(**parameters)
-        drawn = style_digest(request.style, self.options["style_source"])
-        return f"{drawn}|{renderer_version()}"
+    def _compute_drawn_version(self, parameters: MapParameters) -> str:
+        request = self._build_request(parameters)
+        drawn = digest_style(request.style, self.options["style_source"])
+        return f"{drawn}|{get_renderer_version()}"
 
-    async def aversion(
-        self,
-        style: str | None = None,
-        bbox: list[float] | None = None,
-        width: int = 500,
-        height: int = 300,
-        crs: str | None = None,
-        transparent: Any = True,
-        format_: str | None = "png",
-        **kwargs: Any,
-    ) -> str | None:
-        """The version of the map :meth:`aquery` would draw for these arguments, without drawing it.
+    async def aget_version(self, parameters: MapParameters) -> str | None:
+        """Get the version of the drawn map, without drawing it.
 
         It joins the archive's version, the definition's digest, the digest
         of the style the renderer would get and the renderer's version. The
-        request is built as :meth:`aquery` builds it, with the same checks:
-        a map that :meth:`aquery` refuses raises the same error here. None
-        when the archive's version is unknown.
+        request is built as :meth:`arender_map` builds it, so a map that
+        :meth:`arender_map` refuses raises the same error here.
+
+        Parameters
+        ----------
+        parameters
+            The checked parameters of the map.
+
+        Returns
+        -------
+        str or None
+            The version, or None when the archive's version is unknown.
         """
         data = await self.adata_version()
         if data is None:
@@ -197,34 +226,27 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         if self.cached_ranges is not None:
             # The style names the loopback server, which has an address only once started.
             self._range_server = await ensure_range_server()
-        # In a thread, as in aquery: the first call reads the style documents and the source.
-        drawn = await self.run_sync(
-            self._drawn_version,
-            style=style,
-            bbox=bbox,
-            width=width,
-            height=height,
-            crs=crs,
-            transparent=transparent,
-            format_=format_,
-        )
+        # In a thread, as in arender_map: the first call reads the style documents and the source.
+        drawn = await self.run_sync(self._compute_drawn_version, parameters)
         return f"{data}|{self.definition_digest()}|{drawn}"
 
-    async def aquery(
-        self,
-        style: str | None = None,
-        bbox: list[float] | None = None,
-        width: int = 500,
-        height: int = 300,
-        crs: str | None = None,
-        transparent: Any = True,
-        format_: str | None = "png",
-        **kwargs: Any,
-    ) -> bytes:
-        """The PNG of one map.
+    async def arender_map(self, parameters: MapParameters) -> bytes:
+        """Draw the map and return the PNG.
 
-        :func:`~app.provider.maps.map_request` checks its parameters, and its
-        render waits in the :class:`~app.maps.queue.RenderQueue`.
+        :func:`~app.provider.maps.build_map_request` checks its parameters, and its
+        render waits in the :class:`~app.maps.queue.RenderQueue`. An archive
+        has no time and no other dimension, so ``datetime_`` and ``subsets``
+        change nothing.
+
+        Parameters
+        ----------
+        parameters
+            The checked parameters of the map.
+
+        Returns
+        -------
+        bytes
+            The PNG.
         """
         cached = self.cached_ranges
         if cached is not None:
@@ -235,32 +257,25 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             await cached.ameta_without_waiting()
             SOURCES.register(cached)
         # In a thread: at the first map the styles read their documents and the source.
-        request = await self.run_sync(
-            self._request,
-            style=style,
-            bbox=bbox,
-            width=width,
-            height=height,
-            crs=crs,
-            transparent=transparent,
-            format_=format_,
-        )
+        request = await self.run_sync(self._build_request, parameters)
         return await draw_map(self._queue, request)
 
     def query(self, **kwargs: Any) -> bytes:
-        """The synchronous face pygeoapi calls.
+        """Draw the map for pygeoapi's synchronous route.
 
-        The map is drawn on the loop that owns the renderer.
+        The map is drawn on the event loop that owns the renderer. Outside
+        fastgeoapi no loop owns it, and the call fails.
         """
         loop = self._queue.loop
         if loop is None or not loop.is_running():
             raise ProviderGenericError(
                 user_msg="maps are drawn on the async route; no event loop owns the renderer"
             )
-        return asyncio.run_coroutine_threadsafe(self.aquery(**kwargs), loop).result()
+        parameters = read_pygeoapi_arguments(kwargs)
+        return asyncio.run_coroutine_threadsafe(self.arender_map(parameters), loop).result()
 
     async def aclose(self) -> None:
-        """The async twin of :meth:`close`, which also waits for the renderer to close.
+        """Close the renderer and wait until it is closed.
 
         The loopback server stops serving the data once the renderer is gone.
         """
@@ -282,3 +297,34 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         cached = self.__dict__.get("cached_ranges")
         if cached is not None:
             SOURCES.unregister(cached)
+
+
+def read_pygeoapi_arguments(arguments: dict[str, Any]) -> MapParameters:
+    """Read the keyword arguments pygeoapi passes to ``query`` as map parameters.
+
+    pygeoapi also passes ``bbox-crs``, once the bbox is already in ``crs``,
+    and ``select_properties``; neither changes the map. A missing value
+    takes the default of a map pygeoapi asks for without it.
+
+    Parameters
+    ----------
+    arguments
+        The keyword arguments of ``query``.
+
+    Returns
+    -------
+    MapParameters
+        The parameters ``arender_map`` takes.
+    """
+    bbox = arguments.get("bbox")
+    return MapParameters(
+        style=arguments.get("style"),
+        bbox=tuple(bbox) if bbox is not None else None,
+        width=arguments.get("width", 500),
+        height=arguments.get("height", 300),
+        crs=arguments.get("crs"),
+        transparent=arguments.get("transparent", True),
+        format_=arguments.get("format_", "png"),
+        datetime_=arguments.get("datetime_"),
+        subsets=arguments.get("subsets"),
+    )
