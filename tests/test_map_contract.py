@@ -35,32 +35,16 @@ class NoVersion(BaseProvider):
 
 
 class Explicit(BaseProvider):
-    """A native map provider that takes only the contract's arguments."""
+    """A native map provider that records the parameters passed by the route."""
 
     native_async = True
     received: ClassVar[list[dict]] = []
 
-    async def arender_map(
-        self, *, style, bbox, width, height, crs, transparent, format_, datetime_, subsets
-    ):
-        Explicit.received.append(
-            {
-                "style": style,
-                "bbox": bbox,
-                "width": width,
-                "height": height,
-                "crs": crs,
-                "transparent": transparent,
-                "format_": format_,
-                "datetime_": datetime_,
-                "subsets": subsets,
-            }
-        )
-        return tiny_png(width, height)
+    async def arender_map(self, parameters):
+        Explicit.received.append(parameters)
+        return tiny_png(parameters.width, parameters.height)
 
-    async def aget_version(
-        self, *, style, bbox, width, height, crs, transparent, format_, datetime_, subsets
-    ):
+    async def aget_version(self, parameters):
         return None
 
     @property
@@ -188,6 +172,25 @@ def test_a_native_map_provider_without_aget_version_is_refused():
         normalize_config(config)
 
 
+@pytest.mark.parametrize(
+    "member", ["arender_map", "aget_version", "limits", "capabilities", "close"]
+)
+def test_a_native_map_provider_without_a_member_of_the_contract_is_refused(member, monkeypatch):
+    import sys
+
+    from app.pygeoapi.factory import ConfigValidationError, normalize_config
+
+    members = {k: v for k, v in vars(Explicit).items() if not k.startswith("__") and k != member}
+    cls = type(f"Without_{member}", (BaseProvider,), members)
+    monkeypatch.setattr(sys.modules[__name__], cls.__name__, cls, raising=False)
+    name = f"{__name__}.{cls.__name__}"
+    config = _config({"lakes": _collection("Lakes", [_definition(name)])})
+    message = f"{name} sets native_async but has no {member}"
+
+    with pytest.raises(ConfigValidationError, match=re.escape(message)):
+        normalize_config(config)
+
+
 def test_a_native_map_provider_without_capabilities_is_refused():
     from app.pygeoapi.factory import ConfigValidationError, normalize_config
 
@@ -224,8 +227,13 @@ def test_the_maplibre_provider_meets_the_contract(tmp_path):
     assert isinstance(pygeoapi.plugin.load_plugin("provider", definition), AsyncMapProvider)
 
 
-def test_the_route_passes_the_contract_arguments_and_no_others():
-    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp, normalize_config
+def test_the_route_passes_one_parameters_object():
+    from app.interfaces.providers import MapParameters
+    from app.pygeoapi.factory import (
+        build_openapi,
+        build_pygeoapi_subapp,
+        normalize_config,
+    )
 
     Explicit.received.clear()
     config = _config(
@@ -241,22 +249,14 @@ def test_the_route_passes_the_contract_arguments_and_no_others():
 
     assert r.status_code == 200
     (received,) = Explicit.received
-    assert sorted(received) == sorted(
-        [
-            "style",
-            "bbox",
-            "width",
-            "height",
-            "crs",
-            "transparent",
-            "format_",
-            "datetime_",
-            "subsets",
-        ]
+    assert isinstance(received, MapParameters)
+    assert (received.width, received.height, received.crs) == (
+        16,
+        8,
+        WEB_MERCATOR,
     )
-    assert (received["width"], received["height"], received["crs"]) == (16, 8, WEB_MERCATOR)
-    assert isinstance(received["bbox"], tuple)
-    assert len(received["bbox"]) == 4
+    assert isinstance(received.bbox, tuple)
+    assert len(received.bbox) == 4
 
 
 def test_a_map_provider_that_is_not_native_is_left_to_pygeoapi():
@@ -379,12 +379,21 @@ def test_the_conformance_classes_come_from_the_capabilities():
         .json()["conformsTo"]
     )
 
-    assert {f"{MAPS}/core", f"{MAPS}/collection-map", f"{MAPS}/png", f"{MAPS}/jpeg"} <= declared
+    assert {
+        f"{MAPS}/core",
+        f"{MAPS}/collection-map",
+        f"{MAPS}/png",
+        f"{MAPS}/jpeg",
+    } <= declared
     assert f"{MAPS}/tiff" not in declared
 
 
 def _serve(collection: dict) -> TestClient:
-    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp, normalize_config
+    from app.pygeoapi.factory import (
+        build_openapi,
+        build_pygeoapi_subapp,
+        normalize_config,
+    )
 
     config = _config({"lakes": collection})
     normalize_config(config)
@@ -393,7 +402,11 @@ def _serve(collection: dict) -> TestClient:
 
 @pytest.mark.parametrize(
     ("asked", "media_type", "drawn"),
-    [("jpeg", "image/jpeg", "jpeg"), ("png", "image/png", "png"), ("html", "image/png", "png")],
+    [
+        ("jpeg", "image/jpeg", "jpeg"),
+        ("png", "image/png", "png"),
+        ("html", "image/png", "png"),
+    ],
 )
 def test_a_map_carries_the_type_of_the_format_it_was_drawn_in(asked, media_type, drawn):
     Explicit.received.clear()
@@ -401,12 +414,17 @@ def test_a_map_carries_the_type_of_the_format_it_was_drawn_in(asked, media_type,
 
     r = client.get(
         "/collections/lakes/map",
-        params={"bbox": "12.4,41.8,12.6,42.0", "width": 16, "height": 8, "f": asked},
+        params={
+            "bbox": "12.4,41.8,12.6,42.0",
+            "width": 16,
+            "height": 8,
+            "f": asked,
+        },
     )
 
     assert r.status_code == 200
     assert r.headers["content-type"] == media_type
-    assert Explicit.received[-1]["format_"] == drawn
+    assert Explicit.received[-1].format_ == drawn
 
 
 def test_the_map_responses_list_every_format_drawn():
@@ -452,7 +470,10 @@ def test_the_collection_links_a_map_per_format():
     maps = [link for link in collection["links"] if link["rel"].endswith("/ogc/1.0/map")]
 
     assert {link["type"] for link in maps} == {"image/png", "image/jpeg"}
-    assert {link["href"].rsplit("f=", 1)[-1] for link in maps} == {"png", "jpeg"}
+    assert {link["href"].rsplit("f=", 1)[-1] for link in maps} == {
+        "png",
+        "jpeg",
+    }
 
 
 def test_a_safe_curie_names_the_map_crs():
@@ -460,7 +481,12 @@ def test_a_safe_curie_names_the_map_crs():
 
     r = client.get(
         "/collections/lakes/map",
-        params={"bbox": "12.4,41.8,12.6,42.0", "width": 16, "height": 8, "crs": "[EPSG:3857]"},
+        params={
+            "bbox": "12.4,41.8,12.6,42.0",
+            "width": 16,
+            "height": 8,
+            "crs": "[EPSG:3857]",
+        },
     )
 
     assert r.status_code == 200

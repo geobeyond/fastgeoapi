@@ -13,7 +13,6 @@ import asyncio
 import hashlib
 import importlib.metadata
 import json
-from collections.abc import Sequence
 from copy import deepcopy
 from datetime import timedelta
 from functools import lru_cache
@@ -21,7 +20,12 @@ from typing import Any
 
 from pygeoapi.provider.base import BaseProvider, ProviderGenericError
 
-from app.interfaces.providers import MAP_ARGUMENTS, MapCapabilities, MapFormat, MapLimits
+from app.interfaces.providers import (
+    MapCapabilities,
+    MapFormat,
+    MapLimits,
+    MapParameters,
+)
 from app.maps.contract import MapRequest, MapSource, MapStyles
 from app.maps.queue import RenderQueue
 from app.maps.sources import ObjectUrl, SourceContext
@@ -37,7 +41,11 @@ from app.provider.maps import (
     draw_map,
     render_limit,
 )
-from app.provider.storage.loopback import SOURCES, RangeServer, ensure_range_server
+from app.provider.storage.loopback import (
+    SOURCES,
+    RangeServer,
+    ensure_range_server,
+)
 
 
 @lru_cache(maxsize=1)
@@ -145,7 +153,9 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         if cached is not None and server is not None:
             # The renderer reads the object through this process, by version.
             return ObjectUrl(
-                resolver=lambda: server.url_for(cached, cached.known_meta() or cached.meta())
+                resolver=lambda: server.url_for(
+                    cached, cached.known_meta() or cached.meta()
+                )
             )
         return build_object_url(
             self.provider_def["data"],
@@ -173,35 +183,33 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             documents = StyleDocuments(
                 self.options["styles"], self.provider_def.get("store_options")
             )
-            self._map_styles = build_styles(self._build_source(), documents, self.options)
+            self._map_styles = build_styles(
+                self._build_source(), documents, self.options
+            )
         return self._map_styles
 
-    def _build_request(self, **parameters: Any) -> MapRequest:
+    def _build_request(self, parameters: MapParameters) -> MapRequest:
         return build_map_request(
-            lambda name, transparent: self._load_styles().style(name, transparent),
+            lambda name, transparent: self._load_styles().style(
+                name, transparent
+            ),
             max_size=int(self.options["max_size"]),
-            **parameters,
+            style=parameters.style,
+            bbox=parameters.bbox,
+            width=parameters.width,
+            height=parameters.height,
+            crs=parameters.crs,
+            transparent=parameters.transparent,
+            format_=parameters.format_,
         )
 
-    def _compute_drawn_version(self, **parameters: Any) -> str:
-        request = self._build_request(**parameters)
+    def _compute_drawn_version(self, parameters: MapParameters) -> str:
+        request = self._build_request(parameters)
         drawn = digest_style(request.style, self.options["style_source"])
         return f"{drawn}|{get_renderer_version()}"
 
-    async def aget_version(
-        self,
-        *,
-        style: str | None = None,
-        bbox: Sequence[float] | None = None,
-        width: int = 500,
-        height: int = 300,
-        crs: str | None = None,
-        transparent: Any = True,
-        format_: str | None = "png",
-        datetime_: str | None = None,
-        subsets: dict[str, list[Any]] | None = None,
-    ) -> str | None:
-        """The version of the map :meth:`arender_map` would draw, without drawing it.
+    async def aget_version(self, parameters: MapParameters) -> str | None:
+        """Get the map's version that would be drawn, without drawing it.
 
         It joins the archive's version, the definition's digest, the digest
         of the style the renderer would get and the renderer's version. The
@@ -216,32 +224,11 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             # The style names the loopback server, which has an address only once started.
             self._range_server = await ensure_range_server()
         # In a thread, as in arender_map: the first call reads the style documents and the source.
-        drawn = await self.run_sync(
-            self._compute_drawn_version,
-            style=style,
-            bbox=bbox,
-            width=width,
-            height=height,
-            crs=crs,
-            transparent=transparent,
-            format_=format_,
-        )
+        drawn = await self.run_sync(self._compute_drawn_version, parameters)
         return f"{data}|{self.definition_digest()}|{drawn}"
 
-    async def arender_map(
-        self,
-        *,
-        style: str | None = None,
-        bbox: Sequence[float] | None = None,
-        width: int = 500,
-        height: int = 300,
-        crs: str | None = None,
-        transparent: Any = True,
-        format_: str | None = "png",
-        datetime_: str | None = None,
-        subsets: dict[str, list[Any]] | None = None,
-    ) -> bytes:
-        """The PNG of one map.
+    async def arender_map(self, parameters: MapParameters) -> bytes:
+        """Get the map as raw bytes.
 
         :func:`~app.provider.maps.build_map_request` checks its parameters, and its
         render waits in the :class:`~app.maps.queue.RenderQueue`. An archive
@@ -257,16 +244,7 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             await cached.ameta_without_waiting()
             SOURCES.register(cached)
         # In a thread: at the first map the styles read their documents and the source.
-        request = await self.run_sync(
-            self._build_request,
-            style=style,
-            bbox=bbox,
-            width=width,
-            height=height,
-            crs=crs,
-            transparent=transparent,
-            format_=format_,
-        )
+        request = await self.run_sync(self._build_request, parameters)
         return await draw_map(self._queue, request)
 
     def query(self, **kwargs: Any) -> bytes:
@@ -279,13 +257,13 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             raise ProviderGenericError(
                 user_msg="maps are drawn on the async route; no event loop owns the renderer"
             )
-        # pygeoapi passes more than the contract's arguments: `bbox-crs`, once
-        # the bbox is already in `crs`, and `select_properties`.
-        arguments = {name: kwargs[name] for name in MAP_ARGUMENTS if name in kwargs}
-        return asyncio.run_coroutine_threadsafe(self.arender_map(**arguments), loop).result()
+        parameters = read_pygeoapi_arguments(kwargs)
+        return asyncio.run_coroutine_threadsafe(
+            self.arender_map(parameters), loop
+        ).result()
 
     async def aclose(self) -> None:
-        """The async twin of :meth:`close`, which also waits for the renderer to close.
+        """Close the map's renderer.
 
         The loopback server stops serving the data once the renderer is gone.
         """
@@ -307,3 +285,34 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         cached = self.__dict__.get("cached_ranges")
         if cached is not None:
             SOURCES.unregister(cached)
+
+
+def read_pygeoapi_arguments(arguments: dict[str, Any]) -> MapParameters:
+    """Read the keyword arguments pygeoapi passes to ``query`` as map parameters.
+
+    pygeoapi also passes ``bbox-crs``, once the bbox is already in ``crs``,
+    and ``select_properties``; neither changes the map. A missing value
+    takes the default of a map pygeoapi asks for without it.
+
+    Parameters
+    ----------
+    arguments
+        The keyword arguments of ``query``.
+
+    Returns
+    -------
+    MapParameters
+        The parameters ``arender_map`` takes.
+    """
+    bbox = arguments.get("bbox")
+    return MapParameters(
+        style=arguments.get("style"),
+        bbox=tuple(bbox) if bbox is not None else None,
+        width=arguments.get("width", 500),
+        height=arguments.get("height", 300),
+        crs=arguments.get("crs"),
+        transparent=arguments.get("transparent", True),
+        format_=arguments.get("format_", "png"),
+        datetime_=arguments.get("datetime_"),
+        subsets=arguments.get("subsets"),
+    )

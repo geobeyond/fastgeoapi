@@ -13,7 +13,7 @@ import hashlib
 import json
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from functools import lru_cache
 from http import HTTPStatus
 from pathlib import Path
@@ -22,7 +22,7 @@ from typing import Any
 from pygeoapi.provider.base import ProviderGenericError
 
 from app.config.logging import create_logger
-from app.interfaces.providers import VersionedProvider
+from app.interfaces.providers import MapParameters, VersionedProvider
 
 PACKAGE = Path(__file__).resolve().parents[2]
 """The ``app`` package: its sources take part in every ETag."""
@@ -132,10 +132,15 @@ async def get_cache_headers(
     provider: Any,
     dataset: str,
     kind: str,
-    arguments: dict[str, Any],
+    arguments: dict[str, Any] | MapParameters,
     response_headers: dict,
 ) -> dict[str, str]:
     """The cache headers of the answer to ``arguments``; empty when it gets none.
+
+    ``arguments`` is what the provider's data method takes: keyword
+    arguments for a tile provider, the ``MapParameters`` object for a map
+    provider. ``aget_version`` receives it in the same form, and the ETag
+    is built from its values.
 
     A provider without ``aget_version``, or one that does not know its version,
     gives none. A provider error means the request fails, and the data
@@ -149,7 +154,10 @@ async def get_cache_headers(
     if not isinstance(provider, VersionedProvider):
         return {}
     try:
-        version = await provider.aget_version(**arguments)
+        if isinstance(arguments, MapParameters):
+            version = await provider.aget_version(arguments)
+        else:
+            version = await provider.aget_version(**arguments)
     except ProviderGenericError:
         return {}
     except Exception as error:
@@ -157,7 +165,8 @@ async def get_cache_headers(
         return {}
     if version is None:
         return {}
-    coded = {**arguments, "encoding": response_headers.get("Content-Encoding")}
+    values = asdict(arguments) if isinstance(arguments, MapParameters) else arguments
+    coded = {**values, "encoding": response_headers.get("Content-Encoding")}
     return http_cache.build_headers(http_cache.build_etag(dataset, kind, version, coded))
 
 

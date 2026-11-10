@@ -10,7 +10,6 @@ the route moves the bbox into ``crs`` and keeps ``bbox-crs`` for itself.
 
 from __future__ import annotations
 
-from dataclasses import asdict
 from http import HTTPStatus
 from typing import Any
 
@@ -132,9 +131,8 @@ async def get_collection_map(
         return _answer_error(api, request, headers, refused)
     if parameters is None:
         return headers, HTTPStatus.NO_CONTENT, b""
-    arguments = asdict(parameters)
 
-    cached = await get_cache_headers(http_cache, provider, dataset, "map", arguments, headers)
+    cached = await get_cache_headers(http_cache, provider, dataset, "map", parameters, headers)
     asked = get_from_headers(request.headers, "if-none-match")
     media_type = MapFormat(parameters.format_).media_type
     if cached and is_not_modified(asked, cached["ETag"]):
@@ -142,7 +140,7 @@ async def get_collection_map(
         return answer_not_modified(headers, cached)
 
     try:
-        data = await provider.arender_map(**arguments)
+        data = await provider.arender_map(parameters)
     except (ProviderGenericError, ProviderInvalidDataError) as error:
         if not _is_expected(error):
             # Inside the except block pygeoapi logs the traceback, which a
@@ -157,7 +155,7 @@ async def get_collection_map(
         # The data may change while the map is drawn. An ETag must name the
         # version the map was drawn from, so a map whose version moved goes
         # without cache headers.
-        after = await get_cache_headers(http_cache, provider, dataset, "map", arguments, headers)
+        after = await get_cache_headers(http_cache, provider, dataset, "map", parameters, headers)
         if after.get("ETag") != cached["ETag"]:
             cached = {}
 
