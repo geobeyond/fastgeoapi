@@ -1,9 +1,9 @@
-"""The parameters of one map request, checked and normalised once for every provider.
+"""Check and normalise the parameters of one map request, the same way for every provider.
 
-The route answers 400 for a parameter it cannot read and 413 for a map
-above the collection's limits, before any provider is called. It moves
-the bbox into the CRS of the map, clips it to that CRS and answers 204
-when nothing is left to draw, so a provider only gets valid arguments.
+A parameter that cannot be read is refused with 400, and a map above the
+collection's limits with 413, before any provider is called. The bbox is
+moved into the CRS of the map and clipped to it; when nothing is left to
+draw, the answer is 204.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ WEB_MERCATOR_EDGE = 20037508.342789244
 def clip_bbox(
     bbox: tuple[float, float, float, float], crs: str
 ) -> tuple[float, float, float, float] | None:
-    """The part of ``bbox`` inside the bounds of ``crs``.
+    """Clip ``bbox`` to the bounds of ``crs``.
 
     Only Web Mercator has bounds here; a bbox in another CRS comes back as
     it is. The coordinates that fall outside are moved to the edge, as
@@ -96,7 +96,7 @@ def parse_map_parameters(
     Returns
     -------
     MapParameters or None
-        The arguments of the map, or None when the bbox lies entirely
+        The parameters of the map, or None when the bbox lies entirely
         outside the CRS of the map.
 
     Raises
@@ -171,10 +171,10 @@ def parse_map_parameters(
 
 
 def format_content_datetime(extents: dict[str, Any]) -> str | None:
-    """The ``Content-Datetime`` of a map of a collection, from its temporal extent.
+    """Format the ``Content-Datetime`` of a map from its collection's temporal extent.
 
-    No native provider filters by time, so a map covers the whole temporal
-    extent of its collection (/req/core/map-response).
+    A native map is not filtered by time, so it covers the whole temporal
+    extent (/req/core/map-response).
 
     Parameters
     ----------
@@ -222,7 +222,27 @@ def _parse_positive_integer(value: Any, name: str) -> int:
 
 
 def _match_declared_crs(value: str | None, declared: tuple[str, ...], name: str) -> str | None:
-    """The declared URI ``value`` names, regardless of case and of URI or CURIE."""
+    """Find the declared URI ``value`` names, in any case and as a URI or a CURIE.
+
+    Parameters
+    ----------
+    value
+        The CRS of the request, as the client wrote it, or None.
+    declared
+        The URIs of the CRSs the provider declares.
+    name
+        The name of the request parameter, for the error message.
+
+    Returns
+    -------
+    str or None
+        The declared URI, written as declared, or None when ``value`` is None.
+
+    Raises
+    ------
+    MapParameterError
+        When ``value`` names no declared CRS; the route answers 400.
+    """
     if value is None:
         return None
     try:
