@@ -153,9 +153,7 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         if cached is not None and server is not None:
             # The renderer reads the object through this process, by version.
             return ObjectUrl(
-                resolver=lambda: server.url_for(
-                    cached, cached.known_meta() or cached.meta()
-                )
+                resolver=lambda: server.url_for(cached, cached.known_meta() or cached.meta())
             )
         return build_object_url(
             self.provider_def["data"],
@@ -183,16 +181,12 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             documents = StyleDocuments(
                 self.options["styles"], self.provider_def.get("store_options")
             )
-            self._map_styles = build_styles(
-                self._build_source(), documents, self.options
-            )
+            self._map_styles = build_styles(self._build_source(), documents, self.options)
         return self._map_styles
 
     def _build_request(self, parameters: MapParameters) -> MapRequest:
         return build_map_request(
-            lambda name, transparent: self._load_styles().style(
-                name, transparent
-            ),
+            lambda name, transparent: self._load_styles().style(name, transparent),
             max_size=int(self.options["max_size"]),
             style=parameters.style,
             bbox=parameters.bbox,
@@ -258,9 +252,7 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
                 user_msg="maps are drawn on the async route; no event loop owns the renderer"
             )
         parameters = read_pygeoapi_arguments(kwargs)
-        return asyncio.run_coroutine_threadsafe(
-            self.arender_map(parameters), loop
-        ).result()
+        return asyncio.run_coroutine_threadsafe(self.arender_map(parameters), loop).result()
 
     async def aclose(self) -> None:
         """Close the map's renderer.
