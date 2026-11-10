@@ -108,10 +108,10 @@ _MERCATOR_LATITUDE = 85.0511287798
 def describe_native_map(api: API, dataset: str, collection: dict) -> dict:
     """Describe the map of ``collection`` from its native map provider.
 
-    /req/collection-map/desc-crs asks the collection for the CRSs it is
-    served in, and for ``storageCrs`` and ``storageCrsBbox`` when maps are
-    drawn in a CRS other than CRS84. The map gets one link per format the
-    provider draws.
+    The collection lists the CRSs its maps are drawn in, with ``storageCrs``
+    and ``storageCrsBbox`` when they are drawn by default in a CRS other than
+    CRS84 (/req/collection-map/desc-crs), and links one map per encoding
+    (/req/collection-map/desc-links).
 
     Parameters
     ----------
