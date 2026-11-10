@@ -1,17 +1,8 @@
-"""Provider capability Protocols (ADR-0010).
+"""The Protocols of fastgeoapi's providers which serve natively, one per family.
 
-pygeoapi's provider contract is synchronous and per family. These
-Protocols describe the *asynchronous* capability a provider may add,
-again per family, and are what the router checks::
-
-    isinstance(p, AsyncTileProvider) and p.native_async
-
-Conformance is structural: any object with these members qualifies,
-whether or not it inherits from fastgeoapi's mixin.
-
-pygeoapi builds every provider with ``cls(provider_def)``, from one
-untyped dict. None of these Protocols says how a provider is built; they
-describe the built instance.
+A provider class takes the native path by setting ``native_async = True``;
+any other provider is served by pygeoapi. A class matches a Protocol by
+its members, whether or not it inherits from fastgeoapi's mixin.
 """
 
 from dataclasses import dataclass
@@ -24,12 +15,12 @@ MAPS_CONFORMANCE_PREFIX = "http://www.opengis.net/spec/ogcapi-maps-1/1.0/conf"
 
 @runtime_checkable
 class AsyncTileProvider(Protocol):
-    """A tile provider that can be awaited for tile data.
+    """The contract with members of a native tile provider.
 
     Attributes
     ----------
     native_async
-        ``True`` only when ``aget_tiles`` awaits its I/O for real.
+        ``True`` when the provider is served natively.
     format_type
         The configured tile format name (``format.name`` in the
         provider definition), passed back as ``format_``.
@@ -39,7 +30,7 @@ class AsyncTileProvider(Protocol):
     format_type: str
 
     def get_layer(self) -> Any:
-        """The layer name pygeoapi passes to ``get_tiles``."""
+        """Get the layer metadata."""
         ...
 
     async def aget_tiles(
@@ -51,13 +42,13 @@ class AsyncTileProvider(Protocol):
         x: int | str,
         format_: str,
     ) -> bytes | None:
-        """The tile bytes, ``None`` when the tile is absent within limits."""
+        """Return the tile bytes, or None when the tile is absent within the limits."""
         ...
 
 
 @runtime_checkable
 class AsyncFeatureProvider(Protocol):
-    """A feature provider that can be awaited for queries and single items."""
+    """The contract with members of a native feature provider."""
 
     native_async: ClassVar[bool]
 
@@ -81,9 +72,7 @@ class MapLimits:
     max_height
         The largest ``height`` of a map, in pixels.
     max_pixels
-        The largest ``width * height`` a map may have. None sets no limit on
-        the product, so a map within ``max_width`` and ``max_height`` is
-        accepted whatever its area.
+        The largest ``width * height``, or None for no limit on the area.
     """
 
     max_width: int
@@ -94,8 +83,7 @@ class MapLimits:
 class MapFormat(StrEnum):
     """The encodings of OGC API - Maps, one per conformance class.
 
-    A member is the value of ``f`` that asks for it, so it compares equal
-    to that string.
+    Each member is the value of ``f`` that asks for it.
     """
 
     PNG = "png"
@@ -130,7 +118,7 @@ class MapFormat(StrEnum):
 
 @dataclass(frozen=True)
 class MapCapabilities:
-    """The CRSs a map provider draws in and the formats offered to encode it.
+    """The map provider's capabilities as defined by CRSs and the formats of the map.
 
     Attributes
     ----------
@@ -140,8 +128,7 @@ class MapCapabilities:
         order of preference: the first is the default when the collection's
         ``storage_crs`` is not among them (/req/crs/crs-definition).
     formats
-        The encodings the provider draws maps in. The conformance classes
-        of the encodings are declared from them.
+        The encodings; each one declares its conformance class.
     """
 
     crs: tuple[str, ...]
@@ -150,7 +137,7 @@ class MapCapabilities:
 
 @dataclass(frozen=True)
 class MapParameters:
-    """A parameters container of one map, as passed from the route to the provider.
+    """The checked parameters of one map.
 
     Attributes
     ----------
@@ -159,9 +146,8 @@ class MapParameters:
         ``/collections/{collectionId}/styles/{styleId}/map``, or None for the
         default one (/req/styled-map/map-operation).
     bbox
-        ``(xmin, ymin, xmax, ymax)`` in ``crs``, where the route has already
-        moved it from ``bbox-crs`` and clipped it to the CRS; ``xmin > xmax``
-        means that the box crosses the antimeridian
+        ``(xmin, ymin, xmax, ymax)`` in ``crs``, within its extent;
+        ``xmin > xmax`` means that the box crosses the antimeridian
         (/req/spatial-subsetting/bbox-definition).
     width
         The width of the image in pixels, a positive integer
@@ -199,31 +185,28 @@ class MapParameters:
 
 @runtime_checkable
 class AsyncMapProvider(Protocol):
-    """A map provider protocol that defines the contract for a rendered map.
+    """The contract with members of a native map provider.
 
-    The contract cannot type the definition the provider is built from, so
-    it types what the provider makes of it: ``limits`` says which sizes it
-    accepts.
+    A class that sets ``native_async`` must define all of them; a
+    configuration that names a class missing one is refused at start-up,
+    and the error says which.
 
     Attributes
     ----------
     native_async
-        ``True`` only when ``arender_map`` awaits its work for real. The
-        route then awaits it on the event loop instead of calling ``query``
-        in the threadpool. A configuration is refused when its provider class sets
-        it and misses a member of this Protocol.
+        ``True`` when the provider is served natively.
     """
 
     native_async: ClassVar[bool]
 
     @property
     def limits(self) -> MapLimits:
-        """The map sizes it accepts."""
+        """The largest limits of a drawn map."""
         ...
 
     @property
     def capabilities(self) -> MapCapabilities:
-        """The CRSs it draws in and the formats it encodes."""
+        """The CRSs and the encodings used to draw the maps."""
         ...
 
     async def arender_map(self, parameters: MapParameters) -> bytes:
@@ -233,6 +216,11 @@ class AsyncMapProvider(Protocol):
         ----------
         parameters
             The checked parameters of the map.
+
+        Returns
+        -------
+        bytes
+            The encoded image.
 
         Raises
         ------
@@ -244,16 +232,13 @@ class AsyncMapProvider(Protocol):
         ...
 
     async def aget_version(self, parameters: MapParameters) -> str | None:
-        """Get the map's version that would be drawn, without drawing it.
+        """Get the version of the map that would be drawn, without drawing it.
 
-        The route builds the response's ``ETag`` from it (RFC 9110, section
-        8.8.3) and answers 304 to an ``If-None-Match`` that names that
-        ``ETag`` (RFC 9110, section 13.1.2). So the version changes whenever
-        the image for these parameters can change: the data, the definition,
-        the style or the engine. It reads metadata only. A map served under a
-        version is drawn from the data that version names, so a provider whose
-        reads are not pinned to one version returns None, and the map gets no
-        ``ETag``.
+        The version changes whenever the image for these parameters can
+        change: the data, the definition, the style or the engine. It reads
+        metadata only. A map served under a version must be drawn from the
+        data that version names, so a provider that cannot pin its reads to
+        one version returns None.
 
         Parameters
         ----------
@@ -268,45 +253,40 @@ class AsyncMapProvider(Protocol):
         ...
 
     def close(self) -> None:
-        """Release the engine once the maps it is drawing are done.
+        """Release the engine once the maps, which are drawn, are done.
 
-        On a reload the plugin cache calls it from the thread that handles
-        the reload, while the old configuration may still be serving maps
-        with this instance. So it must be safe to call from any thread,
-        return without waiting for those maps, and do nothing on a second
-        call. An error it raises is logged and does not stop the reload.
+        It is safe to call from any thread, returns without waiting for the
+        maps in progress, and does nothing when called again.
         """
         ...
 
 
 @runtime_checkable
 class VersionedProvider(Protocol):
-    """A provider that tells which version of its answer a request would get.
+    """A contract that tells which version of the response a request would get.
 
-    The tile and map routes ask for it before doing any work for the
-    request. The HTTP cache builds the response's ``ETag`` from it (RFC
-    9110, section 8.8.3) and answers 304 to an ``If-None-Match`` that names
-    that ``ETag`` (RFC 9110, section 13.1.2). A provider without
-    ``aget_version`` gets no cache headers.
+    The ``ETag`` of a response is built from that version; a provider
+    without ``aget_version`` gets no cache headers.
     """
 
     async def aget_version(self, *args: Any, **kwargs: Any) -> str | None:
-        """Get the answer's version for these arguments, without computing it.
+        """Get the version of the answer to these arguments, without computing it.
 
         It changes whenever the answer can change, and it reads metadata
-        only: neither the tiles nor the data a map is drawn from.
+        only. Neither the tiles nor the data a map is drawn from.
 
         Parameters
         ----------
-        *args, **kwargs
-            The arguments of the provider's data method: the keyword
-            arguments of ``aget_tiles`` for a tile provider, the
+        *args
+            The positional arguments of the provider's data method: the
             ``MapParameters`` of ``arender_map`` for a map provider.
+        **kwargs
+            The keyword arguments of the provider's data method: those of
+            ``aget_tiles`` for a tile provider.
 
         Returns
         -------
         str or None
-            The version, or None when it is unknown; the answer then gets no
-            cache headers.
+            The version, or None when it is unknown.
         """
         ...
