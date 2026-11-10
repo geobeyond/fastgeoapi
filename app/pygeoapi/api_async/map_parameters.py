@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import math
 from copy import deepcopy
-from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Any
 
@@ -19,50 +18,12 @@ from pygeoapi.api import APIRequest, validate_subset
 from pygeoapi.crs import DEFAULT_CRS, get_uri, transform_bbox
 from pyproj.exceptions import CRSError
 
-from app.interfaces.providers import MapCapabilities, MapLimits
+from app.interfaces.providers import MapCapabilities, MapLimits, MapParameters
 from app.provider.maps import WEB_MERCATOR, MapParameterError, MapTooLargeError
 from app.pygeoapi.map_limits import choose_default_map_crs
 
 WEB_MERCATOR_EDGE = 20037508.342789244
 """How far Web Mercator goes from its origin, in metres, on both axes."""
-
-
-@dataclass(frozen=True)
-class MapParameters:
-    """The checked arguments of one map, as the provider receives them.
-
-    Attributes
-    ----------
-    style
-        The name of the style in the path, or None for the default one.
-    bbox
-        ``(xmin, ymin, xmax, ymax)`` in ``crs``, clipped to it; ``xmin > xmax``
-        means that the box crosses the antimeridian.
-    width
-        The width of the image in pixels.
-    height
-        The height of the image in pixels.
-    crs
-        The URI of the CRS of the map, written as the provider declares it.
-    transparent
-        Whether the background is transparent.
-    format_
-        The format the client asked for with ``f``.
-    datetime_
-        The ``datetime`` of the request, or None.
-    subsets
-        The values asked with ``subset``, by additional dimension, or None.
-    """
-
-    style: str | None
-    bbox: tuple[float, float, float, float]
-    width: int
-    height: int
-    crs: str
-    transparent: bool
-    format_: str
-    datetime_: str | None
-    subsets: dict[str, list[Any]] | None
 
 
 def clip_bbox(

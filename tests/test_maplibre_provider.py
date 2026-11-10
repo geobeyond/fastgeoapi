@@ -7,7 +7,7 @@ from unittest import mock
 
 import pytest
 
-from tests.maps_fixtures import FakeRenderer, map_provider
+from tests.maps_fixtures import FakeRenderer, build_map_parameters, map_provider
 from tests.pmtiles_fixtures import TILE_BYTES, raster_archive, write_archive
 
 ROME = (1379000.0, 5140000.0, 1403000.0, 5160000.0)  # EPSG:3857 metres
@@ -39,7 +39,7 @@ def _provider(archive, **options):
 
 async def _map(provider, **kwargs):
     args = {"bbox": list(ROME), "width": 64, "height": 64, "crs": WEB_MERCATOR}
-    return await provider.arender_map(**{**args, **kwargs})
+    return await provider.arender_map(build_map_parameters(**{**args, **kwargs}))
 
 
 async def _until(condition, timeout=2.0):
@@ -902,7 +902,7 @@ async def test_an_elevation_archive_is_drawn_as_a_hillshade_by_default(tmp_path)
 
 async def _version(provider, **kwargs):
     args = {"bbox": list(ROME), "width": 64, "height": 64, "crs": WEB_MERCATOR}
-    return await provider.aget_version(**{**args, **kwargs})
+    return await provider.aget_version(build_map_parameters(**{**args, **kwargs}))
 
 
 def _line_style(path, color):

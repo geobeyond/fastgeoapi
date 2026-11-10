@@ -26,7 +26,7 @@ service.
 ```python
 from pygeoapi.provider.base import BaseProvider
 
-from app.interfaces.providers import MapCapabilities, MapFormat, MapLimits
+from app.interfaces.providers import MapCapabilities, MapFormat, MapLimits, MapParameters
 from app.provider.base import AsyncProviderMixin, StorageBackedMixin
 
 WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
@@ -38,27 +38,23 @@ class MyMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
     @property
     def limits(self) -> MapLimits:
-        return MapLimits(
-            max_width=2048,
-            max_height=2048,
-            max_pixels=None,
-        )
+        return MapLimits(max_width=2048, max_height=2048)
 
     @property
     def capabilities(self) -> MapCapabilities:
         return MapCapabilities(crs=(WEB_MERCATOR,), formats=(MapFormat.PNG,))
 
-    async def arender_map(self, *, style, bbox, width, height, crs,
-                          transparent, format_, datetime_, subsets) -> bytes: ...
+    async def arender_map(self, parameters: MapParameters) -> bytes: ...
 
-    async def aget_version(self, *, style, bbox, width, height, crs,
-                           transparent, format_, datetime_, subsets) -> str | None: ...
+    async def aget_version(self, parameters: MapParameters) -> str | None: ...
 
     def close(self) -> None: ...
 ```
 
-`limits` gives the largest map the engine draws. The route publishes the
-sizes in the OpenAPI document as the `maximum` of `width` and `height`. When the server ceiling is
+`limits` gives the largest map the engine draws. `max_pixels`, the largest
+`width * height`, is optional: set it only when the engine has an area limit
+of its own. The route publishes the sizes in the OpenAPI document as the
+`maximum` of `width` and `height`. When the server ceiling is
 smaller (`FASTGEOAPI_MAPS_MAX_WIDTH`, `FASTGEOAPI_MAPS_MAX_HEIGHT`,
 `FASTGEOAPI_MAPS_MAX_PIXELS`), the ceiling applies, and a warning at startup
 names the collection.
@@ -81,7 +77,7 @@ other than CRS84, and
 links one map per encoding.
 
 `arender_map` returns the encoded image. `aget_version` returns the version
-of the image `arender_map` would draw for the same arguments, without drawing
+of the image `arender_map` would draw for the same parameters, without drawing
 it. The route builds the `ETag` from that version, and answers 304 to a
 request that already has the map. The version must change whenever the image
 can change: the data, the definition, the style or the engine. Return None
@@ -101,10 +97,10 @@ something asynchronously schedules it from there.
 
 ## What it receives
 
-The route reads the query, checks it and passes typed arguments, always by
-keyword:
+The route reads the query, checks it and passes one `MapParameters` object,
+whose fields are:
 
-| Argument          | What the route has already done                                                                                                                                |
+| Field             | What the route has already done                                                                                                                                |
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `style`           | `None` for the default style, or the `{styleId}` of the path. An unknown name is the provider's to refuse with `ProviderItemNotFoundError`, which answers 404. |
 | `bbox`            | Four finite numbers, moved from `bbox-crs` into `crs` and clipped to the extent of `crs`. A box entirely outside it answers 204 without calling the provider.  |
@@ -116,7 +112,7 @@ keyword:
 | `subsets`         | The `subset` values by additional dimension, or None.                                                                                                          |
 
 `bbox-crs` never reaches the provider. `aget_version` receives the same
-arguments as `arender_map`.
+object as `arender_map`.
 
 ## What it leaves to the route
 
