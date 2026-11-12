@@ -120,7 +120,7 @@ docs = [
 # Local build, not yet on PyPI — see the `martin_wrapper` extra above.
 # Path is relative to this file; rebuild with `maturin build --release`
 # in the `martin-py` crate if the wheel goes missing.
-martin-py = { path = "../martin/target/wheels/martin_py-0.1.0-cp312-cp312-linux_x86_64.whl" }
+martin-py = { path = "../martin-py/target/wheels/martin_py-0.1.0-cp311-abi3-linux_x86_64.whl" }
 
 [tool.hatch.build.targets.sdist]
 include = [
