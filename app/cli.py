@@ -60,8 +60,18 @@ def run(
         fastgeoapi run --host 127.0.0.1 --port 8000
         fastgeoapi run --reload
         fastgeoapi run -h 0.0.0.0 -p 5000 -r
+        fastgeoapi run --workers 4
     """
     log_console.log(f"Starting fastgeoapi server on {host}:{port}")
+
+    if workers > 1 and not reload:
+        # With more than one worker, each process polls the configuration
+        # source so that a reload reaches all of them. The interval goes
+        # through the environment, which the spawned workers inherit,
+        # under the prefixed name the settings read for this ENV_STATE. A
+        # value the operator already set is kept.
+        prefix = f"{os.environ.get('ENV_STATE', 'dev').upper()}_"
+        os.environ.setdefault(f"{prefix}FASTGEOAPI_CONFIG_POLL_SECONDS", "5")
 
     uvicorn.run(
         "app.main:app",

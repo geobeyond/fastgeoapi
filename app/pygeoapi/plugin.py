@@ -24,6 +24,7 @@ providers that know they are safe say so and stop being rebuilt.
 
 from __future__ import annotations
 
+import importlib
 import json
 import threading
 from typing import Any
@@ -82,6 +83,24 @@ def _cache_key(plugin_type: str, plugin_def: dict) -> str | None:
         return None
 
 
+def resolve_provider_class(name: str) -> type | None:
+    """The provider class a dotted name points at, without instantiating it.
+
+    pygeoapi's short names (``GeoJSON``, ``CSV``) are not resolved: their
+    classes declare nothing of ours, and importing them would pull in
+    database drivers. A name that does not import resolves to ``None``.
+    """
+    from pygeoapi.plugin import PLUGINS
+
+    if name in PLUGINS["provider"] or "." not in name:
+        return None
+    module_name, _, class_name = name.rpartition(".")
+    try:
+        return getattr(importlib.import_module(module_name), class_name)
+    except (ImportError, AttributeError):
+        return None
+
+
 def invalidate_plugin_cache() -> None:
     """Drop every cached instance, on every thread.
 
@@ -94,7 +113,18 @@ def invalidate_plugin_cache() -> None:
     with _generation_lock:
         _generation += 1
     with _shared_lock:
+        dropped = list(_shared.values())
         _shared.clear()
+    # A shared provider may hold a process or a connection open: the map
+    # provider owns a renderer. Closing is best effort, and a failure must
+    # not keep the new configuration from taking over.
+    for instance in dropped:
+        close = getattr(instance, "close", None)
+        if callable(close):
+            try:
+                close()
+            except Exception as error:
+                logger.warning(f"could not close {type(instance).__name__}: {error}")
     cache = getattr(_local, "cache", None)
     if cache is not None:
         cache.clear()

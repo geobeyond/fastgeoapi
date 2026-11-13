@@ -22,6 +22,9 @@ import httpx2
 from fastmcp import FastMCP
 from loguru import logger
 
+from app.mcp.annotations import annotate_component
+from app.mcp.maps import add_map_tools
+from app.mcp.names import tool_names
 from app.mcp.route_maps import openapi_route_maps
 
 
@@ -70,12 +73,19 @@ def refresh_tools(
     # refresh raising "External or non-local reference not supported"
     # into the listener's error handler, so the reload looked fine and
     # the tools never moved.
+    from app.pygeoapi.openapi import fix_resolved_document
     from app.utils.openapi_resolver import resolve_external_refs
 
-    resolved = resolve_external_refs(openapi_spec, cache_dir=cache_dir)
+    resolved = fix_resolved_document(resolve_external_refs(openapi_spec, cache_dir=cache_dir))
     rebuilt = FastMCP.from_openapi(
-        openapi_spec=resolved, client=client, name=name, route_maps=openapi_route_maps()
+        openapi_spec=resolved,
+        client=client,
+        name=name,
+        route_maps=openapi_route_maps(),
+        mcp_component_fn=annotate_component,
+        mcp_names=tool_names(resolved),
     )
+    add_map_tools(rebuilt, resolved, client)
     # `providers` is a plain list on FastMCP 4 (checked through 4.0.3)
     # and not a declared contract; tests/test_mcp_tool_refresh.py guards
     # the shape so an upgrade that changes it fails loudly instead of

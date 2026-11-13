@@ -1,1 +1,1 @@
-"""Tile-serving package: alternative/benchmark tile paths alongside pygeoapi's own."""
+"""Tiles: the contract with the backends that read them, and their registry."""

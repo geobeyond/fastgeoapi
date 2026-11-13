@@ -1,0 +1,25 @@
+{% extends "_layout.html" %}
+{% block content %}
+<div class="split{% if not map %} solo{% endif %}">
+  <section class="panel">
+    <h1>{{ title }}</h1>
+    <dl class="facts">
+      {% for fact in facts %}<dt>{{ fact.label }}</dt><dd>{% if fact.href %}<a href="{{ fact.href | safe_url }}">{{ fact.value }}</a>{% else %}{{ fact.value }}{% endif %}</dd>
+      {% endfor %}
+    </dl>
+  </section>
+  {% include "_map.html" %}
+</div>
+{% if template or metadata %}<section class="rest">
+    {% if template %}<h2>{{ _("Tiles") }}</h2>
+    <pre><code>{{ template }}</code></pre>{% endif %}
+    {% if metadata %}<h2>{{ _("Metadata") }}</h2>
+    <table class="data">
+      <thead><tr><th>{{ _("Name") }}</th><th>{{ _("Value") }}</th></tr></thead>
+      <tbody>
+      {% for row in metadata %}<tr><td><code>{{ row.name }}</code></td><td>{{ row.value }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>{% endif %}
+</section>{% endif %}
+{% endblock %}

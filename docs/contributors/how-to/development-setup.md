@@ -46,6 +46,33 @@ command says so instead of serving a puzzling 404. The frontend has its
 own toolchain and its own formatter; see
 [running the tests](running-the-tests.md).
 
+## The HTML pages
+
+The [native HTML pages](../../operators/how-to/html-pages.md) live in two
+places. The code that renders them is in `app/html`. Their files are in
+the `fastgeoapi-html` package under `packages/fastgeoapi-html`: the Jinja
+templates, the message catalogs, and the compiled assets. The package is
+a member of the uv workspace, and the `html` extra installs it from
+there:
+
+```bash
+uv sync --extra html
+```
+
+The assets are built from `frontend/pages`, the TypeScript of the maps,
+forms and viewers and the stylesheet of the pages. `npm run build`, the
+command that builds the editor, also writes them into
+`packages/fastgeoapi-html/fastgeoapi_html/static`; `npm run build:pages`
+builds the pages alone. Git ignores that directory, and the wheel carries
+it.
+
+Without the build the pages still render, as plain HTML with no style,
+maps or forms, and the log says
+`no compiled assets in …: the pages have no style nor islands`.
+
+To see them, set `DEV_FASTGEOAPI_HTML_PAGES=native` and open any page
+with `?f=html`.
+
 ## The documentation
 
 ```bash

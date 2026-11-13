@@ -1,0 +1,16 @@
+{% macro field(item, error=none) -%}
+<div class="field{% if item.kind in ('textarea', 'bbox') %} wide{% endif %}">
+  <label for="field-{{ item.name }}">{{ item.label }}</label>
+  {% if item.kind == "select" -%}
+  <select id="field-{{ item.name }}" name="{{ item.name }}">{% for value, label in item.choices %}<option value="{{ value }}"{% if value == item.value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  {%- elif item.kind == "textarea" -%}
+  <textarea id="field-{{ item.name }}" name="{{ item.name }}" rows="3">{{ item.value }}</textarea>
+  {%- else -%}
+  <input id="field-{{ item.name }}" name="{{ item.name }}" type="{% if item.kind == 'number' %}number{% elif item.kind == 'date' %}date{% else %}text{% endif %}"{% if item.kind == 'number' %} step="any"{% endif %} value="{{ item.value }}">
+  {%- endif %}
+  {% if item.kind == "bbox" %}<button type="button" data-fga-bbox-target="field-{{ item.name }}">{{ _("Use the map view") }}</button>{% endif %}
+  {% if item.hint %}<small>{{ item.hint }}</small>{% endif %}
+  {% if item.examples %}<small>{{ _("Examples:") }} {% for example in item.examples %}<code>{{ example }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</small>{% endif %}
+  {% if error %}<p class="field-error" role="alert">{{ error }}</p>{% endif %}
+</div>
+{%- endmacro %}

@@ -35,6 +35,18 @@ class MCPMountRootRewriteMiddleware:
         await self.app(scope, receive, send)
 
 
+_REWRITTEN = frozenset(
+    {
+        "text/html",
+        "application/json",
+        "application/ld+json",
+        "application/schema+json",
+        "application/vnd.oai.openapi+json",
+    }
+)
+"""The media types whose bodies carry the server URL, compared without their parameters."""
+
+
 class ForwardedLinksMiddleware(BaseHTTPMiddleware):
     """Pygeoapi links behind a proxy middleware."""
 
@@ -54,15 +66,12 @@ class ForwardedLinksMiddleware(BaseHTTPMiddleware):
         if request.headers.get("x-forwarded-proto") and request.headers.get("x-forwarded-host"):
             logger.info(f"Forwarded protocol: {request.headers['x-forwarded-proto']}")
             logger.info(f"Forwarded host: {request.headers['x-forwarded-host']}")
-            if response_.headers["content-type"] in [
-                "text/html",
-                "application/json",
-                "application/ld+json",
-                "application/schema+json",
-                "application/vnd.oai.openapi+json;version=3.0",
-            ]:
+            media_type = response_.headers.get("content-type", "").split(";")[0].strip()
+            proxied_base_url = (
+                f"{request.headers['x-forwarded-proto']}://{request.headers['x-forwarded-host']}"
+            )
+            if media_type in _REWRITTEN:
                 body_ = response_body.decode("utf-8")
-                proxied_base_url = f"{request.headers['x-forwarded-proto']}://{request.headers['x-forwarded-host']}"
                 logger.info(
                     f"Replacing pygeoapi urls: {cfg.PYGEOAPI_BASEURL} --> {proxied_base_url}"
                 )
@@ -74,5 +83,8 @@ class ForwardedLinksMiddleware(BaseHTTPMiddleware):
                     media_type=response_.media_type,
                 )
                 response.headers["x-pygeoapi-forwarded-url"] = f"{proxied_base_url}"
+            link = response.headers.get("link")
+            if link:
+                response.headers["link"] = link.replace(cfg.PYGEOAPI_BASEURL, proxied_base_url)
         response.headers["content-length"] = str(len(response.body))
         return response

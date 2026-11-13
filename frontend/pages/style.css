@@ -1,0 +1,706 @@
+/*
+ * The HTML pages of fastgeoapi. Colours, fonts and sizes are variables, so
+ * that a theme changes them without touching the rules. The pages made of
+ * cards use the sizes of :root; every other page carries body.dense, whose
+ * smaller sizes leave room for forms, tables and the map.
+ */
+
+:root {
+  --fga-accent: #2c6db5;
+  --fga-accent-soft: #ebf4ff;
+  --fga-heading: #1a365d;
+  --fga-text: #1f2933;
+  --fga-muted: #616e7c;
+  --fga-background: #f1f4f8;
+  --fga-surface: #ffffff;
+  --fga-border: #e2e8f0;
+  --fga-field: #cbd5e0;
+  --fga-bar: #ffffff;
+  --fga-footer: #2d3748;
+  --fga-footer-text: #cbd5e0;
+  --fga-code: #1a202c;
+  --fga-code-text: #e2e8f0;
+  --fga-error: #c53030;
+  --fga-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --fga-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --fga-size-body: 17px;
+  --fga-leading: 1.65;
+  --fga-size-h1: 44px;
+  --fga-leading-h1: 1.1;
+  --fga-weight-h1: 750;
+  --fga-tracking-h1: -0.02em;
+  --fga-size-lead: 20px;
+  --fga-size-h2: 24px;
+  --fga-size-h3: 20px;
+  --fga-size-eyebrow: 13px;
+  --fga-size-nav: 15.5px;
+  --fga-size-small: 14px;
+  --fga-size-label: 14px;
+  --fga-size-field: 16px;
+  --fga-size-table: 16px;
+  --fga-size-card: 16px;
+  --fga-size-badge: 13.5px;
+  --fga-size-code: 13.5px;
+  --fga-size-footer: 13px;
+  --fga-bar-height: 68px;
+  --fga-logo-height: 34px;
+  --fga-content-width: 1280px;
+  --fga-gutter: 24px;
+  --fga-gap: 24px;
+  --fga-pad-card: 24px;
+  --fga-pad-hero-top: 64px;
+  --fga-pad-hero-bottom: 56px;
+  --fga-pad-cell: 12px 16px;
+  --fga-pad-field: 10px 12px;
+  --fga-pad-button: 10px 18px;
+  --fga-radius: 14px;
+  --fga-radius-small: 8px;
+  --fga-shadow: 0 2px 10px rgba(16, 42, 67, 0.08);
+  --fga-hero: linear-gradient(
+    180deg,
+    var(--fga-surface) 0%,
+    var(--fga-surface) 55%,
+    var(--fga-accent-soft) 100%
+  );
+  --fga-map-wide-height: 480px;
+}
+
+body.dense {
+  --fga-size-body: 16px;
+  --fga-leading: 1.6;
+  --fga-size-h1: 32px;
+  --fga-leading-h1: 1.15;
+  --fga-size-lead: 17px;
+  --fga-size-h2: 20px;
+  --fga-size-h3: 17px;
+  --fga-size-field: 15px;
+  --fga-size-table: 15px;
+  --fga-size-card: 15px;
+  --fga-size-badge: 13px;
+  --fga-gap: 22px;
+  --fga-pad-card: 18px;
+  --fga-pad-cell: 8px 12px;
+  --fga-pad-field: 8px 10px;
+  --fga-pad-button: 8px 16px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  margin: 0;
+  font-family: var(--fga-font);
+  font-size: var(--fga-size-body);
+  line-height: var(--fga-leading);
+  color: var(--fga-text);
+  background: var(--fga-background);
+}
+
+main {
+  flex: 1;
+}
+
+a {
+  color: var(--fga-accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+header.bar {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  min-height: var(--fga-bar-height);
+  padding: 0 var(--fga-gutter);
+  background: var(--fga-bar);
+  border-top: 4px solid var(--fga-accent);
+  border-bottom: 1px solid var(--fga-border);
+}
+
+header.bar .brand img {
+  display: block;
+  height: var(--fga-logo-height);
+}
+
+header.bar nav.sections a {
+  margin-right: 18px;
+  font-size: var(--fga-size-nav);
+  font-weight: 500;
+  color: var(--fga-text);
+}
+
+header.bar .tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  font-size: var(--fga-size-small);
+}
+
+header.bar nav.languages {
+  display: flex;
+  gap: 8px;
+}
+
+.pill {
+  padding: 2px 10px;
+  font-size: var(--fga-size-small);
+  border: 1px solid var(--fga-border);
+  border-radius: 999px;
+}
+
+nav.crumbs {
+  padding: 10px var(--fga-gutter);
+  font-size: var(--fga-size-small);
+  color: var(--fga-muted);
+  background: var(--fga-surface);
+  border-bottom: 1px solid var(--fga-border);
+}
+
+.container {
+  max-width: var(--fga-content-width);
+  margin: 0 auto;
+  padding: 26px var(--fga-gutter);
+}
+
+.hero {
+  background: var(--fga-hero);
+  border-bottom: 1px solid var(--fga-border);
+}
+
+.hero .container {
+  padding-top: var(--fga-pad-hero-top);
+  padding-bottom: var(--fga-pad-hero-bottom);
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  font-size: var(--fga-size-eyebrow);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fga-accent);
+}
+
+h1 {
+  margin: 0 0 12px;
+  font-size: var(--fga-size-h1);
+  font-weight: var(--fga-weight-h1);
+  line-height: var(--fga-leading-h1);
+  letter-spacing: var(--fga-tracking-h1);
+  color: var(--fga-heading);
+}
+
+h2 {
+  margin: 1.8em 0 0.7em;
+  font-size: var(--fga-size-h2);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--fga-heading);
+}
+
+h2 .count {
+  margin-left: 8px;
+  padding: 1px 9px;
+  font-size: var(--fga-size-small);
+  font-weight: 600;
+  vertical-align: middle;
+  color: var(--fga-accent);
+  background: var(--fga-accent-soft);
+  border-radius: 999px;
+}
+
+.lead {
+  max-width: 62ch;
+  margin: 0 0 22px;
+  font-size: var(--fga-size-lead);
+  line-height: 1.55;
+  color: var(--fga-muted);
+}
+
+.links-row a {
+  margin-right: 20px;
+  font-size: var(--fga-size-nav);
+  font-weight: 500;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--fga-gap);
+}
+
+.card {
+  padding: var(--fga-pad-card);
+  background: var(--fga-surface);
+  border: 1px solid var(--fga-border);
+  border-left: 4px solid var(--fga-accent);
+  border-radius: var(--fga-radius);
+  box-shadow: var(--fga-shadow);
+}
+
+.card h3 {
+  margin: 0 0 6px;
+  font-size: var(--fga-size-h3);
+  line-height: 1.3;
+}
+
+.card p {
+  margin: 0 0 12px;
+  font-size: var(--fga-size-card);
+  color: var(--fga-muted);
+}
+
+.badge {
+  display: inline-block;
+  margin: 0 6px 6px 0;
+  padding: 2px 10px;
+  font-size: var(--fga-size-badge);
+  color: var(--fga-accent);
+  background: var(--fga-accent-soft);
+  border-radius: 999px;
+}
+
+.keyword {
+  display: inline-block;
+  margin: 0 6px 4px 0;
+  padding: 2px 10px;
+  font-size: var(--fga-size-badge);
+  color: #ffffff;
+  background: var(--fga-accent);
+  border-radius: 999px;
+}
+
+ul.classes {
+  margin: 0;
+  padding-left: 18px;
+  font-size: var(--fga-size-table);
+  word-break: break-all;
+}
+
+table.data {
+  width: 100%;
+  font-size: var(--fga-size-table);
+  border-collapse: collapse;
+  background: var(--fga-surface);
+  border: 1px solid var(--fga-border);
+}
+
+table.data th {
+  padding: var(--fga-pad-cell);
+  font-weight: 500;
+  text-align: left;
+  vertical-align: top;
+  color: var(--fga-muted);
+  border-bottom: 1px solid var(--fga-border);
+}
+
+table.data td {
+  padding: var(--fga-pad-cell);
+  vertical-align: top;
+  word-break: break-word;
+  border-bottom: 1px solid var(--fga-border);
+}
+
+/* Names stay whole; the long URLs of the values are what wraps. */
+table.data td > code {
+  white-space: nowrap;
+}
+
+dl.facts {
+  display: grid;
+  grid-template-columns: minmax(140px, 200px) 1fr;
+  gap: 6px 14px;
+  margin: 0 0 16px;
+  font-size: var(--fga-size-table);
+}
+
+dl.facts dt {
+  color: var(--fga-muted);
+}
+
+dl.facts dd {
+  margin: 0;
+  word-break: break-word;
+}
+
+pre {
+  overflow: auto;
+  padding: 12px 14px;
+  font-family: var(--fga-mono);
+  font-size: var(--fga-size-code);
+  line-height: 1.5;
+  color: var(--fga-code-text);
+  background: var(--fga-code);
+  border-radius: var(--fga-radius-small);
+}
+
+form.run {
+  display: grid;
+  gap: 14px;
+  max-width: 680px;
+  padding: var(--fga-pad-card);
+  background: var(--fga-surface);
+  border: 1px solid var(--fga-border);
+  border-radius: var(--fga-radius);
+  box-shadow: var(--fga-shadow);
+}
+
+form.run label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: var(--fga-size-label);
+  color: var(--fga-muted);
+}
+
+form.run input,
+form.run select,
+form.run textarea {
+  width: 100%;
+  padding: var(--fga-pad-field);
+  font: inherit;
+  font-size: var(--fga-size-field);
+  background: var(--fga-surface);
+  border: 1px solid var(--fga-field);
+  border-radius: var(--fga-radius-small);
+}
+
+form.run input[type="checkbox"] {
+  width: auto;
+}
+
+form.run small {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--fga-size-small);
+  color: var(--fga-muted);
+}
+
+form.run .actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+button {
+  padding: var(--fga-pad-button);
+  font: inherit;
+  font-size: var(--fga-size-field);
+  font-weight: 600;
+  color: var(--fga-accent);
+  background: var(--fga-surface);
+  border: 1px solid var(--fga-accent);
+  border-radius: var(--fga-radius-small);
+  cursor: pointer;
+}
+
+button.primary {
+  color: #ffffff;
+  background: var(--fga-accent);
+}
+
+.outcome {
+  margin-top: 12px;
+}
+
+.error {
+  color: var(--fga-error);
+}
+
+.status {
+  font-weight: 600;
+}
+
+footer {
+  padding: 20px var(--fga-gutter);
+  font-size: var(--fga-size-footer);
+  color: var(--fga-footer-text);
+  background: var(--fga-footer);
+}
+
+footer a {
+  color: #ffffff;
+}
+
+@media (max-width: 900px) {
+  header.bar {
+    flex-wrap: wrap;
+    padding: 8px var(--fga-gutter);
+  }
+
+  dl.facts {
+    grid-template-columns: 1fr;
+  }
+}
+
+/*
+ * The opening of a page with a map: its first block beside a square map, and
+ * the rest of the page below, across.
+ */
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--fga-gap);
+  align-items: start;
+  max-width: var(--fga-content-width);
+  margin: 0 auto;
+  padding: 26px var(--fga-gutter);
+}
+
+.split.solo {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.panel {
+  min-width: 0;
+}
+
+.rest {
+  max-width: var(--fga-content-width);
+  margin: 0 auto;
+  padding: 0 var(--fga-gutter) 34px;
+}
+
+fga-map {
+  position: relative;
+  display: block;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  background: #dfe7ef;
+  border: 1px solid var(--fga-border);
+  border-radius: var(--fga-radius);
+  box-shadow: var(--fga-shadow);
+}
+
+.fga-map-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.style-picker {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: var(--fga-size-small);
+  background: var(--fga-surface);
+  border: 1px solid var(--fga-field);
+  border-radius: var(--fga-radius-small);
+}
+
+ul.sections {
+  margin: 0;
+  padding-left: 18px;
+}
+
+ul.links {
+  margin: 0;
+  padding-left: 18px;
+  overflow-wrap: anywhere;
+}
+
+ul.links small {
+  color: var(--fga-muted);
+}
+
+form.filters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+  padding: var(--fga-pad-card);
+  background: var(--fga-surface);
+  border: 1px solid var(--fga-border);
+  border-radius: var(--fga-radius);
+  box-shadow: var(--fga-shadow);
+}
+
+form.filters .wide,
+form.filters details.advanced {
+  grid-column: 1 / -1;
+}
+
+.field label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: var(--fga-size-label);
+  color: var(--fga-muted);
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  padding: var(--fga-pad-field);
+  font: inherit;
+  font-size: var(--fga-size-field);
+  background: var(--fga-surface);
+  border: 1px solid var(--fga-field);
+  border-radius: var(--fga-radius-small);
+}
+
+.field small {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--fga-size-label);
+  color: var(--fga-muted);
+}
+
+.field-error {
+  margin: 4px 0 0;
+  font-size: var(--fga-size-small);
+  color: var(--fga-error);
+}
+
+.advanced-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+  margin-top: 10px;
+}
+
+form.filters .actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 14px;
+}
+
+ul.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  padding: 3px 11px;
+  font-size: var(--fga-size-small);
+  background: var(--fga-accent-soft);
+  border-radius: 999px;
+}
+
+.chip.ignored {
+  background: #fdf2e9;
+}
+
+.results {
+  margin: 18px 0 10px;
+  font-size: var(--fga-size-label);
+  color: var(--fga-muted);
+}
+
+ol.feature-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  background: var(--fga-surface);
+  border: 1px solid var(--fga-border);
+  border-left: 3px solid var(--fga-accent);
+  border-radius: var(--fga-radius-small);
+}
+
+.item:hover,
+.item.active {
+  border-color: var(--fga-accent);
+  box-shadow: 0 0 0 2px #bee3f8;
+}
+
+.item .name {
+  display: block;
+  font-size: var(--fga-size-field);
+  font-weight: 600;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+form.limit {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 12px 0;
+}
+
+table.items td {
+  white-space: nowrap;
+}
+
+table.items tr[data-fga-feature]:hover {
+  background: var(--fga-accent-soft);
+}
+
+ul.nested {
+  margin: 0;
+  padding-left: 18px;
+}
+
+nav.pager {
+  display: flex;
+  gap: 16px;
+  margin: 12px 0;
+}
+
+@media (max-width: 900px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .split > fga-map {
+    aspect-ratio: 4 / 3;
+  }
+
+  form.filters,
+  .advanced-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+/*
+ * Widened, the map leaves the side of the first block for the whole width
+ * above it; narrowed, it is square again.
+ */
+.split:has(> fga-map[wide]) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.split > fga-map[wide] {
+  order: -1;
+  aspect-ratio: auto;
+  height: var(--fga-map-wide-height);
+}
+
+.fga-widen button {
+  line-height: 1;
+  color: var(--fga-heading);
+}
+
+@media (max-width: 900px) {
+  .fga-widen {
+    display: none;
+  }
+
+  .split > fga-map[wide] {
+    order: 0;
+    aspect-ratio: 4 / 3;
+    height: auto;
+  }
+}

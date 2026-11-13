@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 import threading
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -43,6 +43,11 @@ def split_source(source: str) -> tuple[str, str]:
     if not path.is_absolute():
         path = Path.cwd() / path
     return str(path.parent), path.name
+
+
+def is_remote(source: str) -> bool:
+    """Whether ``source`` names an object across a network: a bucket key or an http(s) URL."""
+    return source.startswith(_URL_SCHEMES) and not source.startswith("file://")
 
 
 def _virtual_hosted(endpoint: str, base: str) -> str:
@@ -101,8 +106,13 @@ def _for_obstore(store_options: dict, base: str = "") -> dict:
     return {**options, **translated}
 
 
+def obstore_options(store_options: dict | None, base: str = "") -> dict:
+    """``store_options`` spelled for obstore, as :func:`load_store` builds a store with them."""
+    return _for_obstore(dict(store_options or {}), base)
+
+
 @contextmanager
-def _explicit_endpoint_wins(config: dict) -> Iterator[None]:
+def _explicit_endpoint_wins(config: dict) -> Generator[None]:
     """Hide the environment's endpoint while a store with its own is built.
 
     A dataset is read where it lives, not where the process banks. But
@@ -142,6 +152,10 @@ def load_store(base: str, store_options: dict | None = None) -> ObjectStore:
     if base.startswith(_URL_SCHEMES):
         from obstore.store import from_url
 
+        if base.startswith(("http://", "https://")):
+            # The HTTP store adds its own slash before the key: a base ending in
+            # one asks for `prefix//key`, which some servers answer with 404.
+            base = base.rstrip("/")
         if store_options:
             config = _for_obstore(store_options, base)
             with _explicit_endpoint_wins(config):

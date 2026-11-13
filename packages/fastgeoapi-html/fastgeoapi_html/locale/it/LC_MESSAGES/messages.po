@@ -1,0 +1,637 @@
+# Italian translations of the HTML pages of fastgeoapi.
+msgid ""
+msgstr ""
+"Project-Id-Version: fastgeoapi-html\n"
+"Language: it\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Collections"
+msgstr "Collezioni"
+
+msgid "Processes"
+msgstr "Processi"
+
+msgid "API"
+msgstr "API"
+
+msgid "Tile matrix sets"
+msgstr "Tile matrix set"
+
+msgid "API documentation"
+msgstr "Documentazione dell'API"
+
+msgid "Conformance"
+msgstr "Conformità"
+
+msgid "Features"
+msgstr "Feature"
+
+msgid "Records"
+msgstr "Record"
+
+msgid "Map"
+msgstr "Mappa"
+
+msgid "Coverage"
+msgstr "Coverage"
+
+msgid "Environmental data"
+msgstr "Dati ambientali"
+
+msgid "Elevation tiles"
+msgstr "Tile di elevazione"
+
+msgid "Raster tiles"
+msgstr "Tile raster"
+
+msgid "Vector tiles"
+msgstr "Tile vettoriali"
+
+msgid "Language"
+msgstr "Lingua"
+
+msgid "Breadcrumb"
+msgstr "Percorso"
+
+msgid "Home"
+msgstr "Inizio"
+
+msgid ""
+"powered by <a href=\"%(fastgeoapi)s\">fastgeoapi</a> on <a "
+"href=\"%(pygeoapi)s\">pygeoapi</a>"
+msgstr ""
+"realizzato con <a href=\"%(fastgeoapi)s\">fastgeoapi</a> su <a "
+"href=\"%(pygeoapi)s\">pygeoapi</a>"
+
+msgid "The conformance classes this service implements."
+msgstr "Le classi di conformità che questo servizio implementa."
+
+msgid "The tiling schemes the tiles of this service can be requested in."
+msgstr "Gli schemi di tassellatura in cui si possono chiedere le tile di questo servizio."
+
+msgid "Identifier"
+msgstr "Identificativo"
+
+msgid "Title"
+msgstr "Titolo"
+
+msgid "URI"
+msgstr "URI"
+
+msgid "Coordinate reference system"
+msgstr "Sistema di riferimento"
+
+msgid "Axes"
+msgstr "Assi"
+
+msgid "Well-known scale set"
+msgstr "Insieme di scale noto"
+
+msgid "Tile matrices"
+msgstr "Matrici di tile"
+
+msgid "Level"
+msgstr "Livello"
+
+msgid "Scale denominator"
+msgstr "Denominatore di scala"
+
+msgid "Cell size"
+msgstr "Dimensione della cella"
+
+msgid "Matrix"
+msgstr "Matrice"
+
+msgid "Tile size"
+msgstr "Dimensione delle tile"
+
+msgid "The collections of this service."
+msgstr "Le collezioni di questo servizio."
+
+#, python-format
+msgid "Queryables of %(collection)s"
+msgstr "Proprietà interrogabili di %(collection)s"
+
+msgid "The properties a filter on the items can use."
+msgstr "Le proprietà che un filtro sugli item può usare."
+
+#, python-format
+msgid "Schema of %(collection)s"
+msgstr "Schema di %(collection)s"
+
+msgid "The properties of the items, as their schema describes them."
+msgstr "Le proprietà degli item, come le descrive il loro schema."
+
+msgid "Queryables"
+msgstr "Proprietà interrogabili"
+
+msgid "Schema"
+msgstr "Schema"
+
+msgid "Property"
+msgstr "Proprietà"
+
+msgid "Type"
+msgstr "Tipo"
+
+msgid "Role"
+msgstr "Ruolo"
+
+msgid "Description"
+msgstr "Descrizione"
+
+msgid "Values"
+msgstr "Valori"
+
+msgid "The OpenAPI document of this service:"
+msgstr "Il documento OpenAPI di questo servizio:"
+
+msgid "Open it in ReDoc"
+msgstr "Aprilo in ReDoc"
+
+msgid "Open it in Swagger UI"
+msgstr "Aprilo in Swagger UI"
+
+msgid "The viewer needs JavaScript; the document is linked above."
+msgstr "Il visualizzatore richiede JavaScript; il documento è collegato qui sopra."
+
+msgid "The processes this service runs."
+msgstr "I processi che questo servizio esegue."
+
+msgid "Jobs"
+msgstr "Job"
+
+msgid "Version"
+msgstr "Versione"
+
+msgid "Execution"
+msgstr "Esecuzione"
+
+msgid "synchronous"
+msgstr "sincrona"
+
+msgid "asynchronous, as a job"
+msgstr "asincrona, come job"
+
+msgid "can be dismissed"
+msgstr "annullabile"
+
+msgid "Inputs"
+msgstr "Input"
+
+msgid "Outputs"
+msgstr "Output"
+
+msgid "Name"
+msgstr "Nome"
+
+msgid "required"
+msgstr "obbligatorio"
+
+msgid "Example"
+msgstr "Esempio"
+
+msgid "Run the process"
+msgstr "Esegui il processo"
+
+msgid "Run"
+msgstr "Esegui"
+
+msgid "Run as a job"
+msgstr "Esegui come job"
+
+msgid "Running…"
+msgstr "In esecuzione…"
+
+msgid "Result"
+msgstr "Risultato"
+
+msgid "The job has started:"
+msgstr "Il job è partito:"
+
+msgid "follow it"
+msgstr "seguilo"
+
+msgid "The process could not run:"
+msgstr "Il processo non è stato eseguito:"
+
+msgid "Not valid JSON:"
+msgstr "JSON non valido:"
+
+#, python-format
+msgid ""
+"Running the process needs JavaScript: send a POST with the inputs to "
+"%(url)s."
+msgstr ""
+"Per eseguire il processo serve JavaScript: invia una POST con gli input a "
+"%(url)s."
+
+msgid "The jobs this service has run or is running."
+msgstr "I job che questo servizio ha eseguito o sta eseguendo."
+
+msgid "Job"
+msgstr "Job"
+
+msgid "Process"
+msgstr "Processo"
+
+msgid "Status"
+msgstr "Stato"
+
+msgid "Created"
+msgstr "Creato"
+
+msgid "Started"
+msgstr "Avviato"
+
+msgid "Finished"
+msgstr "Terminato"
+
+msgid "Updated"
+msgstr "Aggiornato"
+
+msgid "Progress"
+msgstr "Avanzamento"
+
+msgid "Message"
+msgstr "Messaggio"
+
+msgid "accepted"
+msgstr "accettato"
+
+msgid "running"
+msgstr "in esecuzione"
+
+msgid "successful"
+msgstr "completato"
+
+msgid "failed"
+msgstr "fallito"
+
+msgid "dismissed"
+msgstr "annullato"
+
+msgid "No job yet."
+msgstr "Ancora nessun job."
+
+#, python-format
+msgid "Job %(job)s"
+msgstr "Job %(job)s"
+
+msgid "Results"
+msgstr "Risultati"
+
+#, python-format
+msgid "Results of job %(job)s"
+msgstr "Risultati del job %(job)s"
+
+msgid "Show the results"
+msgstr "Mostra i risultati"
+
+msgid "Reload the page to see how the job goes on."
+msgstr "Ricarica la pagina per vedere come procede il job."
+
+msgid "The status could not be read:"
+msgstr "Non è stato possibile leggere lo stato:"
+
+msgid "Default"
+msgstr "Predefinito"
+
+msgid "Style"
+msgstr "Stile"
+
+msgid "Instances"
+msgstr "Istanze"
+
+msgid "Query at a position"
+msgstr "Interroga in un punto"
+
+msgid "Query in an area"
+msgstr "Interroga in un'area"
+
+msgid "Query in a cube"
+msgstr "Interroga in un cubo"
+
+msgid "Query within a radius"
+msgstr "Interroga entro un raggio"
+
+msgid "Query along a trajectory"
+msgstr "Interroga lungo una traiettoria"
+
+msgid "Query in a corridor"
+msgstr "Interroga in un corridoio"
+
+msgid "Locations"
+msgstr "Luoghi"
+
+msgid "Items"
+msgstr "Elementi"
+
+msgid "Tilesets"
+msgstr "Tileset"
+
+msgid "Item type"
+msgstr "Tipo degli elementi"
+
+msgid "Spatial extent"
+msgstr "Estensione spaziale"
+
+msgid "Temporal extent"
+msgstr "Estensione temporale"
+
+msgid "Storage CRS"
+msgstr "CRS di archiviazione"
+
+msgid "Explore"
+msgstr "Esplora"
+
+msgid "About"
+msgstr "Informazioni"
+
+msgid "Links"
+msgstr "Link"
+
+msgid "Tilesets of %(collection)s"
+msgstr "Tileset di %(collection)s"
+
+msgid "The tiles of this collection, one set for each tiling scheme."
+msgstr "Le tile di questa collezione, un insieme per ogni schema di tassellatura."
+
+msgid "Tileset %(tileset)s of %(collection)s"
+msgstr "Tileset %(tileset)s di %(collection)s"
+
+msgid "Data type"
+msgstr "Tipo di dati"
+
+msgid "Tile matrix set"
+msgstr "Tile matrix set"
+
+msgid "Tiling scheme"
+msgstr "Schema di tassellatura"
+
+msgid "Tiles"
+msgstr "Tile"
+
+msgid "Bounding box"
+msgstr "Riquadro"
+
+msgid "West, south, east, north"
+msgstr "Ovest, sud, est, nord"
+
+msgid "Date and time"
+msgstr "Data e ora"
+
+msgid "An instant, or an interval such as 2020-01-01/2020-12-31 or ../2020-12-31"
+msgstr "Un istante, o un intervallo come 2020-01-01/2020-12-31 o ../2020-12-31"
+
+msgid "Items per page"
+msgstr "Elementi per pagina"
+
+msgid "Reference system of the bounding box"
+msgstr "Sistema di riferimento del riquadro"
+
+msgid "Sort by"
+msgstr "Ordina per"
+
+msgid "Properties to return"
+msgstr "Proprietà da restituire"
+
+msgid "Names separated by commas"
+msgstr "Nomi separati da virgole"
+
+msgid "Leave out the geometry"
+msgstr "Senza geometria"
+
+msgid "No"
+msgstr "No"
+
+msgid "Yes"
+msgstr "Sì"
+
+msgid "Search text"
+msgstr "Testo da cercare"
+
+msgid "CQL2 filter"
+msgstr "Filtro CQL2"
+
+msgid "Filter language"
+msgstr "Linguaggio del filtro"
+
+msgid "Reference system of the filter"
+msgstr "Sistema di riferimento del filtro"
+
+msgid "Start from item"
+msgstr "Parti dall'elemento"
+
+msgid "The items"
+msgstr "Gli elementi"
+
+msgid "Only how many they are"
+msgstr "Solo quanti sono"
+
+msgid "Items of %(collection)s"
+msgstr "Elementi di %(collection)s"
+
+msgid "%(returned)s of %(matched)s items"
+msgstr "%(returned)s elementi su %(matched)s"
+
+msgid "%(returned)s items"
+msgstr "%(returned)s elementi"
+
+msgid "Advanced"
+msgstr "Avanzate"
+
+msgid "Clear"
+msgstr "Azzera"
+
+msgid "Apply"
+msgstr "Applica"
+
+msgid "the data of this collection does not apply it"
+msgstr "i dati di questa collezione non lo applicano"
+
+msgid "Remove %(parameter)s"
+msgstr "Togli %(parameter)s"
+
+msgid "Previous"
+msgstr "Precedente"
+
+msgid "Next"
+msgstr "Successiva"
+
+msgid "Use the map view"
+msgstr "Usa la vista della mappa"
+
+msgid "Examples:"
+msgstr "Esempi:"
+
+msgid "Value"
+msgstr "Valore"
+
+msgid "Coverage of %(collection)s"
+msgstr "Coverage di %(collection)s"
+
+msgid "Grid"
+msgstr "Griglia"
+
+msgid "Resolution"
+msgstr "Risoluzione"
+
+msgid "Subset"
+msgstr "Sottoinsieme"
+
+msgid "Ranges of the axes, such as x(12.2:12.5),y(41.7:41.9)"
+msgstr "Intervalli degli assi, come x(12.2:12.5),y(41.7:41.9)"
+
+msgid "Bands"
+msgstr "Bande"
+
+msgid "Download"
+msgstr "Scarica"
+
+msgid "Narrow the download"
+msgstr "Restringi il download"
+
+msgid "Coordinates"
+msgstr "Coordinate"
+
+msgid "Well-known text, such as %(example)s"
+msgstr "Well-known text, come %(example)s"
+
+msgid "Radius"
+msgstr "Raggio"
+
+msgid "Units of the radius"
+msgstr "Unità del raggio"
+
+msgid "Height"
+msgstr "Quota"
+
+msgid "Parameters"
+msgstr "Parametri"
+
+msgid "Instances of %(collection)s"
+msgstr "Istanze di %(collection)s"
+
+msgid "Instance %(instance)s of %(collection)s"
+msgstr "Istanza %(instance)s di %(collection)s"
+
+msgid "%(query)s, %(collection)s, instance %(instance)s"
+msgstr "%(query)s, %(collection)s, istanza %(instance)s"
+
+msgid "%(query)s, %(collection)s"
+msgstr "%(query)s, %(collection)s"
+
+msgid "Queries"
+msgstr "Interrogazioni"
+
+msgid "Query"
+msgstr "Interroga"
+
+msgid "Domain"
+msgstr "Dominio"
+
+msgid "Axis"
+msgstr "Asse"
+
+msgid "Count"
+msgstr "Numero"
+
+msgid "Unit"
+msgstr "Unità"
+
+msgid "SpatioTemporal Asset Catalog"
+msgstr "Catalogo di asset spazio-temporali"
+
+msgid "Catalogs"
+msgstr "Cataloghi"
+
+msgid "Properties"
+msgstr "Proprietà"
+
+msgid "Assets"
+msgstr "Asset"
+
+msgid "Size"
+msgstr "Dimensione"
+
+msgid "License"
+msgstr "Licenza"
+
+msgid "Reference systems"
+msgstr "Sistemi di riferimento"
+
+msgid "Coordinate epoch"
+msgstr "Epoca delle coordinate"
+
+msgid "Metadata"
+msgstr "Metadati"
+
+msgid "No items"
+msgstr "Nessun elemento"
+
+msgid "STAC version"
+msgstr "Versione STAC"
+
+msgid "Last modified"
+msgstr "Ultima modifica"
+
+msgid "About this service"
+msgstr "Il servizio"
+
+msgid "Terms of service"
+msgstr "Termini di servizio"
+
+msgid "URL"
+msgstr "URL"
+
+msgid "Provider"
+msgstr "Fornitore"
+
+msgid "Contact"
+msgstr "Contatto"
+
+msgid "Address"
+msgstr "Indirizzo"
+
+msgid "Email"
+msgstr "Email"
+
+msgid "Telephone"
+msgstr "Telefono"
+
+msgid "Fax"
+msgstr "Fax"
+
+msgid "Contact URL"
+msgstr "Pagina dei contatti"
+
+msgid "Hours"
+msgstr "Orari"
+
+msgid "Contact instructions"
+msgstr "Istruzioni per il contatto"
+
+msgid "API definition"
+msgstr "Definizione dell'API"
+
+msgid "OpenAPI document"
+msgstr "Documento OpenAPI"
+
+msgid "Data collections"
+msgstr "Collezioni di dati"
+
+msgid "Record collections"
+msgstr "Collezioni di record"
+
+msgid "Duration"
+msgstr "Durata"
+
+msgid "Widen the map"
+msgstr "Allarga la mappa"
+
+msgid "Narrow the map"
+msgstr "Riduci la mappa"

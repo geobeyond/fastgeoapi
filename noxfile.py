@@ -65,17 +65,23 @@ def _install_project(session: Session) -> None:
 
     On develop branch: uses uv sync to respect uv.lock with git sources
     On main/other branches: uses pip install for release (PyPI versions)
+
+    Both install the package of the HTML pages from the workspace: the
+    tests read its templates and catalogs, and no lane should wait for a
+    release of it on PyPI.
     """
     if _is_develop_branch():
         # Use uv sync to respect uv.lock with git sources (e.g., pygeoapi from master)
         session.run_install(
             "uv",
             "sync",
+            "--extra",
+            "html",
             env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
         )
     else:
         # Use pip install for release (PyPI versions)
-        session.install(".")
+        session.install(".", "./packages/fastgeoapi-html")
 
 
 nox.options.sessions = [
@@ -219,7 +225,11 @@ def models(session: Session) -> None:
     stronger guard: it catches a hand-edit of the generated module, not
     only a schema change.
     """
-    session.install("datamodel-code-generator>=0.25,<1")
+    # Pin one exact version, the same as `models-check`: a generator release
+    # can write the same models in another form, which would fail the check
+    # on branches that change nothing of the kind. Upgrade it on purpose,
+    # with the regenerated module in the same change.
+    session.install("datamodel-code-generator==0.85.0")
     session.install(".")
     session.run("python", "scripts/generate_config_models.py", *session.posargs)
 
@@ -237,7 +247,8 @@ def models_check(session: Session) -> None:
     hand-edit of the generated module, which no fingerprint of the
     schema could notice.
     """
-    session.install("datamodel-code-generator>=0.25,<1")
+    # The version `models` pins: see the comment there.
+    session.install("datamodel-code-generator==0.85.0")
     session.install(".")
     session.run("python", "scripts/generate_config_models.py", "--check")
 
@@ -261,7 +272,7 @@ def ty(session: Session) -> None:
         "ogcapi-registry==0.4.0",
         "ty",
         "pytest",
-        "schemathesis>=4.0",
+        "schemathesis>=4.26",
         "pytest-asyncio",
         # Mirror the `tests` session test deps so ty can resolve imports
         # in tests/test_mcp_oauth_e2e.py (pytest-iam pulls in portpicker).
@@ -281,6 +292,8 @@ def ty(session: Session) -> None:
         "fsspec>=2024.6",
         # The pmtiles extra (ADR-0011): pure Python, named for the unlocked lanes.
         "pmtiles>=3.7,<4",
+        # Pillow decodes PNGs in the map tests; the locked lanes get it from the dev group.
+        "pillow>=11",
         # The bucket end-to-end tests import boto3 against a local S3
         # (ministack). Both live in the `dev` group, which the locked
         # install brings along and this unlocked list did not — so `ty`
@@ -305,7 +318,7 @@ def tests(session: Session) -> None:
         "coverage[toml]",
         "pytest",
         "pygments",
-        "schemathesis>=4.0",
+        "schemathesis>=4.26",
         "pytest-asyncio",
         "pytest-iam",
         "canaille[sqlite]",
@@ -323,6 +336,8 @@ def tests(session: Session) -> None:
         "fsspec>=2024.6",
         # The pmtiles extra (ADR-0011): pure Python, named for the unlocked lanes.
         "pmtiles>=3.7,<4",
+        # Pillow decodes PNGs in the map tests; the locked lanes get it from the dev group.
+        "pillow>=11",
         # Local S3 for the bucket end-to-end tests (see the `dev` group);
         # without these the unlocked lane silently skips them.
         "ministack>=1.5,<2",
@@ -362,7 +377,7 @@ def typeguard(session: Session) -> None:
         "pytest",
         "typeguard",
         "pygments",
-        "schemathesis>=4.0",
+        "schemathesis>=4.26",
         "pytest-asyncio",
         "pytest-iam",
         "canaille[sqlite]",
@@ -380,6 +395,8 @@ def typeguard(session: Session) -> None:
         "fsspec>=2024.6",
         # The pmtiles extra (ADR-0011): pure Python, named for the unlocked lanes.
         "pmtiles>=3.7,<4",
+        # Pillow decodes PNGs in the map tests; the locked lanes get it from the dev group.
+        "pillow>=11",
         # Local S3 for the bucket end-to-end tests (see the `dev` group);
         # without these the unlocked lane silently skips them.
         "ministack>=1.5,<2",
@@ -389,6 +406,23 @@ def typeguard(session: Session) -> None:
         "blockbuster>=1.5,<2",
     )
     session.run("pytest", f"--typeguard-packages={package}", *session.posargs)
+
+
+@session(python=python_versions)
+def maps(session: Session) -> None:
+    """Run the tests that draw with the real MapLibre Native renderer (Linux)."""
+    # Always from the lock: the mlnative fork is reachable only through the
+    # wheel URLs in [tool.uv.sources], never from PyPI.
+    session.run_install(
+        "uv",
+        "sync",
+        "--group",
+        "maps",
+        "--extra",
+        "pmtiles",
+        env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
+    )
+    session.run("pytest", "-m", "renderer", "-rs", *session.posargs)
 
 
 @session(python=python_versions)

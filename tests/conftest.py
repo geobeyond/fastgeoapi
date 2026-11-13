@@ -46,6 +46,15 @@ INTERPOLATION = {
 for _name, _value in INTERPOLATION.items():
     os.environ.setdefault(_name, _value)
 
+# The range cache is off for the suite: a test that needs one builds it,
+# in memory or in its tmp_path, instead of writing under the repository.
+for _name in (
+    "FASTGEOAPI_RANGE_CACHE",
+    "DEV_FASTGEOAPI_RANGE_CACHE",
+    "PROD_FASTGEOAPI_RANGE_CACHE",
+):
+    os.environ[_name] = "off"
+
 from app.auth.models import TokenPayload  # ruff: ignore[module-import-not-at-top-of-file]
 from app.config.app import configuration as cfg  # ruff: ignore[module-import-not-at-top-of-file]
 
@@ -790,3 +799,26 @@ def s3_endpoint() -> Iterator[str]:
 
     process.terminate()
     process.wait(timeout=10)
+
+
+@pytest.fixture
+def mcp_main():
+    """Boot fastgeoapi with MCP enabled and no auth; yield app.main."""
+    env = {
+        "ENV_STATE": "dev",
+        "DEV_FASTGEOAPI_WITH_MCP": "true",
+        "DEV_FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED": "true",
+        "DEV_API_KEY_ENABLED": "false",
+        "DEV_JWKS_ENABLED": "false",
+        "DEV_OPA_ENABLED": "false",
+    }
+    with mock.patch.dict(os.environ, env, clear=False):
+        for key in list(sys.modules):
+            if key.startswith("app."):
+                del sys.modules[key]
+        from app.config.app import FactoryConfig
+
+        FactoryConfig.get_config.cache_clear()
+        import app.main as main_mod
+
+        yield main_mod

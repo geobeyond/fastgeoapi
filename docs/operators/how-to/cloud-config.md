@@ -69,11 +69,14 @@ curl -X POST https://example.org/admin/config/reload
   specifications the configured resources actually expose are served
   (a deployment without EDR resources answers 404 on the EDR paths),
   and the set is recomputed on every applied reload.
-- `GET /admin/config/reload` returns the last outcome:
+- `GET /admin/config/reload` returns what this process serves and what
+  its last reload did:
 
 ```json
 {
   "status": "idle",
+  "instance": "9f2c1a7b",
+  "etag": "\"abc-123\"",
   "last": {
     "outcome": "applied",
     "at": "2026-08-22T17:00:00+00:00",
@@ -82,9 +85,49 @@ curl -X POST https://example.org/admin/config/reload
 }
 ```
 
+`instance` is an opaque identifier of the worker process that handled
+the request, and `etag` identifies the configuration version active on
+that worker. `last.etag` is the version the worker found the last time
+it looked. After an `applied` or `unchanged` reload the two are equal.
+When the last attempt `failed`, `last` carries the error instead of an
+ETag, and `etag` still names the previous version, which is the one
+still being served.
+
 The endpoint is protected by the same authentication chain configured
 for the API (API key, JWT via JWKS, or OPA) — no separate secret to
 manage.
+
+### Hot reloading when there is more than one worker
+
+When using `fastgeoapi run --workers N` there are N processes, each with
+its own copy of the configuration read from the source during startup.
+
+Requests to `POST /admin/config/reload` are handled by the single worker
+that happens to pick up the request. That worker reloads its own
+configuration immediately; the other processes do so only when they get
+a chance to re-read the source.
+
+You can configure how long it takes for the other workers to notice by
+setting `FASTGEOAPI_CONFIG_POLL_SECONDS` (with the `DEV_`/`PROD_` prefix
+of your `ENV_STATE`). Workers then poll the source at that interval and
+reload themselves whenever they detect a change; a poll that finds
+nothing new costs one `HEAD` per worker, or a `stat` on a local file.
+`fastgeoapi run --workers N` with N > 1 sets it to `5` unless you set it
+yourself. At `0`, the default, there is no polling, so the hot reload
+reaches a single worker only.
+
+The same setting matters with `--workers 1` behind an external
+orchestrator. If several fastgeoapi instances read their configuration
+from a shared location, polling is the only way for all of them to
+converge after a change, because the webhook, like any other request,
+is served by one instance.
+
+To check that every worker serves a revision, sample
+`GET /admin/config/reload` for longer than the poll interval and confirm
+that each `instance` you have seen reports the `etag` you wrote. Behind
+a load balancer you cannot tell how many workers exist from the
+instances you have seen, so this confirms convergence only for the
+workers that answered.
 
 **If the reload answers `unchanged` right after you changed the file,
 the store is still serving the old one.** Idempotence compares the

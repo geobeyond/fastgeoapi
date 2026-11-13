@@ -1,6 +1,6 @@
 [project]
 name = "fastgeoapi"
-version = "0.1.1"
+version = "0.4.0"
 description = "fastgeoapi"
 authors = [{ name = "Francesco Bartoli", email = "francesco.bartoli@geobeyond.it" }]
 maintainers = [{ name = "Youssef Harby", email = "youssef.harby@geobeyond.it" }]
@@ -32,16 +32,18 @@ dependencies = [
     "json-ref-dict>=0.7.2,<=1.0",
     "pyyaml>=6.0.2,<7",
     "scalar-fastapi>=1.4.3,<2",
-    # 4.0.3 rather than 4.0.0: the first stable release whose OpenAPI
-    # tools stop inferring an output schema for unconstrained sequences.
-    # `fastmcp` is a thin package that depends on `fastmcp-slim[client,
-    # server]` at the same version, so naming it alone is enough — the
-    # explicit `fastmcp-slim` line that lived here only existed to make
-    # the resolver see the 4.0 pre-releases.
-    "fastmcp>=4.0.3,<5",
+    # At least 4.0.10. 4.0.4 stops the OAuth proxy from accepting a token
+    # marked as an ID-JAG grant when identity assertions are not
+    # configured (PrefectHQ/fastmcp#5115), 4.0.6 rewrites the references
+    # inside `prefixItems` that the CQL2 tools carry, and 4.0.10 is the
+    # release the suite runs on. `fastmcp` is a thin package that depends
+    # on `fastmcp-slim[client, server]` at the same version, so naming it
+    # alone is enough.
+    "fastmcp>=4.0.10,<5",
     "obstore>=0.11.1,<0.12",
     "duckdb>=1.5.5",
     "pmtiles>=3.7.0",
+    "h11>=0.16,<0.17", # direct dependency: the loopback server of byte ranges speaks HTTP/1.1 through it
 ]
 
 [project.urls]
@@ -74,6 +76,10 @@ martin_wrapper = [
 pmtiles = [
     "pmtiles>=3.7,<4",
 ]
+# fastgeoapi's own HTML pages (FASTGEOAPI_HTML_PAGES=native).
+html = [
+    "fastgeoapi-html==0.4.0",
+]
 
 [dependency-groups]
 dev = [
@@ -98,7 +104,7 @@ dev = [
     "ty>=0.0.8",
     "commitizen>=4.11,<5",
     "openapi-resolver>=0.0.6,<0.0.7",
-    "schemathesis>=4.0",
+    "schemathesis>=4.26",
     "pytest-asyncio>=1.3,<1.4",
     # VS Code launch.json runs its debug adapter from the project venv.
     "debugpy>=1.8.22",
@@ -111,19 +117,36 @@ dev = [
     "joserfc>=1.6,<1.7",
     "blockbuster>=1.5,<2",
     "ogcapi-registry==0.4.0",
+    # Pillow decodes PNGs in the map tests; the renderer gets it from the maps group.
+    "pillow>=11",
 ]
 docs = [
     "mkdocstrings-python>=2.0.7",
     "zensical>=0.0.58",
 ]
+maps = [
+    # The mlnative fork runs MapLibre Native and adds resizing, raw RGBA and an
+    # asyncio API. Its wheels exist only for Linux x86_64 and aarch64, on the
+    # fork's GitHub release, so the marker and [tool.uv.sources] name both.
+    "mlnative==0.4.0.dev1; sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')",
+    "pillow>=11",
+]
 
 [tool.uv]
+
+[tool.uv.workspace]
+members = ["packages/*"]
 
 [tool.uv.sources]
 # Local build, not yet on PyPI — see the `martin_wrapper` extra above.
 # Path is relative to this file; rebuild with `maturin build --release`
 # in the `martin-py` crate if the wheel goes missing.
 martin-py = { path = "../martin-py/target/wheels/martin_py-0.1.0-cp311-abi3-linux_x86_64.whl" }
+fastgeoapi-html = { workspace = true }
+mlnative = [
+    { url = "https://github.com/francbartoli/mlnative/releases/download/v0.4.0.dev1/mlnative-0.4.0.dev1-py3-none-manylinux_2_39_x86_64.whl", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+    { url = "https://github.com/francbartoli/mlnative/releases/download/v0.4.0.dev1/mlnative-0.4.0.dev1-py3-none-manylinux_2_39_aarch64.whl", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
+]
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -241,6 +264,7 @@ convention = "numpy"
 # Mirrors upstream pygeoapi/api/__init__.py, where validate_datetime lives:
 # the patch must sit in the same-named module, which upstream made a package init.
 "app/pygeoapi/api/__init__.py" = ["non-empty-init-module"]
+"packages/fastgeoapi-html/fastgeoapi_html/__init__.py" = ["non-empty-init-module"]  # the package is its paths
 "noxfile.py" = ["suspicious-subprocess-import", "subprocess-without-shell-equals-true", "start-process-with-partial-path"]  # subprocess calls to git are safe
 
 [tool.ruff.format]
@@ -250,6 +274,9 @@ docstring-code-format = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
+markers = [
+    "renderer: draws with the real MapLibre Native renderer (the maps group, on Linux)",
+]
 filterwarnings = [
     # passlib uses deprecated crypt module, will be fixed in future versions
     "ignore:'crypt' is deprecated:DeprecationWarning",
@@ -268,6 +295,12 @@ name = "cz_conventional_commits"
 tag_format = "v$version"
 version_scheme = "semver"
 version_provider = "pep621"
+# The package of the HTML pages carries the same version, and the html
+# extra pins it: a bump moves both with the project.
+version_files = [
+    "packages/fastgeoapi-html/pyproject.toml:^version",
+    "pyproject.toml:fastgeoapi-html==",
+]
 update_changelog_on_bump = true
 major_version_zero = true
 

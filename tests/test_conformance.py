@@ -422,3 +422,39 @@ class TestBuildConformanceList:
 
         assert list(response.conforms_to) == sorted(response.conforms_to)
         assert len(response.conforms_to) == len(set(response.conforms_to))
+
+    TILES = "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf"
+
+    @staticmethod
+    def _tiles(mimetype: str | None) -> dict:
+        provider = {"type": "tile", "name": "app.provider.pmtiles.PMTilesProvider"}
+        if mimetype is not None:
+            provider["format"] = {"name": mimetype.split("/")[-1], "mimetype": mimetype}
+        return {"type": "collection", "providers": [provider]}
+
+    def test_raster_tiles_declare_their_image_class_and_not_mvt(self) -> None:
+        resources = {"hills": self._tiles("image/png")}
+
+        conforms = set(build_conformance_list(resources=resources, has_pubsub=False).conforms_to)
+
+        assert f"{self.TILES}/png" in conforms
+        assert f"{self.TILES}/mvt" not in conforms
+
+    def test_vector_and_jpeg_tiles_declare_both_classes(self) -> None:
+        resources = {
+            "roads": self._tiles("application/vnd.mapbox-vector-tile"),
+            "photos": self._tiles("image/jpeg"),
+        }
+
+        conforms = set(build_conformance_list(resources=resources, has_pubsub=False).conforms_to)
+
+        assert {f"{self.TILES}/mvt", f"{self.TILES}/jpeg"} <= conforms
+        assert f"{self.TILES}/png" not in conforms
+
+    def test_a_tile_provider_without_a_format_keeps_mvt(self) -> None:
+        """Guard: with no format declared, the mvt class of pygeoapi's own list stays."""
+        resources = {"roads": self._tiles(None)}
+
+        conforms = set(build_conformance_list(resources=resources, has_pubsub=False).conforms_to)
+
+        assert f"{self.TILES}/mvt" in conforms

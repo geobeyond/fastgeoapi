@@ -1,0 +1,736 @@
+import "maplibre-gl/dist/maplibre-gl.css";
+import {
+  Map as MapLibreMap,
+  NavigationControl,
+  ScaleControl,
+  setWorkerUrl,
+} from "maplibre-gl";
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
+
+import { readConfig } from "./config";
+import { WidenControl } from "./widen";
+
+// MapLibre finds its worker next to its own module, under a name the build
+// never emits: the worker is built on its own and its URL handed over.
+setWorkerUrl(workerUrl);
+
+export type Bbox = [number, number, number, number];
+
+export interface Feature {
+  type: "Feature";
+  properties: Record<string, unknown> | null;
+  geometry: {
+    type: string;
+    coordinates?: unknown;
+    geometries?: unknown[];
+  } | null;
+  id?: string | number;
+}
+
+export interface FeatureCollection {
+  type: "FeatureCollection";
+  features: Feature[];
+}
+
+export interface Camera {
+  center?: [number, number];
+  zoom?: number;
+  bounds?: Bbox;
+  minZoom?: number;
+  fitData?: boolean;
+}
+
+export interface Basemap {
+  url: string;
+  attribution: string;
+  /** A MapLibre style to draw on; the tiles of ``url`` stand in when it does not load. */
+  style?: string;
+}
+
+interface Labels {
+  style: string;
+  /** The names of the control that widens the map, when the page has one. */
+  widen?: string;
+  narrow?: string;
+}
+
+export type MapConfig =
+  | {
+      kind: "tiles";
+      camera: Camera;
+      basemap: Basemap | null;
+      styles: { name: string; style: object }[];
+      labels: Labels;
+    }
+  | {
+      kind: "image";
+      camera: Camera;
+      basemap: Basemap | null;
+      maps: { name: string; url: string }[];
+      maxSize: number;
+      labels: Labels;
+    }
+  | {
+      kind: "features";
+      camera: Camera;
+      basemap: Basemap | null;
+      data: FeatureCollection | string;
+      labels?: { widen?: string; narrow?: string };
+    }
+  | {
+      kind: "extent";
+      camera: Camera;
+      basemap: Basemap | null;
+      bbox: Bbox;
+      labels?: { widen?: string; narrow?: string };
+    };
+
+/** The part of a MapLibre source the island uses: an image's or a GeoJSON one's. */
+export interface SourceLike {
+  updateImage(image: object): void;
+  setData(data: object): void;
+}
+
+/** The part of a MapLibre map the island uses: a fake stands in for it in tests. */
+export interface MapLike {
+  on(event: string, handler: (event?: { sourceId?: string }) => void): void;
+  addSource(id: string, source: object): void;
+  getSource(id: string): SourceLike | undefined;
+  addControl(control: object, position?: string): void;
+  addLayer(layer: object): void;
+  setStyle(style: object): void;
+  fitBounds(bounds: Bbox, options?: object): void;
+  getBounds(): {
+    getWest(): number;
+    getSouth(): number;
+    getEast(): number;
+    getNorth(): number;
+  };
+  getCanvas(): { clientWidth: number; clientHeight: number };
+  getBearing(): number;
+  getZoom(): number;
+  jumpTo(options: { bearing?: number; zoom?: number }): void;
+}
+
+export type MapClass = new (options: Record<string, unknown>) => MapLike;
+
+const ACCENT = "#2c6db5";
+const ACTIVE = "#d97706";
+const DATA = "fga-data";
+/** The feature under the pointer, drawn on its own above the others: points can overlap. */
+const HOVERED = "fga-active";
+/** The closest a map zooms to fit its data: one point would otherwise ask for zoom 22. */
+const FIT_MAX_ZOOM = 16;
+/** The deepest basemap tiles there are: past them MapLibre enlarges the last ones. */
+const BASEMAP_MAX_ZOOM = 19;
+const IMAGE = "fga-image";
+
+/** The URL of a map image of ``bounds``, at the canvas size or less. */
+export function mapImageUrl(
+  base: string,
+  bounds: Bbox,
+  width: number,
+  height: number,
+  maxSize: number,
+): string {
+  const scale = Math.min(1, maxSize / Math.max(width, height, 1));
+  const url = new URL(base);
+  url.searchParams.set(
+    "bbox",
+    bounds.map((value) => value.toFixed(6)).join(","),
+  );
+  url.searchParams.set("width", String(Math.max(1, Math.round(width * scale))));
+  url.searchParams.set(
+    "height",
+    String(Math.max(1, Math.round(height * scale))),
+  );
+  url.searchParams.set("f", "png");
+  return url.toString();
+}
+
+/**
+ * The size of an image of the box around a turned view. The box of a turned
+ * map is wider than the canvas: an image of it at the canvas size would come
+ * out stretched along one side and squeezed along the other.
+ */
+export function turnedSize(
+  width: number,
+  height: number,
+  bearing: number,
+): [number, number] {
+  const angle = (bearing * Math.PI) / 180;
+  const cos = Math.abs(Math.cos(angle));
+  const sin = Math.abs(Math.sin(angle));
+  return [width * cos + height * sin, width * sin + height * cos];
+}
+
+/** A polygon feature of a box. */
+export function extentFeature(bbox: Bbox): Feature {
+  const [w, s, e, n] = bbox;
+  return {
+    type: "Feature",
+    properties: {},
+    geometry: {
+      type: "Polygon",
+      coordinates: [
+        [
+          [w, s],
+          [e, s],
+          [e, n],
+          [w, n],
+          [w, s],
+        ],
+      ],
+    },
+  };
+}
+
+function collect(value: unknown, points: number[][]): void {
+  if (Array.isArray(value) && typeof value[0] === "number") {
+    points.push(value as number[]);
+  } else if (Array.isArray(value)) {
+    value.forEach((item) => collect(item, points));
+  }
+}
+
+/** The bounds of every coordinate of the features; null when there is none. */
+export function dataBounds(data: FeatureCollection): Bbox | null {
+  const points: number[][] = [];
+  data.features.forEach((feature) => {
+    collect(feature.geometry?.coordinates, points);
+    (feature.geometry?.geometries ?? []).forEach((geometry) =>
+      collect((geometry as { coordinates?: unknown }).coordinates, points),
+    );
+  });
+  if (points.length === 0) {
+    return null;
+  }
+  const xs = points.map((point) => point[0]);
+  const ys = points.map((point) => point[1]);
+  return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+}
+
+/** How a map fits a box: a margin, and never closer than the streets. */
+const FIT = { padding: 24, maxZoom: FIT_MAX_ZOOM };
+
+/** The box a map opens on: its extent, its data, else the camera's bounds; none for a view. */
+export function openingBounds(config: MapConfig): Bbox | undefined {
+  if (config.kind === "extent") {
+    return config.bbox;
+  }
+  if (
+    config.kind === "features" &&
+    config.camera.fitData &&
+    typeof config.data !== "string"
+  ) {
+    return dataBounds(config.data) ?? config.camera.bounds;
+  }
+  return config.camera.bounds;
+}
+
+interface Style {
+  version: 8;
+  sources: object;
+  layers: { id: string; type: string; source?: string; paint?: object }[];
+  glyphs?: string;
+  sprite?: unknown;
+}
+
+/** How long a map of data waits for the basemap's style before drawing on its tiles. */
+export const STYLE_WAIT_MS = 4000;
+
+/** Whether a document is a MapLibre style the island can draw on: sources and layers. */
+export function isStyle(value: unknown): value is Style {
+  const style = value as Partial<Style> | null;
+  return (
+    typeof style === "object" &&
+    style !== null &&
+    typeof style.sources === "object" &&
+    style.sources !== null &&
+    Array.isArray(style.layers)
+  );
+}
+
+const basemapStyles = new Map<string, Promise<Style | null>>();
+
+/** The basemap's style, asked once for the page; null when it does not arrive. */
+function loadStyle(url: string): Promise<Style | null> {
+  let found = basemapStyles.get(url);
+  if (found === undefined) {
+    found = fetch(url)
+      .then((response) =>
+        response.ok ? (response.json() as Promise<unknown>) : null,
+      )
+      .then((document) => (isStyle(document) ? document : null))
+      .catch(() => null);
+    basemapStyles.set(url, found);
+  }
+  return found;
+}
+
+/**
+ * The tiles' style drawn over the basemap's: its layers, then the tiles' own
+ * without their background. A source or a layer of the tiles named like one
+ * of the basemap's takes a prefix. The basemap's fonts and sprite come first:
+ * its labels need them, and the styles of tiles usually have none.
+ */
+export function composeStyles(base: object, tiles: object): object {
+  const basemap = base as Style;
+  const drawn = tiles as Style;
+  const sources: Record<string, unknown> = {
+    ...(basemap.sources as Record<string, unknown>),
+  };
+  const renamed: Record<string, string> = {};
+  for (const [name, source] of Object.entries(
+    drawn.sources as Record<string, unknown>,
+  )) {
+    const id = name in sources ? `fga-${name}` : name;
+    renamed[name] = id;
+    sources[id] = source;
+  }
+  const taken = new Set(basemap.layers.map((layer) => layer.id));
+  const layers = drawn.layers
+    .filter((layer) => layer.type !== "background")
+    .map((layer) => ({
+      ...layer,
+      id: taken.has(layer.id) ? `fga-${layer.id}` : layer.id,
+      ...(layer.source
+        ? { source: renamed[layer.source] ?? layer.source }
+        : {}),
+    }));
+  return {
+    ...drawn,
+    sources,
+    layers: [...basemap.layers, ...layers],
+    glyphs: basemap.glyphs ?? drawn.glyphs,
+    sprite: basemap.sprite ?? drawn.sprite,
+  };
+}
+
+/** The style a map of features or images starts from: the basemap, or a plain background. */
+export function baseStyle(basemap: Basemap | null): Style {
+  if (basemap === null) {
+    return {
+      version: 8,
+      sources: {},
+      layers: [
+        {
+          id: "background",
+          type: "background",
+          paint: { "background-color": "#eef2f6" },
+        },
+      ],
+    };
+  }
+  return {
+    version: 8,
+    sources: {
+      basemap: {
+        type: "raster",
+        tiles: [basemap.url.replace("{s}", "a")],
+        tileSize: 256,
+        maxzoom: BASEMAP_MAX_ZOOM,
+        attribution: basemap.attribution,
+      },
+    },
+    layers: [{ id: "basemap", type: "raster", source: "basemap" }],
+  };
+}
+
+/**
+ * A style of tiles with the basemap under them, above the style's own
+ * background: an opaque background would hide it.
+ */
+export function withBasemap(
+  style: object,
+  basemap: Basemap | null | undefined,
+): object {
+  if (!basemap) {
+    return style;
+  }
+  const base = baseStyle(basemap);
+  const drawn = style as Style;
+  const first = drawn.layers.findIndex((layer) => layer.type !== "background");
+  const at = first === -1 ? drawn.layers.length : first;
+  return {
+    ...drawn,
+    sources: { ...base.sources, ...drawn.sources },
+    layers: [
+      ...drawn.layers.slice(0, at),
+      ...base.layers,
+      ...drawn.layers.slice(at),
+    ],
+  };
+}
+
+/** Fill, line and point layers of a GeoJSON source, in ``color``. */
+export function dataLayers(source: string, color: string = ACCENT): object[] {
+  return [
+    {
+      id: `${source}-fill`,
+      type: "fill",
+      source,
+      filter: ["==", ["geometry-type"], "Polygon"],
+      paint: { "fill-color": color, "fill-opacity": 0.25 },
+    },
+    {
+      id: `${source}-line`,
+      type: "line",
+      source,
+      filter: ["!=", ["geometry-type"], "Point"],
+      paint: { "line-color": color, "line-width": 2 },
+    },
+    {
+      id: `${source}-point`,
+      type: "circle",
+      source,
+      filter: ["==", ["geometry-type"], "Point"],
+      paint: {
+        "circle-color": color,
+        "circle-radius": 5,
+        "circle-stroke-color": "#ffffff",
+        "circle-stroke-width": 1,
+      },
+    },
+  ];
+}
+
+function boundsOf(map: MapLike): Bbox {
+  const bounds = map.getBounds();
+  return [
+    bounds.getWest(),
+    bounds.getSouth(),
+    bounds.getEast(),
+    bounds.getNorth(),
+  ];
+}
+
+function corners([w, s, e, n]: Bbox): number[][] {
+  return [
+    [w, n],
+    [e, n],
+    [e, s],
+    [w, s],
+  ];
+}
+
+function picker(
+  names: string[],
+  label: string,
+  choose: (index: number) => void,
+): HTMLSelectElement {
+  const select = document.createElement("select");
+  select.className = "style-picker";
+  select.setAttribute("aria-label", label);
+  names.forEach((name, index) => {
+    const option = document.createElement("option");
+    option.value = String(index);
+    option.textContent = name;
+    select.append(option);
+  });
+  select.addEventListener("change", () => choose(Number(select.value)));
+  return select;
+}
+
+const NOTHING: FeatureCollection = { type: "FeatureCollection", features: [] };
+
+function addData(map: MapLike, data: FeatureCollection | string): void {
+  map.addSource(DATA, { type: "geojson", data });
+  dataLayers(DATA).forEach((layer) => map.addLayer(layer));
+  map.addSource(HOVERED, { type: "geojson", data: NOTHING });
+  dataLayers(HOVERED, ACTIVE).forEach((layer) => map.addLayer(layer));
+}
+
+function linkPage(map: MapLike, data: FeatureCollection | null): void {
+  document
+    .querySelectorAll<HTMLElement>("[data-fga-feature]")
+    .forEach((item) => {
+      const feature = data?.features[Number(item.dataset.fgaFeature)];
+      if (feature === undefined) {
+        return;
+      }
+      item.addEventListener("mouseenter", () =>
+        map
+          .getSource(HOVERED)
+          ?.setData({ type: "FeatureCollection", features: [feature] }),
+      );
+      item.addEventListener("mouseleave", () =>
+        map.getSource(HOVERED)?.setData(NOTHING),
+      );
+    });
+  document
+    .querySelectorAll<HTMLElement>("[data-fga-bbox-target]")
+    .forEach((button) => {
+      button.addEventListener("click", () => {
+        const input = document.getElementById(
+          button.dataset.fgaBboxTarget ?? "",
+        );
+        if (input instanceof HTMLInputElement) {
+          input.value = boundsOf(map)
+            .map((value) => value.toFixed(6))
+            .join(",");
+        }
+      });
+    });
+}
+
+/** Degrees the fingers turn before the map does: a pinch always turns them a little. */
+const TURN_THRESHOLD = 10;
+
+/** Safari's gesture event: how far the fingers have turned and spread since it began. */
+interface TrackpadGesture extends Event {
+  rotation: number;
+  scale: number;
+}
+
+/** Whether two fingers on a trackpad are moving the map; image maps wait for them. */
+interface Gesture {
+  active: boolean;
+}
+
+/**
+ * Turns and zooms the map with two fingers on a trackpad. Safari tells a page
+ * how far the fingers turn and spread, and keeps its own zoom of the page out
+ * of the way once the page takes the gesture. On a touch screen Safari tells
+ * the same, but MapLibre already follows the fingers there: while they touch
+ * the screen the gesture is left alone. Other browsers tell nothing.
+ */
+function turnWithTrackpad(
+  container: HTMLElement,
+  map: MapLike,
+  ended: () => void,
+): Gesture {
+  const gesture: Gesture = { active: false };
+  let touching = 0;
+  let bearing = 0;
+  let zoom = 0;
+  const count = (event: Event): void => {
+    touching = (event as TouchEvent).touches.length;
+  };
+  ["touchstart", "touchend", "touchcancel"].forEach((type) =>
+    container.addEventListener(type, count, { passive: true }),
+  );
+  container.addEventListener("gesturestart", (event) => {
+    if (touching > 0) {
+      return;
+    }
+    event.preventDefault();
+    gesture.active = true;
+    bearing = map.getBearing();
+    zoom = map.getZoom();
+  });
+  container.addEventListener("gesturechange", (event) => {
+    if (!gesture.active) {
+      return;
+    }
+    event.preventDefault();
+    const { rotation, scale } = event as TrackpadGesture;
+    const turned =
+      Math.abs(rotation) < TURN_THRESHOLD
+        ? 0
+        : rotation - Math.sign(rotation) * TURN_THRESHOLD;
+    const spread = scale > 0 ? Math.log2(scale) : 0;
+    map.jumpTo({ bearing: bearing - turned, zoom: zoom + spread });
+  });
+  container.addEventListener("gestureend", (event) => {
+    if (!gesture.active) {
+      return;
+    }
+    event.preventDefault();
+    gesture.active = false;
+    ended();
+  });
+  return gesture;
+}
+
+/**
+ * Folds a compact attribution. MapLibre opens it the first time it has
+ * something to say and folds it on the first drag: a long one, such as the
+ * sources of a terrain, would cover the map until then.
+ */
+function foldAttribution(container: HTMLElement): void {
+  container
+    .querySelector(".maplibregl-ctrl-attrib.maplibregl-compact")
+    ?.classList.remove("maplibregl-compact-show");
+}
+
+/** Builds the map of ``config`` inside ``element``. */
+export function startMap(
+  element: HTMLElement,
+  config: MapConfig,
+  MapType: MapClass = MapLibreMap as unknown as MapClass,
+): MapLike {
+  const container = document.createElement("div");
+  container.className = "fga-map-canvas";
+  let image = 0;
+  let gesture: Gesture = { active: false };
+  let map: MapLike;
+  const refreshImage = (): void => {
+    // While fingers move the map, every step fires moveend: the image waits for them.
+    if (config.kind !== "image" || gesture.active) {
+      return;
+    }
+    const canvas = map.getCanvas();
+    const bounds = boundsOf(map);
+    const [width, height] = turnedSize(
+      canvas.clientWidth,
+      canvas.clientHeight,
+      map.getBearing(),
+    );
+    const url = mapImageUrl(
+      config.maps[image].url,
+      bounds,
+      width,
+      height,
+      config.maxSize,
+    );
+    const source = map.getSource(IMAGE);
+    if (source === undefined) {
+      map.addSource(IMAGE, {
+        type: "image",
+        url,
+        coordinates: corners(bounds),
+      });
+      map.addLayer({ id: IMAGE, type: "raster", source: IMAGE });
+    } else {
+      source.updateImage({ url, coordinates: corners(bounds) });
+    }
+  };
+  // The tiles are drawn alone until the basemap's style arrives, then over it.
+  const drawTiles = (index: number): void => {
+    if (config.kind !== "tiles") {
+      return;
+    }
+    const tiles = config.styles[index].style;
+    const style = config.basemap?.style;
+    if (!style) {
+      map.setStyle(withBasemap(tiles, config.basemap));
+      return;
+    }
+    void loadStyle(style).then((base) =>
+      map.setStyle(
+        base ? composeStyles(base, tiles) : withBasemap(tiles, config.basemap),
+      ),
+    );
+  };
+  if (config.kind === "tiles" && config.styles.length > 1) {
+    element.append(
+      picker(
+        config.styles.map((style) => style.name),
+        config.labels.style,
+        drawTiles,
+      ),
+    );
+  }
+  if (config.kind === "image" && config.maps.length > 1) {
+    element.append(
+      picker(
+        config.maps.map((each) => each.name),
+        config.labels.style,
+        (index) => {
+          image = index;
+          refreshImage();
+        },
+      ),
+    );
+  }
+  element.append(container);
+  const camera = config.camera;
+  // The map opens on its box from the start: fitting it once loaded would
+  // first read every tile of the whole world in view.
+  const opening = openingBounds(config);
+  map = new MapType({
+    container,
+    style:
+      config.kind !== "tiles"
+        ? (config.basemap?.style ?? baseStyle(config.basemap))
+        : config.basemap?.style
+          ? config.styles[0].style
+          : withBasemap(config.styles[0].style, config.basemap),
+    center: camera.center ?? [0, 0],
+    zoom: camera.zoom ?? 0,
+    minZoom: camera.minZoom ?? 0,
+    ...(opening ? { bounds: opening, fitBoundsOptions: FIT } : {}),
+    attributionControl: { compact: true },
+    // A tilted view reaches the horizon, and one image of all that comes out
+    // coarse and stretched near the reader: map images stay flat, and turn.
+    ...(config.kind === "image" ? { maxPitch: 0 } : {}),
+  });
+  gesture = turnWithTrackpad(container, map, refreshImage);
+  let loaded = false;
+  if (config.kind === "tiles" && config.basemap?.style) {
+    drawTiles(0);
+  } else if (config.basemap?.style) {
+    // A style that does not load, or loads late, leaves the data waiting for
+    // the map's first render: the basemap's tiles take its place, for good.
+    // The wait ends on `style.load`: `load` also waits for the first tiles,
+    // which a slow connection delays past it. Errors of a source come later.
+    let replaced = false;
+    let styled = false;
+    map.on("style.load", () => {
+      styled = true;
+    });
+    const fallBack = (): void => {
+      if (!styled && !loaded && !replaced) {
+        replaced = true;
+        map.setStyle(baseStyle(config.basemap));
+      }
+    };
+    map.on("error", (event) => {
+      if (!event?.sourceId) {
+        fallBack();
+      }
+    });
+    window.setTimeout(fallBack, STYLE_WAIT_MS);
+  }
+  // The compass shows the tilt too, and a click on it brings the map back
+  // north and flat: a right drag or two fingers rotate and tilt it.
+  map.addControl(new NavigationControl({ visualizePitch: true }), "top-right");
+  // Beside the first block of its page, the map can widen across it.
+  const labels = "labels" in config ? config.labels : undefined;
+  if (labels?.widen && labels.narrow) {
+    map.addControl(
+      new WidenControl(element, { widen: labels.widen, narrow: labels.narrow }),
+      "top-right",
+    );
+  }
+  map.addControl(new ScaleControl(), "bottom-left");
+  map.on("load", () => {
+    loaded = true;
+    if (config.kind === "features") {
+      addData(map, config.data);
+    } else if (config.kind === "extent") {
+      addData(map, {
+        type: "FeatureCollection",
+        features: [extentFeature(config.bbox)],
+      });
+    }
+    refreshImage();
+    linkPage(
+      map,
+      config.kind === "features" && typeof config.data !== "string"
+        ? config.data
+        : null,
+    );
+  });
+  map.on("moveend", refreshImage);
+  // Once only: the reader may open it again, and the map goes idle after every move.
+  let folded = false;
+  map.on("idle", () => {
+    if (!folded) {
+      folded = true;
+      foldAttribution(container);
+    }
+  });
+  return map;
+}
+
+class FgaMap extends HTMLElement {
+  connectedCallback(): void {
+    startMap(this, readConfig<MapConfig>(this));
+  }
+}
+
+if (!customElements.get("fga-map")) {
+  customElements.define("fga-map", FgaMap);
+}

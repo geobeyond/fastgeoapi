@@ -33,6 +33,7 @@ jobs:
           # - { python: "3.12", os: "windows-latest", session: "tests" }
           # - { python: "3.12", os: "macos-latest", session: "tests" }
           - { python: "3.12", os: "ubuntu-22.04", session: "typeguard" }
+          - { python: "3.12", os: "ubuntu-24.04", session: "maps" }
           - { python: "3.12", os: "ubuntu-22.04", session: "xdoctest" }
           - { python: "3.12", os: "ubuntu-22.04", session: "docs-build" }
 
@@ -83,6 +84,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install python3-gdal libgdal-dev
+
+      - name: Install the MapLibre Native runtime
+        if: matrix.session == 'maps'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libuv1 libvulkan1 mesa-vulkan-drivers libicu74 libcurl4t64 libpng16-16t64 libjpeg-turbo8 libwebp7
 
       - name: Compute pre-commit cache key
         if: matrix.session == 'pre-commit'

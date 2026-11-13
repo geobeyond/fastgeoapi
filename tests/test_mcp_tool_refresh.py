@@ -60,6 +60,15 @@ async def test_refreshing_advertises_the_new_collections(server, client):
 
 
 @pytest.mark.asyncio
+async def test_refreshed_tools_keep_their_annotations(server, client):
+    """The reload builds the tools again, and they must come back annotated."""
+    refresh_tools(server, _spec(("/lazio-roads", "getLazioRoads")), client=client)
+
+    (tool,) = await server.list_tools()
+    assert tool.annotations.read_only_hint is True
+
+
+@pytest.mark.asyncio
 async def test_refreshing_drops_the_collections_that_went_away(server, client):
     """A collection removed from the configuration stops being offered.
 

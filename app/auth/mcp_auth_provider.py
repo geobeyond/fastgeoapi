@@ -6,9 +6,17 @@ proxying against any OIDC-compliant identity provider (Logto, Auth0,
 Keycloak, etc.) without custom per-provider code.
 """
 
+import base64
+import json
+import logging
+from collections.abc import Callable
+from urllib.parse import parse_qsl, urlparse
+
 from fastmcp.server.auth.oidc_proxy import OIDCProxy
 from loguru import logger
 from mcp.server.auth.provider import AccessToken
+from starlette.routing import Route
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 
 class MCPAuthMisconfiguredError(RuntimeError):
@@ -126,6 +134,274 @@ def _coerce_consent_mode(consent_mode: str | None) -> bool | str:
 
 
 DEFAULT_MCP_ACCESS_TOKEN_EXPIRY_SECONDS = 60 * 60 * 24  # 24 hours
+
+CLIENT_ASSERTION_SIGNING_ALGS = ["RS256"]
+"""The algorithms fastmcp verifies a ``private_key_jwt`` client assertion with.
+
+Its JWT verifier's default, so the key a client signs with must be an RSA key.
+"""
+
+
+class _SigningAlgsMetadata:
+    """The authorization server metadata, with the algorithms of ``private_key_jwt``.
+
+    RFC 8414 §2 asks for ``token_endpoint_auth_signing_alg_values_supported``
+    wherever ``private_key_jwt`` is offered, and fastmcp leaves it out: a
+    client whose JWKS holds keys of several types can only guess which one
+    to sign with. Pure ASGI, around the CORS app fastmcp mounts; a value
+    fastmcp publishes itself is kept.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Answer as fastmcp does, adding the algorithms to the document of a GET."""
+        if scope.get("method") != "GET":
+            await self.app(scope, receive, send)
+            return
+        start: Message = {}
+        body = bytearray()
+
+        async def held(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                start.update(message)
+                return
+            if message["type"] != "http.response.body":
+                await send(message)
+                return
+            body.extend(message.get("body", b""))
+            if message.get("more_body", False):
+                return
+            content = _with_signing_algs(bytes(body)) if start["status"] == 200 else bytes(body)
+            headers = [(k, v) for k, v in start["headers"] if k.lower() != b"content-length"]
+            headers.append((b"content-length", str(len(content)).encode()))
+            await send({**start, "headers": headers})
+            await send({"type": "http.response.body", "body": content})
+
+        await self.app(scope, receive, held)
+
+
+def _with_signing_algs(body: bytes) -> bytes:
+    """``body`` with the signing algorithms, when it offers ``private_key_jwt``."""
+    metadata = json.loads(body)
+    if "private_key_jwt" not in (metadata.get("token_endpoint_auth_methods_supported") or []):
+        return body
+    metadata.setdefault(
+        "token_endpoint_auth_signing_alg_values_supported", CLIENT_ASSERTION_SIGNING_ALGS
+    )
+    return json.dumps(metadata, separators=(",", ":")).encode()
+
+
+_REFUSAL_LOGGER = "fastmcp.server.auth.providers.jwt"
+"""fastmcp's JWT verifier, which says why it refuses a client assertion at DEBUG only."""
+
+_REFUSALS = (
+    "Token validation failed",
+    "JWKS key lookup failed",
+    "Skipping JWKS key",
+    "Skipping unusable JWKS key",
+    "JWKS fetch blocked",
+    "JWKS key processing failed",
+)
+"""The DEBUG messages of that verifier that say why an assertion was refused."""
+
+
+class _RefusalsOnly(logging.Filter):
+    """At DEBUG, only the reasons for a refusal, escaped and bounded with ``_safe``.
+
+    A reason can carry what the client sent, such as a kid. fastmcp's other
+    DEBUG messages name users and successful exchanges the logs need not keep.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.levelno > logging.DEBUG:
+            return True
+        message = record.getMessage()
+        if not message.startswith(_REFUSALS):
+            return False
+        record.msg, record.args = _safe(message), ()
+        return True
+
+
+class _RefusedTokenLog:
+    """A log line for each refused token request, around the CORS app fastmcp mounts.
+
+    fastmcp tells the client why it refused a token and logs little of it,
+    so a partner's 401 cannot be read on this side. The line names the
+    grant, the client and the answer, and for a client assertion or an
+    ID-JAG its header and claims: never the assertion, the code or a secret.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Hand the request to fastmcp unchanged, and log its answer when it refuses."""
+        if scope.get("method") != "POST":
+            await self.app(scope, receive, send)
+            return
+        body = bytearray()
+        while True:
+            message = await receive()
+            body.extend(message.get("body", b""))
+            if message["type"] != "http.request" or not message.get("more_body", False):
+                break
+        form = bytes(body)
+        replayed = False
+
+        async def replay() -> Message:
+            nonlocal replayed
+            if replayed:
+                return await receive()
+            replayed = True
+            return {"type": "http.request", "body": form, "more_body": False}
+
+        status = 0
+        answer = bytearray()
+
+        async def watch(message: Message) -> None:
+            nonlocal status
+            if message["type"] == "http.response.start":
+                status = message["status"]
+            elif message["type"] == "http.response.body" and status >= 400:
+                answer.extend(message.get("body", b""))
+                if not message.get("more_body", False):
+                    _log_refused(status, form, bytes(answer))
+            await send(message)
+
+        await self.app(scope, replay, watch)
+
+
+def _log_refused(status: int, form: bytes, answer: bytes) -> None:
+    """One line on a refused token request: the grant, the client, the error, the assertion."""
+    fields = dict(parse_qsl(form.decode("utf-8", "replace")))
+    try:
+        reply = json.loads(answer)
+    except ValueError:
+        reply = None
+    if not isinstance(reply, dict):
+        reply = {}
+    parts = [
+        f"status={status}",
+        f"grant_type={_safe(fields.get('grant_type'))}",
+        f"client_id={_safe(fields.get('client_id'))}",
+        f"error={_safe(reply.get('error'))}",
+        f"error_description={_safe(reply.get('error_description'))}",
+    ]
+    assertion = fields.get("client_assertion") or fields.get("assertion")
+    if assertion:
+        parts.append(_described(assertion))
+    logger.warning(f"MCP token request refused: {' '.join(parts)}")
+
+
+_LOGGED_LENGTH = 200
+"""The most characters a refused token request writes to the log for one value."""
+
+
+def _safe(value: object) -> str:
+    """``value`` for a log line, its control characters escaped and its length bounded.
+
+    Anyone can send a token request, and a line break in a form field or a
+    claim would otherwise write records of its own into the log.
+    """
+    text = "".join(
+        character if character.isprintable() else character.encode("unicode_escape").decode()
+        for character in str(value)
+    )
+    return text if len(text) <= _LOGGED_LENGTH else f"{text[:_LOGGED_LENGTH]}…"
+
+
+def _described(assertion: str) -> str:
+    """The header and claims of an assertion, its signature left out.
+
+    ``sub`` is written out when it repeats ``iss``, as in a client
+    assertion where both are the client id; in an ID-JAG it is the user,
+    and only its presence is said.
+    """
+    try:
+        header_part, claims_part = assertion.split(".")[:2]
+        header = json.loads(_decoded(header_part))
+        claims = json.loads(_decoded(claims_part))
+    except (ValueError, RecursionError):
+        # json raises RecursionError on a part nested past the recursion
+        # limit: that part is unreadable too.
+        return "assertion=unreadable"
+    if not isinstance(header, dict) or not isinstance(claims, dict):
+        return "assertion=unreadable"
+    subject = claims.get("sub")
+    described = [f"{key}={_safe(header.get(key))}" for key in ("alg", "kid", "typ")]
+    described += [f"{key}={_safe(claims.get(key))}" for key in ("iss", "aud", "iat", "exp")]
+    shown = _safe(subject) if subject == claims.get("iss") else "present" if subject else "absent"
+    described.append(f"sub={shown}")
+    described.append(f"jti={'present' if claims.get('jti') else 'absent'}")
+    return " ".join(described)
+
+
+def _decoded(part: str) -> bytes:
+    """A base64url part of a JWT, its padding restored."""
+    return base64.urlsafe_b64decode(part + "=" * (-len(part) % 4))
+
+
+def _wrapped(route: Route, wrapper: Callable[[ASGIApp], ASGIApp]) -> Route:
+    """``route`` with its endpoint inside ``wrapper``."""
+    return Route(
+        route.path,
+        endpoint=wrapper(route.endpoint),
+        methods=route.methods,
+        name=route.name,
+        include_in_schema=route.include_in_schema,
+    )
+
+
+class _InteropOIDCProxy(OIDCProxy):
+    """fastmcp's OIDC proxy, readable by the clients and the logs on the other side.
+
+    Its metadata names the algorithms of client assertions, and each token
+    request it refuses leaves a line in the log.
+    """
+
+    def get_routes(self, mcp_path: str | None = None) -> list[Route]:
+        """Fastmcp's routes, the server metadata and the token endpoint wrapped."""
+        routes = []
+        for route in super().get_routes(mcp_path):
+            if route.path.startswith("/.well-known/oauth-authorization-server"):
+                route = _wrapped(route, _SigningAlgsMetadata)
+            elif route.path == "/token":
+                route = _wrapped(route, _RefusedTokenLog)
+            routes.append(route)
+        return routes
+
+    def get_well_known_routes(self, mcp_path: str | None = None) -> list[Route]:
+        """Fastmcp's discovery routes, and OIDC Discovery under an issuer that has a path.
+
+        OpenID Connect Discovery appends its well-known path to the issuer,
+        so for ``https://host/mcp/`` a client asks
+        ``/mcp/.well-known/openid-configuration`` and checks the document's
+        issuer against that URL. Fastmcp serves the document at the RFC 8414
+        path and at the root, where the issuer cannot match the URL.
+        """
+        routes = super().get_well_known_routes(mcp_path)
+        issuer_path = urlparse(str(self.issuer_url or "")).path.rstrip("/")
+        if not issuer_path:
+            return routes
+        metadata = next(
+            (
+                r
+                for r in routes
+                if r.path == f"/.well-known/oauth-authorization-server{issuer_path}"
+            ),
+            None,
+        )
+        if metadata is not None:
+            routes.append(
+                Route(
+                    f"{issuer_path}/.well-known/openid-configuration",
+                    endpoint=metadata.endpoint,
+                    methods=metadata.methods,
+                )
+            )
+        return routes
 
 
 def configure_mcp_auth(
@@ -257,7 +533,14 @@ def configure_mcp_auth(
 
         identity_assertion = IdentityAssertion(trusted_issuers=list(trusted_issuers))
 
-    auth = OIDCProxy(
+    # fastmcp says why it refuses a client assertion at DEBUG only: the reason
+    # for a partner's 401 reaches the logs, and nothing else at that level.
+    refusals = logging.getLogger(_REFUSAL_LOGGER)
+    refusals.setLevel(logging.DEBUG)
+    if not any(isinstance(each, _RefusalsOnly) for each in refusals.filters):
+        refusals.addFilter(_RefusalsOnly())
+
+    auth = _InteropOIDCProxy(
         identity_assertion=identity_assertion,
         config_url=oidc_well_known_endpoint,
         client_id=client_id,

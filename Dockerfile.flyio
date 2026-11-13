@@ -1,6 +1,8 @@
 FROM ghcr.io/osgeo/gdal:ubuntu-small-3.11.0 AS builder
 
-# Install security updates and system dependencies, then clean up
+# Install security updates and system dependencies, then clean up. The
+# libraries after git are for the map renderer: those the MapLibre Native
+# binary links, and Vulkan with lavapipe to draw without a GPU.
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update && \
     apt-get --yes upgrade && \
@@ -8,7 +10,9 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
         python3-dev \
         build-essential \
         tini \
-        git && \
+        git \
+        libuv1 libvulkan1 mesa-vulkan-drivers libicu74 libcurl4t64 \
+        libpng16-16t64 libjpeg-turbo8 libwebp7 && \
     apt-get --yes clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -23,15 +27,16 @@ COPY pyproject.toml uv.lock pygeoapi-config.yml ./
 
 # Install dependencies as root (with system-wide access), pinned to
 # uv.lock. `uv export --frozen` only transcribes the lockfile (it fails
-# if the lock is stale) with git sources pinned to exact commits — no
-# fresh resolution. Resolving from pyproject.toml here meant every image
-# rebuild silently picked up brand-new upstream releases: fastmcp 3.4.3
-# broke /mcp in production with its new Host validation the day after
-# its release.
+# if the lock is stale), so nothing is resolved afresh. Resolving from
+# pyproject.toml here meant every image rebuild silently picked up
+# brand-new upstream releases: fastmcp 3.4.3 broke /mcp in production
+# with its new Host validation the day after its release. The export
+# keeps the lock's hashes and the install requires them, so the build
+# fails if a release asset of the mlnative fork is replaced under its URL.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv export --frozen --no-dev --no-emit-project --no-hashes \
+    uv export --frozen --no-dev --group maps --no-emit-project \
     --extra geoparquet --extra pmtiles -o /tmp/requirements.lock && \
-    uv pip install --system --break-system-packages -r /tmp/requirements.lock
+    uv pip install --system --break-system-packages --require-hashes -r /tmp/requirements.lock
 
 # Create a normal non-root user to run the app
 RUN useradd --create-home appuser
@@ -84,5 +89,7 @@ RUN python -c "import compileall; compileall.compile_path(maxlevels=10)"
 # Use tini as the init process
 ENTRYPOINT ["tini", "-g", "--"]
 
-# Run using fastapi CLI directly
-CMD ["fastapi", "run", "app/main.py", "--app", "app", "--host", "0.0.0.0", "--port", "5000", "--proxy-headers"]
+# Run using the fastapi CLI directly, with one worker. The worker count is
+# stated here because nothing in .flyio.env can set it (see the note at
+# the top of that file).
+CMD ["fastapi", "run", "app/main.py", "--app", "app", "--host", "0.0.0.0", "--port", "5000", "--proxy-headers", "--workers", "1"]

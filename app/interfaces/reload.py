@@ -40,7 +40,14 @@ class ReloadManager:
         source: str,
         artifact_target: str | None = None,
         on_reload: Callable[[dict], None] | None = None,
+        *,
+        instance: str,
     ):
+        # Identifies this process in the status endpoint, so that a control
+        # plane sampling it through a load balancer can tell one worker
+        # from another. The application creates it; this module only
+        # reports it.
+        self._instance = instance
         self._holder = holder
         self._source = source
         self._artifact_target = artifact_target
@@ -53,9 +60,19 @@ class ReloadManager:
         self._last: dict | None = None
 
     def status(self) -> dict:
-        """The last reload outcome plus whether one is currently running."""
+        """What this process serves, and what its last reload did.
+
+        ``etag`` is the revision this process is serving, taken from the
+        holder. It can differ from what the last attempt saw: a worker
+        whose last reload failed keeps serving the previous revision, so
+        ``last`` carries the error while ``etag`` still names that
+        revision. A control plane waiting for every worker to converge
+        should count such a worker as not converged yet.
+        """
         return {
             "status": "running" if self._running else "idle",
+            "instance": self._instance,
+            "etag": self._holder.etag,
             "last": self._last,
         }
 
@@ -74,6 +91,31 @@ class ReloadManager:
             **extra,
         }
 
+    async def poll_forever(self, interval: float) -> None:
+        """Ask for a reload every ``interval`` seconds, until cancelled.
+
+        The reload is per process. With several uvicorn workers the
+        webhook reaches one of them and the others keep serving the
+        previous revision. Each process therefore asks on a timer and
+        converges to the configuration source on its own. When nothing
+        changed, the ETag comparison in ``_run`` stops the poll after a
+        ``HEAD``. When something did, the rest of the reload works as it
+        does for the webhook, including the rollback on failure and the
+        coalescing of concurrent runs.
+
+        The loop only stops when the task is cancelled. A transient error
+        on the source is logged and the next attempt happens one interval
+        later.
+        """
+        while True:
+            try:
+                await self.trigger()
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.warning(f"configuration poll failed, will retry: {type(e).__name__}: {e}")
+            await asyncio.sleep(interval)
+
     async def _run(self) -> None:
         from app.config.source import aload_config_source, astat_config_source
 
@@ -85,8 +127,6 @@ class ReloadManager:
             document = await aload_config_source(self._source)
             subapp, openapi = await asyncio.to_thread(self._build, document.config)
             self._holder.swap(subapp, etag=document.etag)
-            self._record("applied", etag=document.etag)
-            logger.info(f"pygeoapi config reloaded from {self._source} (etag={document.etag})")
             if self._on_reload is not None:
                 # Deliberately not fatal: the configuration is already
                 # serving, and a listener that fails should not turn a
@@ -96,6 +136,10 @@ class ReloadManager:
                 except Exception as e:
                     logger.warning(f"a reload listener failed: {type(e).__name__}: {e}")
             await self._write_artifact(openapi)
+            # Recorded last: whoever waits for "applied" finds the listeners
+            # and the artifact up to date as well.
+            self._record("applied", etag=document.etag)
+            logger.info(f"pygeoapi config reloaded from {self._source} (etag={document.etag})")
         except Exception as e:  # the old one keeps serving: rollback for free
             self._record("failed", error=f"{type(e).__name__}: {e}")
             logger.error(f"config reload failed, still serving the previous config: {e}")

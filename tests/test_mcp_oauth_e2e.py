@@ -48,6 +48,21 @@ def test_well_known_authorization_server_metadata(fastgeoapi_with_iam: str):
     assert "authorization_code" in body["grant_types_supported"]
 
 
+def test_oidc_discovery_is_served_under_the_issuer(fastgeoapi_with_iam: str):
+    """OIDC Discovery appends its well-known path to the issuer, which carries ``/mcp``.
+
+    A client that follows OpenID Connect Discovery to the letter asks there
+    and checks the issuer against the URL it built; it must get the same
+    metadata the RFC 8414 path serves.
+    """
+    base_url = fastgeoapi_with_iam
+    r = httpx.get(f"{base_url}/mcp/.well-known/openid-configuration")
+    assert r.status_code == 200, r.text[:200]
+    body = r.json()
+    assert body["issuer"] == f"{base_url}/mcp/"
+    assert body == httpx.get(f"{base_url}/.well-known/oauth-authorization-server/mcp").json()
+
+
 def test_mcp_unauthenticated_request_is_rfc6750_compliant(fastgeoapi_with_iam: str):
     """No-token MCP request returns 401 with the canonical WWW-Authenticate
     header and *without* ``error="invalid_token"`` (RFC 6750 §3.1).

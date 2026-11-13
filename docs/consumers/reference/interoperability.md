@@ -99,21 +99,30 @@ one, enables filter pushdown only when both classes are present, so a
 subset set on the layer produces no request at all. If your client
 negotiates on the declaration, expect to filter locally.
 
-**Two places where the published OpenAPI does not describe the
-response.** A harness that validates against the document will reject
-correct answers:
+The filter works only where the provider applies it. The GeoParquet,
+SQL, Elasticsearch, OpenSearch and Oracle providers do; CSV and GeoJSON
+accept a filter and return the whole collection. The OpenAPI document,
+and the MCP tools generated from it, therefore describe the CQL2
+`POST /collections/{id}/items` only for collections served by a provider
+that filters: on the demo `overture-places` and `lazio-roads`, not
+`lakes` or `obs`.
 
-- the tileset list of a collection responds `{links, tilesets}`, while
-  the schema declared for it requires `tileMatrixSetLinks` — a member no
-  response contains;
-- `skipGeometry=true` produces `"geometry": null`, which RFC 7946 §3.2
-  allows and the declared `featureGeoJSON` schema forbids, since its
-  `geometry` is a `oneOf` over the seven geometry types with no null.
+**One place where the published OpenAPI does not describe the
+response.** `skipGeometry=true` produces `"geometry": null`, which
+RFC 7946 §3.2 allows and the declared `featureGeoJSON` schema forbids,
+since its `geometry` is a `oneOf` over the seven geometry types with no
+null. It is an upstream schema defect rather than a server fault. The
+MCP tools carry a corrected schema: fastgeoapi lets the feature geometry
+be `null` in the document it generates the tools from. The published
+OpenAPI still references the OGC schema, so a harness that validates
+against it rejects those responses. Validate the data, not the document,
+until it is fixed.
 
-Both are upstream schema defects rather than server faults. If your
-harness validates structured output — an MCP client does — it will
-discard good responses; validate the data, not the document, until they
-are fixed.
+pygeoapi also declares, for the tileset list of a collection, a schema
+that requires `tileMatrixSetLinks`, a member no response contains.
+fastgeoapi's document refers to the `TileSetsList` response of OGC API -
+Tiles instead, so the list validates against the published OpenAPI and
+against the MCP tools alike.
 
 **A tile archive may not hold every zoom.** Tiles come from PMTiles
 archives, and an archive is free to hold a narrow range: the demo's
@@ -156,17 +165,18 @@ www-authenticate: Bearer scope="openid",
 That document names the authorization server, whose metadata reports, on
 the demo:
 
-| Key                                     | Value                                            |
-| --------------------------------------- | ------------------------------------------------ |
-| `issuer`                                | `https://fastgeoapi.fly.dev/mcp/`                |
-| `grant_types_supported`                 | `authorization_code`, `refresh_token`            |
-| `response_types_supported`              | `code`                                           |
-| `code_challenge_methods_supported`      | `S256`                                           |
-| `token_endpoint_auth_methods_supported` | `none`, `private_key_jwt`                        |
-| `scopes_supported`                      | `openid`, `profile`, `email`, `offline_access`   |
-| `registration_endpoint`                 | present — Dynamic Client Registration (RFC 7591) |
-| `client_id_metadata_document_supported` | `true` — CIMD                                    |
-| `jwks_uri`                              | **absent**, deliberately                         |
+| Key                                                | Value                                            |
+| -------------------------------------------------- | ------------------------------------------------ |
+| `issuer`                                           | `https://fastgeoapi.fly.dev/mcp/`                |
+| `grant_types_supported`                            | `authorization_code`, `refresh_token`            |
+| `response_types_supported`                         | `code`                                           |
+| `code_challenge_methods_supported`                 | `S256`                                           |
+| `token_endpoint_auth_methods_supported`            | `none`, `private_key_jwt`                        |
+| `token_endpoint_auth_signing_alg_values_supported` | `RS256`                                          |
+| `scopes_supported`                                 | `openid`, `profile`, `email`, `offline_access`   |
+| `registration_endpoint`                            | present — Dynamic Client Registration (RFC 7591) |
+| `client_id_metadata_document_supported`            | `true` — CIMD                                    |
+| `jwks_uri`                                         | **absent**, deliberately                         |
 
 Three consequences, in the order they tend to bite.
 
@@ -179,7 +189,11 @@ credentials is exactly what the demo expects.
 **You may register dynamically or present a CIMD.** Both are supported:
 Dynamic Client Registration at the registration endpoint, or a Client ID
 Metadata Document — a URL as your `client_id`, whose document publishes
-your redirect URIs.
+your redirect URIs. A document that authenticates with `private_key_jwt`
+signs its assertion in `RS256`, as the metadata says: the authorization
+server verifies it with an RSA key from the document's key set and
+ignores keys of other types. The assertion's `iss` and `sub` are the
+`client_id`, and its `aud` is the token endpoint.
 
 **The access token is a reference token, and nobody else can validate
 it.** It is a JWT signed with `HS256` from a key derived from the

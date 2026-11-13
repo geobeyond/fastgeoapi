@@ -59,3 +59,31 @@ class AsyncFeatureProvider(Protocol):
     async def aget(self, identifier: Any, **kwargs: Any) -> dict:
         """The async twin of ``get``."""
         ...
+
+
+@runtime_checkable
+class AsyncMapProvider(Protocol):
+    """A map provider that can be awaited for a rendered map."""
+
+    native_async: ClassVar[bool]
+
+    async def aquery(self, **kwargs: Any) -> bytes:
+        """The async twin of ``query``: same keyword arguments, the image bytes."""
+        ...
+
+
+@runtime_checkable
+class VersionedProvider(Protocol):
+    """A provider that tells which version of its answer a request would get.
+
+    The HTTP cache builds its ETag from that version before any work is
+    done for the request.
+    """
+
+    async def aversion(self, **kwargs: Any) -> str | None:
+        """A string that changes whenever the answer to ``kwargs`` changes; None when unknown.
+
+        Takes the arguments of the provider's data method, and neither draws
+        nor reads data to answer.
+        """
+        ...

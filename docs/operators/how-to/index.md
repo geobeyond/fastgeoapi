@@ -8,12 +8,13 @@ This section contains practical guides for configuring and using fastgeoapi feat
 
 ## Serve a cloud-native format as a collection
 
-The two providers fastgeoapi adds read their data where it already is, with no conversion step in between:
+The three providers fastgeoapi adds read their data where it already is, with no conversion step in between:
 
 - [**GeoParquet**](geoparquet.md) — a file, a glob or a hive-partitioned root as an OGC API - Features collection, with CQL2 pushed down into DuckDB.
 - [**PMTiles**](pmtiles.md) — one archive of any size as an OGC API - Tiles collection, read by byte range and awaited.
+- [**MapLibre**](maplibre.md) — a PMTiles archive drawn as PNG maps by MapLibre Native, as an OGC API - Maps collection; Linux only.
 
-Both take their bucket settings per dataset, and [the configuration itself](cloud-config.md) can live in the same place. For a format with no provider yet, the contributor guide walks a [Cloud Optimized GeoTIFF](../../contributors/how-to/writing-an-async-provider.md) from nothing to a working one.
+All three take their bucket settings per dataset, and [the configuration itself](cloud-config.md) can live in the same place. For a format with no provider yet, the contributor guide walks a [Cloud Optimized GeoTIFF](../../contributors/how-to/writing-an-async-provider.md) from nothing to a working one.
 
 ### The demo's own configuration, and where to read it
 
@@ -88,6 +89,10 @@ Two things to expect the first time, both measured rather than guessed:
   guide](pmtiles.md#performance-what-a-tile-costs) explains why a global
   box would open on an empty map.
 
+## Serve fastgeoapi's own HTML pages
+
+pygeoapi's pages are the default. The [native HTML pages](html-pages.md) replace them on the same URLs. They draw their maps with MapLibre, come in English and Italian, and take your own templates one file at a time.
+
 ## Configure Identity and Access Management
 
 TBD
@@ -103,7 +108,7 @@ fastgeoapi exposes two probe endpoints at the application root — outside the `
 - `GET /healthz` — liveness: returns `200 {"status": "ok"}` as soon as the process is serving
 - `GET /readyz` — readiness: returns `200 {"status": "ready"}` once the pygeoapi OpenAPI document is available, `503` otherwise
 
-Related knob: `FASTGEOAPI_CACHE_DIR` relocates the external-refs schema cache (default `<cwd>/.cache`) for containerized layouts with read-only or non-stable working directories.
+Related knob: `FASTGEOAPI_CACHE_DIR` relocates the external-refs schema cache and the range cache (default `<cwd>/.cache`) for containerized layouts with read-only or non-stable working directories.
 
 ## Configure the MCP Server
 

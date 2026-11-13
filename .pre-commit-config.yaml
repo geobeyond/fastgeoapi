@@ -64,6 +64,8 @@ repos:
         # which cannot parse an inline `type` modifier in an import —
         # the form shadcn's components are written in — so leaving it to
         # this hook would mean rewriting every component we copy in.
+        # The Jinja templates of the HTML pages are not HTML prettier can
+        # parse: it would rewrite their tags.
         # `docs/javascripts/` holds a vendored, minified web component: not
         # ours to restyle (scripts/vendor_install_button.py regenerates it).
-        exclude: "^(app/pygeoapi/config_models/|frontend/|docs/javascripts/|docs/configuration-reference\\.md$|docs/index\\.md$|docs/(operators|consumers|contributors)/index\\.md$)"
+        exclude: "^(packages/fastgeoapi-html/fastgeoapi_html/templates/|app/pygeoapi/config_models/|frontend/|docs/javascripts/|docs/configuration-reference\\.md$|docs/index\\.md$|docs/(operators|consumers|contributors)/index\\.md$)"

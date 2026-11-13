@@ -1,12 +1,12 @@
 """The async surface fastgeoapi adds beside pygeoapi's provider contract (ADR-0010).
 
 pygeoapi's contract is synchronous and lives in its root classes
-(``BaseProvider``, ``BaseMVTProvider``): the API layer reads attributes
+(``BaseProvider``, ``BaseTileProvider``): the API layer reads attributes
 off the instance and calls the sync methods from a threadpool. This
 module does not import pygeoapi. It adds the async part only, and the
 concrete provider pairs the two::
 
-    class PMTilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseMVTProvider):
+    class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
         native_async = True
 
 The mixin must come FIRST in the bases: pygeoapi's roots never call
@@ -17,11 +17,23 @@ and ``provider_def`` would never be captured.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from collections.abc import Callable, Coroutine
+from datetime import timedelta
 from functools import cached_property
 from typing import Any, ClassVar
 
-from app.provider.storage import ObjectRanges, ObjectStore, load_store, split_source
+from app.provider.storage import (
+    CachedRanges,
+    ObjectRanges,
+    ObjectStore,
+    RangeCache,
+    is_remote,
+    load_store,
+    split_source,
+)
+from app.provider.storage import cache as range_caches
 
 
 class AsyncProviderMixin:
@@ -107,6 +119,23 @@ class StorageBackedMixin:
         """Ranged reads over the ``data`` object itself."""
         return ObjectRanges(self.store, self.object_key)
 
+    def range_cache(self) -> RangeCache | None:
+        """Cache for ranged reads of ``data``; None for local data or ``range_cache: false``."""
+        provider_def = self._captured_provider_def()
+        options = provider_def.get("options") or {}
+        if not options.get("range_cache", True) or not is_remote(provider_def["data"]):
+            return None
+        return range_caches.default_range_cache()
+
+    @cached_property
+    def cached_ranges(self) -> CachedRanges | None:
+        """Cached, versioned ranged reads of ``data``, when the range cache applies."""
+        cache = self.range_cache()
+        if cache is None:
+            return None
+        data = self._captured_provider_def()["data"]
+        return CachedRanges(self.store, self.object_key, cache, source=data)
+
     @property
     def native_store(self) -> Any:
         """The library-level store object, for libraries that read through obstore themselves.
@@ -122,6 +151,45 @@ class StorageBackedMixin:
         """The key of the ``data`` object within :attr:`store`."""
         _, key = split_source(self._captured_provider_def()["data"])
         return key
+
+    def signed_url(self, expires_in: timedelta) -> str:
+        """A presigned URL of the ``data`` object, for a reader outside this process.
+
+        The reader fetches the object over HTTP with the URL alone, and the
+        credentials stay with the store.
+        """
+        sign = getattr(self.store, "sign", None)
+        if sign is None:
+            raise TypeError(f"{type(self.store).__name__} cannot sign URLs")
+        return sign(self.object_key, expires_in)
+
+    def definition_digest(self) -> str:
+        """A digest of the provider's definition: any option that shapes the output changes it.
+
+        The definition may carry credentials in ``store_options``; only the
+        digest leaves this method.
+        """
+        definition = json.dumps(self._captured_provider_def(), sort_keys=True, default=str)
+        return hashlib.sha256(definition.encode()).hexdigest()[:16]
+
+    async def adata_version(self) -> str | None:
+        """The version of the ``data`` object, the same in every process; None when unknown.
+
+        A remote object read through the range cache has the ETag the cache
+        knows, checked again behind the request once its TTL has passed. A
+        remote object read without the cache has none: a HEAD for every
+        request would cost more than the cache saves. A local file has its
+        size and modification time, since its ETag names the inode, which
+        differs from machine to machine.
+        """
+        cached = self.cached_ranges
+        if cached is not None:
+            return (await cached.ameta_without_waiting()).etag
+        if is_remote(self._captured_provider_def()["data"]):
+            return None
+        meta = await self.store.ahead(self.object_key)
+        modified = meta.last_modified.isoformat() if meta.last_modified is not None else ""
+        return f"{meta.size}:{modified}"
 
     def _captured_provider_def(self) -> dict:
         provider_def = getattr(self, "provider_def", None)

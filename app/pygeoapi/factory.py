@@ -10,8 +10,10 @@ The execute shim and the route table are adapted from
 from __future__ import annotations
 
 import asyncio
+import gzip
 import os
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
+from contextlib import suppress
 from http import HTTPStatus
 from pathlib import Path
 
@@ -24,21 +26,35 @@ import pygeoapi.api.maps as maps_api
 import pygeoapi.api.processes as processes_api
 import pygeoapi.api.stac as stac_api
 import pygeoapi.api.tiles as tiles_api
-from pygeoapi.api import API, APIRequest, apply_gzip
+from openapi_pydantic.v3.v3_0 import OpenAPI
+from pygeoapi.api import API, CHARSET, SYSTEM_LOCALE, APIRequest, apply_gzip
+from pygeoapi.formats import F_GZIP, F_JSON
 from pygeoapi.openapi import get_oas
-from pygeoapi.util import get_api_rules
+from pygeoapi.provider.base import ProviderGenericError
+from pygeoapi.util import get_api_rules, get_from_headers
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
+from app.html.assets import ImmutableFiles
+from app.html.pages import NativePages
 from app.pygeoapi.api import patch_validate_datetime_overflow
+from app.pygeoapi.api.collections import describe_collections, item_provider_type
+from app.pygeoapi.api_async import maps as async_maps
 from app.pygeoapi.api_async import tiles as async_tiles
+from app.pygeoapi.api_async.caching import HttpCache, default_http_cache
+from app.pygeoapi.config_extensions import extension_problem
 from app.pygeoapi.openapi import (
     describe_tilesets,
+    drop_unfiltered_cql2_operations,
     drop_unused_tags,
+    dump_openapi,
+    fix_conformance_and_collections_responses,
+    fix_map_operations,
     fix_queryables_response_schema,
+    fix_tileset_list_response,
 )
 from app.pygeoapi.plugin import invalidate_plugin_cache, patch_load_plugin
 
@@ -62,7 +78,7 @@ _LIMIT_DEFAULTS = {"default_items": 10, "max_items": 10}
 
 
 class ConfigValidationError(Exception):
-    """A configuration that does not match pygeoapi's own schema."""
+    """A configuration that does not match pygeoapi's schema or fastgeoapi's own keys."""
 
 
 def _validate(config: dict) -> None:
@@ -119,19 +135,50 @@ def normalize_config(config: dict) -> dict:
     bind.setdefault("port", int(os.environ.get("PORT", "5000")))
 
     _validate(config)
+    problem = extension_problem(config)
+    if problem is not None:
+        where, message = problem
+        raise ConfigValidationError(f"invalid fastgeoapi configuration at {where}: {message}")
     limits = server.setdefault("limits", {})
     for key, value in _LIMIT_DEFAULTS.items():
         limits.setdefault(key, value)
+    for resource in config.get("resources", {}).values():
+        _default_to_the_items(resource.get("providers") or [])
     return config
 
 
+def _default_to_the_items(providers: list[dict]) -> None:
+    """Make the provider serving ``/items`` the default, unless the collection names one.
+
+    pygeoapi describes a collection from its default provider, the first one
+    unless told: tiles listed before features would leave out the CSV
+    formatter, the schema and the queryables of the items.
+    """
+    if any(provider.get("default") for provider in providers):
+        return
+    item_type = item_provider_type(providers)
+    if item_type is None:
+        return
+    provider = next(provider for provider in providers if provider.get("type") == item_type)
+    provider.setdefault("default", True)
+
+
 def build_openapi(config: dict) -> dict:
-    """Generate the OpenAPI in memory, with the fastgeoapi fixes at the source."""
-    doc = get_oas(normalize_config(config))
-    fix_queryables_response_schema(doc)
-    describe_tilesets(doc)
-    drop_unused_tags(doc)
-    return doc
+    """Generate the OpenAPI in memory, with the fastgeoapi fixes at the source.
+
+    The document goes through the openapi-pydantic model once: validated,
+    corrected, dumped.
+    """
+    generated = get_oas(normalize_config(config))
+    openapi = OpenAPI.model_validate(generated)
+    fix_queryables_response_schema(openapi)
+    fix_conformance_and_collections_responses(openapi)
+    drop_unfiltered_cql2_operations(openapi, config)
+    fix_tileset_list_response(openapi)
+    describe_tilesets(openapi)
+    fix_map_operations(openapi, config)
+    drop_unused_tags(openapi)
+    return dump_openapi(openapi, like=generated)
 
 
 def build_api(config: dict, openapi: dict) -> API:
@@ -196,7 +243,108 @@ def _path_param(request: Request, name: str):
     return request.path_params.get(name)
 
 
-def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
+CLIENT_CLOSED_REQUEST = 499
+"""Nginx's status for a request whose client left; no client is there to read it."""
+
+
+async def _disconnected(request: Request) -> None:
+    """Return once the client of ``request`` has gone.
+
+    Past the body, only a disconnect should arrive. A receive that hands the
+    body out again, as fastapi-opa's buffering receive does, says nothing
+    about the client, so the wait stops listening there instead of spinning.
+    """
+    body_done = False
+    while True:
+        message = await request.receive()
+        if message["type"] == "http.disconnect":
+            return
+        if body_done:
+            await asyncio.Future()  # Listen no more: the caller cancels this wait.
+        body_done = not message.get("more_body", False)
+
+
+async def _unless_disconnected[T](request: Request, work: Awaitable[T]) -> T | None:
+    """The result of ``work``, or None once the client has gone and ``work`` is cancelled.
+
+    Starlette runs a handler to its end even when the client leaves. A map
+    waiting for its renderer would keep its place in the queue until its
+    timeout, and turn away the maps of the clients still there. When the
+    wait for a disconnect fails, which a middleware's receive can cause,
+    the client's state is unknown and ``work`` runs to its end.
+    """
+    task = asyncio.ensure_future(work)
+    gone = asyncio.ensure_future(_disconnected(request))
+    try:
+        await asyncio.wait({task, gone}, return_when=asyncio.FIRST_COMPLETED)
+    except BaseException:
+        task.cancel()
+        raise
+    finally:
+        gone.cancel()
+    if task.done():
+        return task.result()
+    if not gone.cancelled() and gone.exception() is not None:
+        return await task
+    task.cancel()
+    with suppress(asyncio.CancelledError):
+        await task
+    return None
+
+
+def _collection_tiles_metadata(
+    api: API, request: APIRequest, dataset: str | None, matrix_id: str | None
+) -> tuple:
+    """pygeoapi's tileset description, in JSON when the request asks for no format.
+
+    With no ``f`` and an ``Accept`` that pygeoapi does not map to a format,
+    httpx's ``*/*`` among them, the format is empty. pygeoapi answers such
+    requests in JSON elsewhere (``api/__init__.py:421``, 0.24), but
+    ``get_collection_tiles_metadata`` hands the empty value to the tile
+    provider, which calls ``.upper()`` on it (``api/tiles.py:321``,
+    ``provider/base_mvt.py:205``). Such a request fails with a 500, and it
+    is exactly what the MCP tool of a single tileset sends. Setting the
+    format here is what pygeoapi itself does in ``api/stac.py:247``. Remove
+    once fixed upstream in pygeoapi.
+
+    pygeoapi does not catch a provider's refusal here either, so its message
+    would end in a bare 500: it is answered as the tile route answers it.
+    """
+    if not request._format:
+        request._format = F_JSON
+    try:
+        return tiles_api.get_collection_tiles_metadata(api, request, dataset, matrix_id)
+    except ProviderGenericError as err:
+        headers = request.get_response_headers(SYSTEM_LOCALE, **api.api_headers)
+        return api.get_exception(
+            err.http_status_code, headers, request.format, err.ogc_exception_code, err.message
+        )
+
+
+_BODILESS = (HTTPStatus.NO_CONTENT, HTTPStatus.NOT_MODIFIED)
+"""Answers without a body: nothing to compress."""
+
+
+def _gzip_without_timestamp(headers: dict, content):
+    """pygeoapi's ``apply_gzip``, with the timestamp of the gzip header at zero.
+
+    ``gzip.compress`` writes the current time there by default, so the same
+    answer would change from one second to the next under one strong ETag.
+    """
+    if F_GZIP not in get_from_headers(headers, "content-encoding"):
+        return content
+    if isinstance(content, bytes):
+        return gzip.compress(content, mtime=0)
+    if isinstance(content, str):
+        headers["Content-Type"] = f"{headers['Content-Type']}; charset={CHARSET[0]}"
+        return gzip.compress(content.encode(CHARSET[0]), mtime=0)
+    headers.pop("Content-Encoding")
+    return content
+
+
+def build_routes(
+    api: API, specs: frozenset[str] | None = None, http_cache: HttpCache | None = None
+) -> list[Route]:
     """The route table, closed over the ``api`` instance.
 
     Adapted 1:1 from ``pygeoapi/starlette_app.py`` (admin excluded: in
@@ -204,6 +352,8 @@ def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
     with its spec group (ADR-0005): ``specs=None`` returns the COMPLETE
     table — the coverage contract the parity test checks against
     upstream — while the sub-app mounts only the active groups.
+    ``http_cache`` gives the map and tile routes their cache headers;
+    None sends none.
     """
 
     async def landing_page(request: Request) -> Response:
@@ -259,7 +409,7 @@ def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
     async def collection_tiles_metadata(request: Request) -> Response:
         return await execute(
             api,
-            tiles_api.get_collection_tiles_metadata,
+            _collection_tiles_metadata,
             request,
             _path_param(request, "collection_id"),
             _path_param(request, "tileMatrixSetId"),
@@ -291,10 +441,10 @@ def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
             # A native provider: awaited on the loop, no thread involved.
             api_request = await APIRequest.from_starlette(request, api.locales)
             headers, status, content = await async_tiles.get_collection_tiles_data(
-                api, api_request, *args, *probe
+                api, api_request, *args, *probe, http_cache=http_cache
             )
-            if status != HTTPStatus.NO_CONTENT:
-                content = apply_gzip(headers, content)
+            if status not in _BODILESS:
+                content = _gzip_without_timestamp(headers, content)
             return _to_response(headers, status, content)
         return await execute(
             api,
@@ -373,14 +523,37 @@ def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
             skip_valid_check=True,
         )
 
+    # Which collections have a natively async map provider, probed once
+    # per collection like the tile providers above.
+    map_natives: dict[str, tuple | None] = {}
+
     async def collection_map(request: Request) -> Response:
-        return await execute(
-            api,
-            maps_api.get_collection_map,
-            request,
-            _path_param(request, "collection_id"),
-            _path_param(request, "style_id"),
-        )
+        dataset = _path_param(request, "collection_id")
+        style = _path_param(request, "style_id")
+        if dataset in map_natives:
+            probe = map_natives[dataset]
+        else:
+            probe = await asyncio.to_thread(async_maps.native_map_provider, api, dataset)
+            if dataset in api.config["resources"]:
+                map_natives[dataset] = probe
+        if probe is None:
+            return await execute(api, maps_api.get_collection_map, request, dataset, style)
+        api_request = await APIRequest.from_starlette(request, api.locales)
+        if not api_request.is_valid():
+            headers, status, content = api.get_format_exception(api_request)
+        else:
+            drawn = await _unless_disconnected(
+                request,
+                async_maps.get_collection_map(
+                    api, api_request, dataset, style, *probe, http_cache=http_cache
+                ),
+            )
+            if drawn is None:
+                return Response(status_code=CLIENT_CLOSED_REQUEST)
+            headers, status, content = drawn
+        if status not in _BODILESS:
+            content = _gzip_without_timestamp(headers, content)
+        return _to_response(headers, status, content)
 
     async def get_processes(request: Request) -> Response:
         return await execute(
@@ -447,9 +620,10 @@ def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
         )
 
     async def collections(request: Request) -> Response:
+        # fastgeoapi patch: the items described from the provider that serves them.
         return await execute(
             api,
-            core_api.describe_collections,
+            describe_collections,
             request,
             _path_param(request, "collection_id"),
         )
@@ -532,16 +706,21 @@ def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
                 collection_coverage,
             ),
         ),
-        (
-            "maps",
-            Route("/collections/{collection_id:path}/map", collection_map),
-        ),
+        # The styled path comes first: `{collection_id:path}` is greedy, and
+        # after the plain `/map` it would swallow `roads/styles/night` as a
+        # collection id. pygeoapi lists them the other way round
+        # (`starlette_app.py:733-734`, 0.24), so in pygeoapi no styled map
+        # is ever reached.
         (
             "maps",
             Route(
                 "/collections/{collection_id:path}/styles/{style_id:path}/map",
                 collection_map,
             ),
+        ),
+        (
+            "maps",
+            Route("/collections/{collection_id:path}/map", collection_map),
         ),
         ("processes", Route("/processes", get_processes)),
         ("processes", Route("/processes/{process_id}", get_processes)),
@@ -661,13 +840,23 @@ def build_routes(api: API, specs: frozenset[str] | None = None) -> list[Route]:
     return [route for spec, route in table if spec in specs]
 
 
-def build_pygeoapi_subapp(config: dict, openapi: dict) -> Starlette:
+def build_pygeoapi_subapp(
+    config: dict,
+    openapi: dict,
+    *,
+    http_cache: HttpCache | None = None,
+    pages: NativePages | None = None,
+) -> Starlette:
     """Complete Starlette sub-app, same shape as the former APP import.
 
     Mounts only the spec groups the config activates (ADR-0005): the
     reload webhook rebuilds the sub-app, so the mounted set follows
-    every config update.
+    every config update. ``http_cache`` defaults to the policy of
+    fastgeoapi's settings. ``pages`` serves fastgeoapi's own HTML pages
+    and their compiled assets under ``/_html``; None takes the choice of
+    the settings, which keep pygeoapi's pages by default.
     """
+    from app.html.activation import default_pages
     from app.pygeoapi.registry import active_specs
 
     api = build_api(config, openapi)
@@ -677,12 +866,16 @@ def build_pygeoapi_subapp(config: dict, openapi: dict) -> Starlette:
     except KeyError:
         pass
     url_prefix = get_api_rules(config).get_url_prefix("starlette")
-    return Starlette(
-        routes=[
-            Mount("/static", StaticFiles(directory=static_dir)),
-            Mount(
-                url_prefix or "/",
-                routes=build_routes(api, specs=active_specs(config)),
-            ),
-        ],
+    routes = build_routes(
+        api,
+        specs=active_specs(config),
+        http_cache=http_cache if http_cache is not None else default_http_cache(),
     )
+    mounts = [Mount("/static", StaticFiles(directory=static_dir))]
+    if pages is None:
+        pages = default_pages()
+    if pages is not None:
+        routes = pages.wrap(api, routes)
+        if pages.static.is_dir():
+            mounts.append(Mount("/_html", app=ImmutableFiles(directory=pages.static)))
+    return Starlette(routes=[*mounts, Mount(url_prefix or "/", routes=routes)])

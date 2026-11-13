@@ -19,15 +19,30 @@ Configure it by dotted path::
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
+from http import HTTPStatus
 
-from pygeoapi.provider.base import BaseProvider, ProviderQueryError
+from pygeoapi.provider.base import BaseProvider, ProviderConnectionError, ProviderQueryError
 
 from app.config.logging import create_logger
+from app.provider import geoparquet_schema
 from app.provider.base import AsyncProviderMixin
 from app.provider.duckdb_ import connect, scan_expression
+from app.provider.storage import is_remote
 
 logger = create_logger("app.provider.geoparquet")
+
+_STORE_TIMEOUT = re.compile(r"timeout was reached|timed out", re.IGNORECASE)
+"""How DuckDB's readers report a store that did not answer in time."""
+
+
+class StoreTimeoutError(ProviderConnectionError):
+    """The store holding the dataset did not answer in time."""
+
+    default_msg = "the store holding the dataset did not answer in time"
+    http_status_code = HTTPStatus.GATEWAY_TIMEOUT
+
 
 # DuckDB type prefix → (JSON Schema type, format). Prefix matching keeps
 # parameterised types (DECIMAL(18,3), TIMESTAMP WITH TIME ZONE) covered.
@@ -102,6 +117,7 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
             raise ProviderQueryError("id_field is required by the GeoParquet provider")
         self.geometry_column = provider_def.get("geometry_column", "geom")
         self._configured_covering = provider_def.get("bbox_column")
+        self._store_options = provider_def.get("store_options")
         self._scan = scan_expression(
             self.data,
             store_options=provider_def.get("store_options"),
@@ -143,8 +159,35 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         """
         return self._connection.cursor()
 
+    def _rows(self, sql: str, parameters: list | None = None) -> list:
+        """The rows of ``sql``; a store that does not answer in time raises a 504."""
+        # Here, not at the top: DuckDB comes with the geoparquet extra, and the
+        # module is imported without it, as the maps lane does.
+        import duckdb
+
+        try:
+            return self._cursor().execute(sql, parameters or []).fetchall()
+        except (duckdb.IOException, duckdb.HTTPException) as error:
+            if _STORE_TIMEOUT.search(str(error)) is None:
+                raise
+            # The message names the object it was reading; the log keeps it, the client does not.
+            logger.warning(f"GeoParquet read timed out: {error}")
+            raise StoreTimeoutError(user_msg=StoreTimeoutError.default_msg) from error
+
     def _describe(self) -> dict[str, str]:
-        """Column name → DuckDB type, straight from the dataset schema."""
+        """Column name → DuckDB type, read once per version of a remote dataset's objects."""
+        if is_remote(self.data):
+            types = geoparquet_schema.remote_schema(
+                self.data,
+                store_options=self._store_options,
+                cache_dir=geoparquet_schema.schema_cache_dir(),
+            )
+            if types is not None:
+                return types
+        return self._describe_natively()
+
+    def _describe_natively(self) -> dict[str, str]:
+        """Column name → DuckDB type, from DuckDB's own read of the dataset."""
         # `_scan` is derived from the provider definition's `data`, never
         # from request input, and nothing else is interpolated here.
         # ruff: ignore[hardcoded-sql-expression]
@@ -358,7 +401,7 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         # since that number is the whole answer.
         matched = None
         if self.count or resulttype == "hits":
-            matched = self._cursor().execute(count_sql).fetchone()[0]
+            matched = self._rows(count_sql)[0][0]
         if resulttype == "hits":
             return {
                 "type": "FeatureCollection",
@@ -381,7 +424,7 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
             f"{self._order_by(sortby or [])} LIMIT {int(limit)} OFFSET {int(offset)}"
         )
         logger.debug(f"GeoParquet query: {sql}")
-        rows = self._cursor().execute(sql).fetchall()
+        rows = self._rows(sql)
         features = self._rows_to_features(rows, columns, skip_geometry)
         collection = {
             "type": "FeatureCollection",
@@ -412,7 +455,7 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
             f"SELECT {projection}, ST_AsGeoJSON({self._geometry_expression()}) "  # nosec B608
             f'FROM {self._scan} WHERE CAST("{self.id_field}" AS VARCHAR) = ? LIMIT 1'
         )
-        rows = self._cursor().execute(sql, [str(identifier)]).fetchall()
+        rows = self._rows(sql, [str(identifier)])
         if not rows:
             raise ProviderItemNotFoundError(f"no such item: {identifier}")
         return self._rows_to_features(rows, columns, skip_geometry=False)[0]

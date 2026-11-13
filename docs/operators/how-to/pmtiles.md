@@ -51,15 +51,27 @@ resources:
           mimetype: application/vnd.mapbox-vector-tile
 ```
 
-| Key                            | Required | Meaning                                                             |
-| ------------------------------ | -------- | ------------------------------------------------------------------- |
-| `data`                         | yes      | The archive: a local path or an object URL                          |
-| `options.zoom`                 | yes      | `min`/`max` the collection advertises; intersected with the archive |
-| `options.schemes`              | yes      | `[WebMercatorQuad]` — the only tiling scheme PMTiles archives use   |
-| `format`                       | yes      | `name: pbf` (or `mvt`) with the vector-tile media type              |
-| `store_options`                | no       | Store settings: `region`, `skip_signature`, `endpoint`              |
-| `options.inline_inflate_limit` | no       | Bytes above which a tile is decompressed in a worker (256 KiB)      |
-| `options.leaf_cache`           | no       | Leaf directories kept in memory per process (256)                   |
+| Key                            | Required | Meaning                                                                                                                                  |
+| ------------------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `data`                         | yes      | The archive: a local path or an object URL                                                                                               |
+| `options.zoom`                 | yes      | `min`/`max` the collection advertises; intersected with the archive                                                                      |
+| `options.schemes`              | yes      | `[WebMercatorQuad]` — the only tiling scheme PMTiles archives use                                                                        |
+| `format`                       | yes      | `name: pbf` (or `mvt`) with the vector-tile media type; for a raster archive its image type, such as `name: png` with `image/png`        |
+| `store_options`                | no       | Store settings: `region`, `skip_signature`, `endpoint`                                                                                   |
+| `options.inline_inflate_limit` | no       | Bytes above which a tile is decompressed in a worker (256 KiB)                                                                           |
+| `options.leaf_cache`           | no       | Leaf directories kept in memory per process (256)                                                                                        |
+| `options.range_cache`          | no       | `false` keeps a remote archive out of the range cache (true)                                                                             |
+| `options.dem`                  | no       | `terrarium` or `mapbox`: the tiles are elevations in that encoding                                                                       |
+| `options.tile_size`            | no       | The width of raster tiles in pixels, published in the TileJSON (read from the first tile)                                                |
+| `options.style`                | no       | A MapLibre style for the collection's pages, as a local path or an object URL; a map provider's styles in the same collection come first |
+| `options.style_source`         | no       | The name the style gives the collection's tiles in its `sources` (`archive`)                                                             |
+
+A raster archive is served as it is stored, under the media type of its
+`format`; a `format` that does not match the archive's tiles answers 500
+with the format to write. With `options.dem` the tileset is a coverage, and
+its TileJSON carries `tileSize` and `encoding`, so MapLibre GL JS reads it
+as a `raster-dem` source. In the tilesets list, which pygeoapi writes, an
+elevation tileset appears as `map`.
 
 The archive itself carries zoom limits, in the `vector_layers` of its
 metadata. The collection serves the intersection: a request outside it
@@ -106,12 +118,12 @@ the deployment's region, Overture's archive on AWS, in one process.
 
 ## What is served
 
-| Path                                                          | Content                                                    |
-| ------------------------------------------------------------- | ---------------------------------------------------------- |
-| `/collections/{id}/tiles`                                     | The tilesets: one, `WebMercatorQuad`                       |
-| `/collections/{id}/tiles/WebMercatorQuad`                     | Tileset metadata with the tile URL template                |
-| `/collections/{id}/tiles/WebMercatorQuad/metadata?f=tilejson` | TileJSON built from the archive: name, attribution, layers |
-| `/collections/{id}/tiles/WebMercatorQuad/{z}/{y}/{x}?f=pbf`   | The tile, decompressed; `f=mvt` is accepted too            |
+| Path                                                          | Content                                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/collections/{id}/tiles`                                     | The tilesets: one, `WebMercatorQuad`                                                                                                                                                                                                                     |
+| `/collections/{id}/tiles/WebMercatorQuad`                     | Tileset metadata with the tile URL template                                                                                                                                                                                                              |
+| `/collections/{id}/tiles/WebMercatorQuad/metadata?f=tilejson` | TileJSON 3.0.0 built from the archive, which MapLibre GL JS and QGIS read as a source: name, attribution, the `{z}/{y}/{x}` tile URL, zoom range, bounds, center, and the vector layers; for raster tiles the size and, with `options.dem`, the encoding |
+| `/collections/{id}/tiles/WebMercatorQuad/{z}/{y}/{x}?f=pbf`   | The tile: vector tiles decompressed (`f=mvt` is accepted too), raster tiles as stored (`f=png`, `jpg`, `webp` or `avif`)                                                                                                                                 |
 
 Two things about the tile URL are worth reading twice. The path order
 is pygeoapi's, **`{tileMatrix}/{tileRow}/{tileCol}`, that is `z/y/x`**,
@@ -150,16 +162,13 @@ configuration that sends the bearer token; [Using fastgeoapi from
 QGIS](../../consumers/tutorials/using-qgis.md) does it step by step on
 the public demo.
 
-**MapLibre GL**:
+**MapLibre GL**: give the source the TileJSON, and MapLibre takes the
+tile URL, the zoom range and the bounds from it:
 
-```js
+```ts
 map.addSource("roads", {
   type: "vector",
-  tiles: [
-    "https://example.org/geoapi/collections/lazio-roads-tiles/tiles/WebMercatorQuad/{z}/{y}/{x}?f=pbf",
-  ],
-  minzoom: 0,
-  maxzoom: 13,
+  url: "https://example.org/geoapi/collections/lazio-roads-tiles/tiles/WebMercatorQuad/metadata?f=tilejson",
 });
 map.addLayer({
   id: "roads",
@@ -171,7 +180,7 @@ map.addLayer({
 
 `source-layer` is the layer id from the TileJSON's `vector_layers`.
 On a protected deployment set `transformRequest` to add the
-`Authorization` header.
+`Authorization` header, for the TileJSON and the tiles alike.
 
 **The built-in HTML page** (`/collections/{id}/tiles?f=html`) fits its
 map to the collection's `extents.bbox` and asks for tiles at every zoom
@@ -215,8 +224,66 @@ is 1 MB compressed and 4.7 MB decompressed, and a Lazio z6 tile
 straight out of `tippecanoe -zg` is 770 KB — and it is decided when the
 archive is built, not at request time. Tiles above
 `inline_inflate_limit` are decompressed in a worker so a large one does
-not stall the loop; there is no tile cache in the process, so heavy
-public traffic belongs behind a CDN.
+not stall the loop. The range cache below keeps the archive's bytes and
+every tile is decompressed again on each request, so heavy public traffic
+still belongs behind a CDN.
+
+## Range cache
+
+A remote archive (a bucket, or an `http`/`https` URL) is read through a
+cache of byte ranges shared by the processes of the machine. A process
+that starts again, or another worker, finds on disk the header, the
+directories and the tiles an earlier one read, instead of asking the
+bucket again. A local archive skips the cache and is read from disk.
+
+| Setting (with the `DEV_`/`PROD_` prefix)    | Default                    | Meaning                                                                      |
+| ------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------- |
+| `FASTGEOAPI_RANGE_CACHE`                    | `ranges` in the cache root | A directory, or a store URL such as `s3://…`; `off` turns the cache off.     |
+| `FASTGEOAPI_RANGE_CACHE_MAX_MB`             | 512                        | The cap; past it the entries written first are deleted, down to nine tenths. |
+| `FASTGEOAPI_RANGE_CACHE_REVALIDATE_SECONDS` | 300                        | How long the archive's ETag is trusted before a HEAD asks for it again.      |
+
+The cache root is `FASTGEOAPI_CACHE_DIR`, or `.cache` in the working
+directory. The directory is created readable by this user only, since
+it holds bytes of private buckets too. `options.range_cache: false`
+keeps one collection out of the cache. A sweep deletes only the cache's
+own entries; other files in the same location stay and do not count
+toward the cap.
+
+Entries are keyed by the archive's ETag. An archive replaced in place is
+picked up within `FASTGEOAPI_RANGE_CACHE_REVALIDATE_SECONDS`, or at once
+when a read finds it changed; the provider then opens the new archive,
+and later sweeps delete the entries of the old one. An archive served
+without an ETag is always read from its bucket. A failure of the cache
+store, such as a full disk, only logs a warning: tiles keep coming from
+the bucket.
+
+## HTTP caching
+
+A tile carries an `ETag` and a `Cache-Control` header, and so does the
+204 of a tile the archive does not hold. A browser or a cache in front of
+the server keeps the tile for `max-age` seconds, then asks again with
+`If-None-Match`. While the archive and the configuration stay the same,
+the answer is a 304 without a body, and the archive is not read.
+
+| Setting                           | Default | Meaning                                                                         |
+| --------------------------------- | ------- | ------------------------------------------------------------------------------- |
+| `FASTGEOAPI_HTTP_MAX_AGE_SECONDS` | 300     | Seconds a browser or a cache keeps a tile or a map; `0` sends no cache headers. |
+
+The ETag changes with the archive, with the collection's definition and
+with fastgeoapi's code, so after a deploy that changes the code every
+client reads its tiles again once. For an archive in a bucket, the
+version is the ETag the range cache knows: a replaced archive shows up
+within `FASTGEOAPI_RANGE_CACHE_REVALIDATE_SECONDS`, and a client may keep
+the old tiles for `max-age` more, about ten minutes with the defaults. An
+archive read with `range_cache: false` has no known version, and its
+tiles get no cache headers. Errors never get them.
+
+When fastgeoapi authenticates the requests, with OPA, JWKS or an API key,
+the answers are `private`: the user's browser keeps them, a shared cache
+does not, and a permission revoked meanwhile takes effect in that browser
+within `max-age`. When a gateway in front of fastgeoapi authenticates the
+requests, set `FASTGEOAPI_HTTP_MAX_AGE_SECONDS` to 0: fastgeoapi does not
+know about the gateway and would mark the answers `public`.
 
 ## Preparing an archive
 
@@ -260,7 +327,11 @@ read in place, which is the point.
 ## Limitations
 
 - **WebMercatorQuad only**, which is what PMTiles archives contain.
-- **Vector tiles only**: a raster PMTiles archive is refused.
+- **Tile types**: MVT, PNG, JPEG, WebP and AVIF. An archive of MLT or of
+  an unknown type is refused, and an elevation archive needs PNG or WebP.
+- **The HTML tilesets page shows elevation tiles as they are encoded**: to
+  see the relief, use the map route or a MapLibre `raster-dem` source.
 - **Read-only**, one archive per collection.
 - Directories must be gzip-compressed (every writer's default).
-- No tile cache in the process: put a CDN in front for public traffic.
+- The range cache keeps the archive's bytes and every tile is decompressed
+  again: put a CDN in front for public traffic.

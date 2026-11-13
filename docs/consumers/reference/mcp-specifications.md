@@ -20,16 +20,18 @@ upstream, end-to-end verification in progress · 🗺️ on the roadmap ·
 
 ### As MCP Server (protected resource)
 
-| Specification                                                                                              | Status | Notes                                                                                                                                                                                                                 |
-| ---------------------------------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| MCP Streamable HTTP transport (stateless)                                                                  | ✅     | Every request is self-contained: restarts, redeploys and autosuspend are transparent to clients                                                                                                                       |
-| MCP protocol versions up to `2025-11-25`                                                                   | ✅     | Negotiated with the `initialize` handshake                                                                                                                                                                            |
-| Sessionless protocol `2026-07-28` (MCP SDK v2)                                                             | ✅     | Negotiated per connection — see [Protocol versions](#protocol-versions)                                                                                                                                               |
-| Server card discovery ([SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2127)) | 🧪     | `/.well-known/mcp-server-card`, published only with MCP enabled; also a valid MCP Registry `server.json` (which adds `packages`) — SEP in review                                                                      |
-| OAuth 2.0 Protected Resource Metadata (RFC 9728)                                                           | ✅     | `/.well-known/oauth-protected-resource/mcp/`, advertised in the `WWW-Authenticate` challenge                                                                                                                          |
-| Bearer token usage and error semantics (RFC 6750)                                                          | ✅     | Distinguishes missing vs invalid token in challenges                                                                                                                                                                  |
-| `scope` parameter in `WWW-Authenticate`                                                                    | ✅     | The challenge carries the configured scopes (`scope="openid"` on the demo), in the anonymous challenge and in the `invalid_token` one alike; verified on the production deployment on 2026-09-11 and pinned by a test |
-| OAuth token based access with own Resource AS                                                              | ✅     | The embedded OAuth proxy issues the tokens this server accepts                                                                                                                                                        |
+| Specification                                                                                              | Status | Notes                                                                                                                                                                                                                                          |
+| ---------------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MCP Streamable HTTP transport (stateless)                                                                  | ✅     | Every request is self-contained: restarts, redeploys and autosuspend are transparent to clients                                                                                                                                                |
+| MCP protocol versions up to `2025-11-25`                                                                   | ✅     | Negotiated with the `initialize` handshake                                                                                                                                                                                                     |
+| Sessionless protocol `2026-07-28` (MCP SDK v2)                                                             | ✅     | Negotiated per connection — see [Protocol versions](#protocol-versions)                                                                                                                                                                        |
+| Tool annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)                    | ✅     | Reads and CQL2 queries are read only; `PUT` and `DELETE` are destructive and idempotent; running a process is only marked as not read only, since the document does not say what a process does. Tool titles come from the operation summaries |
+| MCP Apps extension (`io.modelcontextprotocol/ui`)                                                          | ❌     | FastMCP declares the extension to clients that negotiate `2026-07-28` ([fastmcp#4919](https://github.com/PrefectHQ/fastmcp/issues/4919)), but this server registers no app and no `ui://` resource to render                                   |
+| Server card discovery ([SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2127)) | 🧪     | `/.well-known/mcp-server-card`, published only with MCP enabled; also a valid MCP Registry `server.json` (which adds `packages`) — SEP in review                                                                                               |
+| OAuth 2.0 Protected Resource Metadata (RFC 9728)                                                           | ✅     | `/.well-known/oauth-protected-resource/mcp/`, advertised in the `WWW-Authenticate` challenge                                                                                                                                                   |
+| Bearer token usage and error semantics (RFC 6750)                                                          | ✅     | Distinguishes missing vs invalid token in challenges                                                                                                                                                                                           |
+| `scope` parameter in `WWW-Authenticate`                                                                    | ✅     | The challenge carries the configured scopes (`scope="openid"` on the demo), in the anonymous challenge and in the `invalid_token` one alike; verified on the production deployment on 2026-09-11 and pinned by a test                          |
+| OAuth token based access with own Resource AS                                                              | ✅     | The embedded OAuth proxy issues the tokens this server accepts                                                                                                                                                                                 |
 
 ### As OAuth Authorization Server (embedded OIDC proxy)
 
@@ -56,7 +58,7 @@ field.
 | Client ID as URL, metadata document fetch            | ✅           | SSRF-hardened fetcher (loopback and private ranges rejected, including IPv6 transition addresses)                                                                   |
 | `redirect_uris` from the metadata document           | ✅           | Enforced: a redirect the document does not list is refused                                                                                                          |
 | Authorization code + PKCE, `none` client auth        | ✅           | Public URL-identified client completes the flow with no prior registration                                                                                          |
-| Authorization code + PKCE, `private_key_jwt`         | ✅           | Assertion verified against the inline `jwks` published in the document                                                                                              |
+| Authorization code + PKCE, `private_key_jwt`         | ✅           | Assertion signed in `RS256`, as `token_endpoint_auth_signing_alg_values_supported` says, and verified against the inline `jwks` published in the document           |
 | `jwks_uri` (remote key set) in the document          | ✅           | Keys fetched from the URL the document publishes, SSRF-guarded on that hop too                                                                                      |
 | Documents that omit `scope`                          | ✅           | Real documents often do (Claude's declares none): the client then inherits the authorization server's default scopes, so those must cover what such clients request |
 | Shared-secret client authentication for CIMD clients | ❌ by design | A URL-identified client cannot hold a usable secret: such documents are refused and yield no token                                                                  |
@@ -94,9 +96,15 @@ handshake, down to `2024-11-05`. The mode is negotiated per connection,
 so clients on either side of the change work without configuration.
 
 The version you actually get is the one your client asks for. Observed
-in production: Claude's connector negotiates `2025-11-25`, and the
-server answers on that version — not a downgrade, just the handshake
-doing its job.
+in production on 23 September 2026: Claude's connector
+(`Anthropic/Toolbox 1.0.0`) negotiates `2026-07-28`, and the server
+answers on that version.
+
+On either protocol the server reports the fastgeoapi version and the
+address of the API in `serverInfo`, the same two values the server card
+publishes. It also sends instructions, which the client passes to the
+model: how the tool names are formed, where to start, and which tools
+exist only for some collections.
 
 Before FastMCP 4 a client that defaulted to `2026-07-28` with no
 fallback was answered with `Bad Request: Unsupported protocol version`

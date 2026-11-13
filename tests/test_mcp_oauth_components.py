@@ -1094,6 +1094,320 @@ class TestOAuthEndpointURLConsistency:
                             "token_endpoint"
                         ), "token_endpoint should be consistent"
 
+    def _server_client(self, mock_oidc_config):
+        """A client of the MCP app and its well-known routes, as ``create_mcp_server`` mounts them."""
+        from unittest.mock import MagicMock, patch
+
+        from fastmcp import FastMCP
+        from starlette.applications import Starlette
+        from starlette.routing import Mount
+        from starlette.testclient import TestClient
+
+        from app.auth.mcp_auth_provider import configure_mcp_auth
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = mock_oidc_config
+        mock_response.raise_for_status = MagicMock()
+        with patch("httpx2.get", return_value=mock_response):
+            with patch("requests.get", return_value=mock_response):
+                auth, mcp_auth_routes = configure_mcp_auth(
+                    oidc_well_known_endpoint="https://example.logto.app/oidc/.well-known/openid-configuration",
+                    client_id="test-client",
+                    client_secret="test-secret",
+                    mcp_base_url="http://localhost:5000/mcp/",
+                    scopes=["openid", "profile", "email"],
+                )
+                mcp_app = FastMCP("Test MCP", auth=auth).http_app(path="/")
+        app = Starlette(routes=[Mount("/mcp", app=mcp_app), *mcp_auth_routes])
+        return TestClient(app, raise_server_exceptions=False)
+
+    def test_authorization_server_metadata_names_the_assertion_signing_algorithms(
+        self, mock_oidc_config
+    ):
+        """RFC 8414 §2 wants the signing algorithms wherever private_key_jwt is offered.
+
+        A client whose JWKS holds keys of several types picks its signing
+        key from this list; without it, it can only guess.
+        """
+        from app.auth.mcp_auth_provider import CLIENT_ASSERTION_SIGNING_ALGS
+
+        response = self._server_client(mock_oidc_config).get(
+            "/.well-known/oauth-authorization-server/mcp"
+        )
+
+        assert response.status_code == 200, response.text[:200]
+        metadata = response.json()
+        assert "private_key_jwt" in metadata["token_endpoint_auth_methods_supported"]
+        assert metadata["token_endpoint_auth_signing_alg_values_supported"] == (
+            CLIENT_ASSERTION_SIGNING_ALGS
+        )
+
+    def test_the_authorization_server_metadata_still_answers_a_preflight(self, mock_oidc_config):
+        response = self._server_client(mock_oidc_config).options(
+            "/.well-known/oauth-authorization-server/mcp",
+            headers={
+                "Origin": "https://client.example",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+
+        assert response.status_code == 200, response.text[:200]
+        assert response.headers["access-control-allow-origin"] == "*"
+
+    def _fastmcp_records(self, mock_oidc_config, emit):
+        """What fastmcp's handlers receive while ``emit`` logs, with the fastmcp logger at INFO."""
+        import logging
+
+        records: list[logging.LogRecord] = []
+
+        class Collect(logging.Handler):
+            def emit(self, record):
+                records.append(record)
+
+        fastmcp_logger = logging.getLogger("fastmcp")
+        collect = Collect()
+        level = fastmcp_logger.level
+        fastmcp_logger.addHandler(collect)
+        fastmcp_logger.setLevel(logging.INFO)
+        try:
+            self._server_client(mock_oidc_config)
+            emit()
+        finally:
+            fastmcp_logger.removeHandler(collect)
+            fastmcp_logger.setLevel(level)
+        return [record.getMessage() for record in records]
+
+    def test_the_subject_of_an_id_jag_stays_out_of_the_logs(self, mock_oidc_config):
+        """A successful exchange names the user at DEBUG: only refusals are let through."""
+        import logging
+
+        messages = self._fastmcp_records(
+            mock_oidc_config,
+            lambda: logging.getLogger("fastmcp.server.auth.identity_assertion").debug(
+                "ID-JAG validated for subject=%s issuer=%s", "alice@example.com", "https://idp"
+            ),
+        )
+
+        assert not [message for message in messages if "alice@example.com" in message]
+
+    def test_a_refusal_from_fastmcp_comes_out_on_one_line(self, mock_oidc_config):
+        """The reason may carry what the client sent, such as a kid with a line break."""
+        import logging
+
+        messages = self._fastmcp_records(
+            mock_oidc_config,
+            lambda: logging.getLogger("fastmcp.server.auth.providers.jwt").debug(
+                "JWKS key lookup failed: key ID '%s' not found", "kid\nERROR forged"
+            ),
+        )
+
+        (refusal,) = [message for message in messages if "JWKS key lookup failed" in message]
+        assert "\n" not in refusal
+        assert "kid\\nERROR forged" in refusal
+
+    def test_why_fastmcp_refuses_an_assertion_reaches_its_handlers(self, mock_oidc_config):
+        """fastmcp says why it refuses a client assertion at DEBUG, under a logger at INFO."""
+        import asyncio
+        import logging
+
+        from fastmcp.server.auth.providers.jwt import JWTVerifier
+
+        records: list[logging.LogRecord] = []
+
+        class Collect(logging.Handler):
+            def emit(self, record):
+                records.append(record)
+
+        fastmcp_logger = logging.getLogger("fastmcp")
+        collect = Collect()
+        level = fastmcp_logger.level
+        fastmcp_logger.addHandler(collect)
+        fastmcp_logger.setLevel(logging.INFO)
+        try:
+            self._server_client(mock_oidc_config)
+            verifier = JWTVerifier(jwks_uri="https://client.example/jwks.json")
+            refused = asyncio.run(verifier.load_access_token("not-a-jwt"))
+        finally:
+            fastmcp_logger.removeHandler(collect)
+            fastmcp_logger.setLevel(level)
+
+        assert refused is None
+        assert any("Token validation failed" in record.getMessage() for record in records), [
+            record.getMessage() for record in records
+        ]
+
+    def test_a_refused_token_request_is_logged_with_its_assertion_but_not_its_secrets(
+        self, mock_oidc_config
+    ):
+        """A partner's 401 can be read from our log: the request, the answer, the assertion.
+
+        The assertion's header and claims say which key signed it and for
+        whom; the assertion itself, the code and its verifier stay out.
+        """
+        import base64
+        import json
+
+        from loguru import logger
+
+        def part(value: dict) -> str:
+            return base64.urlsafe_b64encode(json.dumps(value).encode()).decode().rstrip("=")
+
+        assertion = ".".join(
+            [
+                part({"alg": "ES256", "kid": "07672baa71db4fb683054084ba18129d", "typ": "JWT"}),
+                part(
+                    {
+                        "iss": "https://client.example/cimd.json",
+                        "sub": "https://client.example/cimd.json",
+                        "aud": "http://localhost:5000/mcp/token",
+                        "iat": 1759708100,
+                        "exp": 1759708160,
+                        "jti": "one-time",
+                    }
+                ),
+                "c2lnbmF0dXJl",
+            ]
+        )
+        messages: list[str] = []
+        sink = logger.add(lambda message: messages.append(str(message)), level="WARNING")
+        try:
+            response = self._server_client(mock_oidc_config).post(
+                "/mcp/token",
+                data={
+                    "grant_type": "authorization_code",
+                    "code": "the-code",
+                    "code_verifier": "the-verifier",
+                    "redirect_uri": "https://client.example/callback",
+                    "client_id": "unregistered-client",
+                    "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                    "client_assertion": assertion,
+                },
+            )
+        finally:
+            logger.remove(sink)
+
+        assert response.status_code in (400, 401), response.text[:200]
+        (line,) = [message for message in messages if "token request refused" in message]
+        for expected in (
+            f"status={response.status_code}",
+            "grant_type=authorization_code",
+            "client_id=unregistered-client",
+            f"error={response.json()['error']}",
+            "alg=ES256",
+            "kid=07672baa71db4fb683054084ba18129d",
+            "aud=http://localhost:5000/mcp/token",
+            "jti=present",
+        ):
+            assert expected in line, line
+        for secret in (assertion, "c2lnbmF0dXJl", "the-code", "the-verifier"):
+            assert secret not in line, line
+
+    def test_a_refused_token_request_cannot_forge_log_lines(self, mock_oidc_config):
+        """Whatever the request carries, it leaves one line, its values escaped and bounded."""
+        import base64
+        import json
+
+        from loguru import logger
+
+        def part(value: dict) -> str:
+            return base64.urlsafe_b64encode(json.dumps(value).encode()).decode().rstrip("=")
+
+        assertion = ".".join(
+            [
+                part({"alg": "ES256", "kid": "k" * 500}),
+                part({"iss": "https://client.example\r\nERROR | forged by the claims"}),
+                "c2lnbmF0dXJl",
+            ]
+        )
+        messages: list[str] = []
+        sink = logger.add(lambda message: messages.append(str(message)), level="WARNING")
+        try:
+            self._server_client(mock_oidc_config).post(
+                "/mcp/token",
+                data={
+                    "grant_type": "authorization_code",
+                    "client_id": "unregistered\nWARNING | forged by the client id",
+                    "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                    "client_assertion": assertion,
+                },
+            )
+        finally:
+            logger.remove(sink)
+
+        (line,) = [message for message in messages if "token request refused" in message]
+        assert line.rstrip("\n").count("\n") == 0, line
+        assert "\r" not in line, line
+        assert "client_id=unregistered\\nWARNING | forged by the client id" in line, line
+        assert "iss=https://client.example\\r\\nERROR | forged by the claims" in line, line
+        assert f"kid={'k' * 200}…" in line, line
+
+    @pytest.mark.parametrize(
+        "assertion",
+        ["no-dots-at-all", "!!!.@@@.c2ln", None],
+        ids=["no dots", "not base64", "nested past the recursion limit"],
+    )
+    def test_an_odd_assertion_is_answered_in_full_and_logged_once(
+        self, mock_oidc_config, assertion
+    ):
+        """Whatever the assertion, the client gets its whole answer and the log one line."""
+        import base64
+
+        from loguru import logger
+
+        if assertion is None:
+            nested = ("[" * 100_000 + "]" * 100_000).encode()
+            part = base64.urlsafe_b64encode(nested).decode().rstrip("=")
+            assertion = f"{part}.e30.c2ln"
+        messages: list[str] = []
+        sink = logger.add(lambda message: messages.append(str(message)), level="WARNING")
+        try:
+            response = self._server_client(mock_oidc_config).post(
+                "/mcp/token",
+                data={
+                    "grant_type": "authorization_code",
+                    "client_id": "unregistered-client",
+                    "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                    "client_assertion": assertion,
+                },
+            )
+        finally:
+            logger.remove(sink)
+
+        assert response.status_code in (400, 401), response.text[:200]
+        assert response.json()["error"]
+        (line,) = [message for message in messages if "token request refused" in message]
+        assert "assertion=unreadable" in line, line
+
+    def test_a_form_that_is_not_utf8_is_answered_in_full_and_logged_once(self, mock_oidc_config):
+        """A form that is not UTF-8 still gets its whole answer, and the log its line."""
+        from loguru import logger
+
+        messages: list[str] = []
+        sink = logger.add(lambda message: messages.append(str(message)), level="WARNING")
+        try:
+            response = self._server_client(mock_oidc_config).post(
+                "/mcp/token",
+                content=b"grant_type=authorization_code&client_id=caf\xe9&code=%FF\xff",
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+        finally:
+            logger.remove(sink)
+
+        assert 400 <= response.status_code < 500, response.text[:200]
+        assert response.json()["error"]
+        (line,) = [message for message in messages if "token request refused" in message]
+        assert "client_id=caf\ufffd" in line, line
+
+    def test_the_advertised_algorithms_are_the_ones_client_assertions_are_verified_with(self):
+        """fastmcp checks a private_key_jwt assertion with its JWT verifier's default algorithm."""
+        from fastmcp.server.auth.providers.jwt import JWTVerifier
+
+        from app.auth.mcp_auth_provider import CLIENT_ASSERTION_SIGNING_ALGS
+
+        verifier = JWTVerifier(jwks_uri="https://client.example/jwks.json")
+
+        assert [verifier.algorithm] == CLIENT_ASSERTION_SIGNING_ALGS
+
     @pytest.mark.asyncio
     async def test_mcp_remote_oauth_flow_uses_consistent_auth_server(self, mock_oidc_config):
         """Simulate the mcp-remote OAuth flow to verify it uses consistent auth servers.

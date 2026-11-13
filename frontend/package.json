@@ -1,10 +1,14 @@
 {
   "name": "fastgeoapi-editor",
   "private": true,
+  "scarfSettings": {
+    "enabled": false
+  },
   "type": "module",
   "version": "0.0.0",
   "scripts": {
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && vite build --config vite.pages.config.ts",
+    "build:pages": "vite build --config vite.pages.config.ts",
     "dev": "vite",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
@@ -24,9 +28,12 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "codemirror": "^6.0.2",
+    "maplibre-gl": "^6.12.0",
     "node-diff3": "^3.2.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "redoc": "^2.5.4",
+    "swagger-ui-dist": "^5.33.1",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.3",
     "yaml": "^2.7.0"

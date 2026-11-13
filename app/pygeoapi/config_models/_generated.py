@@ -13,7 +13,7 @@ from pydantic import (
     ConfigDict,
     Field,
     RootModel,
-    constr,
+    StringConstraints,
 )
 
 
@@ -331,7 +331,12 @@ class LinkedData(BaseModel):
         extra='allow',
     )
     context: Annotated[
-        list[dict[constr(pattern=r'^.*$'), str | dict[str, Any]]] | None,
+        list[
+            dict[
+                Annotated[str, StringConstraints(pattern=r'^.*$')], str | dict[str, Any]
+            ]
+        ]
+        | None,
         Field(description='additional JSON-LD context'),
     ] = None
 
@@ -502,12 +507,24 @@ class I18nString1(RootModel[str]):
 class I18nString(
     RootModel[
         str
-        | dict[constr(pattern=r'^[a-zA-Z]{2,3}([-_][a-zA-Z0-9]{2,3})?$'), I18nString1]
+        | dict[
+            Annotated[
+                str,
+                StringConstraints(pattern=r'^[a-zA-Z]{2,3}([-_][a-zA-Z0-9]{2,3})?$'),
+            ],
+            I18nString1,
+        ]
     ]
 ):
     root: (
         str
-        | dict[constr(pattern=r'^[a-zA-Z]{2,3}([-_][a-zA-Z0-9]{2,3})?$'), I18nString1]
+        | dict[
+            Annotated[
+                str,
+                StringConstraints(pattern=r'^[a-zA-Z]{2,3}([-_][a-zA-Z0-9]{2,3})?$'),
+            ],
+            I18nString1,
+        ]
     )
 
 
@@ -518,12 +535,24 @@ class I18nArray1(RootModel[list[str]]):
 class I18nArray(
     RootModel[
         list[str]
-        | dict[constr(pattern=r'^[a-zA-Z]{2,3}([-_][a-zA-Z0-9]{2,3})?$'), I18nArray1]
+        | dict[
+            Annotated[
+                str,
+                StringConstraints(pattern=r'^[a-zA-Z]{2,3}([-_][a-zA-Z0-9]{2,3})?$'),
+            ],
+            I18nArray1,
+        ]
     ]
 ):
     root: (
         list[str]
-        | dict[constr(pattern=r'^[a-zA-Z]{2,3}([-_][a-zA-Z0-9]{2,3})?$'), I18nArray1]
+        | dict[
+            Annotated[
+                str,
+                StringConstraints(pattern=r'^[a-zA-Z]{2,3}([-_][a-zA-Z0-9]{2,3})?$'),
+            ],
+            I18nArray1,
+        ]
     )
 
 
@@ -776,6 +805,8 @@ class PygeoapiConfigurationSchema(BaseModel):
     logging: Annotated[Logging, Field(description='logging definitions')]
     metadata: Annotated[Metadata, Field(description='server metadata')]
     resources: Annotated[
-        dict[constr(pattern=r'^.*$'), Resources | Resources1],
+        dict[
+            Annotated[str, StringConstraints(pattern=r'^.*$')], Resources | Resources1
+        ],
         Field(description='collections or processes published by the server'),
     ]

@@ -1,0 +1,986 @@
+"""The map provider: styles, limits and errors, with a renderer that draws nothing."""
+
+import asyncio
+import sys
+from http import HTTPStatus
+from unittest import mock
+
+import pytest
+
+from tests.maps_fixtures import FakeRenderer, map_provider
+from tests.pmtiles_fixtures import TILE_BYTES, raster_archive, write_archive
+
+ROME = (1379000.0, 5140000.0, 1403000.0, 5160000.0)  # EPSG:3857 metres
+WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
+
+
+@pytest.fixture
+def archive(tmp_path):
+    return write_archive(
+        tmp_path / "roads.pmtiles",
+        {(0, 0, 0): TILE_BYTES(0, 0, 0)},
+        metadata={"name": "roads", "vector_layers": [{"id": "roads"}]},
+    )
+
+
+@pytest.fixture(autouse=True)
+def _fresh_fakes():
+    FakeRenderer.instances.clear()
+    FakeRenderer.gate = None
+    yield
+    FakeRenderer.instances.clear()
+
+
+def _provider(archive, **options):
+    from app.provider.maplibre import MapLibreMapProvider
+
+    return MapLibreMapProvider(map_provider(archive, **options))
+
+
+async def _map(provider, **kwargs):
+    args = {"bbox": list(ROME), "width": 64, "height": 64, "crs": WEB_MERCATOR}
+    return await provider.aquery(**{**args, **kwargs})
+
+
+async def _until(condition, timeout=2.0):
+    """Wait for a state of the provider instead of guessing how long it takes."""
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+    while not condition():
+        assert loop.time() < deadline, "the provider never reached the expected state"
+        await asyncio.sleep(0.005)
+
+
+@pytest.mark.asyncio
+async def test_a_map_is_drawn_from_the_archive(archive):
+    png = await _map(_provider(archive))
+
+    (request,) = FakeRenderer.instances[0].requests
+    assert png.startswith(b"\x89PNG")
+    assert request.bbox == ROME
+    assert (request.width, request.height) == (64, 64)
+    assert request.style["sources"]["archive"]["url"] == f"pmtiles://file://{archive.resolve()}"
+
+
+@pytest.mark.asyncio
+async def test_the_constructor_reads_nothing(tmp_path):
+    """pygeoapi builds the provider while writing the OpenAPI document."""
+    _provider(tmp_path / "not-there.pmtiles")
+
+
+@pytest.mark.asyncio
+async def test_web_mercator_is_recognised_whatever_the_case(archive):
+    """pygeoapi's get_uri lowercases a CRS URI before it reaches the provider."""
+    png = await _map(_provider(archive), crs=WEB_MERCATOR.lower())
+
+    assert png.startswith(b"\x89PNG")
+
+
+@pytest.mark.asyncio
+async def test_an_https_archive_is_read_as_it_is(tmp_path):
+    from app.provider.maplibre import MapLibreMapProvider
+
+    style = tmp_path / "plain.json"
+    # The style declares its source, so the archive is never read.
+    style.write_text('{"version": 8, "sources": {"archive": {"type": "vector"}}, "layers": []}')
+    definition = map_provider(
+        tmp_path / "unused.pmtiles", styles={"plain": str(style)}, default_style="plain"
+    )
+    definition["data"] = "https://example.org/tiles/roads.pmtiles"
+
+    await _map(MapLibreMapProvider(definition))
+
+    (request,) = FakeRenderer.instances[0].requests
+    assert request.style["sources"]["archive"]["url"] == (
+        "pmtiles://https://example.org/tiles/roads.pmtiles"
+    )
+
+
+def test_a_public_bucket_needs_the_data_url(tmp_path):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    from app.provider.maplibre import MapLibreMapProvider
+
+    definition = map_provider(tmp_path / "unused.pmtiles")
+    definition["data"] = "s3://overturemaps-extras-us-west-2/tiles/places.pmtiles"
+    definition["store_options"] = {"skip_signature": True}
+
+    with pytest.raises(ProviderGenericError) as error:
+        MapLibreMapProvider(definition)
+    assert "data_url" in error.value.message
+
+
+@pytest.mark.asyncio
+async def test_the_data_url_is_what_the_renderer_reads(tmp_path):
+    from app.provider.maplibre import MapLibreMapProvider
+
+    style = tmp_path / "plain.json"
+    # The style declares its source, so the archive is never read.
+    style.write_text('{"version": 8, "sources": {"archive": {"type": "vector"}}, "layers": []}')
+    public = "https://overturemaps.example/tiles/places.pmtiles"
+    definition = map_provider(
+        tmp_path / "unused.pmtiles",
+        styles={"plain": str(style)},
+        default_style="plain",
+        data_url=public,
+    )
+    definition["data"] = "s3://overturemaps-extras-us-west-2/tiles/places.pmtiles"
+    definition["store_options"] = {"skip_signature": True}
+
+    await _map(MapLibreMapProvider(definition))
+
+    (request,) = FakeRenderer.instances[0].requests
+    assert request.style["sources"]["archive"]["url"] == f"pmtiles://{public}"
+
+
+@pytest.mark.asyncio
+async def test_style_source_names_the_collection_source_in_the_styles(archive):
+    await _map(_provider(archive, style_source="roads"))
+
+    (request,) = FakeRenderer.instances[0].requests
+    assert request.style["sources"]["roads"]["url"] == f"pmtiles://file://{archive.resolve()}"
+    assert "archive" not in request.style["sources"]
+
+
+@pytest.mark.asyncio
+async def test_a_signing_failure_is_a_provider_error(tmp_path):
+    from unittest.mock import patch
+
+    from pygeoapi.provider.base import ProviderGenericError
+
+    from app.provider.maplibre import MapLibreMapProvider
+
+    style = tmp_path / "plain.json"
+    # The style declares its source, so the archive is never read.
+    style.write_text('{"version": 8, "sources": {"archive": {"type": "vector"}}, "layers": []}')
+    definition = map_provider(
+        tmp_path / "unused.pmtiles", styles={"plain": str(style)}, default_style="plain"
+    )
+    definition["data"] = "s3://bucket/tiles/roads.pmtiles"
+    provider = MapLibreMapProvider(definition)
+
+    with patch.object(provider, "signed_url", side_effect=ValueError("cannot sign SECRET")):
+        with pytest.raises(ProviderGenericError) as error:
+            await _map(provider)
+    assert "SECRET" not in error.value.message
+
+
+def test_a_source_the_provider_cannot_read_is_refused(tmp_path):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    from app.provider.maplibre import MapLibreMapProvider
+
+    definition = map_provider(tmp_path / "roads.parquet")
+
+    with pytest.raises(ProviderGenericError) as error:
+        MapLibreMapProvider(definition)
+    assert "map source not supported" in error.value.message
+
+
+@pytest.mark.asyncio
+async def test_a_registered_source_is_drawn_without_touching_the_provider(tmp_path):
+    """A new map source is a class and its registration; the provider stays as it is."""
+    from app.maps import sources, styles
+
+    class GeoJSONSource:
+        format = "geojson"
+
+        def __init__(self, context):
+            self._location = context.location()
+
+        def url(self):
+            return self._location.current()
+
+        def content(self):
+            from app.maps.contract import SourceContent
+
+            return SourceContent("vector")
+
+    data = tmp_path / "roads.geojson"
+    data.write_text('{"type": "FeatureCollection", "features": []}')
+    plain = tmp_path / "plain.json"
+    plain.write_text(
+        '{"version": 8, "sources": {}, "layers": [{"id": "r", "type": "line", "source": "archive"}]}'
+    )
+    translate = {"geojson": lambda url, content: {"type": "geojson", "data": url}}
+    with mock.patch.dict(sources._REGISTRY), mock.patch.dict(styles._SOURCES, translate):
+        sources.register_source(
+            "geojson", matches=lambda data: data.endswith(".geojson"), build=GeoJSONSource
+        )
+        await _map(_provider(data, styles={"plain": str(plain)}, default_style="plain"))
+
+    (request,) = FakeRenderer.instances[0].requests
+    assert request.style["sources"]["archive"] == {
+        "type": "geojson",
+        "data": f"file://{data.resolve()}",
+    }
+
+
+@pytest.mark.asyncio
+async def test_without_the_pmtiles_extra_a_map_says_what_to_install(archive, monkeypatch):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    monkeypatch.setitem(sys.modules, "pmtiles", None)
+    monkeypatch.setitem(sys.modules, "pmtiles.reader", None)
+
+    with pytest.raises(ProviderGenericError) as error:
+        await _map(_provider(archive))
+    assert "pmtiles extra" in error.value.message
+
+
+@pytest.mark.asyncio
+async def test_an_avif_archive_is_refused_without_a_render(tmp_path):
+    """MapLibre Native has no AVIF decoder: every render would fail and replace the renderer."""
+    from pygeoapi.provider.base import ProviderGenericError
+
+    from tests.pmtiles_fixtures import raster_archive
+
+    archive = raster_archive(tmp_path / "hills.pmtiles", kind="AVIF")
+
+    with pytest.raises(ProviderGenericError) as error:
+        await _map(_provider(archive))
+    assert "AVIF" in error.value.message
+    assert FakeRenderer.instances == []
+
+
+@pytest.mark.asyncio
+async def test_a_broken_style_file_is_not_called_an_undrawable_source(archive, tmp_path):
+    broken = tmp_path / "broken.json"
+    broken.write_text("{not json")
+
+    with pytest.raises(Exception) as error:
+        await _map(_provider(archive, styles={"broken": str(broken)}), style="broken")
+    assert "not drawable" not in str(error.value)
+
+
+@pytest.mark.asyncio
+async def test_the_style_factory_option_gives_the_styles_of_another_family(archive):
+    await _map(_provider(archive, style_factory="tests.maps_fixtures.create_plain_styles"))
+
+    (request,) = FakeRenderer.instances[0].requests
+    assert request.style == {
+        "url": f"file://{archive.resolve()}",
+        "name": None,
+        "transparent": True,
+    }
+
+
+@pytest.mark.asyncio
+async def test_a_style_factory_that_cannot_be_loaded_says_so(archive):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    with pytest.raises(ProviderGenericError) as error:
+        await _map(_provider(archive, style_factory="tests.nowhere.create_styles"))
+    assert "tests.nowhere.create_styles" in error.value.message
+    assert FakeRenderer.instances == []
+
+
+def test_the_default_styles_are_maplibre_styles():
+    from app.provider.maplibre import DEFAULTS
+
+    assert DEFAULTS["style_factory"] == "app.maps.styles.create_maplibre_styles"
+
+
+@pytest.mark.asyncio
+async def test_a_broken_style_leaves_the_other_styles_drawing(archive, tmp_path):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    good = tmp_path / "good.json"
+    good.write_text('{"version": 8, "sources": {}, "layers": [{"id": "g", "type": "background"}]}')
+    broken = tmp_path / "broken.json"
+    broken.write_text("{not json")
+    provider = _provider(
+        archive, styles={"good": str(good), "broken": str(broken)}, default_style="good"
+    )
+
+    assert (await _map(provider)).startswith(b"\x89PNG")
+    with pytest.raises(ProviderGenericError) as error:
+        await _map(provider, style="broken")
+    assert "style broken could not be read" in error.value.message
+    assert (await _map(provider, style="good")).startswith(b"\x89PNG")
+
+
+def test_a_default_style_that_is_not_configured_is_refused(archive, tmp_path):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    good = tmp_path / "good.json"
+    good.write_text('{"version": 8, "sources": {}, "layers": []}')
+
+    with pytest.raises(ProviderGenericError) as error:
+        _provider(archive, styles={"good": str(good)}, default_style="nope")
+    assert "default_style nope" in error.value.message
+
+
+@pytest.mark.asyncio
+async def test_another_crs_is_a_bad_parameter(archive):
+    from app.provider.maps import MapParameterError
+
+    with pytest.raises(MapParameterError) as error:
+        await _map(_provider(archive), crs="http://www.opengis.net/def/crs/OGC/1.3/CRS84")
+    assert error.value.http_status_code == HTTPStatus.BAD_REQUEST
+
+
+@pytest.mark.asyncio
+async def test_a_map_larger_than_max_size_answers_413(archive):
+    from app.provider.maps import MapTooLargeError
+
+    with pytest.raises(MapTooLargeError) as error:
+        await _map(_provider(archive, max_size=1024), width=2000, height=64)
+    assert error.value.http_status_code == HTTPStatus.REQUEST_ENTITY_TOO_LARGE
+
+
+@pytest.mark.asyncio
+async def test_a_size_below_one_is_a_bad_parameter(archive):
+    from app.provider.maps import MapParameterError, MapTooLargeError
+
+    with pytest.raises(MapParameterError) as error:
+        await _map(_provider(archive), width=64, height=0)
+    assert not isinstance(error.value, MapTooLargeError)
+    assert error.value.http_status_code == HTTPStatus.BAD_REQUEST
+
+
+@pytest.mark.asyncio
+async def test_the_default_limit_fits_a_wide_browser_map(archive):
+    """The collection page of pygeoapi asks for an image as wide as its map."""
+    from app.provider.maps import MapTooLargeError
+
+    png = await _map(_provider(archive), width=2048, height=400)
+
+    assert png.startswith(b"\x89PNG")
+    with pytest.raises(MapTooLargeError):
+        await _map(_provider(archive), width=2049, height=400)
+
+
+@pytest.mark.asyncio
+async def test_another_format_is_a_bad_parameter(archive):
+    from app.provider.maps import MapParameterError
+
+    with pytest.raises(MapParameterError):
+        await _map(_provider(archive), format_="jpeg")
+
+
+@pytest.mark.asyncio
+async def test_an_inverted_bbox_is_a_bad_parameter(archive):
+    from app.provider.maps import MapParameterError
+
+    # Only in latitude: a west edge east of the east edge crosses the antimeridian.
+    with pytest.raises(MapParameterError):
+        await _map(_provider(archive), bbox=[ROME[0], ROME[3], ROME[2], ROME[1]])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("value", [False, "false", "False", "0"])
+async def test_transparent_false_keeps_the_background(archive, value):
+    await _map(_provider(archive), transparent=value)
+
+    (request,) = FakeRenderer.instances[0].requests
+    assert request.style["layers"][0]["type"] == "background"
+    assert request.transparent is False
+
+
+@pytest.mark.asyncio
+async def test_transparent_by_default_drops_the_background(archive):
+    await _map(_provider(archive))
+
+    (request,) = FakeRenderer.instances[0].requests
+    assert all(layer["type"] != "background" for layer in request.style["layers"])
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_style_is_not_found(archive):
+    from pygeoapi.provider.base import ProviderItemNotFoundError
+
+    with pytest.raises(ProviderItemNotFoundError):
+        await _map(_provider(archive), style="missing")
+
+
+@pytest.mark.asyncio
+async def test_a_named_style_is_used(archive, tmp_path):
+    style = tmp_path / "night.json"
+    style.write_text('{"version": 8, "sources": {}, "layers": [{"id": "n", "type": "background"}]}')
+
+    await _map(_provider(archive, styles={"night": str(style)}), style="night", transparent="false")
+
+    (request,) = FakeRenderer.instances[0].requests
+    assert request.style["layers"][0]["id"] == "n"
+
+
+@pytest.mark.asyncio
+async def test_a_full_queue_answers_503(archive):
+    from app.provider.maps import MapRendererBusyError
+
+    FakeRenderer.gate = asyncio.Event()
+    provider = _provider(archive, fake="gate", queue=1)
+    rendering = asyncio.create_task(_map(provider))
+    waiting = asyncio.create_task(_map(provider))
+    await _until(lambda: provider.waiting == 2)
+
+    with pytest.raises(MapRendererBusyError) as error:
+        await _map(provider)
+    assert error.value.http_status_code == HTTPStatus.SERVICE_UNAVAILABLE
+
+    FakeRenderer.gate.set()
+    await asyncio.gather(rendering, waiting)
+
+
+@pytest.mark.asyncio
+async def test_a_slow_render_answers_504_and_keeps_drawing_for_the_cache(archive):
+    from app.provider.maps import MapRenderTimeoutError
+
+    FakeRenderer.gate = asyncio.Event()
+    provider = _provider(archive, fake="gate", timeout=0.05, render_limit=5)
+    with pytest.raises(MapRenderTimeoutError) as error:
+        await _map(provider)
+    assert error.value.http_status_code == HTTPStatus.GATEWAY_TIMEOUT
+
+    # The render goes on, so the tiles it reads stay cached for the next maps.
+    (renderer,) = FakeRenderer.instances
+    assert not renderer.closed and provider.renderer_is_built
+    FakeRenderer.gate.set()
+    await _map(provider)
+    assert FakeRenderer.instances == [renderer]
+    assert renderer.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_a_render_past_its_limit_replaces_the_renderer(archive):
+    from app.provider.maps import MapRenderTimeoutError
+
+    # Four times the timeout by default; the limit given here comes much sooner.
+    provider = _provider(archive, fake="slow", timeout=1, render_limit=0.1)
+    with pytest.raises(MapRenderTimeoutError):
+        await _map(provider)
+
+    await _until(lambda: FakeRenderer.instances[0].closed, timeout=0.5)
+    assert provider.renderer_is_built is False
+
+
+@pytest.mark.asyncio
+async def test_a_map_waiting_behind_a_long_render_answers_504_in_time(archive):
+    from app.provider.maps import MapRenderTimeoutError
+
+    FakeRenderer.gate = asyncio.Event()
+    provider = _provider(archive, fake="gate", timeout=0.05, render_limit=5)
+    with pytest.raises(MapRenderTimeoutError):
+        await _map(provider)
+
+    loop = asyncio.get_running_loop()
+    started = loop.time()
+    with pytest.raises(MapRenderTimeoutError):
+        await _map(provider)
+    assert loop.time() - started < 1
+    FakeRenderer.gate.set()
+
+
+@pytest.mark.asyncio
+async def test_a_crash_answers_500_and_the_next_map_gets_a_new_renderer(archive):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    from app.provider.maps import MapRendererBusyError, MapRenderTimeoutError
+
+    provider = _provider(archive, fake="crash-once")
+    with pytest.raises(ProviderGenericError) as error:
+        await _map(provider)
+    assert not isinstance(error.value, (MapRendererBusyError, MapRenderTimeoutError))
+    assert error.value.http_status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+
+    png = await _map(provider)
+
+    assert png.startswith(b"\x89PNG")
+    assert len(FakeRenderer.instances) == 2
+    assert FakeRenderer.instances[0].closed
+
+
+@pytest.mark.asyncio
+async def test_any_renderer_failure_replaces_it_and_keeps_its_message_private(archive):
+    """A renderer may fail with anything; its message can carry a signed URL."""
+    from pygeoapi.provider.base import ProviderGenericError
+
+    provider = _provider(archive, fake="oserror-once")
+    with pytest.raises(ProviderGenericError) as error:
+        await _map(provider)
+    assert "SECRET" not in error.value.message
+    assert "SECRET" not in str(error.value)
+
+    png = await _map(provider)
+
+    assert png.startswith(b"\x89PNG")
+    assert len(FakeRenderer.instances) == 2
+
+
+@pytest.mark.asyncio
+async def test_the_renderer_is_built_once(archive):
+    provider = _provider(archive)
+    await _map(provider)
+    await _map(provider)
+
+    assert len(FakeRenderer.instances) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_missing_renderer_says_what_to_install(archive):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    with pytest.raises(ProviderGenericError) as error:
+        await _map(_provider(archive, renderer="app.maps.not_installed.create_renderer"))
+    assert "maps dependency group" in error.value.message
+
+
+@pytest.mark.asyncio
+async def test_the_sync_face_hands_the_map_to_the_loop(archive):
+    provider = _provider(archive)
+    await _map(provider)
+
+    png = await asyncio.to_thread(
+        provider.query, bbox=list(ROME), width=32, height=32, crs=WEB_MERCATOR
+    )
+
+    assert png.startswith(b"\x89PNG")
+
+
+@pytest.mark.asyncio
+async def test_close_leaves_no_renderer_behind_the_queued_maps(archive):
+    """A reload closes the provider while maps are still queued on it."""
+    FakeRenderer.gate = asyncio.Event()
+    provider = _provider(archive, fake="gate")
+    rendering = asyncio.create_task(_map(provider))
+    queued = asyncio.create_task(_map(provider))
+    await _until(lambda: provider.waiting == 2)
+
+    provider.close()
+    FakeRenderer.gate.set()
+    await asyncio.gather(rendering, queued)
+    late = await _map(provider)  # the old sub-app may still serve one more map
+
+    assert late.startswith(b"\x89PNG")
+    await _until(lambda: all(renderer.closed for renderer in FakeRenderer.instances))
+    assert provider.renderer_is_built is False
+
+
+@pytest.mark.asyncio
+async def test_close_waits_for_the_map_in_flight(archive):
+    FakeRenderer.gate = asyncio.Event()
+    provider = _provider(archive, fake="gate")
+    rendering = asyncio.create_task(_map(provider))
+    await _until(lambda: FakeRenderer.instances and FakeRenderer.instances[0].calls == 1)
+
+    provider.close()
+    await asyncio.sleep(0.01)
+    assert not FakeRenderer.instances[0].closed
+
+    FakeRenderer.gate.set()
+    await rendering
+    await _until(lambda: FakeRenderer.instances[0].closed)
+
+
+@pytest.mark.asyncio
+async def test_a_renderer_that_cannot_be_built_says_what_is_missing(archive):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    provider = _provider(archive, renderer="tests.maps_fixtures.create_missing_renderer")
+
+    with pytest.raises(ProviderGenericError) as error:
+        await _map(provider)
+    assert "maps dependency group" in error.value.message
+    assert not provider.renderer_is_built
+
+
+@pytest.mark.asyncio
+async def test_aclose_waits_for_the_renderer_to_close(archive):
+    provider = _provider(archive)
+    await _map(provider)
+    (renderer,) = FakeRenderer.instances
+
+    await provider.aclose()
+
+    assert renderer.closed and not provider.renderer_is_built
+
+
+def test_the_map_errors_name_their_problem_in_the_log():
+    from app.provider.maps import MapRendererBusyError, MapRenderTimeoutError
+
+    assert str(MapRenderTimeoutError()) == "the map took too long to render"
+    assert str(MapRendererBusyError()) == "the map renderer is busy, retry later"
+
+
+@pytest.mark.asyncio
+async def test_a_bbox_across_the_antimeridian_is_drawn(archive):
+    from app.maps.camera import HALF_WORLD
+
+    # West edge in the east, east edge in the west: the bbox crosses 180°.
+    west, east = HALF_WORLD - 1_000_000.0, -HALF_WORLD + 1_000_000.0
+    provider = _provider(archive)
+    await _map(provider, bbox=[west, 5_140_000.0, east, 5_160_000.0])
+
+    (request,) = FakeRenderer.instances[0].requests
+    assert request.bbox[0] == west
+    assert request.bbox[2] == pytest.approx(east + 2 * HALF_WORLD)
+
+
+@pytest.mark.asyncio
+async def test_html_is_answered_with_the_image(archive):
+    """pygeoapi's map route serves the image when asked for HTML: there is no HTML map."""
+    png = await _map(_provider(archive), format_="html")
+
+    assert png.startswith(b"\x89PNG")
+
+
+def _bucket_provider(tmp_path, content=bytes(range(256)), origin=None, **options):
+    from app.provider.maplibre import MapLibreMapProvider
+    from app.provider.storage import CachedRanges
+    from tests.range_cache_fixtures import CountingStore, memory_store, range_cache
+
+    style = tmp_path / "plain.json"
+    # The style declares its source, so the archive is never read for its content.
+    style.write_text('{"version": 8, "sources": {"archive": {"type": "vector"}}, "layers": []}')
+    definition = map_provider(
+        tmp_path / "unused.pmtiles", styles={"plain": str(style)}, default_style="plain", **options
+    )
+    definition["data"] = "s3://bucket/tiles/roads.pmtiles"
+    provider = MapLibreMapProvider(definition)
+    origin = origin if origin is not None else CountingStore(memory_store())
+    origin.put("roads.pmtiles", content)
+    provider.cached_ranges = CachedRanges(
+        origin, "roads.pmtiles", range_cache(memory_store()), source=definition["data"]
+    )
+    return provider
+
+
+def _style_url():
+    (request,) = FakeRenderer.instances[0].requests
+    return request.style["sources"]["archive"]["url"].removeprefix("pmtiles://")
+
+
+@pytest.mark.asyncio
+async def test_a_bucket_is_read_by_the_renderer_through_the_loopback_server(tmp_path):
+    import httpx
+
+    from app.provider.storage.cache import version_of
+    from app.provider.storage.loopback import close_range_server
+
+    provider = _bucket_provider(tmp_path)
+    try:
+        await _map(provider)
+        url = _style_url()
+        cached = provider.cached_ranges
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers={"Range": "bytes=0-9"})
+    finally:
+        await provider.aclose()
+        await close_range_server()
+
+    assert url.startswith("http://127.0.0.1:")
+    assert url.endswith(f"/{cached.source}/{version_of(cached.meta())}")
+    assert (response.status_code, response.content) == (206, bytes(range(10)))
+
+
+@pytest.mark.asyncio
+async def test_a_map_past_the_ttl_is_drawn_without_waiting_for_the_head(tmp_path):
+    """A HEAD on a slow route costs seconds: the map takes the version it knows."""
+    from app.provider.storage import CachedRanges
+    from app.provider.storage.loopback import close_range_server
+    from tests.range_cache_fixtures import Clock, memory_store, range_cache
+    from tests.test_cached_ranges_revalidation import GatedStore
+
+    clock = Clock()
+    origin = GatedStore(memory_store())
+    origin.gate.set()
+    provider = _bucket_provider(tmp_path, origin=origin)
+    provider.cached_ranges = CachedRanges(
+        origin,
+        "roads.pmtiles",
+        range_cache(memory_store(), clock=clock),
+        source="s3://bucket/tiles/roads.pmtiles",
+    )
+    try:
+        await _map(provider)
+        origin.gate.clear()
+        clock.now += 301
+
+        png = await asyncio.wait_for(_map(provider), timeout=2)
+        origin.gate.set()
+        await _until(lambda: origin.heads == 2)
+    finally:
+        await provider.aclose()
+        await close_range_server()
+
+    assert png.startswith(b"\x89PNG")
+
+
+@pytest.mark.asyncio
+async def test_range_cache_false_keeps_the_signed_url(tmp_path):
+    from unittest.mock import patch
+
+    from app.provider.maplibre import MapLibreMapProvider
+    from app.provider.storage import cache as range_caches
+    from tests.range_cache_fixtures import memory_store, range_cache
+
+    style = tmp_path / "plain.json"
+    style.write_text('{"version": 8, "sources": {"archive": {"type": "vector"}}, "layers": []}')
+    definition = map_provider(
+        tmp_path / "unused.pmtiles",
+        styles={"plain": str(style)},
+        default_style="plain",
+        range_cache=False,
+    )
+    definition["data"] = "s3://bucket/tiles/roads.pmtiles"
+    with patch.object(
+        range_caches, "default_range_cache", return_value=range_cache(memory_store())
+    ):
+        provider = MapLibreMapProvider(definition)
+        assert provider.cached_ranges is None
+        with patch.object(
+            provider, "signed_url", return_value="https://b.example/roads.pmtiles?sig=1"
+        ):
+            await _map(provider)
+
+    assert _style_url() == "https://b.example/roads.pmtiles?sig=1"
+
+
+def test_a_public_bucket_without_data_url_is_accepted_with_the_range_cache(tmp_path):
+    from unittest.mock import patch
+
+    from app.provider.maplibre import MapLibreMapProvider
+    from app.provider.storage import cache as range_caches
+
+    definition = map_provider(tmp_path / "unused.pmtiles")
+    definition["data"] = "s3://overturemaps-extras-us-west-2/tiles/places.pmtiles"
+    definition["store_options"] = {"skip_signature": True}
+
+    with patch.object(range_caches, "range_cache_enabled", return_value=True):
+        MapLibreMapProvider(definition)
+
+
+@pytest.mark.asyncio
+async def test_after_a_reload_the_old_url_is_gone_and_the_new_provider_serves(tmp_path):
+    import httpx
+
+    from app.provider.storage.loopback import close_range_server
+
+    first = _bucket_provider(tmp_path)
+    second = _bucket_provider(tmp_path)
+    try:
+        await _map(first)
+        old_url = _style_url()
+        await first.aclose()
+        async with httpx.AsyncClient() as client:
+            gone = await client.get(old_url, headers={"Range": "bytes=0-9"})
+            FakeRenderer.instances.clear()
+            await _map(second)
+            served = await client.get(_style_url(), headers={"Range": "bytes=0-9"})
+    finally:
+        await second.aclose()
+        await close_range_server()
+
+    assert gone.status_code == 404
+    assert (served.status_code, served.content) == (206, bytes(range(10)))
+
+
+@pytest.mark.asyncio
+async def test_a_map_in_flight_through_a_reload_keeps_reading_its_ranges(tmp_path):
+    import httpx
+
+    from app.provider.storage.loopback import close_range_server
+
+    FakeRenderer.gate = asyncio.Event()
+    provider = _bucket_provider(tmp_path, fake="gate")
+    drawing = asyncio.create_task(_map(provider))
+    try:
+        await _until(lambda: FakeRenderer.instances and FakeRenderer.instances[0].requests)
+        provider.close()  # what the plugin cache does on reload
+        async with httpx.AsyncClient() as client:
+            response = await client.get(_style_url(), headers={"Range": "bytes=0-9"})
+    finally:
+        FakeRenderer.gate.set()
+        await drawing
+        await provider.aclose()
+        await close_range_server()
+
+    assert (response.status_code, response.content) == (206, bytes(range(10)))
+
+
+def _held_heads():
+    import threading
+
+    from tests.range_cache_fixtures import CountingStore, memory_store
+
+    class _HeldHeads(CountingStore):
+        """Holds its HEADs until released, as a slow bucket does."""
+
+        def __init__(self) -> None:
+            super().__init__(memory_store())
+            self.asked = threading.Event()
+            self.release = threading.Event()
+
+        def head(self, path):
+            self.asked.set()
+            self.release.wait(5)
+            return super().head(path)
+
+        async def ahead(self, path):
+            self.asked.set()
+            await asyncio.to_thread(self.release.wait, 5)
+            return await super().ahead(path)
+
+    return _HeldHeads()
+
+
+@pytest.mark.asyncio
+async def test_a_new_provider_takes_the_source_over_once_it_knows_the_version(tmp_path):
+    import httpx
+
+    from app.provider.storage.loopback import close_range_server
+
+    FakeRenderer.gate = asyncio.Event()
+    old = _bucket_provider(tmp_path, fake="gate")
+    held = _held_heads()
+    new = _bucket_provider(tmp_path, origin=held)
+    in_flight = asyncio.create_task(_map(old))
+    taking_over = None
+    try:
+        await _until(lambda: FakeRenderer.instances and FakeRenderer.instances[0].requests)
+        old_url = _style_url()
+        old.close()
+        taking_over = asyncio.create_task(_map(new))
+        assert await asyncio.to_thread(held.asked.wait, 2)
+        async with httpx.AsyncClient() as client:
+            response = await client.get(old_url, headers={"Range": "bytes=0-9"})
+    finally:
+        held.release.set()
+        FakeRenderer.gate.set()
+        await in_flight
+        if taking_over is not None:
+            await taking_over
+        await old.aclose()
+        await new.aclose()
+        await close_range_server()
+
+    assert (response.status_code, response.content) == (206, bytes(range(10)))
+
+
+def test_an_unknown_dem_encoding_is_refused_at_construction(tmp_path):
+    from pygeoapi.provider.base import ProviderGenericError
+
+    from app.provider.maplibre import MapLibreMapProvider
+
+    with pytest.raises(ProviderGenericError) as error:
+        MapLibreMapProvider(map_provider(raster_archive(tmp_path / "t.pmtiles"), dem="srtm"))
+    assert error.value.message == "options.dem must be one of terrarium, mapbox, not srtm"
+
+
+@pytest.mark.asyncio
+async def test_an_elevation_archive_is_drawn_as_a_hillshade_by_default(tmp_path):
+    await _map(_provider(raster_archive(tmp_path / "terrain.pmtiles"), dem="terrarium"))
+
+    (request,) = FakeRenderer.instances[0].requests
+    assert request.style["sources"]["archive"]["type"] == "raster-dem"
+    assert request.style["sources"]["archive"]["encoding"] == "terrarium"
+    assert request.style["layers"][-1]["type"] == "hillshade"
+
+
+async def _version(provider, **kwargs):
+    args = {"bbox": list(ROME), "width": 64, "height": 64, "crs": WEB_MERCATOR}
+    return await provider.aversion(**{**args, **kwargs})
+
+
+def _line_style(path, color):
+    path.write_text(
+        '{"version": 8, "sources": {}, "layers": [{"id": "roads", "type": "line", '
+        '"source": "archive", "source-layer": "roads", "paint": {"line-color": "' + color + '"}}]}'
+    )
+    return str(path)
+
+
+@pytest.mark.asyncio
+async def test_the_version_of_a_map_is_known_without_drawing_it(archive):
+    first = await _version(_provider(archive))
+    second = await _version(_provider(archive))
+
+    assert first is not None
+    assert first == second
+    assert FakeRenderer.instances == []
+
+
+@pytest.mark.asyncio
+async def test_another_style_gives_another_version(archive, tmp_path):
+    styles = {
+        "night": _line_style(tmp_path / "night.json", "#000000"),
+        "day": _line_style(tmp_path / "day.json", "#ffffff"),
+    }
+    provider = _provider(archive, styles=styles)
+
+    versions = {await _version(provider, style=name) for name in ("night", "day", None)}
+
+    assert len(versions) == 3
+
+
+@pytest.mark.asyncio
+async def test_a_new_renderer_gives_another_version(archive, monkeypatch):
+    import importlib
+
+    maplibre = importlib.import_module("app.provider.maplibre")
+    provider = _provider(archive)
+    before = await _version(provider)
+
+    monkeypatch.setattr(maplibre, "renderer_version", lambda: "9.9.9")
+
+    assert await _version(provider) != before
+
+
+@pytest.mark.asyncio
+async def test_asking_the_version_of_a_map_the_provider_refuses_raises_its_error(archive):
+    from app.provider.maps import MapTooLargeError
+
+    with pytest.raises(MapTooLargeError):
+        await _version(_provider(archive), width=5000)
+
+
+@pytest.mark.asyncio
+async def test_a_bucket_map_has_its_version_from_the_range_cache(tmp_path):
+    from app.provider.storage.loopback import close_range_server
+
+    provider = _bucket_provider(tmp_path)
+    try:
+        version = await _version(provider)
+        again = await _version(provider)
+    finally:
+        await provider.aclose()
+        await close_range_server()
+
+    assert version is not None
+    assert version == again
+    assert FakeRenderer.instances == []
+
+
+def _digest_style(url, color="#000000", basemap="https://tiles.example/{z}/{x}/{y}.png"):
+    return {
+        "version": 8,
+        "sources": {
+            "archive": {"type": "vector", "url": url},
+            "basemap": {"type": "raster", "tiles": [basemap]},
+        },
+        "layers": [
+            {"id": "roads", "type": "line", "source": "archive", "paint": {"line-color": color}}
+        ],
+    }
+
+
+def test_the_address_of_the_data_does_not_count_in_the_style_digest():
+    from app.provider.maplibre import style_digest
+
+    one_process = _digest_style("pmtiles://http://127.0.0.1:50123/token-a/source/version")
+    another = _digest_style("pmtiles://http://127.0.0.1:50999/token-b/source/version")
+
+    assert style_digest(one_process, "archive") == style_digest(another, "archive")
+    assert one_process["sources"]["archive"]["url"].endswith("/token-a/source/version")
+
+
+def test_the_layers_and_the_other_sources_count_in_the_style_digest():
+    from app.provider.maplibre import style_digest
+
+    base = style_digest(_digest_style("pmtiles://x"), "archive")
+    recoloured = _digest_style("pmtiles://x", color="#ffffff")
+    other_basemap = _digest_style("pmtiles://x", basemap="https://other/{z}/{x}/{y}.png")
+
+    assert style_digest(recoloured, "archive") != base
+    assert style_digest(other_basemap, "archive") != base

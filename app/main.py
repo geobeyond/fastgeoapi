@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import os
+import secrets
 import sys
 from pathlib import Path
 from typing import Any
@@ -26,6 +29,10 @@ from starlette.routing import Mount
 
 from app.config.app import configuration as cfg
 from app.config.logging import create_logger, silence_probe_access_logs
+from app.interfaces.reload import ReloadManager, build_admin_app
+from app.mcp.annotations import annotate_component
+from app.mcp.maps import add_map_tools
+from app.mcp.names import tool_names
 from app.mcp.route_maps import openapi_route_maps
 from app.middleware.mcp_identity import MCPClientIdentityMiddleware
 from app.middleware.oauth2 import Oauth2Middleware
@@ -34,6 +41,8 @@ from app.middleware.proxy import (
     MCPMountRootRewriteMiddleware,
 )
 from app.middleware.pygeoapi import OpenapiSecurityMiddleware
+from app.provider.storage import loopback
+from app.provider.storage.cache import cache_base_dir
 from app.pygeoapi.holder import PygeoapiHolder
 from app.utils.app_exceptions import AppExceptionError, app_exception_handler
 from app.utils.pygeoapi_exceptions import (
@@ -238,9 +247,16 @@ def _openapi_cache_dir() -> Path:
     no hardcoded cwd dependency in containerized layouts); defaults to
     the historical ``<cwd>/.cache`` root.
     """
-    root = getattr(cfg, "FASTGEOAPI_CACHE_DIR", None)
-    base = Path(root) if root else Path.cwd() / ".cache"
-    return base / "openapi_refs"
+    return cache_base_dir(cfg) / "openapi_refs"
+
+
+#: Identifies this process. A control plane sampling the reload status
+#: through a load balancer needs to tell one worker from another, and to
+#: check whether every worker it has seen serves the same revision. The
+#: token is generated once per process, at import time. The PID would
+#: also be unique, but it can be enumerated and says something about the
+#: host; a random token does neither.
+INSTANCE = secrets.token_hex(4)
 
 
 def create_app(lifespan=None):
@@ -259,11 +275,30 @@ def create_app(lifespan=None):
         logging, so a filter attached here survives.
         """
         silence_probe_access_logs()
-        if lifespan is None:
-            yield
-        else:
-            async with lifespan(app) as state:
-                yield state
+        poller = None
+        interval = cfg.FASTGEOAPI_CONFIG_POLL_SECONDS
+        if interval > 0:
+            # The lifespan runs once per worker, so each process gets its
+            # own poller, and the reload it triggers only affects that
+            # process.
+            poller = asyncio.get_running_loop().create_task(
+                app.state.reload_manager.poll_forever(interval)
+            )
+            app.state.config_poller = poller
+            logger.info(f"configuration poll every {interval}s in instance {INSTANCE}")
+        try:
+            if lifespan is None:
+                yield
+            else:
+                async with lifespan(app) as state:
+                    yield state
+        finally:
+            if poller is not None:
+                poller.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await poller
+            # The loopback server of byte ranges, when a map started it.
+            await loopback.close_range_server()
 
     app = FastGeoAPI(
         title="fastgeoapi",
@@ -329,8 +364,6 @@ def create_app(lifespan=None):
 
     # Reload webhook (ADR-0003): protected by the SAME auth chain as the
     # pygeoapi surface — "security according to the configuration".
-    from app.interfaces.reload import ReloadManager, build_admin_app
-
     # The MCP tools are generated from the OpenAPI document, so they have
     # to follow it across a reload — otherwise the server keeps offering
     # the collections the previous configuration exposed and only a
@@ -351,6 +384,7 @@ def create_app(lifespan=None):
         cfg.PYGEOAPI_CONFIG,
         artifact_target=cfg.PYGEOAPI_OPENAPI,
         on_reload=on_reload,
+        instance=INSTANCE,
     )
     wrapped_admin, _ = _wrap_pygeoapi_asgi(build_admin_app(reload_manager))
     app.mount("/admin", wrapped_admin)
@@ -448,6 +482,9 @@ def create_mcp_server(
         - well_known_routes are the OAuth discovery routes to mount at root level
         - api_client is the httpx2.AsyncClient used by MCP (for lifecycle management)
     """
+    from app.mcp.card import fastgeoapi_version
+    from app.mcp.instructions import SERVER_INSTRUCTIONS
+    from app.pygeoapi.openapi import fix_resolved_document
     from app.utils.openapi_resolver import resolve_external_refs
 
     base_spec = openapi_spec if openapi_spec is not None else _pygeoapi_openapi
@@ -455,7 +492,7 @@ def create_mcp_server(
     # Resolve external $ref references with disk caching
     cache_dir = _openapi_cache_dir()
     logger.info("Resolving external OpenAPI references...")
-    openapi_spec = resolve_external_refs(base_spec, cache_dir=cache_dir)
+    openapi_spec = fix_resolved_document(resolve_external_refs(base_spec, cache_dir=cache_dir))
     logger.info("OpenAPI references resolved successfully")
 
     # When no client is provided, build a default that routes MCP→pygeoapi
@@ -550,7 +587,16 @@ def create_mcp_server(
         name="OGC API MCP",
         auth=auth,
         route_maps=openapi_route_maps(),
+        mcp_component_fn=annotate_component,
+        mcp_names=tool_names(openapi_spec),
+        # The handshake reports the fastgeoapi version and the API
+        # address, the same two values the server card publishes, and the
+        # instructions the client hands to the model.
+        version=fastgeoapi_version(),
+        website_url=f"{_public_base_url().rstrip('/')}{cfg.FASTGEOAPI_CONTEXT}",
+        instructions=SERVER_INSTRUCTIONS,
     )
+    add_map_tools(mcp_server, openapi_spec, api_client)
 
     # Make requests attributable to a client. Neither the User-Agent nor
     # the source address can do it — see the middleware module for why.

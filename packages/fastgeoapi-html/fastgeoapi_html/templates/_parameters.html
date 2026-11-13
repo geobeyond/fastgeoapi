@@ -1,0 +1,8 @@
+<table class="data">
+  <thead><tr><th>{{ _("Name") }}</th><th>{{ _("Type") }}</th><th>{{ _("Description") }}</th></tr></thead>
+  <tbody>
+  {% for row in rows %}
+    <tr><td><code>{{ row.name }}</code>{% if row.title %}<br>{{ row.title }}{% endif %}</td><td>{{ row.type }}{% if row.required %} · {{ _("required") }}{% endif %}</td><td>{{ row.description }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>

@@ -2,6 +2,7 @@
 
 import tempfile
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -76,7 +77,24 @@ class DevConfig(GlobalConfig):
     FASTGEOAPI_MCP_CONSENT_MODE: str | None = None
     FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED: bool = False
     FASTGEOAPI_CACHE_DIR: str | None = None
+    # Where the byte ranges read from remote objects are kept for the
+    # processes of this machine: a directory or a store URL, or "off" to
+    # turn the cache off. Unset, it lives in "ranges" next to the schema cache.
+    FASTGEOAPI_RANGE_CACHE: str | None = None
+    FASTGEOAPI_RANGE_CACHE_MAX_MB: int = 512
+    FASTGEOAPI_RANGE_CACHE_REVALIDATE_SECONDS: int = 300
+    # Seconds a browser or a cache may keep a map or a tile; 0 sends no
+    # cache headers. With authentication in a gateway in front of
+    # fastgeoapi, set 0: fastgeoapi does not see it and would mark the
+    # answers public.
+    FASTGEOAPI_HTTP_MAX_AGE_SECONDS: int = 300
     FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS: int | None = None
+    # Seconds between polls of the configuration source; 0 disables it.
+    # Set it when more than one process reads the same source, for example
+    # several uvicorn workers or several single-worker instances behind an
+    # orchestrator. The reload webhook only reaches the process that
+    # receives it; the others catch up by polling.
+    FASTGEOAPI_CONFIG_POLL_SECONDS: int = 0
     # Comma-separated issuers whose ID-JAG assertions this authorization
     # server accepts (Enterprise-Managed Authorization). Empty by default:
     # the grant stays off until an operator names the enterprise IdPs it
@@ -85,6 +103,7 @@ class DevConfig(GlobalConfig):
     # Reverse-DNS name of this deployment's MCP server card (SEP-2127),
     # e.g. `it.geobeyond/fastgeoapi`. Derived from APP_URI when unset.
     FASTGEOAPI_MCP_SERVER_NAME: str | None = None
+<<<<<<< HEAD
     # Path to a Martin config file (see the `martin` project), or the
     # literal string `auto` to derive one from the pygeoapi config
     # already loaded (app.tiles.martin_wrapper) instead of hand-writing a
@@ -95,6 +114,14 @@ class DevConfig(GlobalConfig):
     # to benchmark it against pygeoapi's own tile provider. Never set
     # this on a public deployment.
     FASTGEOAPI_MARTIN_WRAPPER_CONFIG: str | None = None
+=======
+    # Which HTML pages to serve: pygeoapi's templates, or fastgeoapi's own
+    # pages (native), which need the html extra.
+    FASTGEOAPI_HTML_PAGES: Literal["pygeoapi", "native"] = "pygeoapi"
+    # A directory of templates that replace the native pages of the same
+    # name; the others still come from the package.
+    FASTGEOAPI_HTML_TEMPLATES: str | None = None
+>>>>>>> origin/main
 
     model_config = SettingsConfigDict(
         env_prefix="DEV_",
@@ -152,7 +179,24 @@ class ProdConfig(GlobalConfig):
     FASTGEOAPI_MCP_CONSENT_MODE: str | None = None
     FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED: bool = False
     FASTGEOAPI_CACHE_DIR: str | None = None
+    # Where the byte ranges read from remote objects are kept for the
+    # processes of this machine: a directory or a store URL, or "off" to
+    # turn the cache off. Unset, it lives in "ranges" next to the schema cache.
+    FASTGEOAPI_RANGE_CACHE: str | None = None
+    FASTGEOAPI_RANGE_CACHE_MAX_MB: int = 512
+    FASTGEOAPI_RANGE_CACHE_REVALIDATE_SECONDS: int = 300
+    # Seconds a browser or a cache may keep a map or a tile; 0 sends no
+    # cache headers. With authentication in a gateway in front of
+    # fastgeoapi, set 0: fastgeoapi does not see it and would mark the
+    # answers public.
+    FASTGEOAPI_HTTP_MAX_AGE_SECONDS: int = 300
     FASTGEOAPI_MCP_ACCESS_TOKEN_EXPIRY_SECONDS: int | None = None
+    # Seconds between polls of the configuration source; 0 disables it.
+    # Set it when more than one process reads the same source, for example
+    # several uvicorn workers or several single-worker instances behind an
+    # orchestrator. The reload webhook only reaches the process that
+    # receives it; the others catch up by polling.
+    FASTGEOAPI_CONFIG_POLL_SECONDS: int = 0
     # Comma-separated issuers whose ID-JAG assertions this authorization
     # server accepts (Enterprise-Managed Authorization). Empty by default:
     # the grant stays off until an operator names the enterprise IdPs it
@@ -171,6 +215,12 @@ class ProdConfig(GlobalConfig):
     # to benchmark it against pygeoapi's own tile provider. Never set
     # this on a public deployment.
     FASTGEOAPI_MARTIN_WRAPPER_CONFIG: str | None = None
+    # Which HTML pages to serve: pygeoapi's templates, or fastgeoapi's own
+    # pages (native), which need the html extra.
+    FASTGEOAPI_HTML_PAGES: Literal["pygeoapi", "native"] = "pygeoapi"
+    # A directory of templates that replace the native pages of the same
+    # name; the others still come from the package.
+    FASTGEOAPI_HTML_TEMPLATES: str | None = None
 
     model_config = SettingsConfigDict(
         env_prefix="PROD_",

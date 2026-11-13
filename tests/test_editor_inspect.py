@@ -18,6 +18,7 @@ to hardcode what was parameterised on purpose.
 from pathlib import Path
 
 import pytest
+import yaml
 
 from app.editor.inspect import dry_run, validate_effective, validate_source
 
@@ -113,3 +114,29 @@ def test_unparseable_input_is_a_problem_not_a_crash(bad):
 
     assert not outcome.ok
     assert outcome.problems
+
+
+def _with_view(view) -> str:
+    document = yaml.safe_load(SOURCE)
+    name = next(
+        name
+        for name, resource in document["resources"].items()
+        if resource.get("type") == "collection"
+    )
+    document["resources"][name]["view"] = view
+    return yaml.safe_dump(document, sort_keys=False)
+
+
+def test_a_view_off_the_map_is_refused_in_the_source_and_in_what_runs(monkeypatch):
+    monkeypatch.setenv("PORT", "5000")
+    text = _with_view({"center": [200, 0], "zoom": 3})
+
+    for outcome in (validate_source(text), validate_effective(text)):
+        assert not outcome.ok
+        assert any(".view.center.0" in problem for problem in outcome.problems), outcome.problems
+
+
+def test_a_view_zoom_left_to_a_placeholder_is_fine_in_the_source():
+    outcome = validate_source(_with_view({"center": [12.5, 41.9], "zoom": "${ZOOM}"}))
+
+    assert outcome.ok, outcome.problems

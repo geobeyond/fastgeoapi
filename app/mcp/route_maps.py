@@ -12,6 +12,13 @@ TILE_DATA_PATTERN = r".*/tiles/\{tileMatrixSetId\}/\{tileMatrix\}/\{tileRow\}/\{
 """pygeoapi's tile-data path template, as it appears in the OpenAPI document."""
 
 
+MAP_PATTERN = r".*/map$"
+"""pygeoapi's map paths, plain and styled: their image goes through our own tools."""
+
+
 def openapi_route_maps() -> list[RouteMap]:
     """The route maps every MCP server built from our OpenAPI document uses."""
-    return [RouteMap(pattern=TILE_DATA_PATTERN, mcp_type=MCPType.EXCLUDE)]
+    return [
+        RouteMap(pattern=TILE_DATA_PATTERN, mcp_type=MCPType.EXCLUDE),
+        RouteMap(pattern=MAP_PATTERN, mcp_type=MCPType.EXCLUDE),
+    ]

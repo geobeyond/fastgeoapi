@@ -215,6 +215,21 @@ Practical order of effect: put the data in the same region as the
 server, shape it as above, and only then reach for materialising a local
 copy.
 
+#### The schema is read once per version of the files
+
+The provider needs the dataset's schema when the server starts and on
+every configuration reload. For a dataset on a bucket it lists the
+objects with the store's client, reads their footers, and keeps the
+schema in `schemas` under the cache root (`FASTGEOAPI_CACHE_DIR`, or
+`.cache` in the working directory), keyed by the objects' ETags. A
+server started again over unchanged files lists them and reads nothing
+else: on a slow route to `us-west-2`, such a restart took 7 seconds,
+where reading the schema through DuckDB had taken 11 minutes. When the
+environment sets `AWS_ENDPOINT_URL_S3` or `AWS_ENDPOINT_URL`, DuckDB
+reads the schema itself, because the store's client would send the
+listing to that endpoint, and it does so too when the faster path
+fails.
+
 #### What that costs on a live deployment
 
 The public demo runs both arrangements side by side on the same
@@ -331,6 +346,8 @@ plan for eventual convergence.
 ## Limitations
 
 - **Read-only:** no create, update or delete.
+- A query whose reads time out at the store answers `504 Gateway Timeout`. A filter on a column the files are not sorted by can read a
+  whole file, which across regions takes minutes.
 - The `spatial` extension is vendored in the container image. Outside
   it, the first connection installs the extension, which needs network
   access once.

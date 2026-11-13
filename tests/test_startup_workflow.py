@@ -985,9 +985,16 @@ class TestStartupWorkflowMCPAuth:
                     # well-known route must stay path-scoped (RFC 9728),
                     # e.g. /.well-known/oauth-authorization-server/mcp
                     oidc_discovery_alias = "/.well-known/openid-configuration"
+                    # OIDC Discovery appends its path to the issuer, which
+                    # carries /mcp: that one route starts there, mounted at
+                    # the root all the same.
+                    oidc_under_issuer = "/mcp/.well-known/openid-configuration"
+                    assert oidc_under_issuer in {route.path for route in well_known_routes}
                     path_scoped = []
                     for route in well_known_routes:
-                        # All well-known routes should start with /.well-known/
+                        if route.path == oidc_under_issuer:
+                            continue
+                        # Every other well-known route starts with /.well-known/
                         assert route.path.startswith("/.well-known/")
                         if route.path == oidc_discovery_alias:
                             continue
