@@ -25,6 +25,7 @@ from pygeoapi.l10n import LocaleError
 from pygeoapi.provider.base import ProviderConnectionError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
+from starlette.routing import Mount
 
 from app.config.app import configuration as cfg
 from app.config.logging import create_logger, silence_probe_access_logs
@@ -101,13 +102,19 @@ def _write_openapi_artifact(openapi: dict) -> None:
         logger.warning(f"Could not write the OpenAPI artifact to {target}: {e}")
 
 
-def _bootstrap_pygeoapi() -> tuple[PygeoapiHolder, dict]:
+def _bootstrap_pygeoapi() -> tuple[PygeoapiHolder, dict, dict]:
     """Config from the storage source → in-memory dicts → sub-app in a holder.
 
     One code path for local paths and cloud URLs (ADR-0003): the config
     never touches disk nor env vars. The holder is the single target for
     both the externally-mounted (auth-wrapped) surface and the MCP
     ``ASGITransport``, so a reload swap reaches every consumer at once.
+
+    Returns the holder, the generated OpenAPI document, and the raw
+    pygeoapi config dict itself — the last one only so
+    ``FASTGEOAPI_MARTIN_WRAPPER_CONFIG=auto`` can derive a martin-py
+    config from it (app.tiles.martin_wrapper) without re-reading
+    ``PYGEOAPI_CONFIG`` a second time.
     """
     from app.config.source import ConfigSourceError, load_config_source
     from app.pygeoapi.factory import (
@@ -157,7 +164,7 @@ def _bootstrap_pygeoapi() -> tuple[PygeoapiHolder, dict]:
     _write_openapi_artifact(openapi)
     holder = PygeoapiHolder()
     holder.swap(subapp, etag=document.etag)
-    return holder, openapi
+    return holder, openapi, document.config
 
 
 def _wrap_pygeoapi_asgi(asgi_app):
@@ -383,6 +390,58 @@ def create_app(lifespan=None):
     app.mount("/admin", wrapped_admin)
     app.state.reload_manager = reload_manager
 
+    # Martin-py tile wrapper (opt-in, off by default): compares
+    # pygeoapi's tile provider against martin-py's in-process bindings
+    # under the same process. See app/tiles/martin_wrapper.py for why this
+    # mount carries no auth wrapper and must stay off in production.
+    martin_wrapper_config = cfg.FASTGEOAPI_MARTIN_WRAPPER_CONFIG
+    martin_wrapper_path = f"{cfg.FASTGEOAPI_CONTEXT}/martin-wrapper"
+
+    def _mount_martin_wrapper(sub_app) -> None:
+        # Ahead of the FASTGEOAPI_CONTEXT mount, which would otherwise
+        # claim every path under it, this one included.
+        app.router.routes.insert(0, Mount(martin_wrapper_path, app=sub_app))
+
+    if martin_wrapper_config:
+        from app.tiles.martin_wrapper import TileServer as _MartinTileServer
+        from app.tiles.martin_wrapper import (
+            build_martin_wrapper_app,
+            build_martin_wrapper_app_from_pygeoapi,
+        )
+
+        if _MartinTileServer is None:
+            logger.warning(
+                "FASTGEOAPI_MARTIN_WRAPPER_CONFIG is set but the optional `martin-py` "
+                "wrapper dependency is not installed (install it with "
+                f"`uv sync --extra martin_wrapper`); {martin_wrapper_path} will not be mounted."
+            )
+        elif martin_wrapper_config == "auto":
+            # Derived from the pygeoapi config this very boot already
+            # loaded (ADR-0003) — reflects it AT BOOT: unlike the
+            # pygeoapi mount itself, this does not re-derive on
+            # `/admin/config/reload`.
+            martin_wrapper_app = build_martin_wrapper_app_from_pygeoapi(_pygeoapi_config)
+            if martin_wrapper_app is None:
+                logger.warning(
+                    "FASTGEOAPI_MARTIN_WRAPPER_CONFIG=auto found no resource with a "
+                    f"provider this martin-py build can manage; {martin_wrapper_path} will "
+                    "not be mounted."
+                )
+            else:
+                _mount_martin_wrapper(martin_wrapper_app)
+                logger.warning(
+                    f"Martin wrapper endpoint mounted at {martin_wrapper_path} (config: "
+                    "auto-derived from the pygeoapi config); this surface is "
+                    "UNAUTHENTICATED and for benchmarking only."
+                )
+        else:
+            _mount_martin_wrapper(build_martin_wrapper_app(martin_wrapper_config))
+            logger.warning(
+                f"Martin wrapper endpoint mounted at {martin_wrapper_path} (config: "
+                f"{martin_wrapper_config}); this surface is UNAUTHENTICATED and for "
+                "benchmarking only."
+            )
+
     app.logger = create_logger(name="app.main")
 
     return app
@@ -561,7 +620,7 @@ def create_mcp_server(
 # Programmatic bootstrap (ADR-0003): config from the storage source,
 # openapi generated in memory, sub-app held for atomic swaps. The MCP
 # transport and the auth-wrapped mount both point at this holder.
-_pygeoapi_holder, _pygeoapi_openapi = _bootstrap_pygeoapi()
+_pygeoapi_holder, _pygeoapi_openapi, _pygeoapi_config = _bootstrap_pygeoapi()
 
 # Absent by default, so `create_app` can ask for them without caring
 # whether the MCP surface was enabled at all.

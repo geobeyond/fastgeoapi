@@ -41,6 +41,8 @@ dependencies = [
     # alone is enough.
     "fastmcp>=4.0.10,<5",
     "obstore>=0.11.1,<0.12",
+    "duckdb>=1.5.5",
+    "pmtiles>=3.7.0",
     "h11>=0.16,<0.17", # direct dependency: the loopback server of byte ranges speaks HTTP/1.1 through it
 ]
 
@@ -63,6 +65,14 @@ geoparquet = [
     # extra nor the dependency: `obstore[fsspec]` installs nothing.
     "fsspec>=2024.6",
 ]
+# `/martin-wrapper` (app/tiles/martin_wrapper.py): in-process comparison of
+# pygeoapi's tile path against martin's, via martin-py's PyO3 bindings.
+# Sourced from a martin-py GitHub Release wheel (see [tool.uv.sources])
+# rather than PyPI: martin-py isn't published there yet. `cp312`-only for now, hence
+# the marker — the project's `<3.14` 3.13 lane resolves without it.
+martin_wrapper = [
+    "martin-py>=0.1.0,<0.2; python_version < '3.13'",
+]
 pmtiles = [
     "pmtiles>=3.7,<4",
 ]
@@ -74,6 +84,9 @@ html = [
 [dependency-groups]
 dev = [
     "pytest>=9.0.2,<10",
+    # The suite imports the geoparquet provider directly.
+    "fastgeoapi[geoparquet]",
+    "fsspec>=2024.6",
     # Local S3 for the end-to-end test of the bucket read path. Kept in
     # `dev` and never near the `geoparquet` extra: it drags in botocore,
     # which is 15 MB the runtime has no use for.
@@ -93,6 +106,8 @@ dev = [
     "openapi-resolver>=0.0.6,<0.0.7",
     "schemathesis>=4.26",
     "pytest-asyncio>=1.3,<1.4",
+    # VS Code launch.json runs its debug adapter from the project venv.
+    "debugpy>=1.8.22",
     "nox[uv]>=2025.11.12",
     "pytest-iam>=0.2.0",
     "canaille[sqlite]>=0.0.74",
@@ -123,6 +138,12 @@ maps = [
 members = ["packages/*"]
 
 [tool.uv.sources]
+# Wheel published by martin-py's CI on each `v*` tag, not yet on PyPI — see
+# the `martin_wrapper` extra above. To bump: tag a new martin-py version,
+# update the version in this URL, then `uv lock`.
+# To try a local martin-py build instead, after `uv sync`:
+#   uv pip install --reinstall ../martin-py/target/wheels/martin_py-<version>-cp311-abi3-linux_x86_64.whl
+martin-py = { url = "https://github.com/geobeyond/martin-py/releases/download/v0.1.0/martin_py-0.1.0-cp311-abi3-linux_x86_64.whl" }
 fastgeoapi-html = { workspace = true }
 mlnative = [
     { url = "https://github.com/francbartoli/mlnative/releases/download/v0.4.0.dev1/mlnative-0.4.0.dev1-py3-none-manylinux_2_39_x86_64.whl", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
@@ -257,6 +278,7 @@ docstring-code-format = true
 asyncio_mode = "strict"
 markers = [
     "renderer: draws with the real MapLibre Native renderer (the maps group, on Linux)",
+    "benchmark: measures request throughput/latency rather than correctness; can be slow (see tests/test_martin_wrapper_benchmark.py, tests/test_martin_wrapper_duckdb_benchmark.py) — deselect with -m 'not benchmark'",
 ]
 filterwarnings = [
     # passlib uses deprecated crypt module, will be fixed in future versions

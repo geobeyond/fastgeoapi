@@ -1,0 +1,12 @@
+duckdb:
+  sources:
+  - geoparquet: s3://fastgeoapi-demo/overture/transportation-lazio.parquet
+    layer_id: transportation-lazio
+    geometry_column: geometry
+    srid: 4326
+    region: auto
+    skip_signature: true
+    virtual_hosted_style_request: true
+    endpoint: https://fastgeoapi-demo.t3.storage.dev
+cache:
+  size_mb: 0
