@@ -78,6 +78,9 @@ pmtiles = [
 [dependency-groups]
 dev = [
     "pytest>=9.0.2,<10",
+    # The suite imports the geoparquet provider directly.
+    "fastgeoapi[geoparquet]",
+    "fsspec>=2024.6",
     # Local S3 for the end-to-end test of the bucket read path. Kept in
     # `dev` and never near the `geoparquet` extra: it drags in botocore,
     # which is 15 MB the runtime has no use for.
