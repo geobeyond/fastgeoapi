@@ -270,7 +270,7 @@ def test_a_cloud_directory_is_globbed_on_the_native_path(monkeypatch):
     assert "'s3://bucket/ds/**/*.parquet'" in expression, expression
 
 
-def test_cloud_sources_are_enumerated_on_the_bridge():
+def test_cloud_sources_are_enumerated_on_the_bridge(overture_release):
     """On the obstore path a cloud dataset is listed, never globbed.
 
     Reading Overture through the obstore filesystem showed that DuckDB
@@ -281,7 +281,7 @@ def test_cloud_sources_are_enumerated_on_the_bridge():
     objects through the storage layer and hands DuckDB explicit paths.
     """
     expression = scan_expression(
-        "s3://overturemaps-us-west-2/release/2026-08-19.0/theme=base/type=bathymetry/",
+        f"s3://overturemaps-us-west-2/release/{overture_release}/theme=base/type=bathymetry/",
         store_options={"region": "us-west-2", "skip_signature": True},
         engine_options={"fastgeoapi_reader": "obstore"},
     )

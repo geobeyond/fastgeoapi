@@ -128,6 +128,28 @@ def iam_configuration(tmp_path_factory, iam_server_port) -> dict[str, Any]:
     }
 
 
+@pytest.fixture(scope="session")
+def overture_release() -> str:
+    """The newest Overture release still published on the public bucket.
+
+    Overture keeps only the last few releases and deletes older ones, so a
+    hardcoded date turns a passing test into a failing one within months.
+    One delimiter listing of ``release/`` finds the current set; the names
+    (``YYYY-MM-DD.N``) sort lexicographically. Skips when offline.
+    """
+    import obstore as obs
+    from obstore.store import S3Store
+
+    store = S3Store("overturemaps-us-west-2", region="us-west-2", skip_signature=True)
+    try:
+        prefixes = obs.list_with_delimiter(store, "release/")["common_prefixes"]
+    except Exception as exc:  # network, DNS, throttling: not this suite's concern
+        pytest.skip(f"Overture bucket unreachable: {exc}")
+    if not prefixes:
+        pytest.skip("No Overture release found on the bucket")
+    return max(prefixes).removeprefix("release/")
+
+
 @pytest.fixture
 def runner() -> CliRunner:
     """Fixture for invoking command-line interfaces."""
