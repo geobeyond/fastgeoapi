@@ -276,13 +276,11 @@ docstring-code-format = true
 asyncio_mode = "strict"
 markers = [
     "renderer: draws with the real MapLibre Native renderer (the maps group, on Linux)",
+    "benchmark: measures request throughput/latency rather than correctness; can be slow (see tests/test_martin_wrapper_benchmark.py, tests/test_martin_wrapper_duckdb_benchmark.py) — deselect with -m 'not benchmark'",
 ]
 filterwarnings = [
     # passlib uses deprecated crypt module, will be fixed in future versions
     "ignore:'crypt' is deprecated:DeprecationWarning",
-]
-markers = [
-    "benchmark: measures request throughput/latency rather than correctness; can be slow (see tests/test_martin_wrapper_benchmark.py, tests/test_martin_wrapper_duckdb_benchmark.py) — deselect with -m 'not benchmark'",
 ]
 
 [tool.commitizen]
