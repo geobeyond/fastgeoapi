@@ -67,8 +67,8 @@ geoparquet = [
 ]
 # `/martin-wrapper` (app/tiles/martin_wrapper.py): in-process comparison of
 # pygeoapi's tile path against martin's, via martin-py's PyO3 bindings.
-# Sourced from a locally-built wheel (see [tool.uv.sources]) rather than
-# PyPI: martin-py isn't published there yet. `cp312`-only for now, hence
+# Sourced from a martin-py GitHub Release wheel (see [tool.uv.sources])
+# rather than PyPI: martin-py isn't published there yet. `cp312`-only for now, hence
 # the marker — the project's `<3.14` 3.13 lane resolves without it.
 martin_wrapper = [
     "martin-py>=0.1.0,<0.2; python_version < '3.13'",
@@ -138,10 +138,12 @@ maps = [
 members = ["packages/*"]
 
 [tool.uv.sources]
-# Local build, not yet on PyPI — see the `martin_wrapper` extra above.
-# Path is relative to this file; rebuild with `maturin build --release`
-# in the `martin-py` crate if the wheel goes missing.
-martin-py = { path = "../martin-py/target/wheels/martin_py-0.1.0-cp311-abi3-linux_x86_64.whl" }
+# Wheel published by martin-py's CI on each `v*` tag, not yet on PyPI — see
+# the `martin_wrapper` extra above. To bump: tag a new martin-py version,
+# update the version in this URL, then `uv lock`.
+# To try a local martin-py build instead, after `uv sync`:
+#   uv pip install --reinstall ../martin-py/target/wheels/martin_py-<version>-cp311-abi3-linux_x86_64.whl
+martin-py = { url = "https://github.com/geobeyond/martin-py/releases/download/v0.1.0/martin_py-0.1.0-cp311-abi3-linux_x86_64.whl" }
 fastgeoapi-html = { workspace = true }
 mlnative = [
     { url = "https://github.com/francbartoli/mlnative/releases/download/v0.4.0.dev1/mlnative-0.4.0.dev1-py3-none-manylinux_2_39_x86_64.whl", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
