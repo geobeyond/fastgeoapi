@@ -103,7 +103,6 @@ class DevConfig(GlobalConfig):
     # Reverse-DNS name of this deployment's MCP server card (SEP-2127),
     # e.g. `it.geobeyond/fastgeoapi`. Derived from APP_URI when unset.
     FASTGEOAPI_MCP_SERVER_NAME: str | None = None
-<<<<<<< HEAD
     # Path to a Martin config file (see the `martin` project), or the
     # literal string `auto` to derive one from the pygeoapi config
     # already loaded (app.tiles.martin_wrapper) instead of hand-writing a
@@ -114,14 +113,12 @@ class DevConfig(GlobalConfig):
     # to benchmark it against pygeoapi's own tile provider. Never set
     # this on a public deployment.
     FASTGEOAPI_MARTIN_WRAPPER_CONFIG: str | None = None
-=======
     # Which HTML pages to serve: pygeoapi's templates, or fastgeoapi's own
     # pages (native), which need the html extra.
     FASTGEOAPI_HTML_PAGES: Literal["pygeoapi", "native"] = "pygeoapi"
     # A directory of templates that replace the native pages of the same
     # name; the others still come from the package.
     FASTGEOAPI_HTML_TEMPLATES: str | None = None
->>>>>>> origin/main
 
     model_config = SettingsConfigDict(
         env_prefix="DEV_",
