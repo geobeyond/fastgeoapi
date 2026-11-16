@@ -22,7 +22,8 @@ and run the same tiles against both:
     martin --config benchmark/martin.yaml --listen-addresses 0.0.0.0:3000
 
     uv run python scripts/bench_tiles.py run \\
-        --target 'wrapper=http://localhost:5000/geoapi/martin-wrapper/transportation-lazio/{z}/{x}/{y}' \\
+        --target \\
+          'wrapper=http://localhost:5000/geoapi/martin-wrapper/transportation-lazio/{z}/{x}/{y}' \\
         --target 'martin=http://localhost:3000/transportation-lazio/{z}/{x}/{y}' \\
         --concurrency 1 --concurrency 4 --concurrency 16
 
@@ -39,6 +40,7 @@ import statistics
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Annotated
 
 import httpx
 import typer
@@ -73,7 +75,7 @@ def sample_tiles(
 ) -> list[tuple[int, int, int]]:
     """At most `per_zoom` tiles of each zoom, shuffled, the same for every seed."""
     west, south, east, north = (float(v) for v in bbox.split(","))
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # ruff: ignore[suspicious-non-cryptographic-random-usage] - reproducible sampling, not cryptography
     tiles: list[tuple[int, int, int]] = []
     for zoom in zooms:
         candidates = tiles_in_bbox(zoom, west, south, east, north)
@@ -142,13 +144,16 @@ def _report(label: str, result: Pass) -> None:
 
 @app.command()
 def config(
-    pygeoapi_config: Path = typer.Option(
-        Path("pygeoapi-config.yml"), help="The pygeoapi config fastgeoapi boots with."
+    pygeoapi_config: Annotated[
+        Path, typer.Option(help="The pygeoapi config fastgeoapi boots with.")
+    ] = Path("pygeoapi-config.yml"),
+    resource: Annotated[
+        str | None,
+        typer.Option(help="Only this resource (default: every one `auto` would mount)."),
+    ] = None,
+    output: Annotated[Path, typer.Option(help="Where to write it.")] = Path(
+        "benchmark/martin.yaml"
     ),
-    resource: str | None = typer.Option(
-        None, help="Only this resource (default: every one `auto` would mount)."
-    ),
-    output: Path = typer.Option(Path("benchmark/martin.yaml"), help="Where to write it."),
 ) -> None:
     """Write the Martin config `auto` mode derives, tile cache off."""
     # Here, not at the top: importing `app` turns on its DEBUG logging,
@@ -172,19 +177,31 @@ def config(
 
 @app.command()
 def run(
-    target: list[str] = typer.Option(
-        ..., help="name=URL template with {z}, {x} and {y}; repeat for each server."
-    ),
-    bbox: str = typer.Option(LAZIO_BBOX, help="west,south,east,north in degrees (default: Lazio)."),
-    zoom: list[int] = typer.Option([10, 11, 12, 13, 14], help="Zoom levels to sample."),
-    per_zoom: int = typer.Option(40, help="Tiles sampled per zoom level."),
-    seed: int = typer.Option(42, help="Sampling seed: same seed, same tiles."),
-    concurrency: list[int] = typer.Option([1, 4, 16], help="In-flight requests per warm pass."),
-    repeat: int = typer.Option(2, help="Warm passes per concurrency level."),
-    timeout: float = typer.Option(120.0, help="Per-request timeout in seconds."),
-    tolerance: float = typer.Option(0.02, help="Relative tile size difference still on par."),
+    target: Annotated[
+        list[str],
+        typer.Option(help="name=URL template with {z}, {x} and {y}; repeat for each server."),
+    ],
+    bbox: Annotated[
+        str, typer.Option(help="west,south,east,north in degrees (default: Lazio).")
+    ] = LAZIO_BBOX,
+    zoom: Annotated[
+        list[int] | None, typer.Option(help="Zoom levels to sample. [default: 10 11 12 13 14]")
+    ] = None,
+    per_zoom: Annotated[int, typer.Option(help="Tiles sampled per zoom level.")] = 40,
+    seed: Annotated[int, typer.Option(help="Sampling seed: same seed, same tiles.")] = 42,
+    concurrency: Annotated[
+        list[int] | None, typer.Option(help="In-flight requests per warm pass. [default: 1 4 16]")
+    ] = None,
+    repeat: Annotated[int, typer.Option(help="Warm passes per concurrency level.")] = 2,
+    timeout: Annotated[float, typer.Option(help="Per-request timeout in seconds.")] = 120.0,
+    tolerance: Annotated[
+        float, typer.Option(help="Relative tile size difference still on par.")
+    ] = 0.02,
 ) -> None:
     """Fetch the same tiles from every target: one first pass, then warm passes."""
+    # list defaults live here, not in the signature, so they are not shared mutable defaults
+    zoom = zoom or [10, 11, 12, 13, 14]
+    concurrency = concurrency or [1, 4, 16]
     targets = dict(spec.split("=", 1) for spec in target)
     tiles = sample_tiles(bbox, zoom, per_zoom, seed)
     typer.echo(f"{len(tiles)} tiles, zooms {zoom}, bbox {bbox}, seed {seed}\n")
