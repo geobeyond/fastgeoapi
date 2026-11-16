@@ -303,7 +303,7 @@ def build_martin_wrapper_app(config_path: str) -> Starlette:
         an operator who explicitly configured this wants to know, not
         have it silently skipped.
     """
-    server = TileServer(config_path)
+    server = TileServer(config_path) # type: ignore
     logger.info(f"martin-wrapper: loaded {len(server.list_sources())} source(s) from {config_path}")
 
     async def get_tile(request: Request) -> Response:
