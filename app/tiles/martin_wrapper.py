@@ -303,7 +303,11 @@ def build_martin_wrapper_app(config_path: str) -> Starlette:
         an operator who explicitly configured this wants to know, not
         have it silently skipped.
     """
-    server = TileServer(config_path) # type: ignore
+    if TileServer is None:
+        raise RuntimeError(
+            "martin-py is not installed (install it with `uv sync --extra martin_wrapper`)"
+        )
+    server = TileServer(config_path)
     logger.info(f"martin-wrapper: loaded {len(server.list_sources())} source(s) from {config_path}")
 
     async def get_tile(request: Request) -> Response:
