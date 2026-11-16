@@ -75,7 +75,7 @@ uv run fastgeoapi run --host 0.0.0.0 --port 5000 --reload
 A successful mount logs:
 
 ```
-Martin wrapper endpoint mounted at /geoapi/martin-wrapper (config: ...); this surface is UNAUTHENTICATED and for benchmarking only.
+Martin wrapper endpoint mounted at /geoapi/martin-wrapper (config: ...); for benchmarking only.
 ```
 
 ### Try it
@@ -84,6 +84,9 @@ Martin wrapper endpoint mounted at /geoapi/martin-wrapper (config: ...); this su
 curl http://localhost:5000/geoapi/martin-wrapper/<source_id>/<z>/<x>/<y>
 # e.g. curl http://localhost:5000/geoapi/martin-wrapper/lakes/0/0/0
 ```
+
+The endpoint is behind the same auth as `/geoapi`: with `API_KEY_ENABLED`, add
+`-H "X-API-KEY: <key>"`; with OPA/JWKS, a bearer token.
 
 `<source_id>` is the pygeoapi resource id (`auto` mode) or the source
 key/`layer_id` from your config file. A `404` with `{"code": "NotFound", ...}`

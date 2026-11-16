@@ -178,6 +178,30 @@ def test_martin_wrapper_mounted_when_configured(tmp_path):
     assert outside_context.status_code == 404
 
 
+def test_martin_wrapper_requires_the_api_key_when_enabled(tmp_path):
+    """Same auth chain as `/geoapi`: no key, no tiles."""
+    config_path = _write_martin_config(tmp_path)
+    env = {
+        **BASE_ENV,
+        "DEV_API_KEY_ENABLED": "true",
+        "DEV_PYGEOAPI_KEY_GLOBAL": "pygeoapi",
+        "DEV_FASTGEOAPI_MARTIN_WRAPPER_CONFIG": str(config_path),
+    }
+    # requests stay inside the patch: the key middleware reads the valid
+    # keys (PYGEOAPI_KEY_*) from os.environ on every request
+    with mock.patch.dict(os.environ, env, clear=False):
+        app = _reload_app(env)
+        with TestClient(app, raise_server_exceptions=False) as client:
+            anonymous = client.get("/geoapi/martin-wrapper/wrapper_source/0/0/0")
+            with_key = client.get(
+                "/geoapi/martin-wrapper/wrapper_source/0/0/0",
+                headers={"X-API-KEY": "pygeoapi"},
+            )
+    assert anonymous.status_code in (401, 403)
+    assert with_key.status_code == 200
+    assert with_key.headers["content-type"] == "application/x-protobuf"
+
+
 def test_martin_wrapper_skips_mount_when_dependency_missing(tmp_path):
     """Configured but the optional dependency isn't installed: warn, don't crash."""
     config_path = _write_martin_config(tmp_path)

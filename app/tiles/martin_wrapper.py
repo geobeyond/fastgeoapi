@@ -13,12 +13,13 @@ in `pyproject.toml`). `TileServer` is `None` when it isn't installed, so
 callers can check for that before mounting rather than importing this
 module and getting an `ImportError`.
 
-Unauthenticated by design: this mount carries none of the auth
-middleware `main._wrap_pygeoapi_asgi` wraps the pygeoapi/admin surfaces
-with. It stays out of service unless an operator explicitly points
+Protected like the rest of the API: `app.main` wraps this mount with the
+same auth chain (`main._wrap_pygeoapi_asgi`) as the pygeoapi/admin
+surfaces, so it serves no data a client couldn't already get through
+`/geoapi`. It stays out of service unless an operator explicitly points
 `FASTGEOAPI_MARTIN_WRAPPER_CONFIG` at a Martin config file (or sets it
-to ``auto``, see `build_martin_wrapper_app_from_pygeoapi`), and it must
-never be enabled on a public deployment.
+to ``auto``, see `build_martin_wrapper_app_from_pygeoapi`); being a
+benchmarking tool, keep it off in production.
 """
 
 from __future__ import annotations

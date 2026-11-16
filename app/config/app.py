@@ -108,10 +108,10 @@ class DevConfig(GlobalConfig):
     # already loaded (app.tiles.martin_wrapper) instead of hand-writing a
     # second file. Opt-in and off by default: when set AND the optional
     # `martin-py` wrapper dependency is installed, mounts an
-    # UNAUTHENTICATED `{FASTGEOAPI_CONTEXT}/martin-wrapper/{source_ids}/{z}/{x}/{y}` endpoint
+    # `{FASTGEOAPI_CONTEXT}/martin-wrapper/{source_ids}/{z}/{x}/{y}` endpoint
     # that serves tiles straight from martin-py's in-process bindings,
-    # to benchmark it against pygeoapi's own tile provider. Never set
-    # this on a public deployment.
+    # to benchmark it against pygeoapi's own tile provider. It sits behind
+    # the same auth as the pygeoapi surface; still, keep it off in production.
     FASTGEOAPI_MARTIN_WRAPPER_CONFIG: str | None = None
     # Which HTML pages to serve: pygeoapi's templates, or fastgeoapi's own
     # pages (native), which need the html extra.
@@ -207,10 +207,10 @@ class ProdConfig(GlobalConfig):
     # already loaded (app.tiles.martin_wrapper) instead of hand-writing a
     # second file. Opt-in and off by default: when set AND the optional
     # `martin-py` wrapper dependency is installed, mounts an
-    # UNAUTHENTICATED `{FASTGEOAPI_CONTEXT}/martin-wrapper/{source_ids}/{z}/{x}/{y}` endpoint
+    # `{FASTGEOAPI_CONTEXT}/martin-wrapper/{source_ids}/{z}/{x}/{y}` endpoint
     # that serves tiles straight from martin-py's in-process bindings,
-    # to benchmark it against pygeoapi's own tile provider. Never set
-    # this on a public deployment.
+    # to benchmark it against pygeoapi's own tile provider. It sits behind
+    # the same auth as the pygeoapi surface; still, keep it off in production.
     FASTGEOAPI_MARTIN_WRAPPER_CONFIG: str | None = None
     # Which HTML pages to serve: pygeoapi's templates, or fastgeoapi's own
     # pages (native), which need the html extra.

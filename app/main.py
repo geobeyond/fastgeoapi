@@ -392,15 +392,19 @@ def create_app(lifespan=None):
 
     # Martin-py tile wrapper (opt-in, off by default): compares
     # pygeoapi's tile provider against martin-py's in-process bindings
-    # under the same process. See app/tiles/martin_wrapper.py for why this
-    # mount carries no auth wrapper and must stay off in production.
+    # under the same process. Behind the same auth chain as the pygeoapi
+    # and /admin surfaces, so enabling it never exposes protected data;
+    # still a benchmarking tool, best kept off in production.
     martin_wrapper_config = cfg.FASTGEOAPI_MARTIN_WRAPPER_CONFIG
     martin_wrapper_path = f"{cfg.FASTGEOAPI_CONTEXT}/martin-wrapper"
 
     def _mount_martin_wrapper(sub_app) -> None:
         # Ahead of the FASTGEOAPI_CONTEXT mount, which would otherwise
-        # claim every path under it, this one included.
-        app.router.routes.insert(0, Mount(martin_wrapper_path, app=sub_app))
+        # claim every path under it, this one included. Being a separate
+        # mount it does not inherit that mount's auth, so it gets the same
+        # chain explicitly.
+        wrapped_martin_wrapper, _ = _wrap_pygeoapi_asgi(sub_app)
+        app.router.routes.insert(0, Mount(martin_wrapper_path, app=wrapped_martin_wrapper))
 
     if martin_wrapper_config:
         from app.tiles.martin_wrapper import TileServer as _MartinTileServer
@@ -431,15 +435,13 @@ def create_app(lifespan=None):
                 _mount_martin_wrapper(martin_wrapper_app)
                 logger.warning(
                     f"Martin wrapper endpoint mounted at {martin_wrapper_path} (config: "
-                    "auto-derived from the pygeoapi config); this surface is "
-                    "UNAUTHENTICATED and for benchmarking only."
+                    "auto-derived from the pygeoapi config); for benchmarking only."
                 )
         else:
             _mount_martin_wrapper(build_martin_wrapper_app(martin_wrapper_config))
             logger.warning(
                 f"Martin wrapper endpoint mounted at {martin_wrapper_path} (config: "
-                f"{martin_wrapper_config}); this surface is UNAUTHENTICATED and for "
-                "benchmarking only."
+                f"{martin_wrapper_config}); for benchmarking only."
             )
 
     app.logger = create_logger(name="app.main")
