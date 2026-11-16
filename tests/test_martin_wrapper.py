@@ -62,9 +62,11 @@ def test_build_martin_wrapper_app_unknown_source_is_404(tmp_path):
 
 
 def test_build_martin_wrapper_app_rejects_bad_config(tmp_path):
+    from martin_py import ConfigError
+
     from app.tiles.martin_wrapper import build_martin_wrapper_app
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ConfigError):
         build_martin_wrapper_app(str(tmp_path / "no-such-config.yaml"))
 
 
