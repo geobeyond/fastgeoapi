@@ -8,9 +8,7 @@ bindings, for benchmarking pygeoapi's tile path against martin's own under
 the same process and load generator. See that module's docstring for the
 full design rationale (ADR-0003); this file is the practical how-to.
 
-**Opt-in, off by default, and unauthenticated.** This surface carries none
-of the auth middleware the rest of the API gets — never enable it on a
-public deployment.
+**Opt-in, off by default.**
 
 ## 1. Run fastgeoapi with `/martin-wrapper` enabled
 
