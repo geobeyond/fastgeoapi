@@ -65,6 +65,48 @@ def test_build_martin_wrapper_app_unknown_source_is_404(tmp_path):
     assert r.json()["code"] == "NotFound"
 
 
+@pytest.mark.parametrize(
+    ("error", "status", "code"),
+    [
+        ("UnknownSourceError", 404, "NotFound"),
+        ("TileRequestError", 400, "InvalidParameterValue"),
+        ("ValueError", 400, "InvalidParameterValue"),
+        ("TileFetchError", 500, "NoApplicableCode"),
+        ("RuntimeError", 500, "NoApplicableCode"),
+    ],
+)
+def test_build_martin_wrapper_app_maps_tile_errors_to_status(tmp_path, error, status, code):
+    """Request errors are 4xx; a failing source is a 500 that leaks no detail."""
+    import builtins
+
+    import martin_py
+
+    from app.tiles import martin_wrapper as martin_wrapper_mod
+
+    exc_type = getattr(martin_py, error, None) or getattr(builtins, error)
+    secret = "s3://private-bucket/credentials-in-path"
+
+    class FailingTileServer:
+        def __init__(self, config_path):
+            pass
+
+        def list_sources(self):
+            return {}
+
+        def get_tile(self, *args, **kwargs):
+            raise exc_type(secret)
+
+    with mock.patch.object(martin_wrapper_mod, "TileServer", FailingTileServer):
+        sub_app = martin_wrapper_mod.build_martin_wrapper_app(str(tmp_path / "unused.yaml"))
+    with TestClient(sub_app, raise_server_exceptions=False) as client:
+        r = client.get("/any_source/0/0/0")
+
+    assert r.status_code == status
+    assert r.json()["code"] == code
+    if status >= 500:
+        assert secret not in r.text
+
+
 def test_build_martin_wrapper_app_rejects_bad_config(tmp_path):
     from martin_py import ConfigError
 

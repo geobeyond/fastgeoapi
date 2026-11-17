@@ -87,8 +87,14 @@ The endpoint is behind the same auth as `/geoapi`: with `API_KEY_ENABLED`, add
 `-H "X-API-KEY: <key>"`; with OPA/JWKS, a bearer token.
 
 `<source_id>` is the pygeoapi resource id (`auto` mode) or the source
-key/`layer_id` from your config file. A `404` with `{"code": "NotFound", ...}`
-means either the source id is wrong or that tile genuinely has no data.
+key/`layer_id` from your config file. Errors follow martin's own server:
+
+- `404` `NotFound`: no source with that id.
+- `400` `InvalidParameterValue`: the request can't be served as asked (zoom
+  outside the source's range, an impossible coordinate, incompatible sources
+  combined, a malformed query).
+- `500` `NoApplicableCode`: the source failed to produce the tile (storage,
+  database, ...); the details are in fastgeoapi's log, not in the response.
 
 ## 2. Load it as a vector tile source in QGIS
 

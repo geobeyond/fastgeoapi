@@ -307,6 +307,8 @@ def build_martin_wrapper_app(config_path: str) -> Starlette:
         raise RuntimeError(
             "martin-py is not installed (install it with `uv sync --extra martin_wrapper`)"
         )
+    from martin_py import TileRequestError, UnknownSourceError
+
     server = TileServer(config_path)
     logger.info(f"martin-wrapper: loaded {len(server.list_sources())} source(s) from {config_path}")
 
@@ -321,9 +323,27 @@ def build_martin_wrapper_app(config_path: str) -> Starlette:
             data, content_type, content_encoding = await run_in_threadpool(
                 server.get_tile, source_ids, z, x, y, query=request.url.query or None
             )
-        except Exception as e:
-            logger.warning(f"martin-wrapper: tile fetch failed for {source_ids}/{z}/{x}/{y}: {e}")
+        # Status by who is at fault, as martin's own HTTP server does: the
+        # request (4xx, with martin-py's message) or the server (5xx, with a
+        # generic message — the detail may name storage or credentials, and
+        # goes to the log instead). A source failure must not pass for a
+        # missing tile, or outages vanish from clients and error rates.
+        except UnknownSourceError as e:
             return JSONResponse({"code": "NotFound", "description": str(e)}, status_code=404)
+        except (TileRequestError, ValueError) as e:
+            # zoom outside the source's range, incompatible sources combined,
+            # malformed query, impossible coordinate
+            return JSONResponse(
+                {"code": "InvalidParameterValue", "description": str(e)}, status_code=400
+            )
+        except Exception:
+            # TileFetchError (the source failed: I/O, database, transcoding)
+            # or any other failure inside martin-py
+            logger.exception(f"martin-wrapper: tile fetch failed for {source_ids}/{z}/{x}/{y}")
+            return JSONResponse(
+                {"code": "NoApplicableCode", "description": "tile generation failed"},
+                status_code=500,
+            )
         headers = {"Content-Encoding": content_encoding} if content_encoding else {}
         return Response(content=data, media_type=content_type, headers=headers)
 
