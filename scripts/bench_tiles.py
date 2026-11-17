@@ -9,16 +9,16 @@ run variance down to the network and the tiler.
 
 First derive the Martin config for the standalone ``martin`` binary from
 the same pygeoapi config, so it reads exactly what fastgeoapi's
-``FASTGEOAPI_MARTIN_WRAPPER_CONFIG=auto`` derives at boot (plus
-``cache.size_mb: 0``: martin-py keeps no tile cache, so neither may the
-binary):
+``FASTGEOAPI_MARTIN_WRAPPER_CONFIG=auto`` derives at boot, plus
+``cache.size_mb: 0``. martin-py serves through martin's tile cache just like
+the binary does, so both servers load this same file and run without one:
 
     uv run python scripts/bench_tiles.py config --output benchmark/martin.yaml
 
 Then start both servers (each freshly, if the first pass is to be cold)
 and run the same tiles against both:
 
-    DEV_FASTGEOAPI_MARTIN_WRAPPER_CONFIG=auto uv run fastgeoapi run --port 5000
+    DEV_FASTGEOAPI_MARTIN_WRAPPER_CONFIG=benchmark/martin.yaml uv run fastgeoapi run --port 5000
     martin --config benchmark/martin.yaml --listen-addresses 0.0.0.0:3000
 
     uv run python scripts/bench_tiles.py run \\

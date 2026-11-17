@@ -9,10 +9,11 @@ and Martin's own config is DuckDB-*read*, but the file on disk is GeoParquet.
 Same protocol as `test_martin_wrapper_benchmark.py` (see
 `tile_bench_support.py` for the shared harness): 100 warm-up requests
 discarded, then 1000 timed ones, every one — warm-up and timed alike —
-drawing its own random `{z}/{x}/{y}`, so nothing is ever served twice; there
-is no tile cache in the wrapper to begin with, and repeating coordinates
-would measure DuckDB's own query-plan cache more than the per-request path
-this benchmark means to time.
+drawing its own random `{z}/{x}/{y}`. Martin's tile cache, which martin-py
+serves through, is turned off in the benchmark config (`cache.size_mb: 0`),
+so a coordinate drawn twice is resolved twice; varying the coordinates keeps
+DuckDB's own query-plan cache from dominating the per-request path this
+benchmark means to time.
 
 Points are uniform-random over the whole globe, which is the *worst* case
 for a shallow tile (every feature can land in `/0/0/0`). To keep that from
@@ -208,6 +209,9 @@ def _build_duckdb_wrapper_app(tmp_path: Path, dataset_path: Path, layer_id: str)
     config_path.write_text(
         yaml.safe_dump(
             {
+                # martin-py serves through martin's tile cache: off, so every
+                # request is resolved rather than answered from memory
+                "cache": {"size_mb": 0},
                 "duckdb": {
                     "sources": [
                         {
@@ -217,7 +221,7 @@ def _build_duckdb_wrapper_app(tmp_path: Path, dataset_path: Path, layer_id: str)
                             "srid": 4326,
                         }
                     ]
-                }
+                },
             }
         )
     )

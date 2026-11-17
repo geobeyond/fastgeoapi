@@ -22,11 +22,15 @@ pytest.importorskip("martin_py", reason="the /martin-wrapper tests need the `mar
 FIXTURE_GEOJSON = Path(__file__).parent / "data" / "martin_wrapper" / "feature_collection.geojson"
 
 
-def _write_martin_config(tmp_path: Path, source_id: str = "wrapper_source") -> Path:
+def _write_martin_config(
+    tmp_path: Path, source_id: str = "wrapper_source", cache_size_mb: int | None = None
+) -> Path:
+    """A one-source geojson config; `cache_size_mb=0` turns martin's tile cache off."""
+    config: dict = {"geojson": {"sources": {source_id: str(FIXTURE_GEOJSON)}}}
+    if cache_size_mb is not None:
+        config["cache"] = {"size_mb": cache_size_mb}
     config_path = tmp_path / "martin-config.yaml"
-    config_path.write_text(
-        yaml.safe_dump({"geojson": {"sources": {source_id: str(FIXTURE_GEOJSON)}}})
-    )
+    config_path.write_text(yaml.safe_dump(config))
     return config_path
 
 

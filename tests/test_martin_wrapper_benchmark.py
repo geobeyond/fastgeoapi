@@ -13,8 +13,10 @@ Every request targets a random `{z}/{x}/{y}` (with `0 <= x, y < 2**z`, the
 only constraint martin-py's routing enforces) against the same single-point
 fixture source `test_martin_wrapper.py` uses, so most tiles come back empty
 of features but every one is a legitimate, independently-resolved tile
-request, drawn fresh for warm-up and for the timed run alike — see
-`tile_bench_support.py` for why nothing here is ever served from a cache.
+request, drawn fresh for warm-up and for the timed run alike. Martin's tile
+cache is turned off (`cache.size_mb: 0`), so a repeated draw (every zoom-0
+one is `/0/0/0`) is resolved again rather than served from memory — see
+`tile_bench_support.py`.
 
 There is no hard latency assertion: wall-clock speed is CPU- and
 load-dependent, so pinning a threshold here would make the suite flaky on
@@ -50,7 +52,7 @@ def test_build_martin_wrapper_app_get_tile_benchmark(tmp_path, capsys):
     """Warm up with 100 random tiles, then benchmark 1000 more."""
     from app.tiles.martin_wrapper import build_martin_wrapper_app
 
-    config_path = _write_martin_config(tmp_path, source_id=SOURCE_ID)
+    config_path = _write_martin_config(tmp_path, source_id=SOURCE_ID, cache_size_mb=0)
     sub_app = build_martin_wrapper_app(str(config_path))
     rng = random.Random(1234)  # ruff: ignore[suspicious-non-cryptographic-random-usage] - reproducible benchmark
 

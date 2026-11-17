@@ -3,12 +3,13 @@
 Used by `test_martin_wrapper_benchmark.py` (the small geojson fixture) and
 `test_martin_wrapper_duckdb_benchmark.py` (random-geometry GeoParquet at
 scale). Both follow the same protocol: warm up on discarded requests, then
-time a distinct batch — every request targets its own random `{z}/{x}/{y}`,
-so nothing after warm-up repeats a tile a cache could have memoized. The
-wrapper itself caches nothing (`app/tiles/martin_wrapper.py` builds the
-`TileServer` once and calls `get_tile` fresh every request); varying the
-coordinates is what keeps DuckDB/martin-py's own query-plan caches, and not
-just one lucky response, off the measurement.
+time a batch where every request draws its own random `{z}/{x}/{y}`.
+
+Draws can repeat (at zoom 0 every one is `/0/0/0`), and martin-py serves
+tiles through martin's own tile cache (256 MB by default), so both benchmark
+configs set `cache.size_mb: 0`: every request, repeated or not, is resolved
+afresh. Varying the coordinates then keeps DuckDB's query-plan cache, and not
+just one lucky tile, off the measurement.
 """
 
 from __future__ import annotations
@@ -73,11 +74,11 @@ def run_tiles(
     min_zoom: int = 0,
     max_zoom: int = 14,
 ) -> BenchmarkStats:
-    """Fire `count` distinct, randomly-chosen tile requests and time each one.
+    """Fire `count` randomly-chosen tile requests and time each one.
 
-    Every call draws its own `(z, x, y)` from `rng`, so a warm-up batch
-    followed by the timed one never repeats a tile — nothing in the
-    measured run is a memoized response rather than a freshly resolved one.
+    Every call draws its own `(z, x, y)` from `rng`. Coordinates can repeat,
+    so the source's config must turn martin's tile cache off
+    (`cache.size_mb: 0`) for every timing to be a freshly resolved tile.
     """
     latencies_ms: list[float] = []
     start = time.perf_counter()
