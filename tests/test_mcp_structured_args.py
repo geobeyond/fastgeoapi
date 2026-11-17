@@ -55,9 +55,11 @@ async def test_execute_process_body_forwarded_as_json_object(mcp_main):
 async def test_execute_process_with_flat_args_rejected_cleanly(mcp_main):
     """Flattened arguments must get a clean 400, not an internal leak.
 
-    A client that skips the ``inputs`` wrapper must receive pygeoapi's proper
-    ``MissingParameterValue`` rejection — not the ``AttributeError``
-    surfaced as an opaque error message.
+    A client that skips the ``inputs`` wrapper must receive a 400 with an OGC
+    exception code from pygeoapi, and no ``AttributeError`` leaking into the
+    message. fastmcp sends ``{}`` for a required JSON body when none of its
+    properties is given, so pygeoapi passes the request on and the process
+    rejects the missing input with ``InvalidParameterValue``.
     """
     from fastmcp import Client
 
@@ -66,7 +68,8 @@ async def test_execute_process_with_flat_args_rejected_cleanly(mcp_main):
             await client.call_tool("executeHello_worldJob", {"name": "World"})
 
     message = str(exc_info.value)
-    assert "MissingParameterValue" in message or "missing request data" in message, message
+    assert "HTTP error 400" in message, message
+    assert "InvalidParameterValue" in message or "MissingParameterValue" in message, message
     assert "has no attribute" not in message, message
 
 
