@@ -117,6 +117,7 @@ This diagram gives an overview of the basic architecture:
 - **Dry run before saving** - builds the whole API from your candidate configuration and reads one item per collection, so a broken source is found before it is served
 - **Writing is not activating** - the editor mounts no reload webhook: putting a configuration into service stays a separate, deliberate gesture
 - **JSON endpoints too** - the same checks run from `curl` or in CI, with no browser involved
+- **Portolan catalogs, ingested** - `fastgeoapi config ingest --from-portolan` writes the resources for a catalog's GeoParquet and PMTiles collections, and runs again when the catalog changes without touching what you wrote by hand
 
 ### 🖥️ HTML pages of its own
 
@@ -343,6 +344,15 @@ It prints a per-run token and an address to open. It stays on loopback,
 and it can write a configuration but never put one into service — see
 [the command line](https://geobeyond.github.io/fastgeoapi/operators/reference/cli/) and
 [editing the configuration](https://geobeyond.github.io/fastgeoapi/operators/how-to/configuration-editor/).
+
+Turn a Portolan catalog into resources, printed or merged into the configuration:
+
+```shell
+pip install "fastgeoapi[portolan]"
+fastgeoapi config ingest --from-portolan https://example.org/catalog/ --into pygeoapi-config.yml
+```
+
+See [ingesting a Portolan catalog](https://geobeyond.github.io/fastgeoapi/operators/how-to/portolan-ingest/).
 
 See the [Getting Started guide](https://geobeyond.github.io/fastgeoapi/operators/tutorials/getting-started/) for complete setup instructions including authentication options and examples.
 

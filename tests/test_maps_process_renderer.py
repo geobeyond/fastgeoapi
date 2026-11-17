@@ -188,9 +188,11 @@ async def test_a_failure_keeps_the_token_of_a_loopback_url_out_of_the_log():
 
     token = "Zm9vYmFy_-" * 4
     messages: list[str] = []
-    sink = logger.add(lambda message: messages.append(str(message)), level="WARNING")
     processes = []
+    # Built before the sink: importing a module of the app sets up logging
+    # again, which removes every sink, the test's too.
     renderer = _renderer(processes)
+    sink = logger.add(lambda message: messages.append(str(message)), level="WARNING")
     try:
         await renderer.render(_request())
         processes[0].fail = OSError(f"Error fetching pmtiles://http://127.0.0.1:53211/{token}/s/v")

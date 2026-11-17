@@ -320,7 +320,7 @@ deterministically, so the schema a client downloads today is the schema it
 downloads tomorrow, and augments it with the security schemes that match the
 configured authentication. Server URLs follow the reverse proxy the deployment
 sits behind rather than the port the process happens to bind. The document is
-validated in CI with Spectral, exercised with contract tests, and scanned with
+validated in CI with OpenLint, exercised with contract tests, and scanned with
 OWASP ZAP.
 
 The same document can be generated offline with the `fastgeoapi` CLI and

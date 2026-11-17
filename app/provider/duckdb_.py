@@ -29,8 +29,10 @@ from __future__ import annotations
 import os
 import re
 import tempfile
+from collections.abc import Sequence
 
 from app.config.logging import create_logger
+from app.provider.interrupts import on_interrupt
 
 logger = create_logger("app.provider.duckdb")
 
@@ -42,6 +44,7 @@ logger = create_logger("app.provider.duckdb")
 # those natively and a local dataset needs no filesystem at all.
 # `tests/test_duckdb_session.py` guards both invariants.
 _CLOUD_SCHEMES = frozenset({"s3", "s3a", "gs", "gcs", "az", "azure", "abfs", "abfss", "adl"})
+_HTTP_SCHEMES = frozenset({"http", "https"})
 
 
 # Engine option names reach SQL as identifiers (`SET <name>=…`), so they
@@ -80,10 +83,48 @@ class DuckDBUnavailableError(RuntimeError):
     """DuckDB or its spatial extension could not be prepared."""
 
 
+def load_duckdb():
+    """Import DuckDB where it is used.
+
+    DuckDB comes with the ``geoparquet`` extra, and the renderer lane
+    imports the modules that use it without that extra. They call this
+    function when they need DuckDB instead of importing it at their top.
+
+    Returns
+    -------
+    module
+        The ``duckdb`` module.
+
+    Raises
+    ------
+    DuckDBUnavailableError
+        If DuckDB is not installed.
+    """
+    try:
+        import duckdb
+    except ImportError as error:
+        raise DuckDBUnavailableError(
+            "the GeoParquet provider needs the 'geoparquet' extra: "
+            "pip install 'fastgeoapi[geoparquet]'"
+        ) from error
+    return duckdb
+
+
 def protocol_for(source: str) -> str | None:
-    """The protocol to register for a source, or None when it is local."""
+    """The protocol to register for a source, or None when DuckDB reads it alone.
+
+    That is a local path, or one file at an http(s) URL, which DuckDB reads
+    by range. HTTP has no listing, so a glob or a folder there is refused.
+    """
     scheme, separator, _ = source.partition("://")
     if not separator:
+        return None
+    if scheme in _HTTP_SCHEMES:
+        if "*" in source or not source.endswith(".parquet"):
+            raise DuckDBUnavailableError(
+                f"{source} needs a listing, and HTTP cannot list: name a .parquet file, "
+                "or read the folder from its bucket URL"
+            )
         return None
     if scheme not in _CLOUD_SCHEMES:
         raise DuckDBUnavailableError(
@@ -150,15 +191,9 @@ def connect(
     runtime, where the engine would otherwise size itself against the
     host's resources instead of the function's.
     """
-    try:
-        import duckdb
-    except ImportError as e:  # pragma: no cover - exercised by the extra
-        raise DuckDBUnavailableError(
-            "the GeoParquet provider needs the 'geoparquet' extra: "
-            "pip install 'fastgeoapi[geoparquet]'"
-        ) from e
-
+    duckdb = load_duckdb()
     con = duckdb.connect()
+    on_interrupt(con.interrupt)
     con.execute(f"SET temp_directory='{_writable_temp_directory()}'")
     extension_directory = os.environ.get("DUCKDB_EXTENSION_DIRECTORY")
     if extension_directory:
@@ -284,6 +319,8 @@ def scan_expression(
     source: str,
     store_options: dict | None = None,
     engine_options: dict | None = None,
+    *,
+    union_by_name: bool = True,
 ) -> str:
     """Build the ``read_parquet`` fragment for a file, glob or directory.
 
@@ -301,6 +338,12 @@ def scan_expression(
       works while ``*.parquet`` and ``**/*.parquet`` both raise "No files
       found" — so on that path the objects are listed through the storage
       layer and handed to DuckDB as explicit paths.
+
+    ``union_by_name`` unites the schemas of all the files, which means
+    reading the footer of every one of them. A dataset whose files share
+    one schema can turn it off: DuckDB then takes the schema of the first
+    file, and a glob over hundreds of large files is described in seconds
+    instead of minutes.
     """
     if source.endswith(".parquet") or "*" in source:
         target = f"'{source}'"
@@ -308,7 +351,32 @@ def scan_expression(
         target = _enumerate_cloud_parquet(source, store_options)
     else:
         target = f"'{source.rstrip('/')}/**/*.parquet'"
-    return f"read_parquet({target}, hive_partitioning=true, union_by_name=true)"
+    union = "true" if union_by_name else "false"
+    return f"read_parquet({target}, hive_partitioning=true, union_by_name={union})"
+
+
+def scan_files(hrefs: Sequence[str], *, union_by_name: bool = True) -> str:
+    """Build the ``read_parquet`` fragment for an explicit list of files.
+
+    The hrefs come from an index, that is from whoever published the
+    catalog, so each one is written as a single quoted literal with its
+    quotes doubled: an href cannot end the list or add SQL to it.
+
+    Parameters
+    ----------
+    hrefs
+        The files, as paths or URLs DuckDB can read. At least one.
+    union_by_name
+        Whether to unite the schemas of the files, as in ``scan_expression``.
+
+    Returns
+    -------
+    str
+        The fragment, ready to follow ``FROM``.
+    """
+    literals = ", ".join("'" + href.replace("'", "''") + "'" for href in hrefs)
+    union = "true" if union_by_name else "false"
+    return f"read_parquet([{literals}], hive_partitioning=true, union_by_name={union})"
 
 
 def _enumerate_cloud_parquet(source: str, store_options: dict | None) -> str:
@@ -317,7 +385,7 @@ def _enumerate_cloud_parquet(source: str, store_options: dict | None) -> str:
 
     base = source if source.endswith("/") else f"{source}/"
     store = load_store(base, store_options=store_options)
-    keys = [key for key in store.keys() if key.endswith(".parquet")]
+    keys = [key for key in store.list_keys() if key.endswith(".parquet")]
     if not keys:
         raise DuckDBUnavailableError(f"no parquet objects under {source}")
     logger.debug(f"{len(keys)} parquet object(s) enumerated under {source}")

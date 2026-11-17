@@ -174,6 +174,20 @@ def validate_effective(text: str) -> Outcome:
     return Outcome(ok=not problems, problems=problems, variables=variables)
 
 
+def validation_problems(text: str) -> list[str]:
+    """The problems that keep ``text`` from being saved, as the editor's save sees them.
+
+    The document as written first; when it passes, what would run once
+    its placeholders are resolved, so an unset ``${VAR}`` blocks a write
+    here as it blocks ``PUT /editor/config``. A command that writes a
+    configuration takes this as its validator.
+    """
+    source = validate_source(text)
+    if not source.ok:
+        return source.problems
+    return validate_effective(text).problems
+
+
 def dry_run(text: str, augmented: bool = False) -> Outcome:
     """Build the configuration for real, and report what stood up.
 
@@ -453,7 +467,7 @@ def _unreachable_sources(config: dict):
                     # reads and writes one object, and asking it to list
                     # would turn "nothing is there" into an AttributeError
                     # the operator would read as a fact about their config.
-                    if not any(k.startswith(key) for k in store.keys(key)):
+                    if not any(k.startswith(key) for k in store.list_keys(key)):
                         yield name, data, "nothing is there"
             except Exception as e:  # unreadable store, bad credentials, bad URL
                 yield name, data, f"{type(e).__name__}: {str(e).splitlines()[0][:100]}"

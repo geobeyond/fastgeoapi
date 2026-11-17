@@ -1,0 +1,131 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://stac-extensions.github.io/vector/v0.1.0/schema.json",
+  "title": "Vector Extension",
+  "description": "STAC Vector Extension for STAC Items and STAC Collections.",
+  "type": "object",
+  "required": [
+    "stac_extensions"
+  ],
+  "properties": {
+    "stac_extensions": {
+      "type": "array",
+      "contains": {
+        "const": "https://stac-extensions.github.io/vector/v0.1.0/schema.json"
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "$comment": "This is the schema for STAC Items.",
+      "type": "object",
+      "required": [
+        "type",
+        "properties"
+      ],
+      "properties": {
+        "type": {
+          "const": "Feature"
+        },
+        "properties": {
+          "$ref": "#/definitions/fields"
+        },
+        "assets": {
+          "$ref": "#/definitions/assets"
+        }
+      }
+    },
+    {
+      "$comment": "This is the schema for STAC Collections.",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "const": "Collection"
+        },
+        "summaries": {
+          "$comment": "Checking the summaries is not supported yet"
+        },
+        "assets": {
+          "$ref": "#/definitions/assets"
+        },
+        "item_assets": {
+          "$ref": "#/definitions/assets"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/fields"
+        }
+      ]
+    }
+  ],
+  "definitions": {
+    "assets": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/fields"
+      }
+    },
+    "fields": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/vector_fields"
+        },
+        {
+          "$ref": "#/definitions/table_fields"
+        }
+      ]
+    },
+    "vector_fields": {
+      "type": "object",
+      "properties": {
+        "vector:geometry_types": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "Point",
+              "MultiPoint",
+              "LineString",
+              "MultiLineString",
+              "Polygon",
+              "MultiPolygon",
+              "GeometryCollection"
+            ]
+          }
+        },
+        "vector:mmu": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "vector:mmw": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "vector:reference_scale": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "patternProperties": {
+        "^(?!vector:)": {}
+      },
+      "additionalProperties": false
+    },
+    "table_fields": {
+      "type": "object",
+      "properties": {
+        "table:columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/vector_fields"
+          }
+        }
+      }
+    }
+  }
+}

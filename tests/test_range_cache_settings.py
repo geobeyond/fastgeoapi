@@ -32,9 +32,9 @@ def _provider(data, **options):
 
 
 def test_unset_the_cache_lives_next_to_the_schema_cache(tmp_path):
-    from app.provider.storage.cache import range_cache_from
+    from app.provider.storage.cache import build_range_cache
 
-    cache = range_cache_from(_settings(FASTGEOAPI_CACHE_DIR=str(tmp_path)))
+    cache = build_range_cache(_settings(FASTGEOAPI_CACHE_DIR=str(tmp_path)))
     cache.put("s/v/0-1", b"x")
 
     assert (tmp_path / "ranges" / "s" / "v" / "0-1").read_bytes() == b"x"
@@ -43,15 +43,15 @@ def test_unset_the_cache_lives_next_to_the_schema_cache(tmp_path):
 
 @pytest.mark.parametrize("value", ["off", "OFF", " Off "])
 def test_off_turns_the_cache_off(value):
-    from app.provider.storage.cache import range_cache_from
+    from app.provider.storage.cache import build_range_cache
 
-    assert range_cache_from(_settings(FASTGEOAPI_RANGE_CACHE=value)) is None
+    assert build_range_cache(_settings(FASTGEOAPI_RANGE_CACHE=value)) is None
 
 
 def test_a_directory_and_the_limits_come_from_the_settings(tmp_path):
-    from app.provider.storage.cache import range_cache_from
+    from app.provider.storage.cache import build_range_cache
 
-    cache = range_cache_from(
+    cache = build_range_cache(
         _settings(
             FASTGEOAPI_RANGE_CACHE=str(tmp_path / "r"),
             FASTGEOAPI_RANGE_CACHE_MAX_MB=2,

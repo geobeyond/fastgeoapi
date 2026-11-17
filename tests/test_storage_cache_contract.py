@@ -44,7 +44,7 @@ async def test_the_async_conditional_read_says_the_object_changed_too(store):
 def test_entries_give_path_size_and_date_of_every_object_under_a_prefix(store):
     store.put("a/b/other.bin", b"xyz")
 
-    entries = sorted(store.entries("a"), key=lambda entry: entry.path)
+    entries = sorted(store.list_entries("a"), key=lambda entry: entry.path)
 
     assert [(entry.path, entry.size) for entry in entries] == [
         ("a/b/other.bin", 3),
@@ -55,7 +55,7 @@ def test_entries_give_path_size_and_date_of_every_object_under_a_prefix(store):
 
 @pytest.mark.asyncio
 async def test_async_entries_match(store):
-    assert [entry.path for entry in await store.aentries("a")] == ["a/blob.bin"]
+    assert [entry.path for entry in await store.alist_entries("a")] == ["a/blob.bin"]
 
 
 def test_delete_removes_the_object(store):

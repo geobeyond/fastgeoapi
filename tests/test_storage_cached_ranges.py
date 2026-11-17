@@ -129,9 +129,9 @@ async def test_the_last_two_versions_are_known_by_their_digest(origin):
         clock.now += 301
         versions.append(await cached.ameta())
 
-    assert cached.known(version_of(versions[0])) is None
-    assert cached.known(version_of(versions[1])) == versions[1]
-    assert cached.known(version_of(versions[2])) == versions[2]
+    assert cached.find_known(version_of(versions[0])) is None
+    assert cached.find_known(version_of(versions[1])) == versions[1]
+    assert cached.find_known(version_of(versions[2])) == versions[2]
 
 
 @pytest.mark.asyncio

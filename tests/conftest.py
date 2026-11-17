@@ -131,7 +131,9 @@ def iam_configuration(tmp_path_factory, iam_server_port) -> dict[str, Any]:
         },
         "CANAILLE_OIDC": {
             "DYNAMIC_CLIENT_REGISTRATION_OPEN": True,
-            "ACTIVE_JWKS": [jwk.as_dict()],
+            # The private half signs the tokens: since joserfc 1.7,
+            # `as_dict()` alone returns only the public one.
+            "ACTIVE_JWKS": [jwk.as_dict(private=True)],
             "REQUIRE_NONCE": False,
         },
     }

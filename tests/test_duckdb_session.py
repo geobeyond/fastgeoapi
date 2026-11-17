@@ -10,12 +10,15 @@ inside a test would bind a SECOND ``DuckDBUnavailableError`` class and
 ``pytest.raises`` would not catch the one ``connect`` actually raises.
 """
 
+import sys
+
 import pytest
 
 from app.provider.duckdb_ import (
     _CLOUD_SCHEMES,
     DuckDBUnavailableError,
     connect,
+    load_duckdb,
     protocol_for,
     scan_expression,
 )
@@ -270,7 +273,7 @@ def test_a_cloud_directory_is_globbed_on_the_native_path(monkeypatch):
     assert "'s3://bucket/ds/**/*.parquet'" in expression, expression
 
 
-def test_cloud_sources_are_enumerated_on_the_bridge(overture_release):
+def test_cloud_sources_are_enumerated_on_the_bridge(s3_endpoint, monkeypatch):
     """On the obstore path a cloud dataset is listed, never globbed.
 
     Reading Overture through the obstore filesystem showed that DuckDB
@@ -279,15 +282,40 @@ def test_cloud_sources_are_enumerated_on_the_bridge(overture_release):
     multi-file dataset on a bucket — the partitioned case the design was
     built for — would be unusable. So on that path the scan lists the
     objects through the storage layer and hands DuckDB explicit paths.
+
+    The dataset sits on the local S3: Overture keeps only its latest
+    releases, so a path into one of them stops resolving within months.
     """
+    import boto3
+
+    monkeypatch.setenv("AWS_ALLOW_HTTP", "true")
+    client = boto3.client(
+        "s3",
+        endpoint_url=s3_endpoint,
+        aws_access_key_id="test",
+        aws_secret_access_key="test",
+        region_name="us-east-1",
+    )
+    client.create_bucket(Bucket="fastgeoapi-enumeration")
+    for key in ("ds/country=it/part-0.parquet", "ds/country=fr/part-0.parquet", "ds/README.md"):
+        client.put_object(Bucket="fastgeoapi-enumeration", Key=key, Body=b"")
+
     expression = scan_expression(
-        f"s3://overturemaps-us-west-2/release/{overture_release}/theme=base/type=bathymetry/",
-        store_options={"region": "us-west-2", "skip_signature": True},
+        "s3://fastgeoapi-enumeration/ds/",
+        store_options={
+            "endpoint": s3_endpoint.removeprefix("http://"),
+            "region": "us-east-1",
+            "key_id": "test",
+            "secret": "test",
+            "url_style": "path",
+            "use_ssl": False,
+        },
         engine_options={"fastgeoapi_reader": "obstore"},
     )
     assert "*" not in expression, expression
-    assert ".parquet'" in expression
-    assert "s3://overturemaps-us-west-2/" in expression
+    assert "'s3://fastgeoapi-enumeration/ds/country=it/part-0.parquet'" in expression
+    assert "'s3://fastgeoapi-enumeration/ds/country=fr/part-0.parquet'" in expression
+    assert "README" not in expression
 
 
 def test_enumeration_covers_nested_layouts(tmp_path):
@@ -358,13 +386,22 @@ def test_public_data_ignores_ambient_credentials(monkeypatch):
 
 
 def test_an_s3_compatible_endpoint_reaches_the_secret():
-    """Tigris and MinIO are S3-compatible services behind their own endpoint."""
+    """Tigris and MinIO are S3-compatible services behind their own endpoint.
+
+    DuckDB keeps default secrets of its own with the same scope, so the check
+    is on the secret it picks for a read of the dataset.
+    """
     con = connect(
         "s3://bucket/ds",
         store_options={"endpoint": "fly.storage.tigris.dev", "region": "auto"},
     )
-    rendered = str(con.execute("SELECT * FROM duckdb_secrets()").fetchone())
-    assert "tigris" in rendered
+    ((name, _, _),) = con.execute(
+        "FROM which_secret('s3://bucket/ds/part-0.parquet', 's3')"
+    ).fetchall()
+    (secret,) = con.execute(
+        "SELECT secret_string FROM duckdb_secrets() WHERE name = ?", [name]
+    ).fetchone()
+    assert "endpoint=fly.storage.tigris.dev" in secret
 
 
 def test_azure_and_gcs_use_their_own_secret_type():
@@ -387,3 +424,51 @@ def test_the_obstore_bridge_stays_available_as_a_fallback():
 def test_local_sources_need_no_reader_configuration(tmp_path):
     con = connect(str(tmp_path))
     assert con.execute("SELECT count(*) FROM duckdb_secrets()").fetchone()[0] == 0
+
+
+def _write_two_schemas(root) -> str:
+    """Two files of one dataset, the second with a column the first lacks."""
+    con = connect(str(root))
+    (root / "two").mkdir()
+    con.execute(f"COPY (SELECT 1 AS id, ST_Point(12.5, 41.9) AS geom) TO '{root}/two/a.parquet'")
+    con.execute(
+        f"COPY (SELECT 2 AS id, ST_Point(9.2, 45.5) AS geom, 'x' AS extra)"
+        f" TO '{root}/two/b.parquet'"
+    )
+    return f"{root}/two/*.parquet"
+
+
+def test_scan_expression_unions_the_schemas_of_the_files_by_default(tmp_path):
+    dataset = _write_two_schemas(tmp_path)
+    con = connect(dataset)
+
+    columns = [
+        row[0]
+        for row in con.execute(f"DESCRIBE SELECT * FROM {scan_expression(dataset)}").fetchall()
+    ]
+
+    assert "extra" in columns
+
+
+def test_scan_expression_can_take_the_schema_of_the_first_file(tmp_path):
+    dataset = _write_two_schemas(tmp_path)
+    con = connect(dataset)
+    scan = scan_expression(dataset, union_by_name=False)
+
+    columns = [row[0] for row in con.execute(f"DESCRIBE SELECT * FROM {scan}").fetchall()]
+
+    assert "extra" not in columns
+
+
+def test_load_duckdb_gives_the_module():
+    duckdb = pytest.importorskip("duckdb")
+
+    assert load_duckdb() is duckdb
+
+
+def test_without_duckdb_the_error_names_the_extra(monkeypatch):
+    # None in sys.modules makes `import duckdb` raise ImportError.
+    monkeypatch.setitem(sys.modules, "duckdb", None)
+
+    with pytest.raises(DuckDBUnavailableError, match="geoparquet"):
+        load_duckdb()

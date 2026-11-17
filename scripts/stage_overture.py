@@ -30,7 +30,7 @@ err_console = Console(stderr=True, style="bold red")
 app = typer.Typer(add_completion=False)
 
 OVERTURE_BUCKET = "s3://overturemaps-us-west-2"
-DEFAULT_RELEASE = "2026-08-19.0"
+DEFAULT_RELEASE = "2026-09-23.1"
 
 # Per theme, the projection that turns Overture's nested schema into flat
 # columns a client can filter on. `id` and `geometry` are added by the

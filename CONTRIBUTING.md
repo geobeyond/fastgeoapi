@@ -33,7 +33,7 @@ Request features on the [Issue Tracker](https://github.com/geobeyond/fastgeoapi/
 
 ## How to set up your development environment
 
-You need Python 3.10+ and the following tools:
+You need Python 3.12 or 3.13 and the following tools:
 
 - [uv](https://astral.sh/uv)
 - [nox](https://nox.thea.codes/)

@@ -1,0 +1,517 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.portolan-sdi.org/portolan/v0.2.0/schema.json#",
+  "title": "Portolan STAC Profile",
+  "description": "The schema-checkable structural requirements of the Portolan specification. The versioned schema URI declared in stac_extensions is the single signal of specification version; no portolan-prefixed fields are defined. Requirements that need link crawling, reading asset bytes, or probing the hosting server are defined in the Portolan specification and validated by Portolan tooling.",
+  "oneOf": [
+    {
+      "$comment": "STAC Catalogs.",
+      "type": "object",
+      "allOf": [
+        {
+          "required": ["type"],
+          "properties": {
+            "type": {
+              "const": "Catalog"
+            }
+          }
+        },
+        {
+          "$ref": "#/definitions/stac_extensions"
+        },
+        {
+          "$ref": "#/definitions/human_readable"
+        },
+        {
+          "$ref": "#/definitions/links_conformant"
+        },
+        {
+          "$ref": "#/definitions/agents_link"
+        },
+        {
+          "$ref": "#/definitions/readme_link"
+        }
+      ]
+    },
+    {
+      "$comment": "STAC Collections.",
+      "type": "object",
+      "allOf": [
+        {
+          "required": ["type"],
+          "properties": {
+            "type": {
+              "const": "Collection"
+            }
+          }
+        },
+        {
+          "$ref": "#/definitions/stac_extensions"
+        },
+        {
+          "$ref": "#/definitions/human_readable"
+        },
+        {
+          "$ref": "#/definitions/links_conformant"
+        },
+        {
+          "$ref": "#/definitions/agents_link"
+        },
+        {
+          "$ref": "#/definitions/readme_link"
+        },
+        {
+          "$ref": "#/definitions/assets_typed_and_roled"
+        },
+        {
+          "$ref": "#/definitions/license_not_proprietary"
+        },
+        {
+          "$ref": "#/definitions/providers_conformant"
+        },
+        {
+          "$ref": "#/definitions/partition_conformant"
+        },
+        {
+          "properties": {
+            "extent": {
+              "type": "object",
+              "properties": {
+                "spatial": {
+                  "type": "object",
+                  "properties": {
+                    "bbox": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/definitions/valid_bbox"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "$comment": "STAC Items. Items do not declare the Portolan schema URI — declaration happens at the catalog and collection level only, and items inherit conformance from their collection. This branch is applied to items by the Portolan validator, not via stac_extensions.",
+      "type": "object",
+      "allOf": [
+        {
+          "required": ["type"],
+          "properties": {
+            "type": {
+              "const": "Feature"
+            }
+          }
+        },
+        {
+          "properties": {
+            "bbox": {
+              "$ref": "#/definitions/valid_bbox"
+            }
+          }
+        },
+        {
+          "$ref": "#/definitions/assets_typed_and_roled"
+        },
+        {
+          "$ref": "#/definitions/links_conformant"
+        }
+      ]
+    }
+  ],
+  "definitions": {
+    "stac_extensions": {
+      "type": "object",
+      "required": ["stac_extensions"],
+      "properties": {
+        "stac_extensions": {
+          "type": "array",
+          "contains": {
+            "const": "https://schemas.portolan-sdi.org/portolan/v0.2.0/schema.json"
+          }
+        }
+      }
+    },
+    "human_readable": {
+      "$comment": "Every Catalog and Collection carries a non-empty title and description. Whether a title is a raw slug is checked by Portolan tooling, not by schema.",
+      "type": "object",
+      "required": ["title", "description"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "links_conformant": {
+      "$comment": "Structural links (root, parent, child, item, collection) carry the required media type. Portolan takes no position on relative versus absolute hrefs, and an object may carry a self link (spec: Links). Every child and item link carries a human-readable title so browsers can render names without fetching every child. A logo link (rel 'icon') declares a media type a browser renders in an img element (spec: Catalog Logo); that its href is relative and that it carries a title are SHOULD-level, so Portolan tooling reports them rather than the schema. Whether every link resolves is a crawling check performed by Portolan tooling.",
+      "type": "object",
+      "properties": {
+        "links": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "if": {
+                  "required": ["rel"],
+                  "properties": {
+                    "rel": {
+                      "enum": ["root", "parent", "child", "collection"]
+                    }
+                  }
+                },
+                "then": {
+                  "required": ["type"],
+                  "properties": {
+                    "type": {
+                      "const": "application/json"
+                    },
+                    "href": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "required": ["rel"],
+                  "properties": {
+                    "rel": {
+                      "const": "item"
+                    }
+                  }
+                },
+                "then": {
+                  "required": ["type"],
+                  "properties": {
+                    "type": {
+                      "const": "application/geo+json"
+                    },
+                    "href": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "required": ["rel"],
+                  "properties": {
+                    "rel": {
+                      "enum": ["child", "item"]
+                    }
+                  }
+                },
+                "then": {
+                  "required": ["title"],
+                  "properties": {
+                    "title": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "required": ["rel"],
+                  "properties": {
+                    "rel": {
+                      "const": "icon"
+                    }
+                  }
+                },
+                "then": {
+                  "required": ["type"],
+                  "properties": {
+                    "type": {
+                      "enum": [
+                        "image/apng",
+                        "image/avif",
+                        "image/gif",
+                        "image/jpeg",
+                        "image/png",
+                        "image/svg+xml",
+                        "image/webp"
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "agents_link": {
+      "$comment": "Every Catalog and Collection links its AGENTS.md with rel 'agents' and type text/markdown. The target's existence is a link-resolution check performed by crawling validators.",
+      "type": "object",
+      "required": ["links"],
+      "properties": {
+        "links": {
+          "type": "array",
+          "contains": {
+            "type": "object",
+            "required": ["rel", "href", "type"],
+            "properties": {
+              "rel": {
+                "const": "agents"
+              },
+              "type": {
+                "const": "text/markdown"
+              }
+            }
+          }
+        }
+      }
+    },
+    "readme_link": {
+      "$comment": "Every Catalog and Collection links its README.md with rel 'describedby' and type text/markdown (spec: README.md). The target's existence is a link-resolution check performed by crawling validators.",
+      "type": "object",
+      "required": ["links"],
+      "properties": {
+        "links": {
+          "type": "array",
+          "contains": {
+            "type": "object",
+            "required": ["rel", "href", "type"],
+            "properties": {
+              "rel": {
+                "const": "describedby"
+              },
+              "type": {
+                "const": "text/markdown"
+              }
+            }
+          }
+        }
+      }
+    },
+    "providers_conformant": {
+      "$comment": "Every collection identifies at least one producer and a host provider reachable through url or email (spec: Providers). That there is exactly one host, listed last, is checked by Portolan tooling, as is deriving official-vs-mirror from producer and host.",
+      "type": "object",
+      "required": ["providers"],
+      "properties": {
+        "providers": {
+          "type": "array",
+          "minItems": 1,
+          "allOf": [
+            {
+              "contains": {
+                "type": "object",
+                "required": ["roles"],
+                "properties": {
+                  "roles": {
+                    "type": "array",
+                    "contains": {
+                      "const": "producer"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "contains": {
+                "type": "object",
+                "required": ["roles"],
+                "properties": {
+                  "roles": {
+                    "type": "array",
+                    "contains": {
+                      "const": "host"
+                    }
+                  }
+                },
+                "anyOf": [
+                  {
+                    "required": ["url"]
+                  },
+                  {
+                    "required": ["email"]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "assets_typed_and_roled": {
+      "$comment": "STAC leaves media type and roles optional on assets; Portolan requires both so validators and browsers can dispatch on them. file:size and file:checksum are SHOULD-level (spec: Assets), so the schema constrains their shape where present but does not require them; the checksum's multihash encoding and its agreement with the bytes are verified by Portolan tooling, not by schema. Absolute hrefs MUST use https, never s3 or other bucket schemes; relative hrefs are allowed.",
+      "type": "object",
+      "properties": {
+        "assets": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["href", "type", "roles"],
+            "properties": {
+              "href": {
+                "type": "string",
+                "minLength": 1,
+                "anyOf": [
+                  {
+                    "pattern": "^https://"
+                  },
+                  {
+                    "not": {
+                      "pattern": "://"
+                    }
+                  }
+                ]
+              },
+              "type": {
+                "type": "string",
+                "minLength": 1
+              },
+              "roles": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "file:size": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "file:checksum": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "partition_conformant": {
+      "$comment": "A partitioned collection declares the partition extension and carries its required fields (spec: Partitioned Collections). Any partition:* field without the declared extension, or a declaration missing a required field, fails. Field shapes are validated by the partition extension schema itself, which Portolan validators apply alongside this profile; cross-partition Parquet schema consistency is checked by tooling reading file footers.",
+      "type": "object",
+      "if": {
+        "anyOf": [
+          {
+            "required": ["partition:scheme"]
+          },
+          {
+            "required": ["partition:keys"]
+          },
+          {
+            "required": ["partition:strategy"]
+          },
+          {
+            "required": ["partition:file_count"]
+          },
+          {
+            "required": ["partition:glob"]
+          },
+          {
+            "required": ["stac_extensions"],
+            "properties": {
+              "stac_extensions": {
+                "type": "array",
+                "contains": {
+                  "const": "https://schemas.portolan-sdi.org/incubating/partition/v1.0.0/schema.json"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "then": {
+        "required": ["partition:scheme", "partition:keys", "partition:glob", "stac_extensions"],
+        "properties": {
+          "stac_extensions": {
+            "type": "array",
+            "contains": {
+              "const": "https://schemas.portolan-sdi.org/incubating/partition/v1.0.0/schema.json"
+            }
+          }
+        }
+      }
+    },
+    "license_not_proprietary": {
+      "$comment": "The deprecated STAC 1.1 value 'proprietary' is banned; use an SPDX identifier, or 'other' plus a rel 'license' link. SPDX validity and the conditional license link are checked by Portolan tooling.",
+      "type": "object",
+      "properties": {
+        "license": {
+          "not": {
+            "const": "proprietary"
+          }
+        }
+      }
+    },
+    "valid_bbox": {
+      "$comment": "WGS84 ranges exclude sentinel 'effectively infinite' values (e.g. ±1.79e308). NaN and Infinity cannot be expressed in JSON, so they fail at the parser. south <= north is checked by Portolan tooling.",
+      "type": "array",
+      "oneOf": [
+        {
+          "minItems": 4,
+          "maxItems": 4,
+          "items": [
+            {
+              "$ref": "#/definitions/longitude"
+            },
+            {
+              "$ref": "#/definitions/latitude"
+            },
+            {
+              "$ref": "#/definitions/longitude"
+            },
+            {
+              "$ref": "#/definitions/latitude"
+            }
+          ]
+        },
+        {
+          "minItems": 6,
+          "maxItems": 6,
+          "items": [
+            {
+              "$ref": "#/definitions/longitude"
+            },
+            {
+              "$ref": "#/definitions/latitude"
+            },
+            {
+              "$ref": "#/definitions/elevation"
+            },
+            {
+              "$ref": "#/definitions/longitude"
+            },
+            {
+              "$ref": "#/definitions/latitude"
+            },
+            {
+              "$ref": "#/definitions/elevation"
+            }
+          ]
+        }
+      ]
+    },
+    "longitude": {
+      "type": "number",
+      "minimum": -180,
+      "maximum": 180
+    },
+    "latitude": {
+      "type": "number",
+      "minimum": -90,
+      "maximum": 90
+    },
+    "elevation": {
+      "type": "number",
+      "minimum": -100000,
+      "maximum": 100000
+    }
+  }
+}

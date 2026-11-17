@@ -37,7 +37,7 @@ resources:
     providers:
       - type: tile
         name: app.provider.pmtiles.PMTilesProvider
-        data: s3://overturemaps-extras-us-west-2/tiles/2026-08-19.0/places.pmtiles
+        data: s3://overturemaps-extras-us-west-2/tiles/2026-09-23.1/places.pmtiles
         store_options:
           region: us-west-2
           skip_signature: true
@@ -51,20 +51,22 @@ resources:
           mimetype: application/vnd.mapbox-vector-tile
 ```
 
-| Key                            | Required | Meaning                                                                                                                                  |
-| ------------------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `data`                         | yes      | The archive: a local path or an object URL                                                                                               |
-| `options.zoom`                 | yes      | `min`/`max` the collection advertises; intersected with the archive                                                                      |
-| `options.schemes`              | yes      | `[WebMercatorQuad]` — the only tiling scheme PMTiles archives use                                                                        |
-| `format`                       | yes      | `name: pbf` (or `mvt`) with the vector-tile media type; for a raster archive its image type, such as `name: png` with `image/png`        |
-| `store_options`                | no       | Store settings: `region`, `skip_signature`, `endpoint`                                                                                   |
-| `options.inline_inflate_limit` | no       | Bytes above which a tile is decompressed in a worker (256 KiB)                                                                           |
-| `options.leaf_cache`           | no       | Leaf directories kept in memory per process (256)                                                                                        |
-| `options.range_cache`          | no       | `false` keeps a remote archive out of the range cache (true)                                                                             |
-| `options.dem`                  | no       | `terrarium` or `mapbox`: the tiles are elevations in that encoding                                                                       |
-| `options.tile_size`            | no       | The width of raster tiles in pixels, published in the TileJSON (read from the first tile)                                                |
-| `options.style`                | no       | A MapLibre style for the collection's pages, as a local path or an object URL; a map provider's styles in the same collection come first |
-| `options.style_source`         | no       | The name the style gives the collection's tiles in its `sources` (`archive`)                                                             |
+| Key                            | Required | Meaning                                                                                                                                                                                                               |
+| ------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data`                         | yes      | The archive: a local path or an object URL                                                                                                                                                                            |
+| `options.zoom`                 | yes      | `min`/`max` the collection advertises; intersected with the archive                                                                                                                                                   |
+| `options.schemes`              | yes      | `[WebMercatorQuad]` — the only tiling scheme PMTiles archives use                                                                                                                                                     |
+| `format`                       | yes      | `name: pbf` (or `mvt`) with the vector-tile media type; for a raster archive its image type, such as `name: png` with `image/png`                                                                                     |
+| `store_options`                | no       | Store settings: `region`, `skip_signature`, `endpoint`                                                                                                                                                                |
+| `options.inline_inflate_limit` | no       | Bytes above which a tile is decompressed in a worker (256 KiB)                                                                                                                                                        |
+| `options.leaf_cache`           | no       | Leaf directories kept in memory per process (256)                                                                                                                                                                     |
+| `options.range_cache`          | no       | `false` keeps a remote archive out of the range cache (true)                                                                                                                                                          |
+| `options.dem`                  | no       | `terrarium` or `mapbox`: the tiles are elevations in that encoding                                                                                                                                                    |
+| `options.tile_size`            | no       | The width of raster tiles in pixels, published in the TileJSON (read from the first tile)                                                                                                                             |
+| `options.style`                | no       | One MapLibre style for the collection's pages, named after its file, as a local path or an object URL; not together with `options.styles`; a map provider in the same collection with readable styles is used instead |
+| `options.styles`               | no       | Style names mapped to MapLibre styles for the collection's pages, as local paths or object URLs, read with `store_options`; a map provider in the same collection with readable styles is used instead                |
+| `options.default_style`        | no       | The style the pages open with, one of `options.styles`; without it, the first one                                                                                                                                     |
+| `options.style_source`         | no       | The name the styles give the collection's tiles in their `sources` (`archive`)                                                                                                                                        |
 
 A raster archive is served as it is stored, under the media type of its
 `format`; a `format` that does not match the archive's tiles answers 500
@@ -98,6 +100,12 @@ A public bucket must say so and name its region, exactly as for the
 `skip_signature` the request is signed with whatever credentials the
 process carries, and a public bucket answers a signed request with
 `403 Forbidden`.
+
+An `https://` URL is read over plain HTTPS, unsigned and without
+`store_options`, even when it names a bucket
+(`https://<bucket>.s3.<region>.amazonaws.com/...`), which is how a public
+object is read. An object that needs credentials is named with `s3://`,
+`gs://` or `az://`, with its `store_options`.
 
 **An explicit `endpoint` wins over the environment.** A deployment that
 keeps its own data on an S3-compatible service carries

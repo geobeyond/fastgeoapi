@@ -7,7 +7,7 @@ byte ranges are wrapped to count reads and bytes, so the numbers say
 what a map view costs, not just how long it takes.
 
     uv run python scripts/measure_pmtiles.py \\
-        s3://overturemaps-extras-us-west-2/tiles/2026-08-19.0/divisions.pmtiles \\
+        s3://overturemaps-extras-us-west-2/tiles/2026-09-23.1/divisions.pmtiles \\
         --region us-west-2 --skip-signature --zoom 8 --count 50
 """
 
