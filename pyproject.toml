@@ -46,8 +46,6 @@ dependencies = [
     # on `fastmcp-slim[client, server]` at the same version, so naming it
     # alone is enough.
     "fastmcp>=4.0.10,<5",
-    "duckdb>=1.5.5",
-    "pmtiles>=3.7.0",
     "obstore>=0.12.1,<0.13",
     "h11>=0.16,<0.17", # direct dependency: the loopback server of byte ranges speaks HTTP/1.1 through it
 ]
