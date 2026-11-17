@@ -232,6 +232,12 @@ exclude = [
     "packages/fastgeoapi-portolan/fastgeoapi_portolan/models/[a-z]*.py",
 ]
 
+[tool.ty.analysis]
+# martin-py ships only as release wheels (see [tool.uv.sources]), behind the
+# `martin_wrapper` extra the nox sessions do not install; its imports are
+# guarded at runtime (app/tiles/martin_wrapper.py, pytest.importorskip).
+allowed-unresolved-imports = ["martin_py"]
+
 [tool.ty.rules]
 # ty is still in alpha, ignoring some rules temporarily
 # These are mostly false positives with pydantic-settings and Starlette
