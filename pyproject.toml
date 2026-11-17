@@ -83,7 +83,7 @@ geoparquet = [
 # `[tool.uv.sources]` entry each); anywhere else the extra installs nothing
 # and the wrapper is simply not mounted (app.main logs why).
 martin_wrapper = [
-    "martin-py>=0.1.0,<0.2; python_version < '3.13' and ((sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')) or (sys_platform == 'darwin' and (platform_machine == 'arm64' or platform_machine == 'x86_64')) or (sys_platform == 'win32' and platform_machine == 'AMD64'))",
+    "martin-py>=0.1.1,<0.2; python_version < '3.13' and ((sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')) or (sys_platform == 'darwin' and (platform_machine == 'arm64' or platform_machine == 'x86_64')) or (sys_platform == 'win32' and platform_machine == 'AMD64'))",
 ]
 pmtiles = [
     "pmtiles>=3.7,<4",
@@ -163,11 +163,11 @@ members = ["packages/*"]
 # To try a local martin-py build instead, after `uv sync`:
 #   uv pip install --reinstall ../martin-py/target/wheels/martin_py-<version>-cp311-abi3-<platform>.whl
 martin-py = [
-    { url = "https://github.com/geobeyond/martin-py/releases/download/v0.1.0/martin_py-0.1.0-cp311-abi3-linux_x86_64.whl", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
-    { url = "https://github.com/geobeyond/martin-py/releases/download/v0.1.0/martin_py-0.1.0-cp311-abi3-linux_aarch64.whl", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
-    { url = "https://github.com/geobeyond/martin-py/releases/download/v0.1.0/martin_py-0.1.0-cp311-abi3-macosx_11_0_arm64.whl", marker = "sys_platform == 'darwin' and platform_machine == 'arm64'" },
-    { url = "https://github.com/geobeyond/martin-py/releases/download/v0.1.0/martin_py-0.1.0-cp311-abi3-macosx_11_0_x86_64.whl", marker = "sys_platform == 'darwin' and platform_machine == 'x86_64'" },
-    { url = "https://github.com/geobeyond/martin-py/releases/download/v0.1.0/martin_py-0.1.0-cp311-abi3-win_amd64.whl", marker = "sys_platform == 'win32' and platform_machine == 'AMD64'" },
+    { url = "https://github.com/geobeyond/martin-py/releases/download/v0.1.1/martin_py-0.1.1-cp311-abi3-linux_x86_64.whl", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+    { url = "https://github.com/geobeyond/martin-py/releases/download/v0.1.1/martin_py-0.1.1-cp311-abi3-linux_aarch64.whl", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
+    { url = "https://github.com/geobeyond/martin-py/releases/download/v0.1.1/martin_py-0.1.1-cp311-abi3-macosx_11_0_arm64.whl", marker = "sys_platform == 'darwin' and platform_machine == 'arm64'" },
+    { url = "https://github.com/geobeyond/martin-py/releases/download/v0.1.1/martin_py-0.1.1-cp311-abi3-macosx_11_0_x86_64.whl", marker = "sys_platform == 'darwin' and platform_machine == 'x86_64'" },
+    { url = "https://github.com/geobeyond/martin-py/releases/download/v0.1.1/martin_py-0.1.1-cp311-abi3-win_amd64.whl", marker = "sys_platform == 'win32' and platform_machine == 'AMD64'" },
 ]
 fastgeoapi-html = { workspace = true }
 fastgeoapi-portolan = { workspace = true }
