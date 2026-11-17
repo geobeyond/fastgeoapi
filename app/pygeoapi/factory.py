@@ -10,6 +10,7 @@ The execute shim and the route table are adapted from
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import gzip
 import os
 from collections.abc import Awaitable, Callable
@@ -234,8 +235,19 @@ async def execute(
         loop = asyncio.get_running_loop()
         interrupts = Interrupts()
         try:
+            # The call runs in a copy of the request's context, so ContextVars
+            # set by a middleware reach pygeoapi and its providers.
+            context = contextvars.copy_context()
             headers, status, content = await loop.run_in_executor(
-                None, interrupts.run, _call_threadsafe, loop, api_function, api, api_request, *args
+                None,
+                context.run,
+                interrupts.run,
+                _call_threadsafe,
+                loop,
+                api_function,
+                api,
+                api_request,
+                *args,
             )
         except asyncio.CancelledError:
             # The thread carries on after the request is cancelled: stop what it started.
