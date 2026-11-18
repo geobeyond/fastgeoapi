@@ -4,6 +4,9 @@ The data is, in this order: the collection's ``partition:glob``; its
 ``data`` asset, read through the asset's ``s3`` alternate when it has one;
 a glob over the folder that holds the data of its items. An https URL of
 an S3 bucket becomes an ``s3://`` URL, so DuckDB can expand a glob in it.
+The region of an ``s3://`` URL comes from an https alternate in its
+bucket, and its endpoint from a ``custom-s3`` entry of the collection's
+``storage:schemes``.
 """
 
 from __future__ import annotations
@@ -68,6 +71,49 @@ def s3_from_https(url: str) -> tuple[str, dict[str, Any]] | None:
         f"s3://{found['bucket']}/{found['key']}",
         {"region": found["region"], "skip_signature": True},
     )
+
+
+def _read_https_alternate_options(asset: Mapping[str, Any], data: str) -> dict[str, Any] | None:
+    """The store options of an ``s3://`` href, read from an https alternate in its bucket.
+
+    A catalog gives a bucket URL an https alternate for browsers, and that
+    URL names the region. The catalog expects anyone to read the data, so
+    the reads are unsigned, as for an https href.
+    """
+    if not data.startswith("s3://"):
+        return None
+    alternate = asset.get("alternate")
+    for entry in alternate.values() if isinstance(alternate, Mapping) else ():
+        href = entry.get("href") if isinstance(entry, Mapping) else None
+        linked = s3_from_https(href) if isinstance(href, str) else None
+        if linked is not None and _bucket(linked[0]) == _bucket(data):
+            return linked[1]
+    return None
+
+
+def _read_custom_s3_scheme(
+    document: Mapping[str, Any], data: str
+) -> tuple[str, dict[str, Any]] | None:
+    """The name and the store options of the ``custom-s3`` scheme of the bucket of ``data``.
+
+    An ``s3://`` URL names Amazon S3 unless the collection gives its bucket
+    another service: a ``storage:schemes`` entry of type ``custom-s3``
+    whose ``platform`` is the endpoint and whose ``bucket`` is the bucket.
+    """
+    if not data.startswith("s3://"):
+        return None
+    schemes = document.get("storage:schemes")
+    for name, scheme in schemes.items() if isinstance(schemes, Mapping) else ():
+        if not isinstance(scheme, Mapping) or scheme.get("type") != "custom-s3":
+            continue
+        platform = scheme.get("platform")
+        if not isinstance(platform, str) or scheme.get("bucket") != _bucket(data):
+            continue
+        options: dict[str, Any] = {"endpoint": platform}
+        if isinstance(scheme.get("region"), str):
+            options["region"] = scheme["region"]
+        return str(name), options
+    return None
 
 
 def _is_parquet_data(asset: Any) -> bool:
@@ -264,6 +310,15 @@ async def geoparquet_provider(
                 )
             data = f"{folders[0]}/*.parquet"
             choices.append(f"data: glob of {len(parts)} items")
+            # The files share one folder, so one alternate names their bucket.
+            candidates = (
+                _read_https_alternate_options(part, resolve(href, part["href"]))
+                for href, part in parts
+            )
+            options = next((option for option in candidates if option is not None), None)
+            if options is not None:
+                derived = options
+                choices.append("data: s3 options from the https alternate")
 
     if glob is not None:
         data = resolve(collection.href, glob)
@@ -283,12 +338,20 @@ async def geoparquet_provider(
         else:
             data = resolve(collection.href, asset["href"])
             choices.append("data: collection asset")
+            found = _read_https_alternate_options(asset, data)
+            if found is not None:
+                derived = found
+                choices.append("data: s3 options from the https alternate")
     if data is None:
         return None
     if is_local_from_remote(collection.href, data):
         return Refusal(f"the data {data} {LOCAL_FROM_REMOTE}")
 
     store_options = dict(derived)
+    scheme = _read_custom_s3_scheme(document, data)
+    if scheme is not None:
+        store_options.update(scheme[1])
+        choices.append(f"data: endpoint from storage:schemes {scheme[0]}")
     rewritten = s3_from_https(data)
     if rewritten is not None:
         data, store_options = rewritten

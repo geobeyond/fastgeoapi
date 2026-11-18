@@ -523,6 +523,36 @@ def test_a_third_party_geoparquet_is_served(tmp_path):
     assert result["features"][0]["geometry"]["type"] == "Point"
 
 
+def test_a_native_geometry_without_geo_metadata_is_served(tmp_path):
+    """A file with the Parquet GEOMETRY type and no ``geo`` key is read like any other."""
+    location = f"{tmp_path}/native.parquet"
+    con = connect(location)
+    con.execute(
+        f"""
+        COPY (
+            SELECT 1 AS id, ST_Point(12.5, 41.9) AS geometry
+            UNION ALL SELECT 2, ST_Point(2.3, 48.9)
+        ) TO '{location}' (FORMAT parquet, GEOPARQUET_VERSION 'NONE')
+        """
+    )
+    keys = con.execute(f"SELECT key FROM parquet_kv_metadata('{location}')").fetchall()
+    assert not any(bytes(key) == b"geo" for (key,) in keys)
+
+    provider = GeoParquetProvider(
+        {
+            "name": "GeoParquet",
+            "type": "feature",
+            "data": location,
+            "id_field": "id",
+            "geometry_column": "geometry",
+        }
+    )
+    result = provider.query(bbox=[11.0, 41.0, 13.0, 43.0], limit=10)
+
+    assert [feature["id"] for feature in result["features"]] == [1]
+    assert provider.get(2)["geometry"] == {"type": "Point", "coordinates": [2.3, 48.9]}
+
+
 # --- ADR-0010: the async part beside pygeoapi's contract ---------------------
 
 
