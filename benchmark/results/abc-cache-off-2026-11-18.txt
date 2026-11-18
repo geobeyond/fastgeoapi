@@ -1,0 +1,22 @@
+100 tiles, zooms [10, 11, 12, 13], bbox 11.4,41.2,14.1,42.9, seed 42
+
+[A-wrapper] http://127.0.0.1:5999/geoapi/martin-wrapper/transportation-lazio/{z}/{x}/{y}
+  first pass, c=1          p50    2704 ms  p95    3472 ms  p99    3725 ms |    0.4 req/s |   25.28 MB | 200:100 errors:0
+  warm c=1 #1              p50    2643 ms  p95    3441 ms  p99    3901 ms |    0.4 req/s |   25.28 MB | 200:100 errors:0
+  warm c=4 #1              p50    6309 ms  p95    9468 ms  p99   10049 ms |    0.6 req/s |   25.27 MB | 200:100 errors:0
+  warm c=16 #1             p50   25891 ms  p95   30749 ms  p99   38611 ms |    0.6 req/s |   25.28 MB | 200:100 errors:0
+
+[B-martin] http://127.0.0.1:3999/transportation-lazio/{z}/{x}/{y}
+  first pass, c=1          p50    2652 ms  p95    3654 ms  p99    4995 ms |    0.4 req/s |   25.28 MB | 200:100 errors:0
+  warm c=1 #1              p50    2576 ms  p95    3454 ms  p99    4056 ms |    0.4 req/s |   25.28 MB | 200:100 errors:0
+  warm c=4 #1              p50    6221 ms  p95   11712 ms  p99   14742 ms |    0.6 req/s |   25.28 MB | 200:100 errors:0
+  warm c=16 #1             p50   25915 ms  p95   31111 ms  p99   34053 ms |    0.6 req/s |   25.28 MB | 200:100 errors:0
+
+[C-pmtiles] http://127.0.0.1:5999/geoapi/collections/lazio-roads-tiles/tiles/WebMercatorQuad/{z}/{y}/{x}?f=mvt
+  first pass, c=1          p50     213 ms  p95     504 ms  p99     807 ms |    4.3 req/s |    8.32 MB | 200:86 204:14 errors:0
+  warm c=1 #1              p50       2 ms  p95       3 ms  p99       4 ms |  542.5 req/s |    8.32 MB | 200:86 204:14 errors:0
+  warm c=4 #1              p50       4 ms  p95       7 ms  p99       9 ms |  882.6 req/s |    8.32 MB | 200:86 204:14 errors:0
+  warm c=16 #1             p50      17 ms  p95      27 ms  p99      30 ms |  941.3 req/s |    8.32 MB | 200:86 204:14 errors:0
+
+parity A-wrapper vs B-martin: 0 tiles differ by more than 2% (max 0.8%), 0 tiles found by only one
+parity A-wrapper vs C-pmtiles: 83 tiles differ by more than 2% (max 86.7%), 14 tiles found by only one

@@ -167,6 +167,50 @@ Parity:
   source is a single file whose footer Martin reads at startup. A multi-file Overture
   release would show a much larger first-pass penalty.
 
+### Re-run on 2026-11-18
+
+Same host, same command and parameters as above. What changed:
+
+- **A** uses the martin-py **v0.1.1** release wheel (`uv sync --extra martin_wrapper`), linked against
+  crates.io martin `2.0.0-beta.7`.
+- **B** is martin `2.0.0-beta.7` from crates.io, built in release mode with only DuckDB support
+  (`cargo install martin --version =2.0.0-beta.7 --locked --no-default-features --features unstable-duckdb`),
+  so A and B run the same martin version.
+- fastgeoapi ran with `DEV_JWKS_ENABLED=false DEV_API_KEY_ENABLED=false DEV_OPA_ENABLED=false`.
+  `/martin-wrapper` is now behind the same auth chain as `/geoapi`, and `bench_tiles.py` sends no
+  credentials.
+
+Raw output: [`results/abc-cache-off-2026-11-18.txt`](results/abc-cache-off-2026-11-18.txt).
+
+| Case      | Pass      |      p50 |      p95 |      p99 | req/s |    MB | status           |
+| --------- | --------- | -------: | -------: | -------: | ----: | ----: | ---------------- |
+| A wrapper | first c=1 |  2704 ms |  3472 ms |  3725 ms |   0.4 | 25.28 | 200 ×100         |
+|           | warm c=1  |  2643 ms |  3441 ms |  3901 ms |   0.4 |       |                  |
+|           | warm c=4  |  6309 ms |  9468 ms | 10049 ms |   0.6 |       |                  |
+|           | warm c=16 | 25891 ms | 30749 ms | 38611 ms |   0.6 |       |                  |
+| B martin  | first c=1 |  2652 ms |  3654 ms |  4995 ms |   0.4 | 25.28 | 200 ×100         |
+|           | warm c=1  |  2576 ms |  3454 ms |  4056 ms |   0.4 |       |                  |
+|           | warm c=4  |  6221 ms | 11712 ms | 14742 ms |   0.6 |       |                  |
+|           | warm c=16 | 25915 ms | 31111 ms | 34053 ms |   0.6 |       |                  |
+| C PMTiles | first c=1 |   213 ms |   504 ms |   807 ms |   4.3 |  8.32 | 200 ×86, 204 ×14 |
+|           | warm c=1  |     2 ms |     3 ms |     4 ms | 542.5 |       |                  |
+|           | warm c=4  |     4 ms |     7 ms |     9 ms | 882.6 |       |                  |
+|           | warm c=16 |    17 ms |    27 ms |    30 ms | 941.3 |       |                  |
+
+Parity: A vs B **0** tiles differ by more than 2% (max 0.8%), and both return the same 100 tiles.
+A vs C is unchanged: 83 tiles differ, 14 exist only in A.
+
+- **A ≈ B still holds.** The wrapper adds nothing measurable at any concurrency level.
+- **A and B are both about 8× slower than on 2026-10-27**, and slower by the same amount. So the
+  cause is under both of them: the martin/DuckDB tiler (crates.io `2.0.0-beta.7` here, against the
+  local checkout used before), not fastgeoapi or PyO3. The network to Tigris isn't the cause: C's
+  first pass, which reads the same bucket, is as fast as before (213 ms against 223 ms).
+  Throughput is flat at 0.4–0.6 req/s from c=1 to c=16: tile queries now run nearly one at a time.
+  This is worth investigating in martin before reading anything else into the A/B numbers.
+- **C's warm passes are now served from memory** (p50 2–17 ms, against about 190 ms before), so
+  after the first pass C no longer measures byte-range reads from Tigris. Only C's first pass is
+  comparable with the earlier run.
+
 ## Caveats
 
 - The readiness check before the run fetched one z10 tile from each endpoint
