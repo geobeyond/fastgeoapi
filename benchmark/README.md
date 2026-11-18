@@ -26,6 +26,7 @@ network and the tiler.
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | [`pygeoapi-config.bench.yml`](pygeoapi-config.bench.yml) | pygeoapi config with `lazio-roads` (GeoParquet) and `lazio-roads-tiles` (PMTiles)    |
 | [`martin.yaml`](martin.yaml)                             | Martin config derived from it (generated, see step 1); used by **both** A and B      |
+| [`martin-https.yaml`](martin-https.yaml)                 | same object over public HTTPS, for martin 1.16.1 (no object-store keys)              |
 | [`../scripts/bench_tiles.py`](../scripts/bench_tiles.py) | `config`: derive `martin.yaml` · `run`: fetch the tile list from each target, report |
 | [`results/`](results/)                                   | raw output of the runs below                                                         |
 
@@ -210,6 +211,47 @@ A vs C is unchanged: 83 tiles differ, 14 exist only in A.
 - **C's warm passes are now served from memory** (p50 2–17 ms, against about 190 ms before), so
   after the first pass C no longer measures byte-range reads from Tigris. Only C's first pass is
   comparable with the earlier run.
+
+### martin 1.16.1 vs 2.0.0-beta.7
+
+Run on 2026-11-18 to find where the 8× slowdown comes from. Both are standalone binaries from
+crates.io, built in release mode with only DuckDB support:
+
+```shell
+cargo install martin --version =1.16.1      --locked --no-default-features --features unstable-duckdb
+cargo install martin --version =2.0.0-beta.7 --locked --no-default-features --features unstable-duckdb
+```
+
+1.16.1 has no object-store keys (`endpoint`, `region`, `skip_signature`,
+`virtual_hosted_style_request` are ignored, and DuckDB then asks AWS S3 and gets a 404). So both
+servers load [`martin-https.yaml`](martin-https.yaml), which reads the same object over public
+HTTPS. Both use DuckDB's default `pool_size: 4`. The tile list and options are the same as in
+step 3. Raw output:
+[`results/martin-1.16.1-vs-2.0.0-beta.7-https.txt`](results/martin-1.16.1-vs-2.0.0-beta.7-https.txt).
+
+| martin              | bundled DuckDB | Pass      |      p50 |      p95 |      p99 | req/s |
+| ------------------- | -------------- | --------- | -------: | -------: | -------: | ----: |
+| **1.16.1**          | 1.5.5          | first c=1 |   327 ms |  1078 ms |  1237 ms |   2.6 |
+|                     |                | warm c=1  |   329 ms |   367 ms |   415 ms |   3.0 |
+|                     |                | warm c=4  |   650 ms |  1397 ms |  6649 ms |   4.4 |
+|                     |                | warm c=16 |  2843 ms |  3277 ms |  4029 ms |   5.5 |
+| **2.0.0-beta.7**    | 2.0.0          | first c=1 |  2729 ms |  3565 ms |  4385 ms |   0.4 |
+|                     |                | warm c=1  |  2656 ms |  3535 ms |  3927 ms |   0.4 |
+|                     |                | warm c=4  |  6345 ms | 11005 ms | 25256 ms |   0.6 |
+|                     |                | warm c=16 | 25747 ms | 29998 ms | 34592 ms |   0.6 |
+
+Parity: **0** tiles differ by more than 2% (max 0.3%), and both return the same 100 tiles.
+
+- **The slowdown is in martin 2.0.0-beta.7.** On the same host, the same data and the same tiles,
+  1.16.1 is about 8× faster at every concurrency level, and its numbers match the 2026-10-27 run
+  (p50 about 325 ms at c=1, about 5.5–6 req/s at c=16).
+- **It isn't the S3 access path.** Over HTTPS, beta.7 is exactly as slow as it was over the S3 API
+  in the re-run above (p50 about 2.7 s).
+- **The most likely cause is the DuckDB upgrade** that beta.7 brings in (`duckdb` crate 1.10505.0 →
+  1.20000.1, i.e. DuckDB 1.5.5 → 2.0.0). Between these versions martin also goes from
+  `martin-core` 0.11 to 0.17, so this run alone doesn't prove which change is responsible.
+- Until this is fixed upstream, martin-py could pin a martin version with DuckDB 1.5.x. Its
+  source config would then lose the object-store keys that `auto` mode relies on.
 
 ## Caveats
 

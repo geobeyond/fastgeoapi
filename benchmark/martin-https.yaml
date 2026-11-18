@@ -1,0 +1,12 @@
+# Same GeoParquet object as martin.yaml, read over public HTTPS instead of the
+# S3 API: martin 1.16.1 has no object-store keys (endpoint, region, ...), so
+# this is the one config both 1.16.1 and 2.0.0-beta.7 can load. See README.md,
+# "martin 1.16.1 vs 2.0.0-beta.7".
+duckdb:
+  sources:
+    - geoparquet: https://fastgeoapi-demo.t3.storage.dev/overture/transportation-lazio.parquet
+      layer_id: transportation-lazio
+      geometry_column: geometry
+      srid: 4326
+cache:
+  size_mb: 0
