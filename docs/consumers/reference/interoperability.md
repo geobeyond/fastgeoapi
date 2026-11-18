@@ -107,7 +107,9 @@ for collections served by a provider that filters: on the demo
 `overture-places` and `lazio-roads`, not `lakes` or `obs`. There the
 `GET` on the items lists `filter`, `filter-lang` and `filter-crs`, and
 the CQL2 `POST /collections/{id}/items` is kept. `filter` takes CQL2
-text, or CQL2 JSON with `filter-lang=cql2-json`.
+text, or CQL2 JSON with `filter-lang=cql2-json`. A CQL2 JSON filter, in
+`filter` or in the body of the `POST`, that is not a boolean expression
+gets a 400 with `InvalidParameterValue`.
 
 **One place where the published OpenAPI does not describe the
 response.** `skipGeometry=true` produces `"geometry": null`, which

@@ -492,7 +492,7 @@ def build_routes(
                     )
                 return await execute(
                     api,
-                    itemtypes_api.get_collection_items,
+                    items_override.get_collection_items,
                     request,
                     collection_id,
                     skip_valid_check=True,
