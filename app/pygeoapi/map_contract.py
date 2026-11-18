@@ -45,8 +45,8 @@ def iter_native_map_definitions(config: dict[str, Any]) -> Iterator[tuple[str, i
                 yield name, index, provider, cls
 
 
-def find_map_contract_problem(config: dict[str, Any]) -> tuple[str, str] | None:
-    """Find the first native map provider that misses a member of the contract.
+def validate_map_contract_or_problem(config: dict[str, Any]) -> tuple[str, str] | None:
+    """Validate that every native map provider has the members of the contract.
 
     Only classes that set ``native_async`` are checked. The check reads the
     classes and builds no provider.
@@ -59,7 +59,7 @@ def find_map_contract_problem(config: dict[str, Any]) -> tuple[str, str] | None:
     Returns
     -------
     tuple of (str, str) or None
-        The provider's place in the configuration, as
+        The place of the first provider that misses a member, as
         ``resources.<name>.providers.<index>``, and a message that names
         the class and the missing member; None when every native map
         provider has all the members.
