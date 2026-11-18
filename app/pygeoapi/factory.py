@@ -54,8 +54,8 @@ from app.pygeoapi.map_contract import find_map_contract_problem
 from app.pygeoapi.map_limits import (
     collect_native_map_capabilities,
     collect_native_map_limits,
-    find_map_capability_problem,
     get_server_map_limits,
+    validate_map_provider_or_problem,
 )
 from app.pygeoapi.openapi import (
     describe_filter_parameters,
@@ -138,7 +138,7 @@ def find_configuration_problem(config: dict) -> tuple[str, str] | None:
     return (
         extension_problem(config)
         or find_map_contract_problem(config)
-        or find_map_capability_problem(config)
+        or validate_map_provider_or_problem(config)
     )
 
 

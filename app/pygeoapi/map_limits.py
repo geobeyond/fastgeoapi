@@ -181,8 +181,8 @@ def derive_map_conformance(capabilities: MapCapabilities) -> tuple[str, ...]:
     )
 
 
-def find_map_capability_problem(config: dict[str, Any]) -> tuple[str, str] | None:
-    """Find the first native map provider whose capabilities fall outside the standard.
+def validate_map_provider_or_problem(config: dict[str, Any]) -> tuple[str, str] | None:
+    """Validate the capabilities of every native map provider against the standard.
 
     A format must be one of :class:`~app.interfaces.providers.MapFormat`,
     and a CRS an OGC CRS URI that pyproj knows. A provider that does not
@@ -196,7 +196,7 @@ def find_map_capability_problem(config: dict[str, Any]) -> tuple[str, str] | Non
     Returns
     -------
     tuple of (str, str) or None
-        The provider's place in the configuration, as
+        The place of the first provider with an invalid capability, as
         ``resources.<name>.providers.<index>``, and a message that names
         the class and the capability; None when every capability is valid.
     """
