@@ -229,16 +229,16 @@ HTTPS. Both use DuckDB's default `pool_size: 4`. The tile list and options are t
 step 3. Raw output:
 [`results/martin-1.16.1-vs-2.0.0-beta.7-https.txt`](results/martin-1.16.1-vs-2.0.0-beta.7-https.txt).
 
-| martin              | bundled DuckDB | Pass      |      p50 |      p95 |      p99 | req/s |
-| ------------------- | -------------- | --------- | -------: | -------: | -------: | ----: |
-| **1.16.1**          | 1.5.5          | first c=1 |   327 ms |  1078 ms |  1237 ms |   2.6 |
-|                     |                | warm c=1  |   329 ms |   367 ms |   415 ms |   3.0 |
-|                     |                | warm c=4  |   650 ms |  1397 ms |  6649 ms |   4.4 |
-|                     |                | warm c=16 |  2843 ms |  3277 ms |  4029 ms |   5.5 |
-| **2.0.0-beta.7**    | 2.0.0          | first c=1 |  2729 ms |  3565 ms |  4385 ms |   0.4 |
-|                     |                | warm c=1  |  2656 ms |  3535 ms |  3927 ms |   0.4 |
-|                     |                | warm c=4  |  6345 ms | 11005 ms | 25256 ms |   0.6 |
-|                     |                | warm c=16 | 25747 ms | 29998 ms | 34592 ms |   0.6 |
+| martin           | bundled DuckDB | Pass      |      p50 |      p95 |      p99 | req/s |
+| ---------------- | -------------- | --------- | -------: | -------: | -------: | ----: |
+| **1.16.1**       | 1.5.5          | first c=1 |   327 ms |  1078 ms |  1237 ms |   2.6 |
+|                  |                | warm c=1  |   329 ms |   367 ms |   415 ms |   3.0 |
+|                  |                | warm c=4  |   650 ms |  1397 ms |  6649 ms |   4.4 |
+|                  |                | warm c=16 |  2843 ms |  3277 ms |  4029 ms |   5.5 |
+| **2.0.0-beta.7** | 2.0.0          | first c=1 |  2729 ms |  3565 ms |  4385 ms |   0.4 |
+|                  |                | warm c=1  |  2656 ms |  3535 ms |  3927 ms |   0.4 |
+|                  |                | warm c=4  |  6345 ms | 11005 ms | 25256 ms |   0.6 |
+|                  |                | warm c=16 | 25747 ms | 29998 ms | 34592 ms |   0.6 |
 
 Parity: **0** tiles differ by more than 2% (max 0.3%), and both return the same 100 tiles.
 
