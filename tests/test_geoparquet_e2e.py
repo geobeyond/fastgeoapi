@@ -134,6 +134,70 @@ def test_a_malformed_cql2_json_filter_is_a_bad_request(client):
     assert r.json()["description"] == "Bad CQL JSON"
 
 
+def _client_of_three_places(root) -> TestClient:
+    con = connect(str(root))
+    con.execute(
+        f"""
+        COPY (
+            SELECT 1 AS id, 'alpha' AS name, ST_Point(12.5, 41.9) AS geom
+            UNION ALL SELECT 2, 'beta', ST_Point(2.3, 48.9)
+            UNION ALL SELECT 3, 'gamma', ST_Point(13.4, 52.5)
+        ) TO '{root}/three.parquet' (FORMAT parquet)
+        """
+    )
+    config = _config(f"{root}/three.parquet")
+    return TestClient(build_pygeoapi_subapp(config, build_openapi(config)))
+
+
+def test_the_next_link_keeps_the_json_filter(tmp_path):
+    client = _client_of_three_places(tmp_path)
+    url = "/collections/places/items"
+    params = {
+        "f": "json",
+        "limit": 1,
+        "filter": '{"op": "<>", "args": [{"property": "name"}, "gamma"]}',
+        "filter-lang": "cql2-json",
+    }
+
+    ids, pages = [], 0
+    while url and pages < 5:
+        body = client.get(url, params=params).json()
+        ids += [feature["id"] for feature in body["features"]]
+        url = next((link["href"] for link in body["links"] if link["rel"] == "next"), None)
+        params, pages = None, pages + 1
+
+    assert sorted(ids) == [1, 2]
+
+
+@pytest.mark.parametrize("expression", ['"alpha"', "[1, 2]", '{"property": "name"}', "5"])
+def test_a_cql2_json_filter_that_is_not_a_boolean_expression_is_a_bad_request(client, expression):
+    r = client.get(
+        "/collections/places/items",
+        params={"f": "json", "filter": expression, "filter-lang": "cql2-json"},
+    )
+    assert r.status_code == 400, r.text[:300]
+    assert r.json()["code"] == "InvalidParameterValue"
+
+
+def test_a_cql2_json_body_that_is_not_a_boolean_expression_is_a_bad_request(client):
+    r = client.post(
+        "/collections/places/items?f=json",
+        content='"alpha"',
+        headers={"content-type": "application/query-cql-json"},
+    )
+    assert r.status_code == 400, r.text[:300]
+    assert r.json()["code"] == "InvalidParameterValue"
+
+
+def test_a_cql2_json_boolean_literal_matches_every_item(client):
+    r = client.get(
+        "/collections/places/items",
+        params={"f": "json", "filter": "true", "filter-lang": "cql2-json"},
+    )
+    assert r.status_code == 200, r.text[:300]
+    assert sorted(f["id"] for f in r.json()["features"]) == [1, 2]
+
+
 def test_the_items_describe_the_filter_parameters(tmp_path):
     config = _config(_dataset(tmp_path))
 
