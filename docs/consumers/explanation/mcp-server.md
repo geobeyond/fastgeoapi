@@ -39,6 +39,35 @@ The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is an open 
 | **Provider Agnostic**           | Works with any OIDC-compliant IdP via fastmcp's OIDCProxy                              |
 | **Stateless Streamable HTTP**   | Single-endpoint transport; every request is self-contained (suspend/redeploy friendly) |
 
+## Skills
+
+Besides the tools, the server offers [agent
+skills](https://agentskills.io/) that explain how the OGC API operations
+fit together: which one to call first, which parameters narrow the
+answer, and what to check when the answer is empty or wrong. They
+describe each operation by its HTTP path, so they hold for any OGC API
+server; the server instructions tell the client which tool calls which
+path.
+
+| Skill                     | What it teaches                                                                            | Served when the API has |
+| ------------------------- | ------------------------------------------------------------------------------------------ | ----------------------- |
+| `ogcapi-orientation`      | the landing page, conformance, collections and their links                                 | always                  |
+| `ogcapi-features`         | items, `bbox`, `datetime`, paging with the `next` link, `properties`, `sortby`, queryables | items on a collection   |
+| `ogcapi-features/cql2.md` | CQL2 filters in text and JSON                                                              | `filter` on the items   |
+| `ogcapi-processes`        | process descriptions, `inputs`, synchronous and asynchronous runs, jobs                    | a process to execute    |
+| `ogcapi-maps`             | map images, `bbox`, `width`, `height`                                                      | a map on a collection   |
+| `ogcapi-tiles`            | tilesets, tile matrix sets and tile addresses                                              | tiles on a collection   |
+
+The skills follow the API document the tools are generated from: after a
+configuration reload, a skill whose operations are gone is no longer
+served. Their text never includes values from the configuration, such
+as collection names or descriptions. A client that supports the MCP
+Skills extension lists them with `skills/list`; any other client reads
+the same files as `skill://` resources.
+
+Operators can turn the skills off with `FASTGEOAPI_MCP_SKILLS`; see
+[Configuration](../../operators/how-to/enabling-mcp.md#skills-fastgeoapi_mcp_skills).
+
 ## Architecture
 
 The following diagram shows how the MCP server integrates with the fastgeoapi architecture:
