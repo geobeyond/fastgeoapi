@@ -268,6 +268,29 @@ async def test_an_s3_alternate_in_the_bucket_of_the_https_url_is_read_like_it(ba
 
 
 @pytest.mark.asyncio
+async def test_an_s3_href_with_an_https_alternate_is_read_like_the_https_url(base):
+    href = "s3://overturemaps-us-west-2/release/x/part-0.parquet"
+    data = _parquet(href, alternate={"https": {"href": OVERTURE}})
+
+    provided = await geoparquet_provider(_collection(base, assets={"data": data}), IngestOptions())
+
+    assert provided.provider["data"] == href
+    assert provided.provider["store_options"] == {"region": "us-west-2", "skip_signature": True}
+    assert "data: s3 options from the https alternate" in provided.choices
+
+
+@pytest.mark.asyncio
+async def test_an_https_alternate_in_another_bucket_gives_no_options(base):
+    href = "s3://another-bucket/release/x/part-0.parquet"
+    data = _parquet(href, alternate={"https": {"href": OVERTURE}})
+
+    provided = await geoparquet_provider(_collection(base, assets={"data": data}), IngestOptions())
+
+    assert provided.provider["data"] == href
+    assert "store_options" not in provided.provider
+
+
+@pytest.mark.asyncio
 async def test_a_relative_href_is_resolved_before_its_bucket_is_compared():
     catalog = "https://overturemaps-us-west-2.s3.us-west-2.amazonaws.com/catalog"
     alternate = "s3://overturemaps-us-west-2/catalog/roads/part-0.parquet"
@@ -314,6 +337,48 @@ async def test_a_glob_at_an_https_url_of_a_bucket_is_read_from_the_bucket():
     provided = await geoparquet_provider(collection, IngestOptions())
 
     assert provided.provider["data"] == "s3://bucket/cat/roads/part=*/*.parquet"
+
+
+R2 = "https://account.r2.cloudflarestorage.com"
+
+
+@pytest.mark.asyncio
+async def test_a_custom_s3_scheme_for_the_bucket_gives_its_endpoint(base):
+    schemes = {"r2": {"type": "custom-s3", "platform": R2, "bucket": "bucket", "region": "auto"}}
+    collection = _collection(
+        base, **{"partition:glob": "s3://bucket/roads/*.parquet", "storage:schemes": schemes}
+    )
+
+    provided = await geoparquet_provider(collection, IngestOptions())
+
+    assert provided.provider["data"] == "s3://bucket/roads/*.parquet"
+    assert provided.provider["store_options"] == {"endpoint": R2, "region": "auto"}
+    assert "data: endpoint from storage:schemes r2" in provided.choices
+
+
+@pytest.mark.asyncio
+async def test_a_custom_s3_scheme_for_another_bucket_gives_no_endpoint(base):
+    schemes = {"r2": {"type": "custom-s3", "platform": R2, "bucket": "other"}}
+    collection = _collection(
+        base, **{"partition:glob": "s3://bucket/roads/*.parquet", "storage:schemes": schemes}
+    )
+
+    provided = await geoparquet_provider(collection, IngestOptions())
+
+    assert "store_options" not in provided.provider
+
+
+@pytest.mark.asyncio
+async def test_store_options_given_by_the_user_win_over_a_custom_s3_scheme(base):
+    schemes = {"r2": {"type": "custom-s3", "platform": R2, "bucket": "bucket"}}
+    collection = _collection(
+        base, **{"partition:glob": "s3://bucket/roads/*.parquet", "storage:schemes": schemes}
+    )
+    options = IngestOptions(store_options={"endpoint": "https://minio.example.org"})
+
+    provided = await geoparquet_provider(collection, options)
+
+    assert provided.provider["store_options"] == {"endpoint": "https://minio.example.org"}
 
 
 @pytest.mark.asyncio
@@ -513,6 +578,23 @@ async def test_an_https_item_href_is_indexed_as_its_s3_url(base):
     provided = await geoparquet_provider(_collection(base, items=items), IngestOptions())
 
     assert provided.index_rows[0].href.startswith("s3://overturemaps-us-west-2/")
+
+
+@pytest.mark.asyncio
+async def test_items_with_s3_hrefs_and_https_alternates_are_read_like_the_https_urls(base):
+    folder = "s3://overturemaps-us-west-2/release/x"
+    items = {}
+    for number in range(2):
+        item = _item(f"part-{number}", f"{folder}/part-{number}.parquet")
+        https = OVERTURE.replace("part-0", f"part-{number}")
+        item["assets"]["data"]["alternate"] = {"https": {"href": https}}
+        items[f"items/part-{number}.json"] = item
+
+    provided = await geoparquet_provider(_collection(base, items=items), IngestOptions())
+
+    assert provided.provider["data"] == f"{folder}/*.parquet"
+    assert provided.provider["store_options"] == {"region": "us-west-2", "skip_signature": True}
+    assert "data: s3 options from the https alternate" in provided.choices
 
 
 @pytest.mark.asyncio

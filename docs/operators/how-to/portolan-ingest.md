@@ -145,7 +145,15 @@ The handler looks for the data in this order:
 An `https://` URL of an S3 bucket, virtual-hosted or path-style, is
 rewritten as an `s3://` URL with the bucket's region and unsigned reads, so
 DuckDB reads it as a bucket. An `s3` alternate in the bucket of the asset's
-`https://` URL gets the same region and unsigned reads.
+`https://` URL gets the same region and unsigned reads, and so does an
+`s3://` href, on the collection or on its items, with an `https://`
+alternate in its bucket.
+
+An `s3://` URL names Amazon S3. When the collection puts its bucket on
+another S3 service, such as Cloudflare R2 or MinIO, with a
+`storage:schemes` entry of type `custom-s3` whose `bucket` is the bucket of
+the data, the provider gets the entry's `platform` as its `endpoint`, and
+its `region` when the entry has one. The summary names the entry.
 Data at any other `https://` URL is written as it is when it names one
 `.parquet` file; a glob or a folder there is skipped with the reason,
 since HTTP cannot list the files.
