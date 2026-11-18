@@ -26,6 +26,7 @@ from app.mcp.annotations import annotate_component
 from app.mcp.maps import add_map_tools
 from app.mcp.names import tool_names
 from app.mcp.route_maps import openapi_route_maps
+from app.mcp.skills.provider import OgcApiSkillProvider
 
 
 def refresh_tools(
@@ -66,6 +67,9 @@ def refresh_tools(
     connected client keeps its cached list until it lists again —
     normally on reconnect. That is still a strict improvement on
     needing a restart of the process.
+
+    The skill providers of the server stay, after the rebuilt providers,
+    and select their skills from the new document.
     """
     # The generated document carries external `$ref`s to the OGC schemas
     # and FastMCP resolves only local ones. `create_mcp_server` resolves
@@ -92,7 +96,14 @@ def refresh_tools(
     # quietly refreshing nothing. Slice assignment rather than rebinding:
     # anything holding a reference to the list keeps seeing the current
     # providers.
-    server.providers[:] = rebuilt.providers
+    # The skills are not built from the document: keep their provider and
+    # give it the new document, which decides the skills it serves.
+    skills = [
+        provider for provider in server.providers if isinstance(provider, OgcApiSkillProvider)
+    ]
+    for provider in skills:
+        provider.select(openapi_spec)
+    server.providers[:] = [*rebuilt.providers, *skills]
     logger.info(
         f"MCP tools regenerated from the new configuration ({len(server.providers)} provider(s))"
     )

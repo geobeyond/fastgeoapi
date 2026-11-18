@@ -14,8 +14,9 @@ from pathlib import Path
 
 import httpx2
 import pytest
-from fastmcp import FastMCP
+from fastmcp import Client, FastMCP
 
+from app.mcp.skills.provider import OgcApiSkillProvider
 from app.mcp.tools import refresh_tools
 
 
@@ -178,3 +179,34 @@ async def test_a_reload_regenerates_the_tools_of_the_running_server(tmp_path):
     # FastMCP builds the tool name from that: `lakes-bis` becomes
     # `Lakes_bis`, so the client gets getLakes_bisFeatures and friends.
     assert any("Lakes_bis" in name for name in after), sorted(after - before)
+
+
+async def _skill_uris(server: FastMCP) -> set[str]:
+    async with Client(server) as mcp_client:
+        resources = await mcp_client.list_resources()
+    return {str(r.uri) for r in resources if str(r.uri).startswith("skill://")}
+
+
+@pytest.mark.asyncio
+async def test_refreshing_keeps_the_skill_provider(server, client):
+    skills = OgcApiSkillProvider(_spec(("/collections/lakes/items", "getLakesFeatures")))
+    server.add_provider(skills)
+
+    refresh_tools(server, _spec(("/collections/lakes/items", "getLakesFeatures")), client=client)
+
+    assert any(provider is skills for provider in server.providers)
+    assert "skill://ogcapi-features/SKILL.md" in await _skill_uris(server)
+
+
+@pytest.mark.asyncio
+async def test_refreshing_reselects_the_skills(server, client):
+    server.add_provider(OgcApiSkillProvider(_spec(("/collections/lakes/items", "getLakes"))))
+    with_map = _spec(("/collections/lakes/items", "getLakes"), ("/collections/rome/map", "getRome"))
+
+    refresh_tools(server, with_map, client=client)
+    after_adding = await _skill_uris(server)
+    refresh_tools(server, _spec(("/collections/lakes/items", "getLakes")), client=client)
+    after_removing = await _skill_uris(server)
+
+    assert "skill://ogcapi-maps/SKILL.md" in after_adding
+    assert "skill://ogcapi-maps/SKILL.md" not in after_removing
