@@ -38,14 +38,15 @@ dependencies = [
     "json-ref-dict>=0.7.2,<=1.0",
     "pyyaml>=6.0.2,<7",
     "scalar-fastapi>=1.4.3,<2",
-    # At least 4.0.10. 4.0.4 stops the OAuth proxy from accepting a token
+    # At least 4.2.1. 4.0.4 stops the OAuth proxy from accepting a token
     # marked as an ID-JAG grant when identity assertions are not
     # configured (PrefectHQ/fastmcp#5115), 4.0.6 rewrites the references
-    # inside `prefixItems` that the CQL2 tools carry, and 4.0.10 is the
-    # release the suite runs on. `fastmcp` is a thin package that depends
-    # on `fastmcp-slim[client, server]` at the same version, so naming it
+    # inside `prefixItems` that the CQL2 tools carry, and 4.2.1 rejects a
+    # JWT before its `nbf` and remembers consent per redirect URI and
+    # scope set. `fastmcp` is a thin package that depends on
+    # `fastmcp-slim[client, server]` at the same version, so naming it
     # alone is enough.
-    "fastmcp>=4.0.10,<5",
+    "fastmcp>=4.2.1,<5",
     "obstore>=0.12.1,<0.13",
     "h11>=0.16,<0.17", # direct dependency: the loopback server of byte ranges speaks HTTP/1.1 through it
 ]
