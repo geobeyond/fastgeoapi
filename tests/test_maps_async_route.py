@@ -203,16 +203,16 @@ def test_without_storage_crs_the_map_is_drawn_in_the_first_crs(tmp_path):
     assert response.headers["content-crs"] == WEB_MERCATOR
 
 
-def test_the_route_applies_the_ceiling(tmp_path):
+def test_the_route_applies_the_server_limits(tmp_path):
+    from app.config.app import ProdConfig
     from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
-    from app.pygeoapi.map_limits import MapCeiling
 
     archive = write_archive(tmp_path / "roads.pmtiles", {(0, 0, 0): TILE_BYTES(0, 0, 0)})
     config = _config({"roads": _collection("Roads", [map_provider(archive)])})
-    ceiling = MapCeiling(1000, 1000)
-    app = build_pygeoapi_subapp(
-        config, build_openapi(config, map_ceiling=ceiling), map_ceiling=ceiling
+    settings = ProdConfig.model_construct(
+        FASTGEOAPI_MAPS_MAX_WIDTH=1000, FASTGEOAPI_MAPS_MAX_HEIGHT=1000
     )
+    app = build_pygeoapi_subapp(config, build_openapi(config, settings=settings), settings=settings)
     client = TestClient(app, raise_server_exceptions=False)
 
     def status(width):

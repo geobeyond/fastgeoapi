@@ -26,7 +26,7 @@ from pygeoapi.openapi import (
 from app.auth.models import unauthorized
 from app.config.logging import create_logger
 from app.interfaces.providers import MapCapabilities, MapFormat, MapLimits
-from app.pygeoapi.map_limits import MapCeiling, choose_default_map_crs
+from app.pygeoapi.map_limits import choose_default_map_crs
 from app.pygeoapi.models import not_found
 
 logger = create_logger("app.pygeoapi.openapi")
@@ -846,30 +846,32 @@ def _publish_sizes(operation: Operation, limits: MapLimits) -> None:
             parameter.param_schema.maximum = largest[parameter.name]
 
 
-def publish_map_ceiling(openapi: OpenAPI, ceiling: MapCeiling) -> OpenAPI:
+def publish_server_map_limits(
+    openapi: OpenAPI, max_width: int, max_height: int, max_pixels: int | None
+) -> OpenAPI:
     """Publish the server's largest map as ``x-OGC-limits.maps`` in the ``info``.
 
-    /rec/scaling/max-width-height names the keys; ``maxPixels`` is there
-    only when the ceiling sets it.
+    /rec/scaling/max-width-height names the keys.
 
     Parameters
     ----------
     openapi
         The document to publish it in.
-    ceiling
-        The server's ceiling.
+    max_width
+        The largest ``width``, in pixels.
+    max_height
+        The largest ``height``, in pixels.
+    max_pixels
+        The largest ``width * height``; None leaves ``maxPixels`` out.
 
     Returns
     -------
     OpenAPI
         The same document.
     """
-    maps: dict[str, int] = {
-        "maxWidth": ceiling.max_width,
-        "maxHeight": ceiling.max_height,
-    }
-    if ceiling.max_pixels is not None:
-        maps["maxPixels"] = ceiling.max_pixels
+    maps: dict[str, int] = {"maxWidth": max_width, "maxHeight": max_height}
+    if max_pixels is not None:
+        maps["maxPixels"] = max_pixels
     setattr(openapi.info, "x-OGC-limits", {"maps": maps})
     return openapi
 
