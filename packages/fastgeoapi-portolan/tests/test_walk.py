@@ -188,7 +188,7 @@ def test_a_collection_with_another_profile_version_is_warned(fixtures):
 
     catalog = read_catalog(str(fixtures.nested), TRANSPORT)
 
-    assert f"{roads} declares Portolan v0.1.1, the catalog declares v0.2.0" in catalog.warnings
+    assert f"{roads} declares Portolan v0.1.1, the catalog declares v0.3.0" in catalog.warnings
     assert {c.id: c.profile for c in catalog.collections}["roads"] == OLDER_PORTOLAN
 
 

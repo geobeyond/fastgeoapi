@@ -4,7 +4,7 @@ A transport passes when the walk over it finds, in each catalog, the
 collections and the skip reasons the reference transport finds, a root
 that does not exist raises ``FileNotFoundError``, and the parts of the
 partitioned collection come back in order. Every document passes the
-schemas of Portolan v0.2.0 except three: the collection of
+schemas of Portolan v0.3.0 except three: the collection of
 ``nonconforming`` has no title, the broken file of ``not_json`` is not
 JSON, and ``plain_stac`` is STAC without the Portolan profile.
 """
@@ -25,7 +25,7 @@ from fastgeoapi_portolan.catalog.drivers import (
 from fastgeoapi_portolan.catalog.protocols import AsyncTransport, Transport
 from fastgeoapi_portolan.catalog.results import Catalog, Collection, Items
 
-PORTOLAN = "https://schemas.portolan-sdi.org/portolan/v0.2.0/schema.json"
+PORTOLAN = "https://schemas.portolan-sdi.org/portolan/v0.3.0/schema.json"
 PARTITION = "https://schemas.portolan-sdi.org/incubating/partition/v1.0.0/schema.json"
 ALTERNATE_ASSETS = "https://stac-extensions.github.io/alternate-assets/v1.2.0/schema.json"
 TABLE = "https://stac-extensions.github.io/table/v1.2.0/schema.json"
@@ -283,7 +283,8 @@ def _partitioned(case: Path) -> None:
         **{
             "partition:scheme": "hive",
             "partition:keys": [{"name": "part", "type": "int32"}],
-            "partition:glob": "part=*/*.parquet",
+            # From Portolan v0.3.0 the glob is an absolute URL a client can list.
+            "partition:glob": "s3://example-bucket/buildings/part=*/*.parquet",
             "partition:file_count": len(_PARTS),
         },
     )

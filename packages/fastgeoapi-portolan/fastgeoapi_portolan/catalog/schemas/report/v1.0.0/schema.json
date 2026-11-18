@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.portolan-sdi.org/rashid/report/v1.0.0/schema.json",
+  "title": "rashid check --json report",
+  "description": "The machine-readable report of one rashid validation run, as `rashid check --json` writes it and `Report.to_dict()` returns it.",
+  "type": "object",
+  "required": [
+    "$schema",
+    "report_version",
+    "validator",
+    "passed",
+    "files_checked",
+    "error_count",
+    "warning_count",
+    "info_count",
+    "summary",
+    "findings"
+  ],
+  "properties": {
+    "$schema": {"const": "https://schemas.portolan-sdi.org/rashid/report/v1.0.0/schema.json"},
+    "report_version": {"const": "1.0.0"},
+    "validator": {
+      "type": "object",
+      "required": [
+        "name",
+        "version",
+        "spec_commit",
+        "bundled_profiles",
+        "applied_profile",
+        "declared_profile",
+        "passes"
+      ],
+      "properties": {
+        "name": {"const": "rashid"},
+        "version": {"type": "string", "minLength": 1},
+        "spec_commit": {
+          "description": "The portolan-spec commit the bundled schemas came from.",
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "bundled_profiles": {
+          "description": "The Portolan profile versions the validator bundles, oldest first.",
+          "type": "array",
+          "items": {"$ref": "#/$defs/profile_version"},
+          "minItems": 1
+        },
+        "applied_profile": {
+          "description": "The profile version whose requirements the validator applied.",
+          "$ref": "#/$defs/profile_version"
+        },
+        "declared_profile": {
+          "description": "The Portolan schema URI the root catalog declares, or null when it declares none or several.",
+          "type": ["string", "null"]
+        },
+        "passes": {
+          "description": "The passes that ran, in run order.",
+          "type": "array",
+          "items": {"enum": ["metadata", "structural", "extensions", "schema", "data", "live"]},
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "passed": {"type": "boolean"},
+    "files_checked": {"$ref": "#/$defs/count"},
+    "error_count": {"$ref": "#/$defs/count"},
+    "warning_count": {"$ref": "#/$defs/count"},
+    "info_count": {"$ref": "#/$defs/count"},
+    "summary": {
+      "type": "object",
+      "required": ["by_severity", "by_rule"],
+      "properties": {
+        "by_severity": {
+          "type": "object",
+          "required": ["error", "warning", "info"],
+          "properties": {
+            "error": {"$ref": "#/$defs/count"},
+            "warning": {"$ref": "#/$defs/count"},
+            "info": {"$ref": "#/$defs/count"}
+          },
+          "additionalProperties": false
+        },
+        "by_rule": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["rule_id", "severity", "count", "file_count", "description"],
+            "properties": {
+              "rule_id": {"type": "string"},
+              "severity": {"$ref": "#/$defs/severity"},
+              "count": {"$ref": "#/$defs/count"},
+              "file_count": {"$ref": "#/$defs/count"},
+              "description": {"type": "string"}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["rule_id", "severity", "message", "path"],
+        "properties": {
+          "rule_id": {"type": "string"},
+          "severity": {"$ref": "#/$defs/severity"},
+          "message": {"type": "string"},
+          "path": {"type": "string"},
+          "object_id": {"type": "string"},
+          "json_pointer": {"type": "string"},
+          "fix_hint": {"type": "string"},
+          "expected": {"description": "The correct value, when the check compares two values."},
+          "actual": {"description": "The declared value, when the check compares two values."},
+          "data": {"type": "object"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "meta": {
+      "description": "Stage timings, present with --timings.",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "count": {"type": "integer", "minimum": 0},
+    "severity": {"enum": ["error", "warning", "info"]},
+    "profile_version": {"type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$"}
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://stac-extensions.github.io/storage/v2.0.0/platforms/custom-s3.json",
+  "title": "Generic S3",
+  "type": "object",
+  "if": {
+    "properties": {
+      "type": {
+        "const": "custom-s3"
+      }
+    }
+  },
+  "then": {
+    "$comment": "No specific validation rules apply"
+  }
+}

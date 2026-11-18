@@ -10,6 +10,7 @@ from fastgeoapi_portolan.catalog.testing import PARTITION, PORTOLAN, write_fixtu
 from fastgeoapi_portolan.validation import JsonSchemaValidator
 
 UNBUNDLED_TABLE = "https://stac-extensions.github.io/table/v9.9.9/schema.json"
+PORTOLAN_V0_2_0 = "https://schemas.portolan-sdi.org/portolan/v0.2.0/schema.json"
 
 
 @pytest.fixture(scope="module")
@@ -115,6 +116,25 @@ def test_a_partitioned_collection_without_its_glob_fails(validator, fixtures):
 
     assert {finding.schema for finding in findings} == {PORTOLAN, PARTITION}
     assert all("partition:glob" in finding.message for finding in findings)
+
+
+def test_a_relative_glob_fails_from_portolan_v0_3_0(validator, fixtures):
+    buildings = _load(fixtures.partitioned.parent / "buildings" / "collection.json")
+    buildings["partition:glob"] = "part=*/*.parquet"
+
+    findings = validator.validate(buildings, root_profile=PORTOLAN).findings
+
+    assert [(finding.schema, finding.pointer) for finding in findings] == [
+        (PORTOLAN, "/partition:glob")
+    ]
+
+
+def test_a_relative_glob_still_conforms_to_portolan_v0_2_0(validator, fixtures):
+    buildings = _load(fixtures.partitioned.parent / "buildings" / "collection.json")
+    buildings["partition:glob"] = "part=*/*.parquet"
+    buildings["stac_extensions"] = [PORTOLAN_V0_2_0, *buildings["stac_extensions"][1:]]
+
+    assert validator.validate(buildings, root_profile=PORTOLAN_V0_2_0).findings == ()
 
 
 def test_a_collection_with_schema_summaries_validates_offline(validator, roads):

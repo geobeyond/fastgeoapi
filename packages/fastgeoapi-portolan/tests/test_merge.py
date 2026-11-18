@@ -13,7 +13,7 @@ from fastgeoapi_portolan.reader import SkippedDocument
 from fastgeoapi_portolan.resources import IngestedResource
 
 CATALOG = "https://example.org/cat/catalog.json"
-PORTOLAN = "https://schemas.portolan-sdi.org/portolan/v0.2.0/schema.json"
+PORTOLAN = "https://schemas.portolan-sdi.org/portolan/v0.3.0/schema.json"
 
 DOCUMENT = """\
 # The server of the example.

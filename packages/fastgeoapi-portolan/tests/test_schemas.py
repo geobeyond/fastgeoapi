@@ -9,7 +9,7 @@ import pytest
 
 from fastgeoapi_portolan.catalog.schema_files import schema_file, schema_resources
 
-COMMIT = "123c65379c7807e8e43fdb62fb0d98e9dd6a2d17"
+COMMIT = "538626f14cc298876a6104b1e336fc341ddaa6c7"
 SCHEMAS = files("fastgeoapi_portolan.catalog.schemas")
 
 
@@ -19,6 +19,7 @@ def test_the_schemas_ship_with_the_package():
         "stac/1.0.0/item-spec/json-schema/basics.json",
         "portolan/v0.1.1/schema.json",
         "portolan/v0.2.0/schema.json",
+        "portolan/v0.3.0/schema.json",
         "extension-registry.json",
     ):
         assert SCHEMAS.joinpath(path).is_file(), path
