@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://stac-extensions.github.io/storage/v2.0.0/platforms/ms-azure.json",
+  "title": "Microsoft Azure",
+  "type": "object",
+  "if": {
+    "properties": {
+      "type": {
+        "const": "ms-azure"
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "platform": {
+        "const": "https://{account}.blob.core.windows.net"
+      },
+      "account": {
+        "type": "string"
+      }
+    }
+  }
+}

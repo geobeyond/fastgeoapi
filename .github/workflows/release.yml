@@ -154,7 +154,7 @@ jobs:
         run: |
           set -euo pipefail
           wheel=$(ls dist-portolan/*.whl)
-          if ! python -m zipfile -l "$wheel" | grep -q "fastgeoapi_portolan/catalog/schemas/portolan/v0.2.0/schema.json"; then
+          if ! python -m zipfile -l "$wheel" | grep -q "fastgeoapi_portolan/catalog/schemas/portolan/v0.3.0/schema.json"; then
             echo "::error::$wheel carries no catalog schemas"
             exit 1
           fi

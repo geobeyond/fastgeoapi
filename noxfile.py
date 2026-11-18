@@ -481,10 +481,10 @@ def portolan(session: Session) -> None:
 @session(name="portolan-rashid", python=["3.11", "3.12"])
 def portolan_rashid(session: Session) -> None:
     """Check the conformance kit against rashid, the Portolan validator."""
-    # portolan-cli 0.8 pins rashid below 0.2, and the schemas come from 0.3,
+    # portolan-cli 0.8 pins rashid below 0.2, and the schemas come from 0.4,
     # so the comparison runs without portolan-cli.
     session.install(
-        "./packages/fastgeoapi-portolan", "rashid>=0.3,<0.4", "pytest", "pytest-asyncio"
+        "./packages/fastgeoapi-portolan", "rashid>=0.4,<0.5", "pytest", "pytest-asyncio"
     )
     session.chdir("packages/fastgeoapi-portolan")
     session.run("pytest", "tests/test_rashid_agreement.py", *session.posargs)

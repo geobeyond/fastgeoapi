@@ -134,7 +134,9 @@ plain STAC catalog may not, since STAC does not require a title.
 The handler looks for the data in this order:
 
 1. `partition:glob`, when the collection declares it, resolved against the
-   collection;
+   collection. A collection on Portolan v0.3.0 needs an absolute bucket
+   URL, such as `s3://bucket/data/*.parquet`, and is skipped when its glob
+   is relative. Earlier versions also accept a relative glob;
 2. a collection asset of type `application/vnd.apache.parquet` with the
    role `data`; its `alternate.s3.href` wins when it is an `s3://` URL;
 3. the data assets of the collection's items, which all have to sit in one
@@ -236,7 +238,7 @@ ingest:
   from: portolan
   catalog: https://example.org/catalog/catalog.json
   collection: roads
-  schema: https://schemas.portolan-sdi.org/portolan/v0.2.0/schema.json
+  schema: https://schemas.portolan-sdi.org/portolan/v0.3.0/schema.json
 ```
 
 There is no date in it, so an ingest that finds nothing new leaves the
@@ -323,7 +325,7 @@ them, which is the case for GeoParquet data kept in the items.
 
 Every catalog and collection is checked against the JSON Schemas the
 package ships, without going to the network: STAC 1.1.0, the Portolan
-profile from v0.1.0 to v0.2.0, and the extensions of the Portolan registry,
+profile from v0.1.0 to v0.3.0, and the extensions of the Portolan registry,
 such as `table`, `file`, `partition` and `alternate-assets`. They are
 copied from [rashid](https://github.com/portolan-sdi/rashid), Portolan's
 validator.
