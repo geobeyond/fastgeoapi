@@ -54,10 +54,10 @@ class MyMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 `limits` gives the largest map the engine draws. `max_pixels`, the largest
 `width * height`, is optional: set it only when the engine has an area limit
 of its own. The route publishes the sizes in the OpenAPI document as the
-`maximum` of `width` and `height`. When the server ceiling is
+`maximum` of `width` and `height`. When the server's limits are
 smaller (`FASTGEOAPI_MAPS_MAX_WIDTH`, `FASTGEOAPI_MAPS_MAX_HEIGHT`,
-`FASTGEOAPI_MAPS_MAX_PIXELS`), the ceiling applies, and a warning at startup
-names the collection.
+`FASTGEOAPI_MAPS_MAX_PIXELS`), they apply, and a warning at startup names
+the collection.
 
 `capabilities` gives the CRSs the engine draws in and the encodings it
 draws maps in. A CRS is an OGC CRS URI, such as

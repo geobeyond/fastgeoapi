@@ -1,15 +1,14 @@
-"""The server's ceiling on map sizes, and what each native map provider accepts and draws.
+"""The server's limits on map sizes, and what each native map provider accepts and draws.
 
-The ceiling comes from the settings. A collection's provider may lower it,
-never raise it.
+The server's limits come from the settings. A collection's provider may
+lower them, never raise them.
 """
 
 from __future__ import annotations
 
 import dataclasses
 from collections.abc import Iterator
-from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pygeoapi import plugin as pygeoapi_plugin
 from pygeoapi.provider.base import ProviderGenericError, ProviderTypeError
@@ -26,79 +25,67 @@ from app.interfaces.providers import (
 )
 from app.pygeoapi.map_contract import iter_native_map_definitions
 
+if TYPE_CHECKING:
+    from app.config.app import DevConfig, ProdConfig
+
 logger = create_logger("app.pygeoapi.map_limits")
+
+# The defaults of FASTGEOAPI_MAPS_MAX_WIDTH, _HEIGHT and _PIXELS, for when
+# fastgeoapi's settings cannot be built.
+_DEFAULT_SERVER_MAP_LIMITS: tuple[int, int, int | None] = (2048, 2048, None)
 
 _OGC_CRS_URIS = ("http://www.opengis.net/def/crs/", "https://www.opengis.net/def/crs/")
 
 
-@dataclass(frozen=True)
-class MapCeiling:
-    """The largest map size, whatever the collection.
-
-    Attributes
-    ----------
-    max_width
-        The largest ``width`` of a map, in pixels.
-    max_height
-        The largest ``height`` of a map, in pixels.
-    max_pixels
-        The largest ``width * height``, or None for no limit on the area.
-    """
-
-    max_width: int = 2048
-    max_height: int = 2048
-    max_pixels: int | None = None
-
-    @classmethod
-    def from_settings(cls, settings: Any) -> MapCeiling:
-        """Read the ceiling from fastgeoapi's settings.
-
-        Parameters
-        ----------
-        settings
-            fastgeoapi's settings; a setting they lack keeps its default.
-
-        Returns
-        -------
-        MapCeiling
-            The ceiling of ``FASTGEOAPI_MAPS_MAX_WIDTH``,
-            ``FASTGEOAPI_MAPS_MAX_HEIGHT`` and ``FASTGEOAPI_MAPS_MAX_PIXELS``.
-        """
-        default = cls()
-        pixels = getattr(settings, "FASTGEOAPI_MAPS_MAX_PIXELS", default.max_pixels)
-        return cls(
-            max_width=int(getattr(settings, "FASTGEOAPI_MAPS_MAX_WIDTH", default.max_width)),
-            max_height=int(getattr(settings, "FASTGEOAPI_MAPS_MAX_HEIGHT", default.max_height)),
-            max_pixels=None if pixels is None else int(pixels),
-        )
-
-
-def get_default_map_ceiling() -> MapCeiling:
-    """Get the ceiling of fastgeoapi's settings, or the defaults without them.
-
-    Returns
-    -------
-    MapCeiling
-        The ceiling.
-    """
-    # Imported here: building the settings needs a configured fastgeoapi, and
-    # the document is also built by tools that only have pygeoapi.
-    try:
-        from app.config.app import configuration
-    except (ImportError, ValueError):
-        return MapCeiling()
-    return MapCeiling.from_settings(configuration)
-
-
-def cut_limits_to_ceiling(limits: MapLimits, ceiling: MapCeiling) -> MapLimits:
-    """Cut a provider's limits to the ceiling.
+def get_server_map_limits(
+    settings: DevConfig | ProdConfig | None,
+) -> tuple[int, int, int | None]:
+    """Get the server's largest map from fastgeoapi's settings.
 
     Parameters
     ----------
-    limits
+    settings
+        fastgeoapi's settings; None takes those of the running server, or
+        their defaults when they cannot be built.
+
+    Returns
+    -------
+    tuple of (int, int, int or None)
+        The largest ``width`` and ``height`` in pixels, and the largest
+        ``width * height`` or None for no limit.
+    """
+    if settings is None:
+        # Imported here: building the settings needs a configured fastgeoapi,
+        # and the document is also built by tools that only have pygeoapi.
+        try:
+            from app.config.app import configuration
+        except (ImportError, ValueError):
+            return _DEFAULT_SERVER_MAP_LIMITS
+        if configuration is None:
+            return _DEFAULT_SERVER_MAP_LIMITS
+        settings = configuration
+    return (
+        settings.FASTGEOAPI_MAPS_MAX_WIDTH,
+        settings.FASTGEOAPI_MAPS_MAX_HEIGHT,
+        settings.FASTGEOAPI_MAPS_MAX_PIXELS,
+    )
+
+
+def clamp_provider_map_limits(
+    provider_limits: MapLimits, max_width: int, max_height: int, max_pixels: int | None
+) -> MapLimits:
+    """Clamp a provider's map limits to the server's.
+
+    Parameters
+    ----------
+    provider_limits
         The limits the collection's provider declares.
-    ceiling
-        The server's ceiling.
+    max_width
+        The server's largest ``width``, in pixels.
+    max_height
+        The server's largest ``height``, in pixels.
+    max_pixels
+        The server's largest ``width * height``, or None for no limit.
 
     Returns
     -------
@@ -106,27 +93,33 @@ def cut_limits_to_ceiling(limits: MapLimits, ceiling: MapCeiling) -> MapLimits:
         The smaller of each limit; a pixel limit set on one side only is
         kept.
     """
-    pixels = [value for value in (limits.max_pixels, ceiling.max_pixels) if value is not None]
+    pixels = [value for value in (provider_limits.max_pixels, max_pixels) if value is not None]
     return dataclasses.replace(
-        limits,
-        max_width=min(limits.max_width, ceiling.max_width),
-        max_height=min(limits.max_height, ceiling.max_height),
+        provider_limits,
+        max_width=min(provider_limits.max_width, max_width),
+        max_height=min(provider_limits.max_height, max_height),
         max_pixels=min(pixels) if pixels else None,
     )
 
 
-def collect_native_map_limits(config: dict[str, Any], ceiling: MapCeiling) -> dict[str, MapLimits]:
-    """Collect the limits of every native map provider, cut to the ceiling.
+def collect_native_map_limits(
+    config: dict[str, Any], max_width: int, max_height: int, max_pixels: int | None
+) -> dict[str, MapLimits]:
+    """Collect the limits of every native map provider, clamped to the server's.
 
-    A collection whose provider asks for more than the ceiling is logged
-    once, with what it asked and what it gets.
+    A collection whose provider asks for more than the server allows is
+    logged once, with what it asked and what it gets.
 
     Parameters
     ----------
     config
         The pygeoapi configuration.
-    ceiling
-        The server's ceiling.
+    max_width
+        The server's largest ``width``, in pixels.
+    max_height
+        The server's largest ``height``, in pixels.
+    max_pixels
+        The server's largest ``width * height``, or None for no limit.
 
     Returns
     -------
@@ -137,7 +130,7 @@ def collect_native_map_limits(config: dict[str, Any], ceiling: MapCeiling) -> di
     limits: dict[str, MapLimits] = {}
     for name, _, provider in _iter_native_map_providers(config):
         own = provider.limits
-        cut = cut_limits_to_ceiling(own, ceiling)
+        cut = clamp_provider_map_limits(own, max_width, max_height, max_pixels)
         if cut != own:
             logger.warning(
                 f"{name}: maps up to {_describe_size(own)} asked, {_describe_size(cut)} served"

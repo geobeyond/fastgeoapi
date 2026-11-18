@@ -17,6 +17,7 @@ from collections.abc import Awaitable, Callable
 from contextlib import suppress
 from http import HTTPStatus
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pygeoapi
 import pygeoapi.api as core_api
@@ -51,11 +52,10 @@ from app.pygeoapi.api_async.caching import HttpCache, get_default_http_cache
 from app.pygeoapi.config_extensions import extension_problem
 from app.pygeoapi.map_contract import find_map_contract_problem
 from app.pygeoapi.map_limits import (
-    MapCeiling,
     collect_native_map_capabilities,
     collect_native_map_limits,
     find_map_capability_problem,
-    get_default_map_ceiling,
+    get_server_map_limits,
 )
 from app.pygeoapi.openapi import (
     describe_filter_parameters,
@@ -67,9 +67,12 @@ from app.pygeoapi.openapi import (
     fix_map_operations,
     fix_queryables_response_schema,
     fix_tileset_list_response,
-    publish_map_ceiling,
+    publish_server_map_limits,
 )
 from app.pygeoapi.plugin import invalidate_plugin_cache, patch_load_plugin
+
+if TYPE_CHECKING:
+    from app.config.app import DevConfig, ProdConfig
 
 # The fastgeoapi runtime patches apply once, at factory import: every
 # sub-app built afterwards inherits them (the same moment the old
@@ -201,20 +204,20 @@ def _default_to_the_items(providers: list[dict]) -> None:
     provider.setdefault("default", True)
 
 
-def build_openapi(config: dict, *, map_ceiling: MapCeiling | None = None) -> dict:
+def build_openapi(config: dict, *, settings: DevConfig | ProdConfig | None = None) -> dict:
     """Generate the OpenAPI in memory, with the fastgeoapi fixes at the source.
 
     The document goes through the openapi-pydantic model once: validated,
     corrected, dumped. With a native map provider in the configuration, it
-    publishes the server's ceiling and the limits of each collection.
+    publishes the server's map limits and those of each collection.
 
     Parameters
     ----------
     config
         The pygeoapi configuration.
-    map_ceiling
-        The server's ceiling on map sizes; None takes the one of the
-        settings.
+    settings
+        fastgeoapi's settings; None takes those of the running server, or
+        their defaults when they cannot be built.
 
     Returns
     -------
@@ -229,11 +232,11 @@ def build_openapi(config: dict, *, map_ceiling: MapCeiling | None = None) -> dic
     describe_filter_parameters(openapi, config)
     fix_tileset_list_response(openapi)
     describe_tilesets(openapi)
-    ceiling = map_ceiling if map_ceiling is not None else get_default_map_ceiling()
-    limits = collect_native_map_limits(config, ceiling)
+    server_limits = get_server_map_limits(settings)
+    limits = collect_native_map_limits(config, *server_limits)
     fix_map_operations(openapi, config, limits, collect_native_map_capabilities(config))
     if limits:
-        publish_map_ceiling(openapi, ceiling)
+        publish_server_map_limits(openapi, *server_limits)
     drop_unused_tags(openapi)
     return dump_openapi(openapi, like=generated)
 
@@ -429,7 +432,7 @@ def build_routes(
     api: API,
     specs: frozenset[str] | None = None,
     http_cache: HttpCache | None = None,
-    map_ceiling: MapCeiling | None = None,
+    settings: DevConfig | ProdConfig | None = None,
 ) -> list[Route]:
     """Build the route table, closed over the ``api`` instance.
 
@@ -447,9 +450,10 @@ def build_routes(
     http_cache
         The cache policy of the map and tile routes; None sends no cache
         headers.
-    map_ceiling
-        The server's ceiling on map sizes; None takes the one of the
-        settings.
+    settings
+        fastgeoapi's settings, which hold the server's map limits; None
+        takes those of the running server, or their defaults when they
+        cannot be built.
 
     Returns
     -------
@@ -652,7 +656,7 @@ def build_routes(
                     style,
                     *probe,
                     http_cache=http_cache,
-                    map_ceiling=map_ceiling,
+                    settings=settings,
                 ),
             )
             if drawn is None:
@@ -953,7 +957,7 @@ def build_pygeoapi_subapp(
     *,
     http_cache: HttpCache | None = None,
     pages: NativePages | None = None,
-    map_ceiling: MapCeiling | None = None,
+    settings: DevConfig | ProdConfig | None = None,
 ) -> Starlette:
     """Build the Starlette sub-app of a configuration.
 
@@ -974,9 +978,10 @@ def build_pygeoapi_subapp(
         Serves fastgeoapi's own HTML pages and their compiled assets under
         ``/_html``; None takes the choice of the settings, which keep
         pygeoapi's pages by default.
-    map_ceiling
-        The server's ceiling on map sizes; None takes the one of the
-        settings.
+    settings
+        fastgeoapi's settings, which hold the server's map limits; None
+        takes those of the running server, or their defaults when they
+        cannot be built.
 
     Returns
     -------
@@ -997,7 +1002,7 @@ def build_pygeoapi_subapp(
         api,
         specs=active_specs(config),
         http_cache=http_cache if http_cache is not None else get_default_http_cache(),
-        map_ceiling=map_ceiling,
+        settings=settings,
     )
     mounts = [Mount("/static", StaticFiles(directory=static_dir))]
     if pages is None:

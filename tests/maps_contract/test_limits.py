@@ -11,11 +11,11 @@ def _parameters(client) -> tuple[dict, dict[str, dict]]:
 
 
 def test_the_published_maximum_is_the_one_applied(contract):
-    from app.pygeoapi.map_limits import get_default_map_ceiling
+    from app.pygeoapi.map_limits import get_server_map_limits
 
     document, schemas = _parameters(contract.client)
     width, height = schemas["width"]["maximum"], schemas["height"]["maximum"]
-    ceiling = get_default_map_ceiling()
+    max_width, max_height, _ = get_server_map_limits(None)
 
     def status(**size):
         return contract.client.get(MAP, params={"width": 16, "height": 16, **size}).status_code
@@ -23,8 +23,8 @@ def test_the_published_maximum_is_the_one_applied(contract):
     assert (status(width=width), status(width=width + 1)) == (200, 413)
     assert (status(height=height), status(height=height + 1)) == (200, 413)
     assert document["info"]["x-OGC-limits"]["maps"] == {
-        "maxWidth": ceiling.max_width,
-        "maxHeight": ceiling.max_height,
+        "maxWidth": max_width,
+        "maxHeight": max_height,
     }
 
 

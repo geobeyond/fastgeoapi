@@ -87,7 +87,7 @@ def parse_map_parameters(
     extents
         The collection's extents.
     limits
-        The collection's limits, cut to the server's ceiling.
+        The collection's limits, clamped to the server's.
     capabilities
         The CRSs and formats the provider draws.
     style

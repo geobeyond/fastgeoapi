@@ -8,7 +8,7 @@ on the event loop, and answers with the statuses and headers of
 from __future__ import annotations
 
 from http import HTTPStatus
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pygeoapi import plugin as pygeoapi_plugin
 from pygeoapi.api import API, APIRequest
@@ -30,7 +30,10 @@ from app.pygeoapi.api_async.caching import (
     is_not_modified,
 )
 from app.pygeoapi.api_async.map_parameters import format_content_datetime, parse_map_parameters
-from app.pygeoapi.map_limits import MapCeiling, cut_limits_to_ceiling, get_default_map_ceiling
+from app.pygeoapi.map_limits import clamp_provider_map_limits, get_server_map_limits
+
+if TYPE_CHECKING:
+    from app.config.app import DevConfig, ProdConfig
 
 
 def find_native_map_provider(api: API, dataset: str) -> tuple[dict, AsyncMapProvider] | None:
@@ -71,7 +74,7 @@ async def get_collection_map(
     collection_def: dict,
     provider: AsyncMapProvider,
     http_cache: HttpCache | None = None,
-    map_ceiling: MapCeiling | None = None,
+    settings: DevConfig | ProdConfig | None = None,
 ) -> tuple[dict, int, Any]:
     """Answer one map request, awaiting the provider.
 
@@ -79,7 +82,7 @@ async def get_collection_map(
     ``ETag``, and a request that names it gets a 304 without a draw. The
     version is read again after the draw, and a map whose version changed
     meanwhile goes without cache headers. The map is held to the smaller of
-    the server's ceiling and the provider's limits.
+    the server's limits and the provider's.
 
     Parameters
     ----------
@@ -97,9 +100,10 @@ async def get_collection_map(
         The collection's map provider.
     http_cache
         The cache policy, or None for no cache headers.
-    map_ceiling
-        The server's ceiling on map sizes; None takes the one of the
-        settings.
+    settings
+        fastgeoapi's settings, which hold the server's map limits; None
+        takes those of the running server, or their defaults when they
+        cannot be built.
 
     Returns
     -------
@@ -109,8 +113,7 @@ async def get_collection_map(
         limits, 204 for a bbox entirely outside the CRS of the map.
     """
     headers = request.get_response_headers(**api.api_headers)
-    ceiling = map_ceiling if map_ceiling is not None else get_default_map_ceiling()
-    limits = cut_limits_to_ceiling(provider.limits, ceiling)
+    limits = clamp_provider_map_limits(provider.limits, *get_server_map_limits(settings))
     try:
         parameters = parse_map_parameters(
             request,
