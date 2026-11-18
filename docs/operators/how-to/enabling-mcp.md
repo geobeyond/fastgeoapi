@@ -228,6 +228,21 @@ trusting the configuration. Entries whose lifetime equals the upstream
 refresh-expiry fallback (one year, when the IdP does not send
 `refresh_expires_in`) mean one did.
 
+### Skills (`FASTGEOAPI_MCP_SKILLS`)
+
+With MCP on, the server also offers skills that explain the OGC API
+operations to an agent. They are on by default; turn them off with:
+
+```shell
+# .env file — optional, defaults to true when unset
+DEV_FASTGEOAPI_MCP_SKILLS=false
+```
+
+With the skills off, the server lists no `skill://` resources and its
+instructions to the client do not mention them. What each skill teaches
+and when it is served is in
+[MCP Server](../../consumers/explanation/mcp-server.md#skills).
+
 ### Enterprise-Managed Authorization (`FASTGEOAPI_MCP_TRUSTED_ISSUERS`)
 
 Names the enterprise identity providers whose ID-JAG assertions this

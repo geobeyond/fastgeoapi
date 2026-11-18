@@ -424,7 +424,8 @@ def create_mcp_server(
         - api_client is the httpx2.AsyncClient used by MCP (for lifecycle management)
     """
     from app.mcp.card import fastgeoapi_version
-    from app.mcp.instructions import SERVER_INSTRUCTIONS
+    from app.mcp.instructions import build_server_instructions
+    from app.mcp.skills.provider import OgcApiSkillProvider
     from app.pygeoapi.openapi import fix_resolved_document
     from app.utils.openapi_resolver import resolve_external_refs
 
@@ -535,9 +536,11 @@ def create_mcp_server(
         # instructions the client hands to the model.
         version=fastgeoapi_version(),
         website_url=f"{_public_base_url().rstrip('/')}{cfg.FASTGEOAPI_CONTEXT}",
-        instructions=SERVER_INSTRUCTIONS,
+        instructions=build_server_instructions(skills=cfg.FASTGEOAPI_MCP_SKILLS),
     )
     add_map_tools(mcp_server, openapi_spec, api_client)
+    if cfg.FASTGEOAPI_MCP_SKILLS:
+        mcp_server.add_provider(OgcApiSkillProvider(openapi_spec))
 
     # Make requests attributable to a client. Neither the User-Agent nor
     # the source address can do it — see the middleware module for why.

@@ -76,6 +76,7 @@ class DevConfig(GlobalConfig):
     FASTGEOAPI_WITH_MCP: bool = False
     FASTGEOAPI_MCP_CONSENT_MODE: str | None = None
     FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED: bool = False
+    FASTGEOAPI_MCP_SKILLS: bool = True
     FASTGEOAPI_CACHE_DIR: str | None = None
     # Where the byte ranges read from remote objects are kept for the
     # processes of this machine: a directory or a store URL, or "off" to
@@ -165,6 +166,7 @@ class ProdConfig(GlobalConfig):
     FASTGEOAPI_WITH_MCP: bool = False
     FASTGEOAPI_MCP_CONSENT_MODE: str | None = None
     FASTGEOAPI_MCP_ALLOW_UNAUTHENTICATED: bool = False
+    FASTGEOAPI_MCP_SKILLS: bool = True
     FASTGEOAPI_CACHE_DIR: str | None = None
     # Where the byte ranges read from remote objects are kept for the
     # processes of this machine: a directory or a store URL, or "off" to
