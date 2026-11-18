@@ -450,6 +450,39 @@ async def test_variables_in_the_store_options_given_by_the_user_are_kept(base):
     assert roads.resource["providers"][0]["store_options"] == {"endpoint": "${S3_ENDPOINT}"}
 
 
+def _custom_s3_document(region):
+    schemes = {"r2": {"type": "custom-s3", "platform": "https://r2.example.org"}}
+    schemes["r2"].update(bucket="bucket", region=region)
+    return _document(
+        "roads", **{"partition:glob": "s3://bucket/roads/*.parquet", "storage:schemes": schemes}
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_variable_in_the_store_options_the_catalog_gives_is_skipped(base):
+    document = _custom_s3_document("${REGION}")
+
+    built, skipped = await build(_catalog(base, _collection(base, document)), IngestOptions())
+
+    assert built == []
+    assert skipped == [
+        SkippedDocument(
+            "roads",
+            "providers[0].store_options.region holds '${', which the configuration reads as a variable",
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_store_option_the_user_gives_replaces_a_variable_the_catalog_gives(base):
+    document = _custom_s3_document("${REGION}")
+    options = IngestOptions(store_options={"region": "auto"})
+
+    (roads,), _ = await build(_catalog(base, _collection(base, document)), options)
+
+    assert roads.resource["providers"][0]["store_options"]["region"] == "auto"
+
+
 @pytest.mark.asyncio
 async def test_nonconforming_collections_are_reported_as_skipped(base):
     findings = (
