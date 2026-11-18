@@ -598,6 +598,41 @@ async def test_items_with_s3_hrefs_and_https_alternates_are_read_like_the_https_
 
 
 @pytest.mark.asyncio
+async def test_a_partition_glob_takes_its_options_from_the_https_alternates_of_the_items(base):
+    folder = "s3://overturemaps-us-west-2/release/x"
+    items = {}
+    for number in range(2):
+        item = _item(f"part-{number}", f"{folder}/part-{number}.parquet")
+        https = OVERTURE.replace("part-0", f"part-{number}")
+        item["assets"]["data"]["alternate"] = {"https": {"href": https}}
+        items[f"items/part-{number}.json"] = item
+    collection = _collection(base, items=items, **{"partition:glob": f"{folder}/*.parquet"})
+
+    provided = await geoparquet_provider(collection, IngestOptions())
+
+    assert provided.provider["data"] == f"{folder}/*.parquet"
+    assert provided.provider["store_options"] == {"region": "us-west-2", "skip_signature": True}
+    assert "data: s3 options from the https alternate" in provided.choices
+
+
+@pytest.mark.asyncio
+async def test_a_partition_glob_takes_its_options_from_the_https_alternate_of_the_collection(
+    base,
+):
+    folder = "s3://overturemaps-us-west-2/release/x"
+    asset = _parquet(f"{folder}/part-0.parquet")
+    asset["alternate"] = {"https": {"href": OVERTURE}}
+    collection = _collection(
+        base, assets={"data": asset}, **{"partition:glob": f"{folder}/*.parquet"}
+    )
+
+    provided = await geoparquet_provider(collection, IngestOptions())
+
+    assert provided.provider["data"] == f"{folder}/*.parquet"
+    assert provided.provider["store_options"] == {"region": "us-west-2", "skip_signature": True}
+
+
+@pytest.mark.asyncio
 async def test_items_whose_data_asset_has_another_name_say_so(base):
     items = {}
     for n in range(2):

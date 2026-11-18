@@ -145,9 +145,9 @@ The handler looks for the data in this order:
 An `https://` URL of an S3 bucket, virtual-hosted or path-style, is
 rewritten as an `s3://` URL with the bucket's region and unsigned reads, so
 DuckDB reads it as a bucket. An `s3` alternate in the bucket of the asset's
-`https://` URL gets the same region and unsigned reads, and so does an
-`s3://` href, on the collection or on its items, with an `https://`
-alternate in its bucket.
+`https://` URL gets the same region and unsigned reads. So does `s3://`
+data, a `partition:glob` included, when the collection asset or an item's
+data asset has an `https://` alternate in its bucket.
 
 An `s3://` URL names Amazon S3. When the collection puts its bucket on
 another S3 service, such as Cloudflare R2 or MinIO, with a
@@ -292,8 +292,9 @@ quotes and `${VAR}` placeholders included.
 pygeoapi reads `${NAME}` anywhere in the configuration as a variable of
 the server's environment. A collection whose text would carry one into
 the document, in its id, title, description, keywords, links, style names
-or columns, is skipped, and the reason names the field. The
-`--store-option` values are yours and are written as given.
+columns or store options, is skipped, and the reason names the field.
+The `--store-option` values are yours: they are written as given, and
+each replaces the catalog's option of the same name.
 
 ### The save rule
 

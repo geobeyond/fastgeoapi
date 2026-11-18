@@ -266,6 +266,8 @@ async def geoparquet_provider(
     derived: dict[str, Any] = {}
     rows: list[IndexRow] = []
     asset_name: str | None = None
+    # The assets whose https alternate may name the bucket of the data.
+    alternated: list[Mapping[str, Any]] = [asset] if asset else []
 
     if collection.item_hrefs and (glob or asset is None):
         try:
@@ -300,6 +302,7 @@ async def geoparquet_provider(
         rows = _index_rows(collection, items.items)
         asset_name = _data_asset_name(items.items)
         described += [found for _, found in parts]
+        alternated += [found for _, found in parts]
         described += [item.get("properties") or {} for item in items.items]
         if glob is None:
             folders = sorted({_folder(resolve(href, found["href"])) for href, found in parts})
@@ -310,15 +313,6 @@ async def geoparquet_provider(
                 )
             data = f"{folders[0]}/*.parquet"
             choices.append(f"data: glob of {len(parts)} items")
-            # The files share one folder, so one alternate names their bucket.
-            candidates = (
-                _read_https_alternate_options(part, resolve(href, part["href"]))
-                for href, part in parts
-            )
-            options = next((option for option in candidates if option is not None), None)
-            if options is not None:
-                derived = options
-                choices.append("data: s3 options from the https alternate")
 
     if glob is not None:
         data = resolve(collection.href, glob)
@@ -338,14 +332,18 @@ async def geoparquet_provider(
         else:
             data = resolve(collection.href, asset["href"])
             choices.append("data: collection asset")
-            found = _read_https_alternate_options(asset, data)
-            if found is not None:
-                derived = found
-                choices.append("data: s3 options from the https alternate")
     if data is None:
         return None
     if is_local_from_remote(collection.href, data):
         return Refusal(f"the data {data} {LOCAL_FROM_REMOTE}")
+    if not derived:
+        # Every file of a glob is in the bucket of the data,
+        # so any alternate in that bucket names its region.
+        candidates = (_read_https_alternate_options(found, data) for found in alternated)
+        options = next((option for option in candidates if option is not None), None)
+        if options is not None:
+            derived = options
+            choices.append("data: s3 options from the https alternate")
 
     store_options = dict(derived)
     scheme = _read_custom_s3_scheme(document, data)

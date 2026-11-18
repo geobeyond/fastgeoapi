@@ -164,6 +164,19 @@ def _variable_at(value: Any, path: str) -> str | None:
     return None
 
 
+def _read_catalog_fields(
+    provider: Mapping[str, Any], ingest_options: IngestOptions
+) -> dict[str, Any]:
+    """The fields of ``provider`` that come from the catalog, without the user's store options."""
+    fields = dict(provider)
+    options = provider.get("store_options")
+    if isinstance(options, Mapping):
+        fields["store_options"] = {
+            key: value for key, value in options.items() if key not in ingest_options.store_options
+        }
+    return fields
+
+
 def _rejected(entry: NonconformingDocument) -> SkippedDocument:
     identifier = entry.document.get("id")
     name = identifier if isinstance(identifier, str) and identifier else entry.href
@@ -223,13 +236,10 @@ async def _resource(
         ingest["schema"] = catalog.portolan_schema
     # The root is the one given on the command line; the rest comes from the catalog.
     from_catalog = {key: value for key, value in ingest.items() if key != "catalog"}
-    # A provider's store options come from the user, who may mean a variable there.
-    # The check skips that field alone: a catalog can give a style any name,
-    # store_options included.
-    checked = [
-        {key: value for key, value in provider.items() if key != "store_options"}
-        for provider in providers
-    ]
+    # A store option the user gives may hold a variable on purpose, so the check
+    # leaves those out. The rest comes from the catalog and is checked, a style
+    # the catalog names store_options included.
+    checked = [_read_catalog_fields(provider, ingest_options) for provider in providers]
     where = _variable_at(
         {"id": collection.id, **resource, "providers": checked, "ingest": from_catalog}, ""
     )
