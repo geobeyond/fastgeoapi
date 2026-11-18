@@ -114,9 +114,9 @@ def _schema_problems(config: dict, forgive_placeholders: bool) -> list[str]:
     # fastgeoapi's own keys and its native map providers sit where pygeoapi's
     # schema lets anything in; the factory refuses a broken one at start, so
     # the editor must too.
-    from app.pygeoapi.factory import find_configuration_problem
+    from app.pygeoapi.factory import validate_configuration_or_problem
 
-    problem = find_configuration_problem(document)
+    problem = validate_configuration_or_problem(document)
     if problem is not None:
         where, message = problem
         if not (forgive_placeholders and _placeholder_at(document, where)):

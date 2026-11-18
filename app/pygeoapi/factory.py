@@ -50,7 +50,7 @@ from app.pygeoapi.api_async import maps as async_maps
 from app.pygeoapi.api_async import tiles as async_tiles
 from app.pygeoapi.api_async.caching import HttpCache, get_default_http_cache
 from app.pygeoapi.config_extensions import extension_problem
-from app.pygeoapi.map_contract import find_map_contract_problem
+from app.pygeoapi.map_contract import validate_map_contract_or_problem
 from app.pygeoapi.map_limits import (
     collect_native_map_capabilities,
     collect_native_map_limits,
@@ -117,12 +117,10 @@ def _validate(config: dict) -> None:
         ) from e
 
 
-def find_configuration_problem(config: dict) -> tuple[str, str] | None:
-    """Find the first problem fastgeoapi refuses a configuration for.
+def validate_configuration_or_problem(config: dict) -> tuple[str, str] | None:
+    """Validate a configuration against the checks fastgeoapi adds to pygeoapi's.
 
-    These are the checks beyond pygeoapi's schema: fastgeoapi's own keys and
-    the native map providers. The start, the reloads and the saves from the
-    editor and the CLI all run them.
+    The checks cover fastgeoapi's own keys and the native map providers.
 
     Parameters
     ----------
@@ -132,12 +130,12 @@ def find_configuration_problem(config: dict) -> tuple[str, str] | None:
     Returns
     -------
     tuple of (str, str) or None
-        The dotted path of the problem and what is wrong there; None when
-        there is nothing to refuse.
+        The dotted path of the first problem and what is wrong there; None
+        when there is nothing to refuse.
     """
     return (
         extension_problem(config)
-        or find_map_contract_problem(config)
+        or validate_map_contract_or_problem(config)
         or validate_map_provider_or_problem(config)
     )
 
@@ -176,7 +174,7 @@ def normalize_config(config: dict) -> dict:
     bind.setdefault("port", int(os.environ.get("PORT", "5000")))
 
     _validate(config)
-    problem = find_configuration_problem(config)
+    problem = validate_configuration_or_problem(config)
     if problem is not None:
         where, message = problem
         raise ConfigValidationError(f"invalid fastgeoapi configuration at {where}: {message}")
