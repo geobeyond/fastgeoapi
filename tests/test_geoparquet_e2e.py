@@ -112,6 +112,42 @@ def test_cql2_over_http(client):
     assert [f["id"] for f in r.json()["features"]] == [2]
 
 
+def test_cql2_json_in_the_filter_parameter_over_http(client):
+    r = client.get(
+        "/collections/places/items",
+        params={
+            "f": "json",
+            "filter": '{"op": "=", "args": [{"property": "name"}, "beta"]}',
+            "filter-lang": "cql2-json",
+        },
+    )
+    assert r.status_code == 200, r.text[:300]
+    assert [f["id"] for f in r.json()["features"]] == [2]
+
+
+def test_a_malformed_cql2_json_filter_is_a_bad_request(client):
+    r = client.get(
+        "/collections/places/items",
+        params={"f": "json", "filter": '{"op": "="', "filter-lang": "cql2-json"},
+    )
+    assert r.status_code == 400
+    assert r.json()["description"] == "Bad CQL JSON"
+
+
+def test_the_items_describe_the_filter_parameters(tmp_path):
+    config = _config(_dataset(tmp_path))
+
+    document = build_openapi(config)
+
+    parameters = {
+        parameter["name"]: parameter
+        for parameter in document["paths"]["/collections/places/items"]["get"]["parameters"]
+        if "name" in parameter
+    }
+    assert {"filter", "filter-lang", "filter-crs"} <= parameters.keys()
+    assert parameters["filter-lang"]["schema"]["enum"] == ["cql2-text", "cql2-json"]
+
+
 def test_spatial_cql2_over_http(client):
     r = client.get(
         "/collections/places/items",

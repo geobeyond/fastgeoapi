@@ -42,6 +42,7 @@ from starlette.staticfiles import StaticFiles
 from app.html.assets import ImmutableFiles
 from app.html.pages import NativePages
 from app.provider.interrupts import Interrupts
+from app.pygeoapi.api import itemtypes as items_override
 from app.pygeoapi.api import patch_validate_datetime_overflow
 from app.pygeoapi.api.collections import describe_collections, item_provider_type
 from app.pygeoapi.api_async import maps as async_maps
@@ -49,6 +50,7 @@ from app.pygeoapi.api_async import tiles as async_tiles
 from app.pygeoapi.api_async.caching import HttpCache, default_http_cache
 from app.pygeoapi.config_extensions import extension_problem
 from app.pygeoapi.openapi import (
+    describe_filter_parameters,
     describe_tilesets,
     drop_unfiltered_cql2_operations,
     drop_unused_tags,
@@ -176,6 +178,7 @@ def build_openapi(config: dict) -> dict:
     fix_queryables_response_schema(openapi)
     fix_conformance_and_collections_responses(openapi)
     drop_unfiltered_cql2_operations(openapi, config)
+    describe_filter_parameters(openapi, config)
     fix_tileset_list_response(openapi)
     describe_tilesets(openapi)
     fix_map_operations(openapi, config)
@@ -505,7 +508,7 @@ def build_routes(
                 )
             return await execute(
                 api,
-                itemtypes_api.get_collection_items,
+                items_override.get_collection_items,
                 request,
                 collection_id,
                 skip_valid_check=True,

@@ -10,11 +10,15 @@ and the request returns the whole collection as if it had been filtered.
 from pathlib import Path
 
 import pytest
-from openapi_pydantic.v3.v3_0 import OpenAPI
+from openapi_pydantic.v3.v3_0 import OpenAPI, Parameter, Schema
 from pygeoapi.util import yaml_load
 
 from app.pygeoapi.factory import build_openapi
-from app.pygeoapi.openapi import drop_unfiltered_cql2_operations, dump_openapi
+from app.pygeoapi.openapi import (
+    describe_filter_parameters,
+    drop_unfiltered_cql2_operations,
+    dump_openapi,
+)
 
 
 @pytest.fixture(scope="module")
@@ -111,3 +115,42 @@ def test_the_record_provider_is_the_one_that_counts():
     doc = _dropped(_items("catalogue"), config)
 
     assert "post" in doc["paths"]["/collections/catalogue/items"]
+
+
+def _described(openapi: OpenAPI, config: dict) -> dict:
+    return dump_openapi(describe_filter_parameters(openapi, config))
+
+
+def _names(doc: dict, collection: str) -> list[str]:
+    get = doc["paths"][f"/collections/{collection}/items"]["get"]
+    return [parameter.get("name") for parameter in get.get("parameters", [])]
+
+
+def test_a_provider_that_filters_describes_the_filter_parameters():
+    config = {"resources": {"parquet": _collection("app.provider.geoparquet.GeoParquetProvider")}}
+
+    doc = _described(_items("parquet"), config)
+
+    assert _names(doc, "parquet") == ["filter", "filter-lang", "filter-crs"]
+
+
+def test_a_provider_that_ignores_the_filter_describes_none():
+    config = {"resources": {"lakes": _collection("GeoJSON")}}
+
+    doc = _described(_items("lakes"), config)
+
+    assert _names(doc, "lakes") == []
+
+
+def test_a_filter_parameter_already_described_is_kept_once():
+    openapi = _items("db")
+    get = openapi.paths["/collections/db/items"].get
+    assert get is not None
+    get.parameters = [
+        Parameter(name="filter", param_in="query", param_schema=Schema(type="string"))
+    ]
+    config = {"resources": {"db": _collection("PostgreSQL")}}
+
+    doc = _described(openapi, config)
+
+    assert _names(doc, "db") == ["filter", "filter-lang", "filter-crs"]

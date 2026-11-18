@@ -102,10 +102,12 @@ negotiates on the declaration, expect to filter locally.
 The filter works only where the provider applies it. The GeoParquet,
 SQL, Elasticsearch, OpenSearch and Oracle providers do; CSV and GeoJSON
 accept a filter and return the whole collection. The OpenAPI document,
-and the MCP tools generated from it, therefore describe the CQL2
-`POST /collections/{id}/items` only for collections served by a provider
-that filters: on the demo `overture-places` and `lazio-roads`, not
-`lakes` or `obs`.
+and the MCP tools generated from it, therefore describe filtering only
+for collections served by a provider that filters: on the demo
+`overture-places` and `lazio-roads`, not `lakes` or `obs`. There the
+`GET` on the items lists `filter`, `filter-lang` and `filter-crs`, and
+the CQL2 `POST /collections/{id}/items` is kept. `filter` takes CQL2
+text, or CQL2 JSON with `filter-lang=cql2-json`.
 
 **One place where the published OpenAPI does not describe the
 response.** `skipGeometry=true` produces `"geometry": null`, which

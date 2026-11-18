@@ -479,6 +479,106 @@ def drop_unfiltered_cql2_operations(openapi: OpenAPI, config: dict) -> OpenAPI:
     return openapi
 
 
+def _filter_parameters() -> list[Parameter]:
+    """Build the query parameters that filter the items.
+
+    Returns
+    -------
+    list[Parameter]
+        ``filter``, ``filter-lang`` and ``filter-crs``, in this order, all
+        optional (/req/features-filter/filter-param,
+        /req/features-filter/filter-lang-param,
+        /req/features-filter/filter-crs-param).
+    """
+    return [
+        Parameter(
+            name="filter",
+            param_in=ParameterLocation.QUERY,
+            required=False,
+            description="A CQL2 expression the items must match, written in filter-lang.",
+            param_schema=Schema(type=DataType.STRING),
+        ),
+        Parameter(
+            name="filter-lang",
+            param_in=ParameterLocation.QUERY,
+            required=False,
+            description="The encoding of filter: CQL2 text or CQL2 JSON.",
+            param_schema=Schema(
+                type=DataType.STRING, enum=["cql2-text", "cql2-json"], default="cql2-text"
+            ),
+        ),
+        Parameter(
+            name="filter-crs",
+            param_in=ParameterLocation.QUERY,
+            required=False,
+            description="The CRS of the geometries in filter. CRS84 when omitted.",
+            param_schema=Schema(type=DataType.STRING, schema_format="uri"),
+        ),
+    ]
+
+
+def _parameter_name(parameter: Parameter | Reference) -> str:
+    """Get the name of a parameter or of the one it references.
+
+    Parameters
+    ----------
+    parameter
+        A parameter of an operation, written out or as a ``$ref``.
+
+    Returns
+    -------
+    str
+        The ``name`` of the parameter, or the last segment of the reference
+        without ``.yaml``.
+    """
+    if isinstance(parameter, Reference):
+        return parameter.ref.rsplit("/", 1)[-1].removesuffix(".yaml")
+    return parameter.name
+
+
+def describe_filter_parameters(openapi: OpenAPI, config: dict) -> OpenAPI:
+    """Add the filter parameters to the items of the collections that filter.
+
+    The ``GET`` on ``/collections/{id}/items`` gets ``filter``,
+    ``filter-lang`` and ``filter-crs`` when the provider of the items applies
+    a CQL2 filter. A parameter the operation already has, by name or by the
+    last segment of its reference, is kept as it is. The other collections
+    are left unchanged.
+
+    Parameters
+    ----------
+    openapi
+        The document, changed in place.
+    config
+        The pygeoapi configuration the document was generated from.
+
+    Returns
+    -------
+    OpenAPI
+        ``openapi``.
+
+    Notes
+    -----
+    pygeoapi 0.24 reads the three parameters on the items but does not
+    describe them in the document (``api/itemtypes.py``).
+    """
+    paths = openapi.paths or {}
+    for name, resource in (config.get("resources") or {}).items():
+        if not isinstance(resource, dict) or resource.get("type") != "collection":
+            continue
+        item = paths.get(f"/collections/{name}/items")
+        if item is None or item.get is None:
+            continue
+        provider = _items_provider(resource)
+        if provider is None or not _provider_filters_cql2(str(provider.get("name", ""))):
+            continue
+        parameters = list(item.get.parameters or [])
+        described = {_parameter_name(parameter) for parameter in parameters}
+        parameters += [p for p in _filter_parameters() if p.name not in described]
+        item.get.parameters = parameters
+    return openapi
+
+
 def describe_tilesets(openapi: OpenAPI) -> OpenAPI:
     """Write in the tileset description the server already answers.
 
