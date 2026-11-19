@@ -16,8 +16,8 @@ from pyproj import CRS
 from pyproj.exceptions import CRSError
 
 from app.config.logging import create_logger
+from app.interfaces.ogc import MAPS_CONFORMANCE_PREFIX
 from app.interfaces.providers import (
-    MAPS_CONFORMANCE_PREFIX,
     AsyncMapProvider,
     MapCapabilities,
     MapFormat,
