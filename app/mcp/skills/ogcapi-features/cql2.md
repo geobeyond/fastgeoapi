@@ -27,12 +27,19 @@ name is a property and a single quoted string is a value: `class = 'primary'`. I
 | missing value | `name IS NULL`                                                                        | `isNull`            |
 | logic         | `AND`, `OR`, `NOT`, parentheses                                                       | `and`, `or`, `not`  |
 | spatial       | `S_INTERSECTS(geometry, POLYGON((...)))`, also `S_WITHIN`, `S_CONTAINS`, `S_DISJOINT` | `s_intersects`, ... |
+| case, accents | `CASEI(name) LIKE CASEI('%cave%')`, `ACCENTI(name) = ACCENTI('citta')`                | `casei`, `accenti`  |
 
 For dates, use the `datetime` parameter of the items: servers differ in
 the temporal operators they accept.
 
 Geometries are WKT in CQL2 text and GeoJSON in CQL2 JSON. The geometry
 property is the one the queryables describe as a geometry.
+
+Text comparisons match case and accents exactly: `'Via'` does not find
+`'VIA'`. Wrap both sides in `CASEI` to ignore case and in `ACCENTI` to
+ignore accents. They belong to the conformance classes
+`case-insensitive-comparison` and `accent-insensitive-comparison`, and a
+server without them refuses the filter.
 
 ## Examples
 
@@ -62,5 +69,7 @@ filter={"op": "and", "args": [
   works on both.
 - **No features.** WKT and GeoJSON put longitude first unless
   `filter-crs` says otherwise. A polygon must close on its first point.
+  A text value may differ only in case or accents: try `CASEI` and
+  `ACCENTI`, or look at a few features to see how values are written.
 - **A server error on a property.** The name may not be a queryable.
   Take it from the queryables, with the same case.
