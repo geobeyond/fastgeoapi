@@ -202,6 +202,24 @@ def test_the_next_link_keeps_the_json_filter(tmp_path):
     assert sorted(ids) == [1, 2]
 
 
+def test_the_next_link_of_a_cql2_json_body_keeps_the_filter(tmp_path):
+    client = _client_of_three_places(tmp_path)
+    body = client.post(
+        "/collections/places/items?f=json&limit=1",
+        content='{"op": "<>", "args": [{"property": "name"}, "gamma"]}',
+        headers={"content-type": "application/query-cql-json"},
+    ).json()
+    ids, pages = [feature["id"] for feature in body["features"]], 1
+    url = next((link["href"] for link in body["links"] if link["rel"] == "next"), None)
+    while url and pages < 5:
+        body = client.get(url).json()
+        ids += [feature["id"] for feature in body["features"]]
+        url = next((link["href"] for link in body["links"] if link["rel"] == "next"), None)
+        pages += 1
+
+    assert sorted(ids) == [1, 2]
+
+
 @pytest.mark.parametrize("expression", ['"alpha"', "[1, 2]", '{"property": "name"}', "5"])
 def test_a_cql2_json_filter_that_is_not_a_boolean_expression_is_a_bad_request(client, expression):
     r = client.get(
