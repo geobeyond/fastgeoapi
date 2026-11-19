@@ -17,6 +17,7 @@ ADAPTER = TypeAdapter(OgcDatetime)
         ("2020-05-01T12:00:00+02:00", datetime(2020, 5, 1, 10, tzinfo=UTC)),
         ("2020-05-01T10:00:00", datetime(2020, 5, 1, 10, tzinfo=UTC)),
         ("2020-05-01", datetime(2020, 5, 1, tzinfo=UTC)),
+        ("2020-05-01t10:00:00z", datetime(2020, 5, 1, 10, tzinfo=UTC)),
     ],
 )
 def test_an_instant_is_a_datetime_in_utc(text, instant):
@@ -63,6 +64,12 @@ def test_a_date_that_ends_an_interval_covers_its_whole_day():
         "2020-05-02/2020-05-01",
         "../..",
         "/",
+        "20200501",
+        "2020-W01-1",
+        "2020-05-01T10:00",
+        "2020-05-01 10:00:00Z",
+        "0001-01-01T00:00:00+01:00",
+        "9999-12-31T23:59:59-01:00",
     ],
 )
 def test_a_value_that_is_not_an_instant_or_an_interval_is_refused(text):
