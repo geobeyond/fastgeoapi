@@ -166,6 +166,24 @@ def test_open_ended_interval(provider):
     assert sorted(f["id"] for f in fc["features"]) == [2, 3]
 
 
+def test_a_date_that_ends_an_interval_includes_its_day(provider):
+    fc = provider.query(datetime_="2022-01-01/2022-06-01")
+    assert [f["id"] for f in fc["features"]] == [2]
+
+
+def test_an_offset_names_the_instant_in_utc(provider):
+    fc = provider.query(datetime_="2022-06-01T12:00:00+02:00")
+    assert [f["id"] for f in fc["features"]] == [2]
+
+
+@pytest.mark.parametrize("value", ["../..", "1700000000"])
+def test_a_datetime_outside_the_ogc_grammar_is_refused(provider, value):
+    from pygeoapi.provider.base import ProviderQueryError
+
+    with pytest.raises(ProviderQueryError):
+        provider.query(datetime_=value)
+
+
 @pytest.mark.parametrize(
     "hostile",
     [
