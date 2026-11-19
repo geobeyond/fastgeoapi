@@ -176,7 +176,7 @@ def test_an_offset_names_the_instant_in_utc(provider):
     assert [f["id"] for f in fc["features"]] == [2]
 
 
-@pytest.mark.parametrize("value", ["../..", "1700000000"])
+@pytest.mark.parametrize("value", ["../..", "1700000000", "9999-12-31T23:59:59-01:00"])
 def test_a_datetime_outside_the_ogc_grammar_is_refused(provider, value):
     from pygeoapi.provider.base import ProviderQueryError
 
