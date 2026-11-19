@@ -1,4 +1,4 @@
-"""The Protocols of fastgeoapi's providers which serve natively, one per family.
+"""Fastgeoapi's provider protocols, one per family.
 
 A provider class takes the native path by setting ``native_async = True``;
 any other provider is served by pygeoapi. A class matches a Protocol by
@@ -10,10 +10,8 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any, ClassVar, Protocol, runtime_checkable
 
+from app.interfaces.ogc import MAPS_CONFORMANCE_PREFIX
 from app.schemas.temporal import TimeInterval
-
-MAPS_CONFORMANCE_PREFIX = "http://www.opengis.net/spec/ogcapi-maps-1/1.0/conf"
-"""The start of the URI of every OGC API - Maps conformance class."""
 
 
 @runtime_checkable
@@ -173,7 +171,8 @@ class MapParameters:
         end, in UTC; None without ``datetime``
         (/req/datetime/datetime-definition).
     subsets
-        The values asked with ``subset``, by additional dimension, or None
+        The values asked with ``subset``, parsed by additional dimension,
+        as in ``{"h": [1, 5]}``; None without ``subset``
         (/req/general-subsetting/subset-definition).
     """
 
@@ -237,13 +236,15 @@ class AsyncMapProvider(Protocol):
         ...
 
     async def aget_version(self, parameters: MapParameters) -> str | None:
-        """Get the version of the map that would be drawn, without drawing it.
+        """Get the version of the map these parameters would draw, without drawing it.
 
-        The version changes whenever the image for these parameters can
-        change: the data, the definition, the style or the engine. It reads
-        metadata only. A map served under a version must be drawn from the
-        data that version names, so a provider that cannot pin its reads to
-        one version returns None.
+        A version combines every property of the request and of the provider
+        that makes the map reproducible: the data, the definition, the style
+        and the engine. The HTTP cache compares it with the client's to
+        decide between drawing the map and answering 304, so it must be
+        cheap: it reads metadata and never the data. A map served under a
+        version must be drawn from the data that version names, so a
+        provider that cannot pin its reads to one version returns None.
 
         Parameters
         ----------
@@ -258,7 +259,7 @@ class AsyncMapProvider(Protocol):
         ...
 
     def close(self) -> None:
-        """Release the engine once the maps, which are drawn, are done.
+        """Clean up the resources the provider owns.
 
         It is safe to call from any thread, returns without waiting for the
         maps in progress, and does nothing when called again.
