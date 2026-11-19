@@ -70,6 +70,8 @@ def test_a_date_that_ends_an_interval_covers_its_whole_day():
         "2020-05-01 10:00:00Z",
         "0001-01-01T00:00:00+01:00",
         "9999-12-31T23:59:59-01:00",
+        "2020-05-01T10:00:00+02:60",
+        "2020-05-01T10:00:00+24:00",
     ],
 )
 def test_a_value_that_is_not_an_instant_or_an_interval_is_refused(text):
