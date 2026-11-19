@@ -95,6 +95,41 @@ def test_cql2_json_path(con):
     assert [r[0] for r in con.execute(f"SELECT id FROM t WHERE {where}").fetchall()] == [2]
 
 
+@pytest.mark.parametrize(
+    ("cql", "expected"),
+    [
+        ("CASEI(name) = CASEI('ALPHA')", [1]),
+        ("CASEI(name) LIKE CASEI('%ET%')", [2]),
+        ("CASEI(name) IN (CASEI('Alpha'), CASEI('Beta'))", [1, 2]),
+        ("ACCENTI(name) = ACCENTI('àlphá')", [1]),
+        ("CASEI(ACCENTI(name)) LIKE CASEI(ACCENTI('%BÉT%'))", [2]),
+    ],
+)
+def test_casei_and_accenti_compare_without_case_and_accents(con, cql, expected):
+    assert _matches(con, cql) == expected
+
+
+def test_casei_in_cql2_json(con):
+    where = to_duckdb_where(
+        parse_json(
+            {
+                "op": "like",
+                "args": [
+                    {"op": "casei", "args": [{"property": "name"}]},
+                    {"op": "casei", "args": ["%LPH%"]},
+                ],
+            }
+        ),
+        FIELDS,
+    )
+    assert [r[0] for r in con.execute(f"SELECT id FROM t WHERE {where}").fetchall()] == [1]
+
+
+def test_an_unknown_function_is_refused_by_name():
+    with pytest.raises(UnsupportedFilterError, match="function foo"):
+        to_duckdb_where(parse_text("FOO(name) = 'x'"), FIELDS)
+
+
 def test_unknown_property_is_refused():
     """The field mapping doubles as the identifier allowlist."""
     with pytest.raises(UnsupportedFilterError, match="secret_column"):

@@ -125,6 +125,39 @@ def test_cql2_json_in_the_filter_parameter_over_http(client):
     assert [f["id"] for f in r.json()["features"]] == [2]
 
 
+def test_casei_over_http(client):
+    r = client.get(
+        "/collections/places/items",
+        params={
+            "f": "json",
+            "filter": "CASEI(name) LIKE CASEI('BET%')",
+            "filter-lang": "cql2-text",
+        },
+    )
+    assert r.status_code == 200, r.text[:300]
+    assert [f["id"] for f in r.json()["features"]] == [2]
+
+
+def test_casei_in_a_cql2_json_body_over_http(client):
+    body = '{"op": "like", "args": [{"op": "casei", "args": [{"property": "name"}]}, {"op": "casei", "args": ["BET%"]}]}'
+    r = client.post(
+        "/collections/places/items?f=json",
+        content=body,
+        headers={"content-type": "application/query-cql-json"},
+    )
+    assert r.status_code == 200, r.text[:300]
+    assert [f["id"] for f in r.json()["features"]] == [2]
+
+
+def test_a_function_the_provider_cannot_serve_is_a_bad_request(client):
+    r = client.get(
+        "/collections/places/items",
+        params={"f": "json", "filter": "FOO(name) = 'beta'", "filter-lang": "cql2-text"},
+    )
+    assert r.status_code == 400, r.text[:300]
+    assert "function foo" in r.json()["description"]
+
+
 def test_a_malformed_cql2_json_filter_is_a_bad_request(client):
     r = client.get(
         "/collections/places/items",
