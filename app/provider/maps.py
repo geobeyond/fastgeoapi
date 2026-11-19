@@ -16,7 +16,7 @@ import importlib
 import json
 import math
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from datetime import timedelta
+from datetime import datetime, timedelta
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any
@@ -38,6 +38,7 @@ from app.maps.sources import ObjectUrl, SourceFormat, source_for
 from app.provider.dem import check_dem
 from app.provider.storage import cache as range_caches
 from app.provider.storage import load_store, split_source
+from app.schemas.temporal import TimeInterval, parse_ogc_datetime
 
 logger = create_logger("app.provider.maps")
 
@@ -69,6 +70,31 @@ class MapTooLargeError(MapParameterError):
 
     http_status_code = HTTPStatus.REQUEST_ENTITY_TOO_LARGE
     default_msg = "the map is larger than this server draws"
+
+
+def parse_map_datetime(value: str) -> datetime | TimeInterval:
+    """Parse the ``datetime`` of a map request into UTC datetimes.
+
+    Parameters
+    ----------
+    value
+        The ``datetime`` parameter (/req/datetime/datetime-definition).
+
+    Returns
+    -------
+    datetime or TimeInterval
+        The instant, or the start and the end of the interval, in UTC.
+
+    Raises
+    ------
+    MapParameterError
+        The value is not an instant or an interval of them; the route
+        answers 400.
+    """
+    try:
+        return parse_ogc_datetime(value)
+    except ValueError as error:
+        raise MapParameterError(user_msg=str(error)) from None
 
 
 class MapRendererBusyError(_MapError):

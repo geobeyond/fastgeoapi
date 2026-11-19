@@ -100,16 +100,16 @@ something asynchronously schedules it from there.
 The route reads the query, checks it and passes one `MapParameters` object,
 whose fields are:
 
-| Field             | What the route has already done                                                                                                                                |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `style`           | `None` for the default style, or the `{styleId}` of the path. An unknown name is the provider's to refuse with `ProviderItemNotFoundError`, which answers 404. |
-| `bbox`            | Four finite numbers, moved from `bbox-crs` into `crs` and clipped to the extent of `crs`. A box entirely outside it answers 204 without calling the provider.  |
-| `width`, `height` | Positive integers within the published limits.                                                                                                                 |
-| `crs`             | One of the URIs in `capabilities.crs`, spelled as published.                                                                                                   |
-| `transparent`     | A boolean.                                                                                                                                                     |
-| `format_`         | One of `capabilities.formats`.                                                                                                                                 |
-| `datetime_`       | The `datetime` of the request, checked against the temporal extent of the collection, or None.                                                                 |
-| `subsets`         | The `subset` values by additional dimension, or None.                                                                                                          |
+| Field             | What the route has already done                                                                                                                                    |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `style`           | `None` for the default style, or the `{styleId}` of the path. An unknown name is the provider's to refuse with `ProviderItemNotFoundError`, which answers 404.     |
+| `bbox`            | Four finite numbers, moved from `bbox-crs` into `crs` and clipped to the extent of `crs`. A box entirely outside it answers 204 without calling the provider.      |
+| `width`, `height` | Positive integers within the published limits.                                                                                                                     |
+| `crs`             | One of the URIs in `capabilities.crs`, spelled as published.                                                                                                       |
+| `transparent`     | A boolean.                                                                                                                                                         |
+| `format_`         | One of `capabilities.formats`.                                                                                                                                     |
+| `datetime_`       | An instant as a `datetime`, or a `TimeInterval` whose open end is None, in UTC and checked against the temporal extent of the collection; None without `datetime`. |
+| `subsets`         | The `subset` values by additional dimension, or None.                                                                                                              |
 
 `bbox-crs` never reaches the provider. `aget_version` receives the same
 object as `arender_map`.

@@ -6,8 +6,11 @@ its members, whether or not it inherits from fastgeoapi's mixin.
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from typing import Any, ClassVar, Protocol, runtime_checkable
+
+from app.schemas.temporal import TimeInterval
 
 MAPS_CONFORMANCE_PREFIX = "http://www.opengis.net/spec/ogcapi-maps-1/1.0/conf"
 """The start of the URI of every OGC API - Maps conformance class."""
@@ -166,7 +169,9 @@ class MapParameters:
         (/req/core/map-response).
     datetime_
         The ``datetime`` of the request, checked against the collection's
-        temporal extent, or None (/req/datetime/datetime-definition).
+        temporal extent: an instant, or an interval with None for its open
+        end, in UTC; None without ``datetime``
+        (/req/datetime/datetime-definition).
     subsets
         The values asked with ``subset``, by additional dimension, or None
         (/req/general-subsetting/subset-definition).
@@ -179,7 +184,7 @@ class MapParameters:
     crs: str
     transparent: bool
     format_: str
-    datetime_: str | None
+    datetime_: datetime | TimeInterval | None
     subsets: dict[str, list[Any]] | None
 
 
