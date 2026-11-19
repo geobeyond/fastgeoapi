@@ -24,7 +24,6 @@ import glob
 import posixpath
 import re
 from collections.abc import Mapping
-from datetime import datetime
 from http import HTTPStatus
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -51,6 +50,7 @@ from app.provider.file_index import (
 from app.provider.id_index import IdIndexError, IdRow, RetrievedIdIndex, look_up_id
 from app.provider.interrupts import on_interrupt
 from app.provider.storage import is_remote
+from app.schemas.temporal import TimeInterval, parse_ogc_datetime
 
 logger = create_logger("app.provider.geoparquet")
 
@@ -83,26 +83,6 @@ _TYPE_MAP: tuple[tuple[str, tuple[str, str | None]], ...] = (
     ("DATE", ("string", "date")),
     ("TIME", ("string", "time")),
 )
-
-
-def _instant(value: str) -> str:
-    """One end of a `datetime` parameter, proven to be one before it is a literal.
-
-    The value reaches SQL as a literal, and it is client input:
-    pygeoapi parses `datetime` only for a collection that declares
-    `extents.temporal`, so without that it arrives as it was typed. An
-    apostrophe in it would close the literal and leave the rest to be
-    read as logic — `'2020-01-01' OR 1=1 --` selects the whole
-    collection and comments the `LIMIT` away.
-
-    Parsing decides it rather than escaping: what RFC 3339 admits cannot
-    contain a quote, and what it does not is refused by name instead of
-    being quietly repaired.
-    """
-    try:
-        return datetime.fromisoformat(value).isoformat()
-    except ValueError as error:
-        raise ProviderQueryError(f"datetime is not RFC 3339: {value}") from error
 
 
 def _normalize_href(href: str) -> str:
@@ -446,22 +426,52 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         )
 
     def _datetime_clause(self, datetime_: str) -> str:
-        """Instant or interval on ``time_field`` (RFC 3339, '..' open ends)."""
+        """Filter ``time_field`` on an instant or an interval.
+
+        With ``time_field: ts``, the instants are written in UTC::
+
+            2022-06-01T12:00:00+02:00  "ts" = '2022-06-01T10:00:00+00:00'
+            2022-01-01/..              ("ts" >= '2022-01-01T00:00:00+00:00')
+            2022-01-01/2022-06-01      ("ts" >= '2022-01-01T00:00:00+00:00'
+                                        AND "ts" <= '2022-06-01T23:59:59.999999+00:00')
+
+        The value comes from the client, and pygeoapi checks it only for a
+        collection that declares ``extents.temporal``. The literals are
+        written from the parsed datetimes, so ``2020-01-01' OR 1=1 --`` is
+        refused instead of reaching SQL.
+
+        Parameters
+        ----------
+        datetime_
+            The ``datetime`` parameter (/req/collections/rc-datetime-definition).
+
+        Returns
+        -------
+        str
+            The condition on ``time_field``, with the instants in UTC.
+
+        Raises
+        ------
+        ProviderQueryError
+            The provider has no ``time_field``, or the value is not an
+            instant or an interval of them.
+        """
         if not self.time_field:
             raise ProviderQueryError(
                 "datetime filtering needs time_field in the provider configuration"
             )
+        try:
+            parsed = parse_ogc_datetime(datetime_)
+        except ValueError as error:
+            raise ProviderQueryError(str(error)) from error
         column = f'"{self.time_field}"'
-        if "/" not in datetime_:
-            return f"{column} = '{_instant(datetime_)}'"
-        start, _, end = datetime_.partition("/")
+        if not isinstance(parsed, TimeInterval):
+            return f"{column} = '{parsed.isoformat()}'"
         bounds = []
-        if start not in ("..", ""):
-            bounds.append(f"{column} >= '{_instant(start)}'")
-        if end not in ("..", ""):
-            bounds.append(f"{column} <= '{_instant(end)}'")
-        if not bounds:
-            raise ProviderQueryError(f"unbounded datetime interval: {datetime_}")
+        if parsed.start is not None:
+            bounds.append(f"{column} >= '{parsed.start.isoformat()}'")
+        if parsed.end is not None:
+            bounds.append(f"{column} <= '{parsed.end.isoformat()}'")
         return "(" + " AND ".join(bounds) + ")"
 
     def _where_clauses(self, bbox, datetime_, properties, filterq) -> list[str]:
