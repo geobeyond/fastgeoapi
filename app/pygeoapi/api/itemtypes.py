@@ -6,11 +6,14 @@ for a 400 when the value of ``filter`` is invalid
 (/req/features-filter/response). pygeoapi 0.24 reads ``filter`` as CQL2 text
 whatever ``filter-lang`` says, reads CQL2 JSON only from the body of the
 request, and passes on any JSON its parser accepts, such as a number or a
-property name alone (``api/itemtypes.py``).
+property name alone (``api/itemtypes.py``). It also builds the links of the
+answer from the query alone, so the ``next`` link of a ``POST`` drops the
+filter of its body.
 """
 
 from __future__ import annotations
 
+import json
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
@@ -74,6 +77,40 @@ def move_json_filter_to_body(request: APIRequest) -> None:
     request._args = QueryWithJsonFilter(list(params.multi_items()))
 
 
+def copy_json_body_to_query(request: APIRequest) -> None:
+    """Put the CQL2 JSON body of a request in its query too.
+
+    pygeoapi builds the links of the answer from the query, so a filter
+    that lives only in the body drops out of ``next``. For a ``POST`` with
+    ``?f=json&limit=1`` and the body
+    ``{"op": "<>", "args": [{"property": "name"}, "gamma"]}``, the query
+    becomes::
+
+        f=json&limit=1&filter={"op":"<>",...}&filter-lang=cql2-json
+
+    The query is a :class:`QueryWithJsonFilter`, so pygeoapi asking for
+    ``filter`` still gets nothing and reads the body, while the links it
+    builds from every parameter carry the filter as a ``GET``. A
+    ``filter-lang`` already in the query is replaced, and a query that
+    already has ``filter``, as after :func:`move_json_filter_to_body`, is
+    left unchanged.
+
+    Parameters
+    ----------
+    request
+        The pygeoapi request of a ``POST`` on the items, with a body that
+        is a valid CQL2 JSON filter, changed in place.
+    """
+    params = request.params
+    if "filter" in params:
+        return
+    expression = json.dumps(json.loads(request.data), separators=(",", ":"))
+    items = [(key, value) for key, value in params.multi_items() if key != "filter-lang"]
+    request._args = QueryWithJsonFilter(
+        [*items, ("filter", expression), ("filter-lang", "cql2-json")]
+    )
+
+
 def validate_json_or_problem(expression: bytes) -> str | None:
     """Validate a CQL2 JSON filter, or give the reason it is invalid.
 
@@ -110,7 +147,8 @@ def get_collection_items(
     boolean expression; any other filter is answered with 400 and the code
     ``InvalidParameterValue``. Otherwise the answer is pygeoapi's
     ``get_collection_items`` for the request after
-    :func:`move_json_filter_to_body`.
+    :func:`move_json_filter_to_body`, and for a body after
+    :func:`copy_json_body_to_query`.
 
     Parameters
     ----------
@@ -138,4 +176,5 @@ def get_collection_items(
             return api.get_exception(
                 HTTPStatus.BAD_REQUEST, headers, request.format, "InvalidParameterValue", problem
             )
+        copy_json_body_to_query(request)
     return pygeoapi.api.itemtypes.get_collection_items(api, request, dataset)
