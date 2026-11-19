@@ -7,6 +7,8 @@ lower them, never raise them.
 from __future__ import annotations
 
 import dataclasses
+import json
+import re
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any
 
@@ -156,6 +158,10 @@ def collect_native_map_capabilities(config: dict[str, Any]) -> dict[str, MapCapa
     return {name: provider.capabilities for name, _, provider in _iter_native_map_providers(config)}
 
 
+_UNRESOLVED = re.compile(r"\$\{[A-Za-z_][A-Za-z0-9_]*\}")
+"""A ``${VAR}`` of the configuration that has not been resolved yet."""
+
+
 def derive_map_conformance(capabilities: MapCapabilities) -> tuple[str, ...]:
     """Derive the OGC API - Maps classes the route passes with a provider's capabilities.
 
@@ -186,7 +192,9 @@ def validate_map_provider_or_problem(config: dict[str, Any]) -> tuple[str, str] 
 
     A format must be one of :class:`~app.interfaces.providers.MapFormat`,
     and a CRS an OGC CRS URI that pyproj knows. A provider that does not
-    load is left out, as in :func:`collect_native_map_limits`.
+    load is left out, as in :func:`collect_native_map_limits`, and so is a
+    definition that still holds a ``${VAR}``: it is built to read its
+    capabilities, which it can do once the variable is resolved.
 
     Parameters
     ----------
@@ -196,20 +204,25 @@ def validate_map_provider_or_problem(config: dict[str, Any]) -> tuple[str, str] 
     Returns
     -------
     tuple of (str, str) or None
-        The place of the first provider with an invalid capability, as
+        The place of the first provider that cannot be built from its
+        options or has an invalid capability, as
         ``resources.<name>.providers.<index>``, and a message that names
-        the class and the capability; None when every capability is valid.
+        the class and the problem; None when every capability is valid.
     """
     for name, index, definition, _ in iter_native_map_definitions(config):
+        if _UNRESOLVED.search(json.dumps(definition, default=str)):
+            continue
+        where = f"resources.{name}.providers.{index}"
+        cls = definition.get("name")
         try:
             provider = pygeoapi_plugin.load_plugin("provider", definition)
         except (KeyError, ProviderTypeError, ProviderGenericError):
             continue
+        except (ValueError, TypeError) as error:
+            return where, f"{cls} cannot be built from its options: {error}"
         capabilities = getattr(provider, "capabilities", None)
         if not isinstance(capabilities, MapCapabilities):
             continue
-        where = f"resources.{name}.providers.{index}"
-        cls = definition.get("name")
         for format_ in capabilities.formats:
             if format_ not in set(MapFormat):
                 return where, f"{cls} draws {format_}, which is not a format of OGC API - Maps"
