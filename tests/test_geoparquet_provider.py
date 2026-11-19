@@ -248,6 +248,21 @@ def test_cql2_on_an_unknown_property_is_a_provider_error(provider):
         provider.query(filterq=parse("nope = 1"))
 
 
+def test_a_filter_the_provider_cannot_serve_is_a_bad_request(provider):
+    from pygeoapi.provider.base import ProviderInvalidQueryError
+    from pygeofilter.parsers.cql2_text import parse
+
+    with pytest.raises(ProviderInvalidQueryError, match="function foo"):
+        provider.query(filterq=parse("FOO(country) = 'it'"))
+
+
+def test_casei_filter(provider):
+    from pygeofilter.parsers.cql2_text import parse
+
+    fc = provider.query(filterq=parse("CASEI(country) = CASEI('IT') AND pop > 15"))
+    assert [f["id"] for f in fc["features"]] == [2]
+
+
 def test_filters_combine(provider):
     from pygeofilter.parsers.cql2_text import parse
 

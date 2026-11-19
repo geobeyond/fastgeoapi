@@ -3,8 +3,8 @@
 pygeoapi parses the ``filter`` parameter and hands providers a
 pygeofilter AST, so this module only compiles. It derives from
 pygeofilter's ``SQLEvaluator`` — whose spatial function names already
-match DuckDB's — and fixes the three places where its output is not
-valid DuckDB SQL:
+match DuckDB's — and fixes the places where its output is not valid
+DuckDB SQL:
 
 1. geometry and envelope literals: upstream emits
    ``ST_GeomFromWKB(x'<hex>')``, but in DuckDB ``x'…'`` is a bit-string
@@ -16,6 +16,9 @@ valid DuckDB SQL:
 3. temporal operators: upstream's ``temporal`` handler is commented out,
    so every ``T_*`` node raises ``NotImplementedError`` from the
    evaluator base.
+4. ``CASEI`` and ``ACCENTI``: upstream looks functions up in a map that
+   is empty here, and its ``like`` handler takes the pattern as a plain
+   string, so ``CASEI(name) LIKE CASEI('%x%')`` fails.
 """
 
 from __future__ import annotations
@@ -30,6 +33,19 @@ from pygeofilter.backends.sql.evaluate import SQLEvaluator
 
 class UnsupportedFilterError(Exception):
     """The filter names something this provider cannot serve."""
+
+
+class UnknownPropertyError(UnsupportedFilterError):
+    """The filter names a property that is not a queryable."""
+
+
+# CQL2 functions → DuckDB functions. pygeofilter parses CASEI as ``lower``
+# and ACCENTI as ``accenti`` (/req/case-insensitive-comparison,
+# /req/accent-insensitive-comparison).
+_FUNCTION_MAP = {
+    "lower": "lower",
+    "accenti": "strip_accents",
+}
 
 
 # CQL2 temporal operators over an instant → the SQL comparison DuckDB
@@ -84,32 +100,121 @@ class DuckDBSQLEvaluator(SQLEvaluator):
             return "'" + node.replace("'", "''") + "'"
         return super().literal(node)
 
+    @handle(ast.Function)
+    def function(self, node, *arguments) -> str:
+        """Write the DuckDB call of a CQL2 function.
+
+        Parameters
+        ----------
+        node
+            The function node, named as pygeofilter parses it: ``lower``
+            for ``CASEI``, ``accenti`` for ``ACCENTI``.
+        *arguments
+            The arguments, already written as SQL.
+
+        Returns
+        -------
+        str
+            The SQL call, such as ``lower("name")``.
+
+        Raises
+        ------
+        UnsupportedFilterError
+            For a function this provider does not know; the route answers
+            400.
+        """
+        try:
+            func = self.function_map[node.name]
+        except KeyError as e:
+            raise UnsupportedFilterError(
+                f"function {node.name} is not supported by this provider"
+            ) from e
+        return f"{func}({','.join(arguments)})"
+
     @handle(ast.Like)
     def like(self, node, lhs) -> str:
-        """LIKE with the pattern escaped the same way as any literal.
+        """Write a LIKE with its pattern escaped the same way as any literal.
 
         The base implementation interpolates ``node.pattern`` directly,
         which is the same injection vector as :meth:`literal`.
+
+        Parameters
+        ----------
+        node
+            The LIKE node, with its pattern and its wildcard characters.
+        lhs
+            The left side, already written as SQL.
+
+        Returns
+        -------
+        str
+            The SQL condition, such as ``lower("name") LIKE lower('%x%')``.
         """
-        pattern = node.pattern
+        operator = "ILIKE" if node.nocase and self.use_ilike else "LIKE"
+        negation = "NOT " if node.not_ else ""
+        pattern = self._write_like_pattern(node, node.pattern)
+        return f"{lhs} {negation}{operator} {pattern} ESCAPE '{node.escapechar}'"
+
+    def _write_like_pattern(self, node, pattern) -> str:
+        """Write a LIKE pattern as SQL: a quoted string, or functions of one.
+
+        Parameters
+        ----------
+        node
+            The LIKE node, whose wildcard characters become ``%`` and ``_``.
+        pattern
+            The pattern, as a string or as a function of one, such as
+            ``CASEI('%cave%')``.
+
+        Returns
+        -------
+        str
+            The escaped pattern, wrapped in its functions.
+
+        Raises
+        ------
+        UnsupportedFilterError
+            When the pattern is neither a string nor a function of one.
+        """
+        if isinstance(pattern, ast.Function):
+            inner = ",".join(
+                self._write_like_pattern(node, argument) for argument in pattern.arguments
+            )
+            return self.function(pattern, inner)
+        if not isinstance(pattern, str):
+            raise UnsupportedFilterError("a LIKE pattern must be a string")
         if node.wildcard != "%":
             pattern = pattern.replace(node.wildcard, "%")
         if node.singlechar != "_":
             pattern = pattern.replace(node.singlechar, "_")
-        pattern = pattern.replace("'", "''")
-        operator = "ILIKE" if node.nocase and self.use_ilike else "LIKE"
-        negation = "NOT " if node.not_ else ""
-        return f"{lhs} {negation}{operator} '{pattern}' ESCAPE '{node.escapechar}'"
+        return "'" + pattern.replace("'", "''") + "'"
 
 
 def to_duckdb_where(root, field_mapping: dict[str, str]) -> str:
     """Compile a pygeofilter AST into a DuckDB WHERE clause.
 
-    ``field_mapping`` maps a queryable property to its column name and
-    doubles as the identifier allowlist: a property that is not in it is
-    refused instead of reaching SQL.
+    A function or an operator this provider cannot serve raises
+    `UnsupportedFilterError` from the evaluator.
+
+    Parameters
+    ----------
+    root
+        The filter as pygeoapi parses it, from CQL2 text or JSON.
+    field_mapping
+        The queryable properties and their columns. It is also the
+        allowlist of identifiers: a property outside it never reaches SQL.
+
+    Returns
+    -------
+    str
+        The WHERE condition, without the keyword.
+
+    Raises
+    ------
+    UnknownPropertyError
+        For a property that is not a queryable.
     """
     try:
-        return DuckDBSQLEvaluator(field_mapping, {}).evaluate(root)
+        return DuckDBSQLEvaluator(field_mapping, _FUNCTION_MAP).evaluate(root)
     except KeyError as e:
-        raise UnsupportedFilterError(f"unknown queryable property: {e}") from e
+        raise UnknownPropertyError(f"unknown queryable property: {e}") from e
