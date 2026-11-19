@@ -19,7 +19,12 @@ from pygeoapi.crs import DEFAULT_CRS, get_uri, transform_bbox
 from pyproj.exceptions import CRSError
 
 from app.interfaces.providers import MapCapabilities, MapLimits, MapParameters
-from app.provider.maps import WEB_MERCATOR, MapParameterError, MapTooLargeError
+from app.provider.maps import (
+    WEB_MERCATOR,
+    MapParameterError,
+    MapTooLargeError,
+    parse_map_datetime,
+)
 from app.pygeoapi.map_limits import choose_default_map_crs
 
 WEB_MERCATOR_EDGE = 20037508.342789244
@@ -152,9 +157,10 @@ def parse_map_parameters(
         return None
 
     try:
-        datetime_ = maps_api.validate_datetime(extents, params.get("datetime"))
+        processed_datetime = maps_api.validate_datetime(extents, params.get("datetime"))
     except ValueError as error:
         raise MapParameterError(user_msg=str(error)) from None
+    datetime_ = None if processed_datetime is None else parse_map_datetime(processed_datetime)
 
     return MapParameters(
         style=style,

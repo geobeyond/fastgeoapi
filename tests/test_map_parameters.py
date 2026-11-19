@@ -17,6 +17,7 @@ from app.pygeoapi.api_async.map_parameters import (
     format_content_datetime,
     parse_map_parameters,
 )
+from app.schemas.temporal import TimeInterval
 
 CRS84 = "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
 WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
@@ -167,3 +168,29 @@ def test_an_extent_without_a_crs_is_read_as_crs84():
     rome = {"spatial": {"bbox": [12.4, 41.8, 12.6, 42.0]}}
 
     assert _parse(extents=rome, width=64, height=64).bbox[0] == pytest.approx(1380361.7, abs=1.0)
+
+
+def test_without_datetime_the_map_has_none():
+    assert _parse(width=16, height=16).datetime_ is None
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "yesterday",
+        "2020-13-01",
+        "2020-01-01/2020-02-01/2020-03-01",
+        "2021-01-01/2020-01-01",
+        "../..",
+    ],
+)
+def test_a_datetime_that_cannot_be_read_is_refused(value):
+    with pytest.raises(MapParameterError):
+        _parse(width=16, height=16, datetime=value)
+
+
+def test_the_route_passes_the_datetime_parsed():
+    parameters = _parse(width=16, height=16, datetime="2020-05-01T12:30:00+02:00/..")
+
+    assert parameters.datetime_ == TimeInterval(datetime(2020, 5, 1, 10, 30, tzinfo=UTC), None)
+    assert isinstance(parameters.datetime_, TimeInterval)

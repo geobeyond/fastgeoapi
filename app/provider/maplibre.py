@@ -39,6 +39,7 @@ from app.provider.maps import (
     build_styles,
     check_definition,
     draw_map,
+    parse_map_datetime,
     render_limit,
 )
 from app.provider.storage.loopback import (
@@ -304,7 +305,9 @@ def read_pygeoapi_arguments(arguments: dict[str, Any]) -> MapParameters:
 
     pygeoapi also passes ``bbox-crs``, once the bbox is already in ``crs``,
     and ``select_properties``; neither changes the map. A missing value
-    takes the default of a map pygeoapi asks for without it.
+    takes the default of a map pygeoapi asks for without it. The
+    ``datetime_`` pygeoapi passes as text is parsed as the map route
+    parses it, and raises ``MapParameterError`` when it cannot be read.
 
     Parameters
     ----------
@@ -317,6 +320,7 @@ def read_pygeoapi_arguments(arguments: dict[str, Any]) -> MapParameters:
         The parameters ``arender_map`` takes.
     """
     bbox = arguments.get("bbox")
+    processed_datetime = arguments.get("datetime_")
     return MapParameters(
         style=arguments.get("style"),
         bbox=tuple(bbox) if bbox is not None else None,
@@ -325,6 +329,6 @@ def read_pygeoapi_arguments(arguments: dict[str, Any]) -> MapParameters:
         crs=arguments.get("crs"),
         transparent=arguments.get("transparent", True),
         format_=arguments.get("format_", "png"),
-        datetime_=arguments.get("datetime_"),
+        datetime_=None if processed_datetime is None else parse_map_datetime(processed_datetime),
         subsets=arguments.get("subsets"),
     )

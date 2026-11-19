@@ -560,6 +560,18 @@ async def test_the_sync_face_takes_the_arguments_pygeoapi_passes(archive):
     assert png.startswith(b"\x89PNG")
 
 
+def test_the_datetime_pygeoapi_passes_reaches_the_provider_parsed():
+    from datetime import UTC, datetime
+
+    from app.provider.maplibre import read_pygeoapi_arguments
+    from app.schemas.temporal import TimeInterval
+
+    parameters = read_pygeoapi_arguments({"datetime_": "2020-01-01/..", "bbox": list(ROME)})
+
+    assert parameters.datetime_ == TimeInterval(datetime(2020, 1, 1, tzinfo=UTC), None)
+    assert isinstance(parameters.datetime_, TimeInterval)
+
+
 @pytest.mark.asyncio
 async def test_close_leaves_no_renderer_behind_the_queued_maps(archive):
     """A reload closes the provider while maps are still queued on it."""
