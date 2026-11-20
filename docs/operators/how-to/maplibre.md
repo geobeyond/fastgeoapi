@@ -75,7 +75,7 @@ providers:
 | Option          | Default                                  | Meaning                                                                                                                                             |
 | --------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `max_size`      | 2048                                     | The largest `width` or `height`; larger answers 413, and below 1 answers 400.                                                                       |
-| `queue`         | 8                                        | Maps that may wait for the renderer; one more answers 503.                                                                                          |
+| `queue`         | 32                                       | Maps that may wait for the renderer; one more answers 503.                                                                                          |
 | `timeout`       | 30                                       | Seconds a map may take, the wait for the renderer included; longer answers 504.                                                                     |
 | `render_limit`  | four times `timeout`                     | Seconds a render goes on after its map answered 504, so the tiles it reads stay cached; past it the renderer is replaced.                           |
 | `max_rss_mb`    | 600                                      | Memory of the renderer process after a map; above it the process is replaced.                                                                       |
@@ -120,18 +120,22 @@ shades the relief.
 ## What a request can ask
 
 A request can pass `bbox`, `bbox-crs`, `crs`, `width`, `height`,
-`transparent` and `f`, as in OGC API - Maps. `crs`, when given, must be the
-EPSG:3857 URI: any other CRS answers 400. `f` takes `png`, and `f=html`
-returns the same PNG, as pygeoapi's map route does, since there is no HTML
-map page.
+`transparent` and `f`, as in OGC API - Maps. `crs`, when given, must name
+EPSG:3857, as a URI or as `EPSG:3857`: any other CRS answers 400. `f` takes
+`png`, and `f=html` returns the same PNG, as pygeoapi's map route does,
+since there is no HTML map page; any other format answers 400 before the map
+is drawn.
 
-The bbox is read in CRS84 unless `bbox-crs` names another CRS. Two values
-answer 500, because of how pygeoapi reads the parameter: the CRS84 URI
-itself, so leave `bbox-crs` out for CRS84, and a bare EPSG code such as
-`4326`, so give the EPSG URI instead.
+The bbox is read in CRS84 unless `bbox-crs` names EPSG:3857, as a URI or as
+`EPSG:3857`; any other value answers 400. A bbox with no area, or with its
+minimum y above its maximum y, answers 400. Coordinates outside Web Mercator
+are moved to its edges, and `Content-Bbox` gives the area drawn; a bbox
+entirely outside answers 204, with no image.
 
 A bbox with another aspect than the image is stretched to it, as a WMS
-GetMap does. `datetime`, `subset` and `properties` are ignored.
+GetMap does. `datetime` is checked against the collection's temporal extent
+and does not change the map. `subset` answers 400, since an archive has no
+other dimension, and `properties` is ignored.
 
 ## HTTP caching
 
@@ -150,7 +154,9 @@ their ETag.
 One renderer process serves each map provider and draws one map at a
 time. Under load, maps wait in a queue of `queue` places; past it they
 get a 503 with "the map renderer is busy, retry later" and
-`Retry-After: 5`. A map whose client disconnects leaves the queue at once,
+`Retry-After: 5`. A tiled client such as QGIS asks for about two dozen
+256-pixel maps for each view; with the default of 32 they wait for the
+renderer instead of answering 503. A map whose client disconnects leaves the queue at once,
 so a browser map that pans or zooms before its image arrives does not
 fill it. A map that answers 504 is still drawn in the background, up to
 `render_limit`, so asking for it again a little later is often quick; a
@@ -167,6 +173,21 @@ When the archive changes, a map already being drawn may fail with a 500:
 it asks for ranges of the old version, the ones not cached any more
 answer 404, and the renderer gives the map up. The next map reads the new
 version.
+
+Three settings cap the map sizes the server publishes and applies for
+every collection; a collection's `max_size` can lower them, never raise them:
+
+| Setting                      | Default | Meaning                                                                |
+| ---------------------------- | ------- | ---------------------------------------------------------------------- |
+| `FASTGEOAPI_MAPS_MAX_WIDTH`  | 2048    | The widest map, in pixels, for every collection.                       |
+| `FASTGEOAPI_MAPS_MAX_HEIGHT` | 2048    | The tallest map, in pixels, for every collection.                      |
+| `FASTGEOAPI_MAPS_MAX_PIXELS` | none    | The largest `width * height`; unset, there is no limit on the product. |
+
+The OpenAPI document publishes them as `x-OGC-limits.maps` in its `info`,
+and gives the `width` and `height` of each collection's map a `maximum`,
+the smaller of `max_size` and the server's value. The route applies the
+same values: a larger map answers 413 before the renderer is asked. A
+collection whose `max_size` is above the server's value is logged at startup.
 
 The collection page asks for an image as wide as its map, so `max_size`
 should stay above the widest map a browser will show: a wider map gets a

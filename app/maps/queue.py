@@ -2,13 +2,9 @@
 
 A map provider composes a queue with its renderer factory. The renderer
 is built at the first map, in a thread, and draws one map at a time
-behind a semaphore; at most ``size`` maps wait for it. A map past its
-``timeout``, the wait included, fails with :class:`DrawTimeoutError` while
-its render goes on, holding the renderer: cancelling a render may kill the
-renderer's process, as it does with MapLibre Native, and with it the tiles
-it has cached.
-``render_limit`` bounds the render; past it, or after any failure, the
-renderer is replaced.
+behind a semaphore. How many maps wait, and for how long, the route
+decides before the provider is called. ``render_limit`` bounds the
+render; past it, or after any failure, the renderer is replaced.
 """
 
 from __future__ import annotations
@@ -22,12 +18,8 @@ from app.maps.contract import MapRenderer, MapRequest, RenderError
 logger = create_logger("app.maps.queue")
 
 
-class QueueFullError(Exception):
-    """Too many maps are already waiting for the renderer."""
-
-
 class DrawTimeoutError(Exception):
-    """The map took longer than the timeout, the wait for the renderer included."""
+    """The render went past ``render_limit``."""
 
 
 class RenderQueue:
@@ -37,14 +29,10 @@ class RenderQueue:
         self,
         factory: Callable[[], MapRenderer],
         *,
-        size: int,
-        timeout: float,
         render_limit: float,
     ) -> None:
         """``factory`` builds the renderer; it runs in a thread, at the first map."""
         self._factory = factory
-        self._size = size
-        self._timeout = timeout
         self._render_limit = render_limit
         self._renderer: MapRenderer | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -52,7 +40,6 @@ class RenderQueue:
         self._semaphore = asyncio.Semaphore(1)
         self._waiting = 0
         self._closing: set[asyncio.Task] = set()
-        self._drawing: set[asyncio.Task] = set()
         self._closed = False
 
     @property
@@ -73,13 +60,11 @@ class RenderQueue:
     async def draw(self, request: MapRequest) -> bytes:
         """The PNG of ``request``.
 
-        Raises :class:`QueueFullError`, :class:`DrawTimeoutError`, or
+        Raises :class:`DrawTimeoutError` past ``render_limit``, or
         :class:`~app.maps.contract.RenderError` when the renderer fails;
         what the factory raises reaches the caller as it is.
         """
         self._loop = asyncio.get_running_loop()
-        if self._waiting >= self._size + 1:
-            raise QueueFullError()
         self._waiting += 1
         try:
             return await self._draw(request)
@@ -91,32 +76,8 @@ class RenderQueue:
                 self._discard(self._renderer)
 
     async def _draw(self, request: MapRequest) -> bytes:
-        loop = asyncio.get_running_loop()
-        deadline = loop.time() + self._timeout
-        try:
-            await asyncio.wait_for(self._semaphore.acquire(), self._timeout)
-        except TimeoutError:
-            raise DrawTimeoutError() from None
-        drawing = loop.create_task(self._render_then_release(request))
-        self._drawing.add(drawing)
-        drawing.add_done_callback(self._drawn)
-        try:
-            return await asyncio.wait_for(asyncio.shield(drawing), max(0.0, deadline - loop.time()))
-        except TimeoutError:
-            raise DrawTimeoutError() from None
-
-    async def _render_then_release(self, request: MapRequest) -> bytes:
-        try:
+        async with self._semaphore:
             return await self._render(request)
-        finally:
-            self._semaphore.release()
-
-    def _drawn(self, drawing: asyncio.Task) -> None:
-        self._drawing.discard(drawing)
-        # A render that outlived its map fails with nobody awaiting it; its
-        # error is already logged, and reading it keeps asyncio quiet.
-        if not drawing.cancelled():
-            drawing.exception()
 
     async def _render(self, request: MapRequest) -> bytes:
         if self._renderer is None:

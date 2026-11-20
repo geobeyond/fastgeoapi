@@ -15,7 +15,7 @@ from __future__ import annotations
 import importlib
 import json
 import math
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from datetime import timedelta
 from http import HTTPStatus
 from pathlib import Path
@@ -33,7 +33,7 @@ from app.maps.contract import (
     RenderError,
     SourceNotDrawableError,
 )
-from app.maps.queue import DrawTimeoutError, QueueFullError, RenderQueue
+from app.maps.queue import DrawTimeoutError, RenderQueue
 from app.maps.sources import ObjectUrl, SourceFormat, source_for
 from app.provider.dem import check_dem
 from app.provider.storage import cache as range_caches
@@ -46,13 +46,12 @@ WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
 
 _MAPS = "http://www.opengis.net/spec/ogcapi-maps-1/1.0/conf"
 
+# scaling, spatial-subsetting and background stay out until the map route reads
+# scale-denominator, center, a spatial subset, bgcolor and void-color.
 MAPS_CONFORMANCE: tuple[str, ...] = (
     f"{_MAPS}/core",
     f"{_MAPS}/collection-map",
     f"{_MAPS}/png",
-    f"{_MAPS}/scaling",
-    f"{_MAPS}/spatial-subsetting",
-    f"{_MAPS}/background",
 )
 """The OGC API Maps classes a provider built from these parts passes."""
 
@@ -149,7 +148,7 @@ def check_definition(provider_def: dict, options: dict[str, Any]) -> SourceForma
     return source_format
 
 
-def object_url(
+def build_object_url(
     data: str, *, public_url: str | None, sign: Callable[[timedelta], str], ttl: timedelta
 ) -> ObjectUrl:
     """The URL of the data object for a renderer: public, local, or signed by ``sign``."""
@@ -160,14 +159,14 @@ def object_url(
     if not is_bucket(data):
         return ObjectUrl(local_path=Path(data.removeprefix("file://")))
 
-    def signer(expires_in: timedelta) -> str:
+    def sign_url(expires_in: timedelta) -> str:
         try:
             return sign(expires_in)
         except Exception as error:
             logger.warning(f"could not sign the data URL: {type(error).__name__}")
             raise ProviderGenericError(user_msg="the data URL could not be signed") from None
 
-    return ObjectUrl(signer=signer, ttl=ttl)
+    return ObjectUrl(signer=sign_url, ttl=ttl)
 
 
 def read_style(location: str, store_options: dict | None) -> dict:
@@ -263,7 +262,7 @@ def build_styles(
     return factory(source, documents, options)
 
 
-def _flag(value: Any) -> bool:
+def _parse_flag(value: Any) -> bool:
     if isinstance(value, str):
         return value.strip().lower() not in ("false", "0", "no")
     return bool(value)
@@ -275,12 +274,12 @@ def _clamp(value: float) -> float:
     return max(-HALF_WORLD, min(HALF_WORLD, value))
 
 
-def map_request(
+def build_map_request(
     style_for: Callable[[str | None, bool], Any],
     *,
     max_size: int,
     style: str | None = None,
-    bbox: list[float] | None = None,
+    bbox: Sequence[float] | None = None,
     width: int = 500,
     height: int = 300,
     crs: str | None = None,
@@ -304,7 +303,7 @@ def map_request(
         raise MapParameterError(user_msg="width and height must be at least 1")
     if int(width) > max_size or int(height) > max_size:
         raise MapTooLargeError(user_msg=f"width and height must be at most {max_size}")
-    transparent = _flag(transparent)
+    transparent = _parse_flag(transparent)
     try:
         chosen = style_for(style, transparent)
     except KeyError as error:
@@ -338,8 +337,6 @@ async def draw_map(queue: RenderQueue, request: MapRequest) -> bytes:
     """The PNG of ``request`` from ``queue``, with its outcomes as pygeoapi errors."""
     try:
         return await queue.draw(request)
-    except QueueFullError:
-        raise MapRendererBusyError() from None
     except DrawTimeoutError:
         raise MapRenderTimeoutError() from None
     except RenderError:
