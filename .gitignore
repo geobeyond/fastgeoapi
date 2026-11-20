@@ -169,3 +169,6 @@ packages/fastgeoapi-html/fastgeoapi_html/static/
 
 # clarc writes its repository map here; it is not part of the project.
 .clarc/
+
+# pycharm IDE
+.idea
