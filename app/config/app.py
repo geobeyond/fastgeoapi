@@ -104,6 +104,16 @@ class DevConfig(GlobalConfig):
     # Reverse-DNS name of this deployment's MCP server card (SEP-2127),
     # e.g. `it.geobeyond/fastgeoapi`. Derived from APP_URI when unset.
     FASTGEOAPI_MCP_SERVER_NAME: str | None = None
+    # Path to a Martin config file (see the `martin` project), or the
+    # literal string `auto` to derive one from the pygeoapi config
+    # already loaded (app.tiles.martin_wrapper) instead of hand-writing a
+    # second file. Opt-in and off by default: when set AND the optional
+    # `martin-py` wrapper dependency is installed, mounts an
+    # `{FASTGEOAPI_CONTEXT}/martin-wrapper/{source_ids}/{z}/{x}/{y}` endpoint
+    # that serves tiles straight from martin-py's in-process bindings,
+    # to benchmark it against pygeoapi's own tile provider. It sits behind
+    # the same auth as the pygeoapi surface; still, keep it off in production.
+    FASTGEOAPI_MARTIN_WRAPPER_CONFIG: str | None = None
     # Which HTML pages to serve: pygeoapi's templates, or fastgeoapi's own
     # pages (native), which need the html extra.
     FASTGEOAPI_HTML_PAGES: Literal["pygeoapi", "native"] = "pygeoapi"
@@ -194,6 +204,16 @@ class ProdConfig(GlobalConfig):
     # Reverse-DNS name of this deployment's MCP server card (SEP-2127),
     # e.g. `it.geobeyond/fastgeoapi`. Derived from APP_URI when unset.
     FASTGEOAPI_MCP_SERVER_NAME: str | None = None
+    # Path to a Martin config file (see the `martin` project), or the
+    # literal string `auto` to derive one from the pygeoapi config
+    # already loaded (app.tiles.martin_wrapper) instead of hand-writing a
+    # second file. Opt-in and off by default: when set AND the optional
+    # `martin-py` wrapper dependency is installed, mounts an
+    # `{FASTGEOAPI_CONTEXT}/martin-wrapper/{source_ids}/{z}/{x}/{y}` endpoint
+    # that serves tiles straight from martin-py's in-process bindings,
+    # to benchmark it against pygeoapi's own tile provider. It sits behind
+    # the same auth as the pygeoapi surface; still, keep it off in production.
+    FASTGEOAPI_MARTIN_WRAPPER_CONFIG: str | None = None
     # Which HTML pages to serve: pygeoapi's templates, or fastgeoapi's own
     # pages (native), which need the html extra.
     FASTGEOAPI_HTML_PAGES: Literal["pygeoapi", "native"] = "pygeoapi"

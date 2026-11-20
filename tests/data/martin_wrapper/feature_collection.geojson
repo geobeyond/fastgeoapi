@@ -1,0 +1,10 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "benchmark-point" },
+      "geometry": { "type": "Point", "coordinates": [12.4964, 41.9028] }
+    }
+  ]
+}

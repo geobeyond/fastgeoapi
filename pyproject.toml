@@ -75,6 +75,17 @@ geoparquet = [
     # extra nor the dependency: `obstore[fsspec]` installs nothing.
     "fsspec>=2024.6",
 ]
+# `/martin-wrapper` (app/tiles/martin_wrapper.py): in-process comparison of
+# pygeoapi's tile path against martin's, via martin-py's PyO3 bindings.
+# Sourced from a martin-py GitHub Release wheel (see [tool.uv.sources])
+# rather than PyPI: martin-py isn't published there yet. `cp312`-only for now, hence
+# the marker — the project's `<3.14` 3.13 lane resolves without it. Wheels
+# exist for Linux x86_64/aarch64, macOS arm64/x86_64 and Windows x86_64 (one
+# `[tool.uv.sources]` entry each); anywhere else the extra installs nothing
+# and the wrapper is simply not mounted (app.main logs why).
+martin_wrapper = [
+    "martin-py>=0.1.1,<0.2; python_version < '3.13' and ((sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')) or (sys_platform == 'darwin' and (platform_machine == 'arm64' or platform_machine == 'x86_64')) or (sys_platform == 'win32' and platform_machine == 'AMD64'))",
+]
 pmtiles = [
     "pmtiles>=3.7,<4",
 ]
@@ -91,6 +102,9 @@ portolan = [
 [dependency-groups]
 dev = [
     "pytest>=9.0.2,<10",
+    # The suite imports the geoparquet provider directly.
+    "fastgeoapi[geoparquet]",
+    "fsspec>=2024.6",
     # The tests of scripts/generate_api_reference.py import its generator,
     # which the `docs` group installs only for the docs build.
     "mkdocs-openapi>=0.3.3",
@@ -144,6 +158,18 @@ conformance = [
 members = ["packages/*"]
 
 [tool.uv.sources]
+# Wheels published by martin-py's CI on each `v*` tag, one per platform, not
+# yet on PyPI — see the `martin_wrapper` extra above. To bump: tag a new
+# martin-py version, update the version in every URL below, then `uv lock`.
+# To try a local martin-py build instead, after `uv sync`:
+#   uv pip install --reinstall ../martin-py/target/wheels/martin_py-<version>-cp311-abi3-<platform>.whl
+martin-py = [
+    { url = "https://github.com/geobeyond/martin-py/releases/download/v0.1.1/martin_py-0.1.1-cp311-abi3-linux_x86_64.whl", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+    { url = "https://github.com/geobeyond/martin-py/releases/download/v0.1.1/martin_py-0.1.1-cp311-abi3-linux_aarch64.whl", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
+    { url = "https://github.com/geobeyond/martin-py/releases/download/v0.1.1/martin_py-0.1.1-cp311-abi3-macosx_11_0_arm64.whl", marker = "sys_platform == 'darwin' and platform_machine == 'arm64'" },
+    { url = "https://github.com/geobeyond/martin-py/releases/download/v0.1.1/martin_py-0.1.1-cp311-abi3-macosx_11_0_x86_64.whl", marker = "sys_platform == 'darwin' and platform_machine == 'x86_64'" },
+    { url = "https://github.com/geobeyond/martin-py/releases/download/v0.1.1/martin_py-0.1.1-cp311-abi3-win_amd64.whl", marker = "sys_platform == 'win32' and platform_machine == 'AMD64'" },
+]
 fastgeoapi-html = { workspace = true }
 fastgeoapi-portolan = { workspace = true }
 mlnative = [
@@ -206,6 +232,12 @@ exclude = [
     "packages/fastgeoapi-portolan/fastgeoapi_portolan/catalog/_generated",
     "packages/fastgeoapi-portolan/fastgeoapi_portolan/models/[a-z]*.py",
 ]
+
+[tool.ty.analysis]
+# martin-py ships only as release wheels (see [tool.uv.sources]), behind the
+# `martin_wrapper` extra the nox sessions do not install; its imports are
+# guarded at runtime (app/tiles/martin_wrapper.py, pytest.importorskip).
+allowed-unresolved-imports = ["martin_py"]
 
 [tool.ty.rules]
 # ty is still in alpha, ignoring some rules temporarily
@@ -289,6 +321,7 @@ testpaths = ["tests"]
 asyncio_mode = "strict"
 markers = [
     "renderer: draws with the real MapLibre Native renderer (the maps group, on Linux)",
+    "benchmark: measures request throughput/latency rather than correctness; can be slow (see tests/test_martin_wrapper_benchmark.py, tests/test_martin_wrapper_duckdb_benchmark.py) — deselect with -m 'not benchmark'",
 ]
 filterwarnings = [
     # passlib uses deprecated crypt module, will be fixed in future versions
