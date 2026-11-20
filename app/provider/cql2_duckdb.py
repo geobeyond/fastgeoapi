@@ -19,6 +19,10 @@ DuckDB SQL:
 4. ``CASEI`` and ``ACCENTI``: upstream looks functions up in a map that
    is empty here, and its ``like`` handler takes the pattern as a plain
    string, so ``CASEI(name) LIKE CASEI('%x%')`` fails.
+
+It also finds the envelope that the spatial predicates of a filter
+bound its matches to, so a provider can choose files and row groups for
+a spatial filter as it does for ``bbox``.
 """
 
 from __future__ import annotations
@@ -218,3 +222,116 @@ def to_duckdb_where(root, field_mapping: dict[str, str]) -> str:
         return DuckDBSQLEvaluator(field_mapping, _FUNCTION_MAP).evaluate(root)
     except KeyError as e:
         raise UnknownPropertyError(f"unknown queryable property: {e}") from e
+
+
+# A match of every spatial comparison but DISJOINT shares at least one point
+# with the literal geometry, so its envelope overlaps the literal's envelope.
+_OVERLAPPING_OPS = frozenset(ast.SpatialComparisonOp) - {ast.SpatialComparisonOp.DISJOINT}
+
+Bounds = tuple[float, float, float, float]
+
+
+def find_filter_envelope(root, geometry_column: str) -> Bounds | None:
+    """Find an envelope that the bbox of every match of a filter overlaps.
+
+    Only the spatial predicates on ``geometry_column`` that every match
+    satisfies count: the filter itself, or a term of a chain of ``AND``.
+    For the filter::
+
+        name = 'Roma'
+        AND S_INTERSECTS(geom, POLYGON((0 0, 4 0, 4 4, 0 4, 0 0)))
+        AND S_WITHIN(geom, POLYGON((2 2, 6 2, 6 6, 2 6, 2 2)))
+
+    ``name = 'Roma'`` bounds nothing, the first polygon gives
+    ``(0, 0, 4, 4)``, the second ``(2, 2, 6, 6)``, and the envelope is
+    their overlap ``(2, 2, 4, 4)``. A geometry can meet both polygons and
+    still miss the overlap: the line from (1, 1) up to (1, 5) and across
+    to (5, 5) does. Its bbox always meets the overlap, though, and the
+    file index and the covering column hold bboxes. When the two envelopes
+    do not overlap, nothing matches and the first one is returned.
+
+    With ``OR`` in place of both ``AND`` the result is ``None``, since a
+    feature named Roma can lie anywhere. ``NOT``, ``S_DISJOINT``,
+    the distance and relate predicates and a ``BBOX`` with its own CRS
+    give ``None`` as well.
+
+    Parameters
+    ----------
+    root
+        The filter as pygeoapi parses it, from CQL2 text or JSON.
+    geometry_column
+        The column the spatial predicates must name.
+
+    Returns
+    -------
+    tuple[float, float, float, float] or None
+        ``(minx, miny, maxx, maxy)``, or ``None`` when the filter does not
+        bound the features it matches.
+    """
+    if isinstance(root, ast.And):
+        envelopes = [
+            envelope
+            for envelope in (
+                find_filter_envelope(root.lhs, geometry_column),
+                find_filter_envelope(root.rhs, geometry_column),
+            )
+            if envelope is not None
+        ]
+        if len(envelopes) < 2:
+            return envelopes[0] if envelopes else None
+        (aminx, aminy, amaxx, amaxy), (bminx, bminy, bmaxx, bmaxy) = envelopes
+        overlap = (max(aminx, bminx), max(aminy, bminy), min(amaxx, bmaxx), min(amaxy, bmaxy))
+        if overlap[0] > overlap[2] or overlap[1] > overlap[3]:
+            # No feature can match both; either envelope still bounds the matches.
+            return envelopes[0]
+        return overlap
+    if isinstance(root, ast.BBox):
+        if root.crs is not None or not _names_column(root.lhs, geometry_column):
+            return None
+        return (root.minx, root.miny, root.maxx, root.maxy)
+    if isinstance(root, ast.SpatialComparisonPredicate) and root.op in _OVERLAPPING_OPS:
+        for column, literal in ((root.lhs, root.rhs), (root.rhs, root.lhs)):
+            if _names_column(column, geometry_column):
+                return _bound_literal(literal)
+    return None
+
+
+def _names_column(node, geometry_column: str) -> bool:
+    """Check that a predicate operand is the geometry column.
+
+    Parameters
+    ----------
+    node
+        An operand of a spatial predicate.
+    geometry_column
+        The name of the geometry column.
+
+    Returns
+    -------
+    bool
+        Whether ``node`` is the attribute ``geometry_column``.
+    """
+    return isinstance(node, ast.Attribute) and node.name == geometry_column
+
+
+def _bound_literal(node) -> Bounds | None:
+    """Bound a geometry or envelope literal.
+
+    Parameters
+    ----------
+    node
+        An operand of a spatial predicate.
+
+    Returns
+    -------
+    tuple[float, float, float, float] or None
+        ``(minx, miny, maxx, maxy)`` of the literal, or ``None`` when
+        ``node`` is not a literal.
+    """
+    if isinstance(node, values.Envelope):
+        box = shapely.geometry.box(node.x1, node.y1, node.x2, node.y2)
+    elif isinstance(node, values.Geometry):
+        box = shapely.geometry.shape(node)
+    else:
+        return None
+    return box.bounds

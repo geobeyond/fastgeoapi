@@ -251,7 +251,20 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         return row
 
     def _scan_for(self, bbox: list) -> str | None:
-        """The scan of the files a request with ``bbox`` meets, or None when it meets none."""
+        """Choose the files a rectangle meets.
+
+        Parameters
+        ----------
+        bbox
+            ``[minx, miny, maxx, maxy]``, or an empty list.
+
+        Returns
+        -------
+        str or None
+            The scan of the files the file index places in ``bbox``,
+            ``None`` when it places none there, or the scan of the whole
+            dataset without an index or a rectangle.
+        """
         if not self._files or not bbox:
             return self._scan
         hrefs = select_files(self._files, bbox)
@@ -501,7 +514,65 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
                 raise ProviderQueryError(str(e)) from e
             except UnsupportedFilterError as e:
                 raise ProviderInvalidQueryError(user_msg=str(e)) from e
+            envelope = self._find_filter_envelope(filterq)
+            overlap = self._overlap_clause(list(envelope)) if envelope else None
+            if overlap:
+                clauses.append(overlap)
         return clauses
+
+    def _find_filter_envelope(self, filterq) -> tuple[float, float, float, float] | None:
+        """Find the envelope the bbox of every match of a filter overlaps.
+
+        Parameters
+        ----------
+        filterq
+            The filter as pygeoapi parses it.
+
+        Returns
+        -------
+        tuple[float, float, float, float] or None
+            ``(minx, miny, maxx, maxy)``, or ``None`` when the spatial
+            predicates of the filter do not bound its matches.
+        """
+        from app.provider.cql2_duckdb import find_filter_envelope
+
+        return find_filter_envelope(filterq, self.geometry_column)
+
+    def _find_region(self, bbox: list, filterq) -> list:
+        """Find the rectangle the bbox of every match of a request overlaps.
+
+        The rectangle is ``bbox``, the envelope of the spatial predicates
+        of the filter, or their overlap when the request has both.
+
+        Parameters
+        ----------
+        bbox
+            The ``bbox`` parameter, or an empty list.
+        filterq
+            The filter as pygeoapi parses it, or None.
+
+        Returns
+        -------
+        list
+            ``[minx, miny, maxx, maxy]``, or ``bbox`` itself when the
+            filter gives no envelope or the two do not overlap.
+        """
+        envelope = self._find_filter_envelope(filterq) if filterq is not None else None
+        if envelope is None:
+            return bbox
+        if not bbox:
+            return list(envelope)
+        minx, miny, maxx, maxy = (float(value) for value in bbox[:4])
+        region = [
+            max(minx, envelope[0]),
+            max(miny, envelope[1]),
+            min(maxx, envelope[2]),
+            min(maxy, envelope[3]),
+        ]
+        if region[0] > region[2] or region[1] > region[3]:
+            # No feature matches both, and the WHERE clause finds none in the files of bbox.
+            return bbox
+        return region
 
     def _rows_to_features(self, rows, columns: list[str], skip_geometry: bool) -> list[dict]:
         """Assemble GeoJSON features from the engine's own output."""
@@ -555,9 +626,9 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
             return self._query_counted(
                 indexed_rows, offset, limit, resulttype, skip_geometry, select_properties
             )
-        scan = self._scan_for(bbox or [])
+        scan = self._scan_for(self._find_region(bbox or [], filterq))
         if scan is None:
-            # The index places every file outside the bbox: nothing to read.
+            # The index places every file outside the region: nothing to read.
             empty = {"type": "FeatureCollection", "features": [], "numberReturned": 0}
             if self.count or resulttype == "hits":
                 empty["numberMatched"] = 0

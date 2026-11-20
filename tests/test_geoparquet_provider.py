@@ -452,6 +452,22 @@ def test_bbox_clause_prunes_with_the_covering_column(covered_provider):
     assert "ST_Intersects" in clause  # exactness kept
 
 
+def test_a_spatial_filter_prunes_with_the_covering_column(covered_provider):
+    from pygeofilter.parsers.cql2_text import parse
+
+    clauses = covered_provider._where_clauses(
+        [], None, [], parse("S_INTERSECTS(geom, ENVELOPE(11 14 41 43))")
+    )
+
+    assert any('"bbox".xmin' in clause for clause in clauses)
+    assert [
+        f["id"]
+        for f in covered_provider.query(filterq=parse("S_INTERSECTS(geom, ENVELOPE(11 14 41 43))"))[
+            "features"
+        ]
+    ] == [1]
+
+
 def test_bbox_clause_without_a_covering_column(provider):
     clause = provider._bbox_clause([11, 41, 14, 43])
     assert '"bbox"' not in clause
@@ -764,6 +780,61 @@ def test_without_bbox_the_index_answers_as_the_glob(indexed):
     glob = _indexed_provider(indexed, file_index=None)
 
     assert provider.query(limit=10)["features"] == glob.query(limit=10)["features"]
+
+
+def test_a_spatial_filter_reads_only_the_files_it_meets(indexed):
+    from pygeofilter.parsers.cql2_text import parse
+
+    provider = _indexed_provider(indexed)
+    (indexed / "c.parquet").write_bytes(b"not parquet")
+
+    result = provider.query(filterq=parse("S_INTERSECTS(geom, POLYGON((0 0, 1 0, 1 1, 0 1, 0 0)))"))
+
+    assert [feature["id"] for feature in result["features"]] == [1]
+    assert result["numberMatched"] == 1
+
+
+def test_a_spatial_filter_and_a_bbox_read_the_files_both_meet(indexed):
+    from pygeofilter.parsers.cql2_text import parse
+
+    provider = _indexed_provider(indexed)
+    (indexed / "a.parquet").write_bytes(b"not parquet")
+    (indexed / "c.parquet").write_bytes(b"not parquet")
+
+    result = provider.query(
+        bbox=[0, 0, 11, 11], filterq=parse("id > 0 AND S_WITHIN(geom, ENVELOPE(9 30 9 30))")
+    )
+
+    assert [feature["id"] for feature in result["features"]] == [2]
+
+
+def test_a_spatial_filter_that_meets_no_file_answers_zero_features(indexed):
+    from pygeofilter.parsers.cql2_text import parse
+
+    provider = _indexed_provider(indexed)
+
+    result = provider.query(filterq=parse("S_INTERSECTS(geom, ENVELOPE(50 51 50 51))"))
+
+    assert result["features"] == []
+    assert result["numberMatched"] == 0
+
+
+@pytest.mark.parametrize(
+    ("cql", "ids"),
+    [
+        ("S_INTERSECTS(geom, ENVELOPE(0 1 0 1)) OR id = 3", [1, 3]),
+        ("S_DISJOINT(geom, ENVELOPE(0 1 0 1))", [2, 3]),
+        ("NOT S_INTERSECTS(geom, ENVELOPE(0 1 0 1))", [2, 3]),
+    ],
+)
+def test_a_filter_without_an_envelope_reads_every_file(indexed, cql, ids):
+    from pygeofilter.parsers.cql2_text import parse
+
+    provider = _indexed_provider(indexed)
+
+    result = provider.query(filterq=parse(cql), sortby=[{"property": "id", "order": "+"}])
+
+    assert [feature["id"] for feature in result["features"]] == ids
 
 
 def test_get_finds_an_id_in_any_file(indexed):
