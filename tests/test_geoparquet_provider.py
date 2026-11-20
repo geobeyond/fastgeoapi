@@ -240,12 +240,13 @@ def test_cql2_spatial_filter(provider):
     assert [f["id"] for f in fc["features"]] == [1]
 
 
-def test_cql2_on_an_unknown_property_is_a_provider_error(provider):
-    from pygeoapi.provider.base import ProviderQueryError
+def test_cql2_on_an_unknown_property_matches_nothing(provider):
     from pygeofilter.parsers.cql2_text import parse
 
-    with pytest.raises(ProviderQueryError):
-        provider.query(filterq=parse("nope = 1"))
+    result = provider.query(filterq=parse("nope = 1"))
+
+    assert result["features"] == []
+    assert result["numberMatched"] == 0
 
 
 def test_a_filter_the_provider_cannot_serve_is_a_bad_request(provider):

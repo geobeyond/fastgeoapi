@@ -1,28 +1,38 @@
 """CQL2 (as a pygeofilter AST) to a DuckDB WHERE clause.
 
 pygeoapi parses the ``filter`` parameter and hands providers a
-pygeofilter AST, so this module only compiles. It derives from
-pygeofilter's ``SQLEvaluator`` — whose spatial function names already
-match DuckDB's — and fixes the places where its output is not valid
-DuckDB SQL:
+pygeofilter AST, so this module only compiles it. `DuckDBSQLEvaluator`
+derives from pygeofilter's ``SQLEvaluator``, whose spatial function
+names already match DuckDB's, and departs from it in six places:
 
-1. geometry and envelope literals: upstream emits
-   ``ST_GeomFromWKB(x'<hex>')``, but in DuckDB ``x'…'`` is a bit-string
-   literal, so the call fails with "Unsupported geometry type in WKB".
-   ``ST_GeomFromHEXWKB('<hex>')`` is the working form.
-2. datetime literals: upstream's ``literal`` handler quotes strings and
-   falls back to ``str(node)`` for everything else, which emits a bare
-   datetime that DuckDB's parser rejects.
-3. temporal operators: upstream's ``temporal`` handler is commented out,
-   so every ``T_*`` node raises ``NotImplementedError`` from the
-   evaluator base.
-4. ``CASEI`` and ``ACCENTI``: upstream looks functions up in a map that
-   is empty here, and its ``like`` handler takes the pattern as a plain
-   string, so ``CASEI(name) LIKE CASEI('%x%')`` fails.
+String literals
+    Upstream writes them between quotes as they are, so a quote in the
+    value ends the SQL string. The evaluator doubles the quotes.
+Geometry and envelope literals
+    Upstream writes ``ST_GeomFromWKB(x'<hex>')``. In DuckDB ``x'…'`` is a
+    bit-string literal and the call fails with "Unsupported geometry type
+    in WKB", so the evaluator writes ``ST_GeomFromHEXWKB('<hex>')``.
+Datetime literals
+    Upstream writes anything that is not a string with ``str()``, and
+    DuckDB rejects a bare datetime. The evaluator quotes its ISO form.
+Temporal operators
+    Upstream's ``temporal`` handler is commented out, so every ``T_*``
+    node raises ``NotImplementedError``. The evaluator writes ``AFTER``,
+    ``BEFORE`` and ``TEQUALS`` on instants and refuses the others.
+``CASEI`` and ``ACCENTI``
+    Upstream looks functions up in a map that is empty here, and its
+    ``like`` handler takes the pattern as a plain string, so
+    ``CASEI(name) LIKE CASEI('%x%')`` fails. The evaluator writes
+    ``lower`` and ``strip_accents``, in patterns too.
+Properties that are not queryables
+    Upstream raises ``KeyError``. The queryables leave
+    ``additionalProperties`` unset, so such a property is null
+    (/req/queryables/get-queryables-response, G) and the evaluator
+    writes ``NULL``.
 
-It also finds the envelope that the spatial predicates of a filter
-bound its matches to, so a provider can choose files and row groups for
-a spatial filter as it does for ``bbox``.
+`find_filter_envelope` gives the envelope that the bboxes of the matches
+of a filter overlap, so a provider can choose files and row groups for a
+spatial filter as it does for ``bbox``.
 """
 
 from __future__ import annotations
@@ -37,10 +47,6 @@ from pygeofilter.backends.sql.evaluate import SQLEvaluator
 
 class UnsupportedFilterError(Exception):
     """The filter names something this provider cannot serve."""
-
-
-class UnknownPropertyError(UnsupportedFilterError):
-    """The filter names a property that is not a queryable."""
 
 
 # CQL2 functions → DuckDB functions. pygeofilter parses CASEI as ``lower``
@@ -65,6 +71,26 @@ _TEMPORAL_OP_MAP = {
 
 class DuckDBSQLEvaluator(SQLEvaluator):
     """SQL evaluator speaking DuckDB's spatial dialect."""
+
+    @handle(ast.Attribute)
+    def attribute(self, node: ast.Attribute) -> str:
+        """Write the column of a property, or ``NULL`` for one that is not a queryable.
+
+        Parameters
+        ----------
+        node
+            The property the filter names.
+
+        Returns
+        -------
+        str
+            The quoted column, or ``NULL``. The name of a property outside
+            the mapping never reaches the SQL.
+        """
+        column = self.attribute_map.get(node.name)
+        if column is None:
+            return "NULL"
+        return f'"{column}"'
 
     @handle(values.Geometry)
     def geometry(self, node: values.Geometry) -> str:
@@ -198,7 +224,8 @@ def to_duckdb_where(root, field_mapping: dict[str, str]) -> str:
     """Compile a pygeofilter AST into a DuckDB WHERE clause.
 
     A function or an operator this provider cannot serve raises
-    `UnsupportedFilterError` from the evaluator.
+    `UnsupportedFilterError` from the evaluator. A property outside
+    ``field_mapping`` is written as ``NULL``.
 
     Parameters
     ----------
@@ -212,16 +239,8 @@ def to_duckdb_where(root, field_mapping: dict[str, str]) -> str:
     -------
     str
         The WHERE condition, without the keyword.
-
-    Raises
-    ------
-    UnknownPropertyError
-        For a property that is not a queryable.
     """
-    try:
-        return DuckDBSQLEvaluator(field_mapping, _FUNCTION_MAP).evaluate(root)
-    except KeyError as e:
-        raise UnknownPropertyError(f"unknown queryable property: {e}") from e
+    return DuckDBSQLEvaluator(field_mapping, _FUNCTION_MAP).evaluate(root)
 
 
 # A match of every spatial comparison but DISJOINT shares at least one point

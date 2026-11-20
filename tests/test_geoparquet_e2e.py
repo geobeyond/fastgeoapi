@@ -158,6 +158,31 @@ def test_a_function_the_provider_cannot_serve_is_a_bad_request(client):
     assert "function foo" in r.json()["description"]
 
 
+@pytest.mark.parametrize(
+    ("expression", "lang"),
+    [
+        ("nosuch = 1", "cql2-text"),
+        ('{"op": "=", "args": [{"property": "nosuch"}, 1]}', "cql2-json"),
+    ],
+)
+def test_an_unknown_property_in_a_filter_matches_nothing(client, expression, lang):
+    """A property the data lacks is null, so the filter matches nothing.
+
+    The queryables do not set ``additionalProperties`` to false, so any
+    property is allowed (/req/queryables/get-queryables-response, G).
+    """
+    queryables = client.get("/collections/places/queryables?f=json").json()
+    r = client.get(
+        "/collections/places/items",
+        params={"f": "json", "filter": expression, "filter-lang": lang},
+    )
+
+    assert queryables.get("additionalProperties", True) is not False
+    assert r.status_code == 200, r.text[:300]
+    assert r.json()["features"] == []
+    assert r.json()["numberMatched"] == 0
+
+
 def test_a_malformed_cql2_json_filter_is_a_bad_request(client):
     r = client.get(
         "/collections/places/items",
