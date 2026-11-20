@@ -501,17 +501,11 @@ class GeoParquetProvider(AsyncProviderMixin, BaseProvider):
         if datetime_:
             clauses.append(self._datetime_clause(datetime_))
         if filterq is not None:
-            from app.provider.cql2_duckdb import (
-                UnknownPropertyError,
-                UnsupportedFilterError,
-                to_duckdb_where,
-            )
+            from app.provider.cql2_duckdb import UnsupportedFilterError, to_duckdb_where
 
             mapping = {name: name for name in self._types}
             try:
                 clauses.append(to_duckdb_where(filterq, mapping))
-            except UnknownPropertyError as e:
-                raise ProviderQueryError(str(e)) from e
             except UnsupportedFilterError as e:
                 raise ProviderInvalidQueryError(user_msg=str(e)) from e
             envelope = self._find_filter_envelope(filterq)

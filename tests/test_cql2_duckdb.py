@@ -134,10 +134,23 @@ def test_an_unknown_function_is_refused_by_name():
         to_duckdb_where(parse_text("FOO(name) = 'x'"), FIELDS)
 
 
-def test_unknown_property_is_refused():
-    """The field mapping doubles as the identifier allowlist."""
-    with pytest.raises(UnsupportedFilterError, match="secret_column"):
-        to_duckdb_where(parse_text("secret_column = 1"), FIELDS)
+@pytest.mark.parametrize(
+    ("cql", "ids"),
+    [
+        ("secret_column = 1", []),
+        ("secret_column IS NULL", [1, 2]),
+        ("name = 'alpha' OR secret_column = 1", [1]),
+        ("S_INTERSECTS(secret_column, POINT(12.5 41.9))", []),
+    ],
+)
+def test_an_unknown_property_is_null(con, cql, ids):
+    """A property that is not a queryable is null, and its name stays out of the SQL."""
+    where = to_duckdb_where(parse_text(cql), FIELDS)
+
+    assert "secret_column" not in where
+    assert [
+        r[0] for r in con.execute(f"SELECT id FROM t WHERE {where} ORDER BY id").fetchall()
+    ] == ids
 
 
 def test_injection_in_a_value_stays_a_value(con):
