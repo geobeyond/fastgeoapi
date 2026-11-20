@@ -10,7 +10,11 @@ import pytest
 from pygeofilter.parsers.cql2_json import parse as parse_json
 from pygeofilter.parsers.cql2_text import parse as parse_text
 
-from app.provider.cql2_duckdb import UnsupportedFilterError, to_duckdb_where
+from app.provider.cql2_duckdb import (
+    UnsupportedFilterError,
+    find_filter_envelope,
+    to_duckdb_where,
+)
 from app.provider.duckdb_ import connect
 
 FIELDS = {"id": "id", "name": "name", "country": "country", "geom": "geom", "ts": "ts"}
@@ -160,3 +164,45 @@ def test_injection_via_like_pattern_stays_a_pattern(con):
     )
     rows = con.execute(f"SELECT id FROM t WHERE {where} ORDER BY id").fetchall()
     assert rows == []
+
+
+@pytest.mark.parametrize(
+    ("cql", "envelope"),
+    [
+        ("S_INTERSECTS(geom, POLYGON((0 0, 2 0, 2 1, 0 1, 0 0)))", (0, 0, 2, 1)),
+        ("S_WITHIN(geom, ENVELOPE(1 3 2 4))", (1, 2, 3, 4)),
+        ("S_CONTAINS(geom, POINT(5 6))", (5, 6, 5, 6)),
+        ("S_EQUALS(POINT(5 6), geom)", (5, 6, 5, 6)),
+        ("name = 'a' AND S_TOUCHES(geom, LINESTRING(0 0, 4 2))", (0, 0, 4, 2)),
+        (
+            "S_INTERSECTS(geom, ENVELOPE(0 4 0 4)) AND S_OVERLAPS(geom, ENVELOPE(2 6 2 6))",
+            (2, 2, 4, 4),
+        ),
+        (
+            "name = 'Roma' AND S_INTERSECTS(geom, POLYGON((0 0, 4 0, 4 4, 0 4, 0 0)))"
+            " AND S_WITHIN(geom, POLYGON((2 2, 6 2, 6 6, 2 6, 2 2)))",
+            (2, 2, 4, 4),
+        ),
+        (
+            "name = 'Roma' OR S_INTERSECTS(geom, POLYGON((0 0, 4 0, 4 4, 0 4, 0 0)))"
+            " OR S_WITHIN(geom, POLYGON((2 2, 6 2, 6 6, 2 6, 2 2)))",
+            None,
+        ),
+        ("BBOX(geom, 1, 2, 3, 4)", (1, 2, 3, 4)),
+        ("S_DISJOINT(geom, ENVELOPE(0 1 0 1))", None),
+        ("S_INTERSECTS(geom, ENVELOPE(0 1 0 1)) OR name = 'a'", None),
+        ("NOT S_INTERSECTS(geom, ENVELOPE(0 1 0 1))", None),
+        ("S_INTERSECTS(other, ENVELOPE(0 1 0 1))", None),
+        ("name = 'a'", None),
+    ],
+)
+def test_the_envelope_of_a_filter_bounds_every_match(cql, envelope):
+    assert find_filter_envelope(parse_text(cql), "geom") == envelope
+
+
+def test_an_and_of_envelopes_that_do_not_meet_keeps_one_of_them():
+    root = parse_text(
+        "S_INTERSECTS(geom, ENVELOPE(0 1 0 1)) AND S_INTERSECTS(geom, ENVELOPE(5 6 5 6))"
+    )
+
+    assert find_filter_envelope(root, "geom") in {(0, 0, 1, 1), (5, 5, 6, 6)}
