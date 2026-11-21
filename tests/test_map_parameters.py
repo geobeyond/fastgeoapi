@@ -13,6 +13,7 @@ from starlette.requests import Request
 from app.interfaces.providers import MapCapabilities, MapLimits
 from app.provider.maps import MapParameterError, MapStyleNotFoundError, MapTooLargeError
 from app.pygeoapi.api_async.map_parameters import (
+    MapOutsideCrs,
     clip_bbox,
     format_content_datetime,
     parse_map_parameters,
@@ -137,7 +138,19 @@ def test_coordinates_outside_web_mercator_are_clipped():
 def test_a_bbox_entirely_outside_is_nothing_to_draw():
     assert clip_bbox((-1e6, 2.5e7, 1e6, 3e7), WEB_MERCATOR) is None
     assert clip_bbox((2.5e7, -1e6, 3e7, 1e6), WEB_MERCATOR) is None
-    assert _parse(bbox="-1000000,25000000,1000000,30000000", **{"bbox-crs": WEB_MERCATOR}) is None
+
+
+def test_a_bbox_entirely_outside_the_crs_is_a_map_outside_it():
+    outside = _parse(bbox="-1000000,25000000,1000000,30000000", **{"bbox-crs": WEB_MERCATOR})
+
+    assert outside == MapOutsideCrs(bbox=(-1e6, 2.5e7, 1e6, 3e7), crs=WEB_MERCATOR)
+
+
+def test_a_bbox_above_the_poles_of_web_mercator_is_a_map_outside_it():
+    outside = _parse(bbox="10,86,20,89", **{"bbox-crs": CRS84})
+
+    assert isinstance(outside, MapOutsideCrs)
+    assert outside.crs == WEB_MERCATOR
 
 
 def test_a_crossing_stays_a_crossing():

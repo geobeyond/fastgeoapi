@@ -22,7 +22,13 @@ from pygeoapi.provider.base import (
 from pygeoapi.util import filter_dict_by_key_value, get_from_headers
 
 from app.config.logging import create_logger
-from app.interfaces.providers import AsyncMapProvider, MapFormat, NotRenderedMap, RenderedMap
+from app.interfaces.providers import (
+    AsyncMapProvider,
+    MapFormat,
+    MapParameters,
+    NotRenderedMap,
+    RenderedMap,
+)
 from app.provider.maps import MapParameterError
 from app.pygeoapi.api_async.caching import (
     HttpCache,
@@ -31,7 +37,11 @@ from app.pygeoapi.api_async.caching import (
     get_cache_headers,
     is_not_modified,
 )
-from app.pygeoapi.api_async.map_parameters import format_content_datetime, parse_map_parameters
+from app.pygeoapi.api_async.map_parameters import (
+    MapOutsideCrs,
+    format_content_datetime,
+    parse_map_parameters,
+)
 from app.pygeoapi.map_limits import clamp_provider_map_limits, get_server_map_limits
 
 if TYPE_CHECKING:
@@ -161,8 +171,13 @@ async def get_collection_map(
     # handled with its traceback, and a refused map is not a server error.
     if refused is not None:
         return _answer_error(api, request, headers, refused)
-    if parameters is None:
-        return headers, HTTPStatus.NO_CONTENT, b""
+    match parameters:
+        case MapOutsideCrs():
+            return headers, HTTPStatus.NO_CONTENT, b""
+        case MapParameters():
+            pass
+        case _:
+            assert_never(parameters)
 
     cached = await get_cache_headers(http_cache, provider, dataset, "map", parameters, headers)
     asked = get_from_headers(request.headers, "if-none-match")
