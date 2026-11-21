@@ -70,6 +70,18 @@ class MapTooLargeError(MapParameterError):
     default_msg = "the map is larger than this server draws"
 
 
+class MapNotAcceptableError(MapParameterError):
+    """An ``Accept`` that names no format the provider draws and no wildcard.
+
+    Content negotiation failed: OGC API - Common - Part 1 answers it with
+    406 (section 8.2, table 2), where a wrong ``f`` is a 400.
+    """
+
+    ogc_exception_code = "NoApplicableCode"
+    http_status_code = HTTPStatus.NOT_ACCEPTABLE
+    default_msg = "no format the map is drawn in is acceptable"
+
+
 class MapStyleNotFoundError(MapParameterError):
     """A ``{styleId}`` the provider does not declare among its styles."""
 
