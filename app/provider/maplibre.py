@@ -22,6 +22,7 @@ from typing import Any
 from pygeoapi.provider.base import BaseProvider, ProviderGenericError
 
 from app.config.logging import create_logger
+from app.interfaces.ogc import OGC_CRS_WEB_MERCATOR
 from app.interfaces.providers import (
     MapCapabilities,
     MapFormat,
@@ -35,7 +36,6 @@ from app.maps.queue import RenderQueue
 from app.maps.sources import ObjectUrl, SourceContext
 from app.provider.base import AsyncProviderMixin, StorageBackedMixin
 from app.provider.maps import (
-    WEB_MERCATOR,
     StyleDocuments,
     build_map_request,
     build_object_url,
@@ -145,8 +145,8 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
     def capabilities(self) -> MapCapabilities:
         """Web Mercator, PNG and the configured styles of the drawn maps."""
         return MapCapabilities(
-            crs=(WEB_MERCATOR,),
-            default_crs=WEB_MERCATOR,
+            crs=(OGC_CRS_WEB_MERCATOR,),
+            default_crs=OGC_CRS_WEB_MERCATOR,
             formats=(MapFormat.PNG,),
             styles=tuple(self.list_style_names()),
         )

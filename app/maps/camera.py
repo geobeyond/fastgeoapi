@@ -12,6 +12,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+from app.maps.web_mercator import WEB_MERCATOR_EDGE
+
 TILE_SIZE = 512
 """The tile size the zoom counts.
 
@@ -21,9 +23,6 @@ the same scale is one zoom level higher there. It is a constant because
 MapLibre is the only renderer today; one that counts 256 makes it a
 parameter of :func:`camera_for_bbox`.
 """
-
-HALF_WORLD = 20037508.342789244
-"""Half the width of the EPSG:3857 world, in metres."""
 
 MAX_ZOOM = 24
 """The highest zoom MapLibre and the other GL renderers take."""
@@ -60,15 +59,15 @@ def camera_for_bbox(bbox: tuple[float, float, float, float], width: int, height:
     and scaled up.
     """
     xmin, ymin, xmax, ymax = bbox
-    world = 2 * HALF_WORLD
-    x0, x1 = (xmin + HALF_WORLD) / world, (xmax + HALF_WORLD) / world
-    y0, y1 = (HALF_WORLD - ymax) / world, (HALF_WORLD - ymin) / world
+    world = 2 * WEB_MERCATOR_EDGE
+    x0, x1 = (xmin + WEB_MERCATOR_EDGE) / world, (xmax + WEB_MERCATOR_EDGE) / world
+    y0, y1 = (WEB_MERCATOR_EDGE - ymax) / world, (WEB_MERCATOR_EDGE - ymin) / world
     dx, dy = x1 - x0, y1 - y0
     scale = min(width / dx, height / dy)  # pixels per world width
     zoom = math.log2(scale / TILE_SIZE)
     # A bbox past the antimeridian has its centre beyond 180°. Renderers draw
     # the world again there, so the centre is wrapped back within ±180°.
-    lon = ((xmin + xmax) / 2 / HALF_WORLD * 180.0 + 180.0) % 360.0 - 180.0
+    lon = ((xmin + xmax) / 2 / WEB_MERCATOR_EDGE * 180.0 + 180.0) % 360.0 - 180.0
     lat = _y_to_lat((y0 + y1) / 2)
     if not 0 <= zoom <= MAX_ZOOM:
         zoom = min(max(zoom, 0.0), float(MAX_ZOOM))

@@ -14,7 +14,6 @@ from app.interfaces.providers import MapCapabilities, MapLimits
 from app.provider.maps import MapParameterError, MapStyleNotFoundError, MapTooLargeError
 from app.pygeoapi.api_async.map_parameters import (
     MapOutsideCrs,
-    clip_bbox,
     format_content_datetime,
     parse_map_parameters,
 )
@@ -22,7 +21,6 @@ from app.schemas.temporal import TimeInterval
 
 CRS84 = "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
 WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
-EDGE = 20037508.342789244
 LIMITS = MapLimits(2048, 2048, None)
 CAPABILITIES = MapCapabilities(
     crs=(WEB_MERCATOR,), default_crs=WEB_MERCATOR, formats=("png",), styles=("night",)
@@ -124,22 +122,6 @@ def test_a_bbox_upside_down_is_refused():
         _parse(bbox="12,42,13,41")
 
 
-def test_coordinates_outside_web_mercator_are_clipped():
-    assert clip_bbox((-3e7, -1e6, 3e7, 1e6), WEB_MERCATOR) == (-EDGE, -1e6, EDGE, 1e6)
-    assert clip_bbox((-1e6, -3e7, 1e6, 3e7), WEB_MERCATOR) == (-1e6, -EDGE, 1e6, EDGE)
-    assert clip_bbox((-1e6, float("-inf"), 1e6, float("inf")), WEB_MERCATOR) == (
-        -1e6,
-        -EDGE,
-        1e6,
-        EDGE,
-    )
-
-
-def test_a_bbox_entirely_outside_is_nothing_to_draw():
-    assert clip_bbox((-1e6, 2.5e7, 1e6, 3e7), WEB_MERCATOR) is None
-    assert clip_bbox((2.5e7, -1e6, 3e7, 1e6), WEB_MERCATOR) is None
-
-
 def test_a_bbox_entirely_outside_the_crs_is_a_map_outside_it():
     outside = _parse(bbox="-1000000,25000000,1000000,30000000", **{"bbox-crs": WEB_MERCATOR})
 
@@ -153,15 +135,14 @@ def test_a_bbox_above_the_poles_of_web_mercator_is_a_map_outside_it():
     assert outside.crs == WEB_MERCATOR
 
 
-def test_a_crossing_stays_a_crossing():
-    clipped = clip_bbox((1.9e7, -1e6, -1.9e7, 1e6), WEB_MERCATOR)
+def test_a_bbox_in_another_crs_is_not_clipped():
+    capabilities = MapCapabilities(
+        crs=(WEB_MERCATOR, CRS84), default_crs=CRS84, formats=("png",), styles=()
+    )
 
-    assert clipped is not None
-    assert clipped[0] > clipped[2]
+    parameters = _parse(capabilities=capabilities, bbox="170,-10,-170,10", width=16, height=16)
 
-
-def test_a_bbox_on_the_edges_of_web_mercator_is_kept():
-    assert clip_bbox((-EDGE, -EDGE, EDGE, EDGE), WEB_MERCATOR) == (-EDGE, -EDGE, EDGE, EDGE)
+    assert parameters.bbox == (170.0, -10.0, -170.0, 10.0)
 
 
 def test_without_crs_the_map_is_drawn_in_the_default_crs():
