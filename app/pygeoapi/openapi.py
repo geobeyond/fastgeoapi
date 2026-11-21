@@ -781,9 +781,10 @@ def _publish_map_parameters(
                 published.append(
                     _build_crs_parameter(
                         "bbox-crs",
-                        "The CRS of the bbox coordinates.",
+                        "The CRS of the bbox coordinates. If you leave it out, a bbox "
+                        "of four numbers is read as CRS84 and one of six as CRS84h.",
                         bbox_crs,
-                        DEFAULT_CRS,
+                        None,
                     )
                 )
             elif target != "subset" or additional:
@@ -856,7 +857,11 @@ def _list_map_crs_default_first(capabilities: MapCapabilities) -> list[str]:
     return [default, *(crs for crs in capabilities.crs if crs != default)]
 
 
-def _build_crs_parameter(name: str, description: str, uris: list[str], default: str) -> Parameter:
+def _build_crs_parameter(
+    name: str, description: str, uris: list[str], default: str | None
+) -> Parameter:
+    # Passed only when there is one: openapi-pydantic would publish an explicit None as null.
+    defaults = {} if default is None else {"default": default}
     return Parameter(
         name=name,
         param_in=ParameterLocation.QUERY,
@@ -864,12 +869,7 @@ def _build_crs_parameter(name: str, description: str, uris: list[str], default: 
         required=False,
         style="form",
         explode=False,
-        param_schema=Schema(
-            type=DataType.STRING,
-            schema_format="uri",
-            enum=uris,
-            default=default,
-        ),
+        param_schema=Schema(type=DataType.STRING, schema_format="uri", enum=uris, **defaults),
     )
 
 
