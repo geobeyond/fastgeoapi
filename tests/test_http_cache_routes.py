@@ -339,7 +339,7 @@ def test_a_map_asked_in_a_format_it_is_not_drawn_in_never_gets_a_304(maps):
 
     r = _map(maps, headers={"Accept": "application/json", "If-None-Match": etag})
 
-    assert r.status_code == 400
+    assert r.status_code == 406
 
 
 def _raw(client, path, params):
