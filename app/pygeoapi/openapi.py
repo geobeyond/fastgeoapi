@@ -26,7 +26,6 @@ from pygeoapi.openapi import (
 from app.auth.models import unauthorized
 from app.config.logging import create_logger
 from app.interfaces.providers import MapCapabilities, MapFormat, MapLimits
-from app.pygeoapi.map_limits import choose_default_map_crs
 from app.pygeoapi.models import not_found
 
 logger = create_logger("app.pygeoapi.openapi")
@@ -692,9 +691,9 @@ def fix_map_operations(
         operation = item.get
         operation.operationId = f"get{name.capitalize()}Map"
         if name in capabilities:
-            _publish_parameters(operation, resource, provider, capabilities[name])
+            _publish_map_parameters(operation, resource, capabilities[name])
         if name in limits:
-            _publish_sizes(operation, limits[name])
+            _publish_map_sizes(operation, limits[name])
         ok = operation.responses.get("200")
         if name not in capabilities and isinstance(ok, Response):
             # A native provider's types come from its capabilities; pygeoapi's from the config.
@@ -741,12 +740,25 @@ def _publish_map_media_types(operation: Operation, capabilities: MapCapabilities
         }
 
 
-def _publish_parameters(
+def _publish_map_parameters(
     operation: Operation,
     resource: dict,
-    provider_def: dict,
     capabilities: MapCapabilities,
 ) -> None:
+    """Publish the parameters of a collection's map from its provider's capabilities.
+
+    The ``crs`` parameter takes the provider's ``default_crs`` as its
+    default and lists it first (/req/crs/crs-definition).
+
+    Parameters
+    ----------
+    operation
+        The map operation of the collection; changed in place.
+    resource
+        The collection's configuration.
+    capabilities
+        The capabilities of its native map provider.
+    """
     extents = resource.get("extents") or {}
     additional = set(extents) - {"spatial", "temporal"}
     bbox_crs = [
@@ -780,8 +792,8 @@ def _publish_parameters(
         _build_crs_parameter(
             "crs",
             "The CRS the map is drawn in.",
-            list(capabilities.crs),
-            choose_default_map_crs(provider_def, capabilities),
+            _list_map_crs_default_first(capabilities),
+            capabilities.default_crs,
         )
     )
     _publish_map_media_types(operation, capabilities)
@@ -819,6 +831,23 @@ def _build_bbox_parameter() -> Parameter:
     )
 
 
+def _list_map_crs_default_first(capabilities: MapCapabilities) -> list[str]:
+    """List the CRSs of a map provider's capabilities with its default CRS first.
+
+    Parameters
+    ----------
+    capabilities
+        The capabilities of the provider.
+
+    Returns
+    -------
+    list of str
+        ``default_crs``, then the other ``crs`` in the provider's order.
+    """
+    default = capabilities.default_crs
+    return [default, *(crs for crs in capabilities.crs if crs != default)]
+
+
 def _build_crs_parameter(name: str, description: str, uris: list[str], default: str) -> Parameter:
     return Parameter(
         name=name,
@@ -836,7 +865,7 @@ def _build_crs_parameter(name: str, description: str, uris: list[str], default: 
     )
 
 
-def _publish_sizes(operation: Operation, limits: MapLimits) -> None:
+def _publish_map_sizes(operation: Operation, limits: MapLimits) -> None:
     largest = {"width": limits.max_width, "height": limits.max_height}
     for parameter in operation.parameters or []:
         if not isinstance(parameter, Parameter) or parameter.name not in largest:

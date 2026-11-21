@@ -24,11 +24,13 @@ CRS84 = "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
 WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
 EDGE = 20037508.342789244
 LIMITS = MapLimits(2048, 2048, None)
-CAPABILITIES = MapCapabilities(crs=(WEB_MERCATOR,), formats=("png",), styles=("night",))
+CAPABILITIES = MapCapabilities(
+    crs=(WEB_MERCATOR,), default_crs=WEB_MERCATOR, formats=("png",), styles=("night",)
+)
 EXTENTS = {"spatial": {"bbox": [-180, -90, 180, 90], "crs": CRS84}}
 
 
-def _parse(limits=LIMITS, extents=EXTENTS, style=None, **params):
+def _parse(limits=LIMITS, extents=EXTENTS, style=None, capabilities=CAPABILITIES, **params):
     scope = {
         "type": "http",
         "method": "GET",
@@ -37,9 +39,7 @@ def _parse(limits=LIMITS, extents=EXTENTS, style=None, **params):
         "headers": [],
     }
     request = APIRequest(Request(scope), ["en-US"])
-    return parse_map_parameters(
-        request, {"storage_crs": WEB_MERCATOR}, extents, limits, CAPABILITIES, style
-    )
+    return parse_map_parameters(request, {"extents": extents}, limits, capabilities, style)
 
 
 def test_a_style_the_provider_does_not_draw_is_not_found():
@@ -162,6 +162,14 @@ def test_a_crossing_stays_a_crossing():
 
 def test_a_bbox_on_the_edges_of_web_mercator_is_kept():
     assert clip_bbox((-EDGE, -EDGE, EDGE, EDGE), WEB_MERCATOR) == (-EDGE, -EDGE, EDGE, EDGE)
+
+
+def test_without_crs_the_map_is_drawn_in_the_default_crs():
+    capabilities = MapCapabilities(
+        crs=(WEB_MERCATOR, CRS84), default_crs=CRS84, formats=("png",), styles=()
+    )
+
+    assert _parse(capabilities=capabilities, width=16, height=16).crs == CRS84
 
 
 def test_a_crs_the_provider_does_not_draw_is_refused():

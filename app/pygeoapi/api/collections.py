@@ -29,11 +29,11 @@ from pygeoapi.util import (
 )
 
 from app.config.logging import create_logger
+from app.interfaces.ogc import OGC_REL_MAP
 from app.interfaces.providers import MapFormat
 from app.provider.maps import WEB_MERCATOR
 from app.pygeoapi.api_async.map_parameters import clip_bbox
 from app.pygeoapi.api_async.maps import find_native_map_provider
-from app.pygeoapi.map_limits import choose_default_map_crs
 
 if TYPE_CHECKING:
     from pygeoapi.api import API, APIRequest
@@ -100,18 +100,28 @@ def match_items_to_providers(api: API, request: APIRequest, dataset: str, collec
     return collection
 
 
-_MAP_REL = "http://www.opengis.net/def/rel/ogc/1.0/map"
 _MERCATOR_LATITUDE = 85.0511287798
 """The latitude where Web Mercator ends."""
 
 
 def describe_native_map(api: API, dataset: str, collection: dict) -> dict:
-    """Describe the map of ``collection`` from its native map provider.
+    """Add what the native map provider draws to pygeoapi's description of a collection.
 
-    The collection lists the CRSs its maps are drawn in, with ``storageCrs``
-    and ``storageCrsBbox`` when they are drawn by default in a CRS other than
-    CRS84 (/req/collection-map/desc-crs), and links one map per encoding
-    (/req/collection-map/desc-links).
+    pygeoapi describes a map collection from its configuration alone. When
+    the collection's map provider is native, this function completes the
+    description with the provider's capabilities: the CRSs its maps are
+    drawn in (/req/collection-map/desc-crs), and a link to the map in each
+    encoding in place of those pygeoapi wrote
+    (/req/collection-map/desc-links). Otherwise it leaves the collection as
+    it is.
+
+    The provider's ``default_crs`` is the CRS of a map whose request names
+    none. The collection publishes it as ``storageCrs``, with a
+    ``storageCrsBbox``, unless it is CRS84, which a client assumes without
+    ``storageCrs``. A ``storageCrs`` pygeoapi has already set is kept. The
+    ``crs`` list starts with the published ``storageCrs``, or with
+    ``default_crs`` when there is none, as the standard recommends for the
+    native CRS; the CRSs pygeoapi listed and those of the provider follow.
 
     Parameters
     ----------
@@ -126,15 +136,39 @@ def describe_native_map(api: API, dataset: str, collection: dict) -> dict:
     -------
     dict
         ``collection``, unchanged when its map provider is not native.
+
+    Examples
+    --------
+    A provider with ``crs=(CRS84, EPSG:3857)``, on a collection pygeoapi
+    described without CRSs (URIs shortened to their codes). With
+    ``default_crs=EPSG:3857``::
+
+        "crs": ["EPSG:3857", "CRS84"],
+        "storageCrs": "EPSG:3857",
+        "extent": {"spatial": {"bbox": [...], "storageCrsBbox": [[...]]}}
+
+    With ``default_crs=CRS84``, no ``storageCrs``::
+
+        "crs": ["CRS84", "EPSG:3857"]
+
+    With ``default_crs=EPSG:3857``, on a collection whose features pygeoapi
+    already described with ``"crs": ["CRS84", "EPSG:32633"]`` and
+    ``storageCrs`` EPSG:32633::
+
+        "crs": ["EPSG:32633", "CRS84", "EPSG:3857"],
+        "storageCrs": "EPSG:32633"
     """
-    found = find_native_map_provider(api, dataset)
-    if found is None:
+    provider = find_native_map_provider(api, dataset)
+    if provider is None:
         return collection
-    definition, provider = found
     capabilities = provider.capabilities
-    listed = list(collection.get("crs") or [])
-    collection["crs"] = listed + [crs for crs in capabilities.crs if crs not in listed]
-    storage = choose_default_map_crs(definition, capabilities)
+    storage = capabilities.default_crs
+    first = collection.get("storageCrs") or storage
+    listed = [first]
+    for crs in [*(collection.get("crs") or []), *capabilities.crs]:
+        if crs not in listed:
+            listed.append(crs)
+    collection["crs"] = listed
     if "storageCrs" not in collection and storage.lower() != DEFAULT_CRS.lower():
         collection["storageCrs"] = storage
         spatial = collection.get("extent", {}).get("spatial") or {}
@@ -142,13 +176,13 @@ def describe_native_map(api: API, dataset: str, collection: dict) -> dict:
         if spatial and all(boxes):
             spatial["storageCrsBbox"] = boxes
     url = f"{api.get_collections_url()}/{dataset}/map"
-    links = [link for link in collection["links"] if link.get("rel") != _MAP_REL]
+    links = [link for link in collection["links"] if link.get("rel") != OGC_REL_MAP]
     for format_ in capabilities.formats:
         encoding = MapFormat(format_)
         links.append(
             {
                 "type": encoding.media_type,
-                "rel": _MAP_REL,
+                "rel": OGC_REL_MAP,
                 "title": f"Map ({encoding.value})",
                 "href": f"{url}?f={encoding.value}",
             }

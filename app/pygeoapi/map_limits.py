@@ -191,7 +191,8 @@ def validate_map_provider_or_problem(config: dict[str, Any]) -> tuple[str, str] 
     """Validate the capabilities of every native map provider against the standard.
 
     A format must be one of :class:`~app.interfaces.providers.MapFormat`,
-    and a CRS an OGC CRS URI that pyproj knows. A provider that does not
+    a CRS an OGC CRS URI that pyproj knows, and the default CRS one of the
+    CRSs, spelled the same way. A provider that does not
     load is left out, as in :func:`collect_native_map_limits`, and so is a
     definition that still holds a ``${VAR}``: it is built to read its
     capabilities, which it can do once the variable is resolved.
@@ -229,6 +230,9 @@ def validate_map_provider_or_problem(config: dict[str, Any]) -> tuple[str, str] 
         for crs in capabilities.crs:
             if not _is_ogc_crs_uri(crs):
                 return where, f"{cls} names the CRS {crs}, which is not an OGC CRS URI"
+        if capabilities.default_crs not in capabilities.crs:
+            default = capabilities.default_crs
+            return where, f"{cls} draws by default in {default}, which is not among its CRSs"
     return None
 
 
@@ -252,29 +256,6 @@ def _is_ogc_crs_uri(value: str) -> bool:
     except CRSError:
         return False
     return True
-
-
-def choose_default_map_crs(provider_def: dict[str, Any], capabilities: MapCapabilities) -> str:
-    """Choose the CRS of a map whose request names none.
-
-    Parameters
-    ----------
-    provider_def
-        The definition of the collection's map provider.
-    capabilities
-        The provider's capabilities.
-
-    Returns
-    -------
-    str
-        The ``storage_crs`` when the provider draws in it, written as the
-        provider writes it; otherwise the provider's first CRS.
-    """
-    storage = str(provider_def.get("storage_crs", "")).lower()
-    for crs in capabilities.crs:
-        if crs.lower() == storage:
-            return crs
-    return capabilities.crs[0]
 
 
 def _iter_native_map_providers(

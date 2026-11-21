@@ -146,6 +146,7 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         """Web Mercator, PNG and the configured styles of the drawn maps."""
         return MapCapabilities(
             crs=(WEB_MERCATOR,),
+            default_crs=WEB_MERCATOR,
             formats=(MapFormat.PNG,),
             styles=tuple(self.list_style_names()),
         )
