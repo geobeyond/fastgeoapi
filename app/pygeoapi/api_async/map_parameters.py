@@ -227,7 +227,7 @@ def _format_instant(value: Any) -> str | None:
     return str(value)
 
 
-def _choose_map_format(f: str | None, headers: Any, formats: tuple[MapFormat, ...]) -> str:
+def _choose_map_format(f: str | None, headers: Any, formats: tuple[str, ...]) -> str:
     """Choose the format of a map from ``f``, else from the ``Accept`` header.
 
     ``f`` names one format: one the provider does not draw is a parameter
