@@ -6,6 +6,7 @@ and the parity tests compare the two routes on the same requests.
 """
 
 import asyncio
+from unittest.mock import patch
 
 import pytest
 from pygeoapi.provider.base import BaseProvider
@@ -109,8 +110,13 @@ def test_the_native_route_answers_like_pygeoapi(client, params):
     threaded = client.get("/collections/threaded/map", params=params)
 
     assert native.status_code == threaded.status_code
-    for header in ("content-type", "content-crs", "content-bbox"):
+    for header in ("content-type", "content-bbox"):
         assert native.headers.get(header) == threaded.headers.get(header)
+    # pygeoapi lowercases the URI it was given; the native route writes the
+    # provider's spelling of the same CRS.
+    assert (native.headers.get("content-crs") or "").lower() == (
+        threaded.headers.get("content-crs") or ""
+    ).lower()
 
 
 def test_a_map_past_max_size_answers_413(client):
@@ -124,6 +130,95 @@ def test_another_format_is_a_bad_parameter(client):
     response = client.get("/collections/native/map", params={"f": "jpeg"})
 
     assert response.status_code == 400
+
+
+def test_a_bad_parameter_logs_no_traceback(client, caplog):
+    with caplog.at_level("ERROR", logger="pygeoapi"):
+        response = client.get("/collections/native/map", params={"width": 5000, "height": 64})
+
+    assert response.status_code == 413
+    assert [record for record in caplog.records if record.exc_info] == []
+
+
+WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
+CRS84 = "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+EDGE = "20037508.342789244"
+# pygeoapi's transform keeps latitudes within 85.0511 degrees of the equator.
+TOP = "20037471.205137067"
+
+
+def test_the_default_map_is_the_world_clipped(client):
+    response = client.get("/collections/native/map", params={"width": 32, "height": 32})
+
+    assert response.status_code == 200, response.text[:200]
+    xmin, ymin, xmax, ymax = map(float, response.headers["content-bbox"].split(","))
+    assert (xmin, xmax) == (-float(EDGE), float(EDGE))
+    # The latitude comes from pyproj, whose last digits differ from one PROJ build to another.
+    assert (ymin, ymax) == pytest.approx((-float(TOP), float(TOP)), abs=1e-6)
+
+
+def test_a_clipped_map_reports_the_clipped_bbox(client):
+    params = {"bbox": "-3e7,-1e6,3e7,1e6", "bbox-crs": WEB_MERCATOR, "width": 32, "height": 32}
+
+    response = client.get("/collections/native/map", params=params)
+
+    assert response.status_code == 200, response.text[:200]
+    assert response.headers["content-bbox"] == f"-{EDGE},-1000000.0,{EDGE},1000000.0"
+
+
+def test_a_map_entirely_outside_answers_204(client):
+    params = {"bbox": "-1e6,2.5e7,1e6,3e7", "bbox-crs": WEB_MERCATOR, "width": 32, "height": 32}
+
+    response = client.get("/collections/native/map", params=params)
+
+    assert (response.status_code, response.content) == (204, b"")
+
+
+def test_the_route_refuses_before_the_provider(client):
+    def drawn():
+        return sum(len(renderer.requests) for renderer in FakeRenderer.instances)
+
+    before = drawn()
+    statuses = [
+        client.get("/collections/native/map", params=params).status_code
+        for params in ({"width": 0}, {"crs": CRS84}, {"f": "jpeg"}, {"width": 4096})
+    ]
+
+    assert statuses == [400, 400, 400, 413]
+    assert drawn() == before
+
+
+def test_without_storage_crs_the_map_is_drawn_in_the_first_crs(tmp_path):
+    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
+
+    archive = write_archive(tmp_path / "roads.pmtiles", {(0, 0, 0): TILE_BYTES(0, 0, 0)})
+    definition = map_provider(archive)
+    del definition["storage_crs"]
+    config = _config({"roads": _collection("Roads", [definition])})
+    client = TestClient(build_pygeoapi_subapp(config, build_openapi(config)))
+
+    response = client.get("/collections/roads/map", params={"width": 16, "height": 16})
+
+    assert response.status_code == 200, response.text[:200]
+    assert response.headers["content-crs"] == WEB_MERCATOR
+
+
+def test_the_route_applies_the_server_limits(tmp_path):
+    from app.config.app import ProdConfig
+    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
+
+    archive = write_archive(tmp_path / "roads.pmtiles", {(0, 0, 0): TILE_BYTES(0, 0, 0)})
+    config = _config({"roads": _collection("Roads", [map_provider(archive)])})
+    settings = ProdConfig.model_construct(
+        FASTGEOAPI_MAPS_MAX_WIDTH=1000, FASTGEOAPI_MAPS_MAX_HEIGHT=1000
+    )
+    app = build_pygeoapi_subapp(config, build_openapi(config, settings=settings), settings=settings)
+    client = TestClient(app, raise_server_exceptions=False)
+
+    def status(width):
+        return client.get("/collections/roads/map", params={"width": width, "height": 16})
+
+    assert (status(1000).status_code, status(1001).status_code) == (200, 413)
 
 
 def _gated_app(tmp_path, http_cache=None, **options):
@@ -173,6 +268,11 @@ async def _get(app, left: asyncio.Event | None = None) -> dict:
     }
     await app(scope, receive, send)
     return next(message for message in sent if message["type"] == "http.response.start")
+
+
+def _occupied(provider) -> int:
+    """How many maps the provider's queue is drawing or holding."""
+    return provider._queue.waiting
 
 
 async def _until(condition, timeout=2.0):
@@ -234,6 +334,49 @@ async def test_a_full_queue_answers_503_with_retry_after_and_no_cache_headers(tm
     assert b"etag" not in dict(busy["headers"])
 
 
+@pytest.mark.asyncio
+async def test_a_full_queue_logs_no_traceback(tmp_path, caplog):
+    import pygeoapi.plugin
+
+    app, definition = _gated_app(tmp_path, queue=1, timeout=5)
+    provider = pygeoapi.plugin.load_plugin("provider", definition)
+    FakeRenderer.gate = asyncio.Event()
+    try:
+        drawing = asyncio.create_task(_get(app))
+        waiting = asyncio.create_task(_get(app))
+        await _until(lambda: _occupied(provider) == 2)
+        with caplog.at_level("ERROR", logger="pygeoapi"):
+            busy = await _get(app)
+    finally:
+        FakeRenderer.gate.set()
+    await asyncio.gather(drawing, waiting)
+
+    assert busy["status"] == 503
+    assert [record for record in caplog.records if record.exc_info] == []
+
+
+@pytest.mark.asyncio
+async def test_a_slow_map_answers_504_and_its_render_goes_on(tmp_path):
+    import pygeoapi.plugin
+
+    app, definition = _gated_app(tmp_path, timeout=0.05, render_limit=5)
+    provider = pygeoapi.plugin.load_plugin("provider", definition)
+    FakeRenderer.gate = asyncio.Event()
+    try:
+        slow = await _get(app)
+        renderer = FakeRenderer.instances[-1]
+        # The render goes on, so the tiles it reads stay cached for the next maps.
+        assert not renderer.closed and provider.renderer_is_built
+    finally:
+        FakeRenderer.gate.set()
+    await _until(lambda: _occupied(provider) == 0)
+    again = await _get(app)
+
+    assert (slow["status"], again["status"]) == (504, 200)
+    assert FakeRenderer.instances[-1] is renderer
+    assert renderer.calls == 2
+
+
 def _behind_opa_and_the_proxy(app):
     """The chain of OPA_ENABLED with FASTGEOAPI_REVERSE_PROXY: OPA's buffering receive,
     then the proxy's BaseHTTPMiddleware, then the sub-app."""
@@ -266,3 +409,226 @@ def test_the_native_provider_blocks_nothing_on_the_loop(client):
         response = client.get("/collections/native/map", params={"width": 16, "height": 16})
 
     assert response.status_code == 200
+
+
+def test_a_map_of_a_collection_with_time_has_content_datetime(tmp_path):
+    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
+
+    archive = write_archive(tmp_path / "roads.pmtiles", {(0, 0, 0): TILE_BYTES(0, 0, 0)})
+    collection = _collection("Roads", [map_provider(archive)])
+    collection["extents"]["temporal"] = {"begin": "2020-01-01T00:00:00Z", "end": None}
+    config = _config({"roads": collection})
+    client = TestClient(build_pygeoapi_subapp(config, build_openapi(config)))
+
+    response = client.get("/collections/roads/map", params={"width": 16, "height": 16})
+
+    assert response.status_code == 200, response.text[:200]
+    assert response.headers["content-datetime"] == "2020-01-01T00:00:00Z/.."
+
+
+def test_a_map_without_time_has_no_content_datetime(client):
+    response = client.get("/collections/native/map", params={"width": 16, "height": 16})
+
+    assert response.status_code == 200, response.text[:200]
+    assert "content-datetime" not in response.headers
+
+
+@pytest.mark.asyncio
+async def test_a_server_error_keeps_its_traceback(tmp_path, caplog):
+    import pygeoapi.plugin
+    from pygeoapi.provider.base import ProviderGenericError
+
+    app, definition = _gated_app(tmp_path, queue=1, timeout=5)
+    provider = pygeoapi.plugin.load_plugin("provider", definition)
+    with (
+        patch.object(provider, "arender_map", side_effect=ProviderGenericError("boom")),
+        caplog.at_level("ERROR", logger="pygeoapi"),
+    ):
+        failed = await _get(app)
+
+    assert failed["status"] == 500
+    assert [record for record in caplog.records if record.exc_info] != []
+
+
+def _cached_client(tmp_path):
+    """A client of one map collection with an HTTP cache, and the provider that serves it."""
+    import pygeoapi.plugin
+
+    from app.pygeoapi.api_async.caching import HttpCache
+    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
+
+    archive = write_archive(
+        tmp_path / "cached.pmtiles",
+        {(0, 0, 0): TILE_BYTES(0, 0, 0)},
+        metadata={"name": "cached", "vector_layers": [{"id": "roads"}]},
+    )
+    definition = map_provider(archive)
+    config = _config({"cached": _collection("Cached", [definition])})
+    policy = HttpCache(max_age=300, protected=False, code="test")
+    app = build_pygeoapi_subapp(config, build_openapi(config), http_cache=policy)
+    provider = pygeoapi.plugin.load_plugin("provider", definition)
+    return TestClient(app, raise_server_exceptions=False), provider
+
+
+CACHED_MAP = "/collections/cached/map"
+SMALL = {"width": 16, "height": 16}
+
+
+def test_a_style_the_provider_does_not_declare_is_not_drawn(tmp_path):
+    client, provider = _cached_client(tmp_path)
+
+    with patch.object(provider, "arender_map", wraps=provider.arender_map) as drawn:
+        response = client.get("/collections/cached/styles/missing/map", params=SMALL)
+
+    assert response.status_code == 404, response.text[:200]
+    drawn.assert_not_called()
+
+
+def test_a_drawn_map_asks_its_version_once(tmp_path):
+    client, provider = _cached_client(tmp_path)
+
+    with patch.object(provider, "aget_version", wraps=provider.aget_version) as asked:
+        response = client.get(CACHED_MAP, params=SMALL)
+
+    assert response.status_code == 200, response.text[:200]
+    assert "etag" in response.headers
+    assert asked.call_count == 1
+
+
+def test_the_etag_names_the_version_the_map_was_drawn_from(tmp_path):
+    from app.interfaces.providers import RenderedMap
+
+    client, provider = _cached_client(tmp_path)
+
+    async def version(parameters, value="before"):
+        return value
+
+    async def draw(parameters):
+        return RenderedMap(content=tiny_png(16, 16), version="after")
+
+    with patch.object(provider, "aget_version", side_effect=version):
+        with patch.object(provider, "arender_map", side_effect=draw):
+            etag = client.get(CACHED_MAP, params=SMALL).headers["etag"]
+        before = client.get(CACHED_MAP, params=SMALL, headers={"If-None-Match": etag})
+
+    async def drawn_version(parameters):
+        return "after"
+
+    with patch.object(provider, "aget_version", side_effect=drawn_version):
+        after = client.get(CACHED_MAP, params=SMALL, headers={"If-None-Match": etag})
+
+    assert before.status_code == 200
+    assert after.status_code == 304
+
+
+def test_a_map_drawn_from_an_unknown_version_has_no_cache_headers(tmp_path):
+    from app.interfaces.providers import RenderedMap
+
+    client, provider = _cached_client(tmp_path)
+
+    async def draw(parameters):
+        return RenderedMap(content=tiny_png(16, 16), version=None)
+
+    with patch.object(provider, "arender_map", side_effect=draw):
+        response = client.get(CACHED_MAP, params=SMALL)
+
+    assert response.status_code == 200, response.text[:200]
+    assert "etag" not in response.headers
+
+
+def test_a_map_not_drawn_answers_its_status_without_retry_after(tmp_path):
+    from http import HTTPStatus
+
+    from app.interfaces.providers import NotRenderedMap
+
+    client, provider = _cached_client(tmp_path)
+
+    async def late(parameters):
+        return NotRenderedMap(
+            status=HTTPStatus.GATEWAY_TIMEOUT, message="the map took too long", retry_after=None
+        )
+
+    with patch.object(provider, "arender_map", side_effect=late):
+        response = client.get(CACHED_MAP, params=SMALL)
+
+    assert response.status_code == 504
+    assert "the map took too long" in response.text
+    assert "retry-after" not in response.headers
+    assert "etag" not in response.headers
+
+
+def _draw_with_extra_headers(extra_headers, version=None):
+    from app.interfaces.providers import RenderedMap
+
+    async def draw(parameters):
+        return RenderedMap(content=tiny_png(16, 16), version=version, extra_headers=extra_headers)
+
+    return draw
+
+
+def test_an_extra_header_of_the_provider_reaches_the_client(tmp_path):
+    client, provider = _cached_client(tmp_path)
+
+    with patch.object(
+        provider, "arender_map", side_effect=_draw_with_extra_headers({"X-Engine": "fake"})
+    ):
+        response = client.get(CACHED_MAP, params=SMALL)
+
+    assert response.status_code == 200, response.text[:200]
+    assert response.headers["x-engine"] == "fake"
+
+
+def test_the_route_keeps_its_own_headers_over_the_providers(tmp_path):
+    client, provider = _cached_client(tmp_path)
+    extra = {
+        "content-crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+        "Content-Type": "image/jpeg",
+    }
+
+    with patch.object(provider, "arender_map", side_effect=_draw_with_extra_headers(extra, "v1")):
+        response = client.get(CACHED_MAP, params=SMALL)
+
+    assert response.headers["content-crs"] == "http://www.opengis.net/def/crs/EPSG/0/3857"
+    assert response.headers["content-type"] == "image/png"
+
+
+def test_a_provider_cannot_make_an_unversioned_map_cacheable(tmp_path):
+    from app.pygeoapi.api_async import maps
+
+    client, provider = _cached_client(tmp_path)
+    extra = {"Cache-Control": "max-age=3600", "ETag": '"mine"', "Vary": "Accept-Language"}
+
+    with patch.object(maps, "logger") as logger:
+        with patch.object(provider, "arender_map", side_effect=_draw_with_extra_headers(extra)):
+            response = client.get(CACHED_MAP, params=SMALL)
+
+    assert response.status_code == 200, response.text[:200]
+    assert "cache-control" not in response.headers
+    assert "etag" not in response.headers
+    assert "accept-language" not in response.headers.get("vary", "").lower()
+    warned = " ".join(call.args[0] for call in logger.warning.call_args_list)
+    assert "Cache-Control" in warned
+    assert "cached" in warned
+
+
+def test_a_vendor_parameter_reaches_the_provider_and_the_etag(tmp_path):
+    client, provider = _cached_client(tmp_path)
+
+    with patch.object(provider, "arender_map", wraps=provider.arender_map) as drawn:
+        high = client.get(CACHED_MAP, params={**SMALL, "quality": "high"})
+    low = client.get(CACHED_MAP, params={**SMALL, "quality": "low"})
+
+    assert drawn.call_args.args[0].vendor_params == {"quality": "high"}
+    assert high.headers["etag"] != low.headers["etag"]
+
+
+def test_a_header_the_route_set_keeps_the_routes_value():
+    from app.pygeoapi.api_async import maps
+
+    headers = {"Content-Language": "en-US"}
+
+    with patch.object(maps, "logger") as logger:
+        maps.add_extra_headers(headers, {"content-language": "xx", "X-Engine": "fake"}, "roads")
+
+    assert headers == {"Content-Language": "en-US", "X-Engine": "fake"}
+    assert "content-language" in logger.warning.call_args.args[0]

@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 
 from pygeoapi import l10n
 from pygeoapi.api.collection import gen_collection
+from pygeoapi.crs import DEFAULT_CRS, transform_bbox
 from pygeoapi.formats import F_HTML, F_JSON, F_JSONLD, FORMAT_TYPES
 from pygeoapi.linked_data import jsonldify, jsonldify_collection
 from pygeoapi.util import (
@@ -28,6 +29,11 @@ from pygeoapi.util import (
 )
 
 from app.config.logging import create_logger
+from app.interfaces.providers import MapFormat
+from app.provider.maps import WEB_MERCATOR
+from app.pygeoapi.api_async.map_parameters import clip_bbox
+from app.pygeoapi.api_async.maps import find_native_map_provider
+from app.pygeoapi.map_limits import choose_default_map_crs
 
 if TYPE_CHECKING:
     from pygeoapi.api import API, APIRequest
@@ -94,6 +100,88 @@ def match_items_to_providers(api: API, request: APIRequest, dataset: str, collec
     return collection
 
 
+_MAP_REL = "http://www.opengis.net/def/rel/ogc/1.0/map"
+_MERCATOR_LATITUDE = 85.0511287798
+"""The latitude where Web Mercator ends."""
+
+
+def describe_native_map(api: API, dataset: str, collection: dict) -> dict:
+    """Describe the map of ``collection`` from its native map provider.
+
+    The collection lists the CRSs its maps are drawn in, with ``storageCrs``
+    and ``storageCrsBbox`` when they are drawn by default in a CRS other than
+    CRS84 (/req/collection-map/desc-crs), and links one map per encoding
+    (/req/collection-map/desc-links).
+
+    Parameters
+    ----------
+    api
+        pygeoapi's API instance.
+    dataset
+        The collection's name.
+    collection
+        The collection as pygeoapi described it; changed in place.
+
+    Returns
+    -------
+    dict
+        ``collection``, unchanged when its map provider is not native.
+    """
+    found = find_native_map_provider(api, dataset)
+    if found is None:
+        return collection
+    definition, provider = found
+    capabilities = provider.capabilities
+    listed = list(collection.get("crs") or [])
+    collection["crs"] = listed + [crs for crs in capabilities.crs if crs not in listed]
+    storage = choose_default_map_crs(definition, capabilities)
+    if "storageCrs" not in collection and storage.lower() != DEFAULT_CRS.lower():
+        collection["storageCrs"] = storage
+        spatial = collection.get("extent", {}).get("spatial") or {}
+        boxes = [_project_bbox(bbox, storage) for bbox in spatial.get("bbox") or []]
+        if spatial and all(boxes):
+            spatial["storageCrsBbox"] = boxes
+    url = f"{api.get_collections_url()}/{dataset}/map"
+    links = [link for link in collection["links"] if link.get("rel") != _MAP_REL]
+    for format_ in capabilities.formats:
+        encoding = MapFormat(format_)
+        links.append(
+            {
+                "type": encoding.media_type,
+                "rel": _MAP_REL,
+                "title": f"Map ({encoding.value})",
+                "href": f"{url}?f={encoding.value}",
+            }
+        )
+    collection["links"] = links
+    return collection
+
+
+def _project_bbox(bbox: list, crs: str) -> list[float] | None:
+    """Move a CRS84 ``bbox`` into ``crs``, inside its bounds; None when nothing is left.
+
+    Parameters
+    ----------
+    bbox
+        Four CRS84 coordinates.
+    crs
+        The URI of the target CRS.
+
+    Returns
+    -------
+    list of float or None
+        The four coordinates in ``crs``.
+    """
+    minx, miny, maxx, maxy = (float(value) for value in bbox[:4])
+    if crs.lower() == WEB_MERCATOR.lower():
+        # Web Mercator has no y for the poles: the transform would give infinity.
+        miny = max(miny, -_MERCATOR_LATITUDE)
+        maxy = min(maxy, _MERCATOR_LATITUDE)
+    moved = transform_bbox([minx, miny, maxx, maxy], DEFAULT_CRS, crs, always_xy=True)
+    clipped = clip_bbox((moved[0], moved[1], moved[2], moved[3]), crs)
+    return list(clipped) if clipped is not None else None
+
+
 @jsonldify
 def describe_collections(
     api: API, request: APIRequest, dataset: str | None = None
@@ -133,7 +221,8 @@ def describe_collections(
                     "Error generating collection",
                 )
             continue
-        fcm["collections"].append(match_items_to_providers(api, request, name, collection))
+        collection = match_items_to_providers(api, request, name, collection)
+        fcm["collections"].append(describe_native_map(api, name, collection))
 
     if dataset is not None:
         fcm = fcm["collections"][0]

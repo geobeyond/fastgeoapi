@@ -42,7 +42,7 @@ jobs:
       # carries the catalogue of published conformance classes, and
       # records each expectation with the clause and the verb behind it.
       - name: Install ogcapi-registry
-        run: uv add ogcapi-registry==0.4.0
+        run: uv add ogcapi-registry==0.6.1
 
       - name: Validate OGC API Server
         id: ogcapi-validate

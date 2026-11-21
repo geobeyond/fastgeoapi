@@ -142,6 +142,36 @@ def test_a_view_zoom_left_to_a_placeholder_is_fine_in_the_source():
     assert outcome.ok, outcome.problems
 
 
+def _with_map_queue(tmp_path, queue) -> str:
+    from tests.maps_fixtures import map_provider
+    from tests.pmtiles_fixtures import TILE_BYTES, write_archive
+    from tests.test_tiles_async_route import _collection
+
+    archive = write_archive(tmp_path / "roads.pmtiles", {(0, 0, 0): TILE_BYTES(0, 0, 0)})
+    document = yaml.safe_load(SOURCE)
+    document["resources"]["roads"] = _collection("Roads", [map_provider(archive, queue=queue)])
+    return yaml.safe_dump(document, sort_keys=False)
+
+
+def test_a_map_option_left_to_a_placeholder_is_fine_in_the_source_and_resolved(
+    monkeypatch, tmp_path
+):
+    """A native map provider is built to check it, so it must not see ``${VAR}``."""
+    text = _with_map_queue(tmp_path, "${MAP_QUEUE}")
+    monkeypatch.setenv("PORT", "5000")
+    monkeypatch.setenv("MAP_QUEUE", "4")
+
+    for outcome in (validate_source(text), validate_effective(text)):
+        assert outcome.ok, outcome.problems
+
+
+def test_a_map_provider_that_cannot_be_built_is_a_problem(tmp_path):
+    outcome = validate_source(_with_map_queue(tmp_path, "many"))
+
+    assert not outcome.ok
+    assert any("resources.roads.providers.0" in p for p in outcome.problems), outcome.problems
+
+
 def test_validation_problems_are_those_of_the_first_failing_check(monkeypatch):
     """The editor's save rule, for the commands that write a document."""
     monkeypatch.setenv("PORT", "5000")

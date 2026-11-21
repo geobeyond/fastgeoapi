@@ -15,15 +15,16 @@ from __future__ import annotations
 import importlib
 import json
 import math
-from collections.abc import Callable, Iterator, Mapping
-from datetime import timedelta
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from datetime import datetime, timedelta
 from http import HTTPStatus
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 from pygeoapi.provider.base import ProviderGenericError, ProviderItemNotFoundError
 
 from app.config.logging import create_logger
+from app.interfaces.providers import NotRenderedMap, RenderedMap
 from app.maps.camera import HALF_WORLD
 from app.maps.contract import (
     MapRenderer,
@@ -38,23 +39,12 @@ from app.maps.sources import ObjectUrl, SourceFormat, source_for
 from app.provider.dem import check_dem
 from app.provider.storage import cache as range_caches
 from app.provider.storage import load_store, split_source
+from app.schemas.temporal import TimeInterval, parse_ogc_datetime
 
 logger = create_logger("app.provider.maps")
 
 WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
 """The only CRS maps are drawn in."""
-
-_MAPS = "http://www.opengis.net/spec/ogcapi-maps-1/1.0/conf"
-
-MAPS_CONFORMANCE: tuple[str, ...] = (
-    f"{_MAPS}/core",
-    f"{_MAPS}/collection-map",
-    f"{_MAPS}/png",
-    f"{_MAPS}/scaling",
-    f"{_MAPS}/spatial-subsetting",
-    f"{_MAPS}/background",
-)
-"""The OGC API Maps classes a provider built from these parts passes."""
 
 
 class _MapError(ProviderGenericError):
@@ -83,14 +73,52 @@ class MapTooLargeError(MapParameterError):
     default_msg = "the map is larger than this server draws"
 
 
+class MapStyleNotFoundError(MapParameterError):
+    """A ``{styleId}`` the provider does not declare among its styles."""
+
+    ogc_exception_code = "NotFound"
+    http_status_code = HTTPStatus.NOT_FOUND
+    default_msg = "style not found"
+
+
+def parse_map_datetime(value: str) -> datetime | TimeInterval:
+    """Parse the ``datetime`` of a map request into UTC datetimes.
+
+    Parameters
+    ----------
+    value
+        The ``datetime`` parameter (/req/datetime/datetime-definition).
+
+    Returns
+    -------
+    datetime or TimeInterval
+        The instant, or the start and the end of the interval, in UTC.
+
+    Raises
+    ------
+    MapParameterError
+        The value is not an instant or an interval of them; the route
+        answers 400.
+    """
+    try:
+        return parse_ogc_datetime(value)
+    except ValueError as error:
+        raise MapParameterError(user_msg=str(error)) from None
+
+
+BUSY_RETRY_AFTER_SECONDS = 5
+"""When a client should ask again for a map refused by a full queue.
+
+A warm map takes well under a second, the first map of a small area from
+2 to 9 seconds.
+"""
+
+
 class MapRendererBusyError(_MapError):
     """Too many maps are already waiting for the renderer."""
 
     http_status_code = HTTPStatus.SERVICE_UNAVAILABLE
     default_msg = "the map renderer is busy, retry later"
-    # Seconds for the Retry-After header: a warm map takes well under one, the
-    # first map of a small area from 2 to 9.
-    retry_after = 5
 
 
 class MapRenderTimeoutError(_MapError):
@@ -149,7 +177,7 @@ def check_definition(provider_def: dict, options: dict[str, Any]) -> SourceForma
     return source_format
 
 
-def object_url(
+def build_object_url(
     data: str, *, public_url: str | None, sign: Callable[[timedelta], str], ttl: timedelta
 ) -> ObjectUrl:
     """The URL of the data object for a renderer: public, local, or signed by ``sign``."""
@@ -160,14 +188,14 @@ def object_url(
     if not is_bucket(data):
         return ObjectUrl(local_path=Path(data.removeprefix("file://")))
 
-    def signer(expires_in: timedelta) -> str:
+    def sign_url(expires_in: timedelta) -> str:
         try:
             return sign(expires_in)
         except Exception as error:
             logger.warning(f"could not sign the data URL: {type(error).__name__}")
             raise ProviderGenericError(user_msg="the data URL could not be signed") from None
 
-    return ObjectUrl(signer=signer, ttl=ttl)
+    return ObjectUrl(signer=sign_url, ttl=ttl)
 
 
 def read_style(location: str, store_options: dict | None) -> dict:
@@ -263,7 +291,7 @@ def build_styles(
     return factory(source, documents, options)
 
 
-def _flag(value: Any) -> bool:
+def _parse_flag(value: Any) -> bool:
     if isinstance(value, str):
         return value.strip().lower() not in ("false", "0", "no")
     return bool(value)
@@ -275,12 +303,12 @@ def _clamp(value: float) -> float:
     return max(-HALF_WORLD, min(HALF_WORLD, value))
 
 
-def map_request(
+def build_map_request(
     style_for: Callable[[str | None, bool], Any],
     *,
     max_size: int,
     style: str | None = None,
-    bbox: list[float] | None = None,
+    bbox: Sequence[float] | None = None,
     width: int = 500,
     height: int = 300,
     crs: str | None = None,
@@ -304,7 +332,7 @@ def map_request(
         raise MapParameterError(user_msg="width and height must be at least 1")
     if int(width) > max_size or int(height) > max_size:
         raise MapTooLargeError(user_msg=f"width and height must be at most {max_size}")
-    transparent = _flag(transparent)
+    transparent = _parse_flag(transparent)
     try:
         chosen = style_for(style, transparent)
     except KeyError as error:
@@ -334,13 +362,68 @@ def map_request(
         raise MapParameterError(user_msg=str(error)) from error
 
 
-async def draw_map(queue: RenderQueue, request: MapRequest) -> bytes:
-    """The PNG of ``request`` from ``queue``, with its outcomes as pygeoapi errors."""
+async def draw_map(
+    queue: RenderQueue, request: MapRequest, *, version: str | None
+) -> RenderedMap | NotRenderedMap:
+    """Draw ``request`` in ``queue``, or tell why the queue cannot draw it now.
+
+    Parameters
+    ----------
+    queue
+        The queue of the provider's renderer.
+    request
+        The map to draw.
+    version
+        The version of the map ``request`` draws, or None when it is unknown.
+
+    Returns
+    -------
+    RenderedMap or NotRenderedMap
+        The image as the renderer encodes it, with ``version``; or a 503
+        when the queue is full, and a 504 when the render runs out of time.
+
+    Raises
+    ------
+    ProviderGenericError
+        When the renderer fails; the route answers 500.
+    """
     try:
-        return await queue.draw(request)
+        image = await queue.draw(request)
     except QueueFullError:
-        raise MapRendererBusyError() from None
+        return NotRenderedMap(
+            status=MapRendererBusyError.http_status_code,
+            message=MapRendererBusyError.default_msg,
+            retry_after=BUSY_RETRY_AFTER_SECONDS,
+        )
     except DrawTimeoutError:
-        raise MapRenderTimeoutError() from None
+        return NotRenderedMap(
+            status=MapRenderTimeoutError.http_status_code,
+            message=MapRenderTimeoutError.default_msg,
+            retry_after=None,
+        )
     except RenderError:
         raise ProviderGenericError(user_msg="the map renderer failed") from None
+    return RenderedMap(content=image, version=version)
+
+
+def raise_not_rendered_map(not_rendered: NotRenderedMap) -> NoReturn:
+    """Raise the error pygeoapi answers with the status of ``not_rendered``.
+
+    pygeoapi's synchronous route expects the provider to raise, and turns
+    the error into its answer.
+
+    Parameters
+    ----------
+    not_rendered
+        Why the map was not drawn.
+
+    Raises
+    ------
+    MapRendererBusyError
+        For a 503.
+    MapRenderTimeoutError
+        For any other status.
+    """
+    if not_rendered.status == HTTPStatus.SERVICE_UNAVAILABLE:
+        raise MapRendererBusyError(user_msg=not_rendered.message)
+    raise MapRenderTimeoutError(user_msg=not_rendered.message)
