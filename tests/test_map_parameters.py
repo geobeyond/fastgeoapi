@@ -11,7 +11,7 @@ from pygeoapi.api import APIRequest
 from starlette.requests import Request
 
 from app.interfaces.providers import MapCapabilities, MapLimits
-from app.provider.maps import MapParameterError, MapTooLargeError
+from app.provider.maps import MapParameterError, MapStyleNotFoundError, MapTooLargeError
 from app.pygeoapi.api_async.map_parameters import (
     clip_bbox,
     format_content_datetime,
@@ -23,11 +23,11 @@ CRS84 = "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
 WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
 EDGE = 20037508.342789244
 LIMITS = MapLimits(2048, 2048, None)
-CAPABILITIES = MapCapabilities(crs=(WEB_MERCATOR,), formats=("png",))
+CAPABILITIES = MapCapabilities(crs=(WEB_MERCATOR,), formats=("png",), styles=("night",))
 EXTENTS = {"spatial": {"bbox": [-180, -90, 180, 90], "crs": CRS84}}
 
 
-def _parse(limits=LIMITS, extents=EXTENTS, **params):
+def _parse(limits=LIMITS, extents=EXTENTS, style=None, **params):
     scope = {
         "type": "http",
         "method": "GET",
@@ -37,8 +37,19 @@ def _parse(limits=LIMITS, extents=EXTENTS, **params):
     }
     request = APIRequest(Request(scope), ["en-US"])
     return parse_map_parameters(
-        request, {"storage_crs": WEB_MERCATOR}, extents, limits, CAPABILITIES, None
+        request, {"storage_crs": WEB_MERCATOR}, extents, limits, CAPABILITIES, style
     )
+
+
+def test_a_style_the_provider_does_not_draw_is_not_found():
+    with pytest.raises(MapStyleNotFoundError) as error:
+        _parse(style="day")
+
+    assert error.value.http_status_code == 404
+
+
+def test_a_style_the_provider_draws_reaches_it():
+    assert _parse(style="night").style == "night"
 
 
 @pytest.mark.parametrize("value", ["0", "-3", "1.5", "wide"])

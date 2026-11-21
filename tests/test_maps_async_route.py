@@ -448,3 +448,110 @@ async def test_a_server_error_keeps_its_traceback(tmp_path, caplog):
 
     assert failed["status"] == 500
     assert [record for record in caplog.records if record.exc_info] != []
+
+
+def _cached_client(tmp_path):
+    """A client of one map collection with an HTTP cache, and the provider that serves it."""
+    import pygeoapi.plugin
+
+    from app.pygeoapi.api_async.caching import HttpCache
+    from app.pygeoapi.factory import build_openapi, build_pygeoapi_subapp
+
+    archive = write_archive(
+        tmp_path / "cached.pmtiles",
+        {(0, 0, 0): TILE_BYTES(0, 0, 0)},
+        metadata={"name": "cached", "vector_layers": [{"id": "roads"}]},
+    )
+    definition = map_provider(archive)
+    config = _config({"cached": _collection("Cached", [definition])})
+    policy = HttpCache(max_age=300, protected=False, code="test")
+    app = build_pygeoapi_subapp(config, build_openapi(config), http_cache=policy)
+    provider = pygeoapi.plugin.load_plugin("provider", definition)
+    return TestClient(app, raise_server_exceptions=False), provider
+
+
+CACHED_MAP = "/collections/cached/map"
+SMALL = {"width": 16, "height": 16}
+
+
+def test_a_style_the_provider_does_not_declare_is_not_drawn(tmp_path):
+    client, provider = _cached_client(tmp_path)
+
+    with patch.object(provider, "arender_map", wraps=provider.arender_map) as drawn:
+        response = client.get("/collections/cached/styles/missing/map", params=SMALL)
+
+    assert response.status_code == 404, response.text[:200]
+    drawn.assert_not_called()
+
+
+def test_a_drawn_map_asks_its_version_once(tmp_path):
+    client, provider = _cached_client(tmp_path)
+
+    with patch.object(provider, "aget_version", wraps=provider.aget_version) as asked:
+        response = client.get(CACHED_MAP, params=SMALL)
+
+    assert response.status_code == 200, response.text[:200]
+    assert "etag" in response.headers
+    assert asked.call_count == 1
+
+
+def test_the_etag_names_the_version_the_map_was_drawn_from(tmp_path):
+    from app.interfaces.providers import RenderedMap
+
+    client, provider = _cached_client(tmp_path)
+
+    async def version(parameters, value="before"):
+        return value
+
+    async def draw(parameters):
+        return RenderedMap(content=tiny_png(16, 16), version="after")
+
+    with patch.object(provider, "aget_version", side_effect=version):
+        with patch.object(provider, "arender_map", side_effect=draw):
+            etag = client.get(CACHED_MAP, params=SMALL).headers["etag"]
+        before = client.get(CACHED_MAP, params=SMALL, headers={"If-None-Match": etag})
+
+    async def drawn_version(parameters):
+        return "after"
+
+    with patch.object(provider, "aget_version", side_effect=drawn_version):
+        after = client.get(CACHED_MAP, params=SMALL, headers={"If-None-Match": etag})
+
+    assert before.status_code == 200
+    assert after.status_code == 304
+
+
+def test_a_map_drawn_from_an_unknown_version_has_no_cache_headers(tmp_path):
+    from app.interfaces.providers import RenderedMap
+
+    client, provider = _cached_client(tmp_path)
+
+    async def draw(parameters):
+        return RenderedMap(content=tiny_png(16, 16), version=None)
+
+    with patch.object(provider, "arender_map", side_effect=draw):
+        response = client.get(CACHED_MAP, params=SMALL)
+
+    assert response.status_code == 200, response.text[:200]
+    assert "etag" not in response.headers
+
+
+def test_a_map_not_drawn_answers_its_status_without_retry_after(tmp_path):
+    from http import HTTPStatus
+
+    from app.interfaces.providers import NotRenderedMap
+
+    client, provider = _cached_client(tmp_path)
+
+    async def late(parameters):
+        return NotRenderedMap(
+            status=HTTPStatus.GATEWAY_TIMEOUT, message="the map took too long", retry_after=None
+        )
+
+    with patch.object(provider, "arender_map", side_effect=late):
+        response = client.get(CACHED_MAP, params=SMALL)
+
+    assert response.status_code == 504
+    assert "the map took too long" in response.text
+    assert "retry-after" not in response.headers
+    assert "etag" not in response.headers

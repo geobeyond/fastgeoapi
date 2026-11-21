@@ -8,7 +8,7 @@ on the event loop, and answers with the statuses and headers of
 from __future__ import annotations
 
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, assert_never
 
 from pygeoapi import plugin as pygeoapi_plugin
 from pygeoapi.api import API, APIRequest
@@ -21,11 +21,12 @@ from pygeoapi.provider.base import (
 )
 from pygeoapi.util import filter_dict_by_key_value, get_from_headers
 
-from app.interfaces.providers import AsyncMapProvider, MapFormat
+from app.interfaces.providers import AsyncMapProvider, MapFormat, NotRenderedMap, RenderedMap
 from app.provider.maps import MapParameterError
 from app.pygeoapi.api_async.caching import (
     HttpCache,
     answer_not_modified,
+    build_cache_headers,
     get_cache_headers,
     is_not_modified,
 )
@@ -79,10 +80,9 @@ async def get_collection_map(
     """Answer one map request, awaiting the provider.
 
     With a cache policy, a provider that knows its version gives the map an
-    ``ETag``, and a request that names it gets a 304 without a draw. The
-    version is read again after the draw, and a map whose version changed
-    meanwhile goes without cache headers. The map is held to the smaller of
-    the server's limits and the provider's.
+    ``ETag``, and a request that names it gets a 304 without a draw. A drawn
+    map gets the ``ETag`` of the version the provider drew it from. The map
+    is held to the smaller of the server's limits and the provider's.
 
     Parameters
     ----------
@@ -109,8 +109,10 @@ async def get_collection_map(
     -------
     tuple of (dict, int, Any)
         The headers, the status and the content: 400 for a parameter the
-        route cannot read or the provider does not draw, 413 above the
-        limits, 204 for a bbox entirely outside the CRS of the map.
+        route cannot read or the provider does not draw, 404 for a style the
+        provider does not declare, 413 above the limits, 204 for a bbox
+        entirely outside the CRS of the map, and the status of a map the
+        provider cannot draw now.
     """
     headers = request.get_response_headers(**api.api_headers)
     limits = clamp_provider_map_limits(provider.limits, *get_server_map_limits(settings))
@@ -142,7 +144,7 @@ async def get_collection_map(
         return answer_not_modified(headers, cached)
 
     try:
-        data = await provider.arender_map(parameters)
+        drawn = await provider.arender_map(parameters)
     except (ProviderGenericError, ProviderInvalidDataError) as error:
         if not _is_expected(error):
             # Inside the except block pygeoapi logs the traceback, which a
@@ -153,13 +155,13 @@ async def get_collection_map(
         failed = None
     if failed is not None:
         return _answer_error(api, request, headers, failed)
-    if cached:
-        # The data may change while the map is drawn. An ETag must name the
-        # version the map was drawn from, so a map whose version moved goes
-        # without cache headers.
-        after = await get_cache_headers(http_cache, provider, dataset, "map", parameters, headers)
-        if after.get("ETag") != cached["ETag"]:
-            cached = {}
+    match drawn:
+        case NotRenderedMap():
+            return _answer_not_rendered(api, request, headers, drawn)
+        case RenderedMap():
+            pass
+        case _:
+            assert_never(drawn)
 
     headers["Content-Crs"] = parameters.crs
     headers["Content-Bbox"] = ",".join(map(str, parameters.bbox))
@@ -167,8 +169,10 @@ async def get_collection_map(
     if datetime_ is not None:
         headers["Content-Datetime"] = datetime_
     headers["Content-Type"] = media_type
-    headers.update(cached)
-    return headers, HTTPStatus.OK, data
+    headers.update(
+        build_cache_headers(http_cache, drawn.version, dataset, "map", parameters, headers)
+    )
+    return headers, HTTPStatus.OK, drawn.content
 
 
 def _is_expected(error: ProviderGenericError | ProviderInvalidDataError) -> bool:
@@ -196,10 +200,24 @@ def _answer_error(
     error: ProviderGenericError | ProviderInvalidDataError,
 ) -> tuple[dict, int, Any]:
     headers["Content-Type"] = FORMAT_TYPES[F_JSON]
-    # An error may say when to try again, as a full queue does.
-    retry_after = getattr(error, "retry_after", None)
-    if retry_after is not None:
-        headers["Retry-After"] = str(retry_after)
     return api.get_exception(
         error.http_status_code, headers, request.format, error.ogc_exception_code, error.message
+    )
+
+
+def _answer_not_rendered(
+    api: API,
+    request: APIRequest,
+    headers: dict,
+    not_rendered: NotRenderedMap,
+) -> tuple[dict, int, Any]:
+    headers["Content-Type"] = FORMAT_TYPES[F_JSON]
+    if not_rendered.retry_after is not None:
+        headers["Retry-After"] = str(not_rendered.retry_after)
+    return api.get_exception(
+        not_rendered.status,
+        headers,
+        request.format,
+        ProviderGenericError.ogc_exception_code,
+        not_rendered.message,
     )

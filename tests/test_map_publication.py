@@ -130,7 +130,7 @@ def test_the_default_crs_is_the_storage_crs_or_the_first_one():
     from app.interfaces.providers import MapCapabilities
     from app.pygeoapi.map_limits import choose_default_map_crs
 
-    capabilities = MapCapabilities(crs=(WEB_MERCATOR, CRS84), formats=("png",))
+    capabilities = MapCapabilities(crs=(WEB_MERCATOR, CRS84), formats=("png",), styles=())
 
     assert choose_default_map_crs({"storage_crs": CRS84}, capabilities) == CRS84
     assert choose_default_map_crs({"storage_crs": CRS84.lower()}, capabilities) == CRS84

@@ -8,6 +8,7 @@ its members, whether or not it inherits from fastgeoapi's mixin.
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+from http import HTTPStatus
 from typing import Any, ClassVar, Protocol, runtime_checkable
 
 from app.interfaces.ogc import MAPS_CONFORMANCE_PREFIX
@@ -119,7 +120,7 @@ class MapFormat(StrEnum):
 
 @dataclass(frozen=True)
 class MapCapabilities:
-    """The map provider's capabilities as defined by CRSs and the formats of the map.
+    """The map provider's capabilities: its CRSs, its encodings and its styles.
 
     Attributes
     ----------
@@ -130,10 +131,15 @@ class MapCapabilities:
         ``storage_crs`` is not among them (/req/crs/crs-definition).
     formats
         The encodings; each one declares its conformance class.
+    styles
+        The names of the styles the provider draws. A ``{styleId}`` that is
+        not among them is answered with 404 before the map is drawn
+        (/req/styled-map/map-operation).
     """
 
     crs: tuple[str, ...]
     formats: tuple[MapFormat, ...]
+    styles: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -187,6 +193,55 @@ class MapParameters:
     subsets: dict[str, list[Any]] | None
 
 
+@dataclass(frozen=True)
+class RenderedMap:
+    """A map the provider drew.
+
+    Attributes
+    ----------
+    content
+        The image, encoded as ``parameters.format_`` (/req/core/map-response).
+    version
+        The version of the map as drawn, the value ``aget_version`` returns
+        for the same parameters when nothing changes in between; the route
+        builds the ``ETag`` from it.
+        None when the version is unknown, and the map goes without cache
+        headers.
+    """
+
+    content: bytes
+    version: str | None
+
+
+@dataclass(frozen=True)
+class NotRenderedMap:
+    """A map the provider did not draw because the server is busy for now.
+
+    The provider returns this value for a condition that clears by itself:
+    a full render queue, or a render that ran out of time. The same request
+    may succeed later, so the route answers with ``status`` and logs no
+    traceback.
+
+    A fault of the engine is raised as an exception instead, as pygeoapi's
+    providers do, and the route answers 500 and logs its traceback.
+
+    Attributes
+    ----------
+    status
+        The status of the answer: 503 for a full queue, 504 for a render
+        that ran out of time.
+    message
+        What the client reads in the error.
+    retry_after
+        Seconds before the client should try again, sent as ``Retry-After``;
+        None to send no header.
+    """
+
+    status: HTTPStatus
+    message: str
+    retry_after: int | None
+
+
 @runtime_checkable
 class AsyncMapProvider(Protocol):
     """The contract with members of a native map provider.
@@ -210,11 +265,15 @@ class AsyncMapProvider(Protocol):
 
     @property
     def capabilities(self) -> MapCapabilities:
-        """The CRSs and the encodings used to draw the maps."""
+        """The CRSs, the encodings and the styles used to draw the maps."""
         ...
 
-    async def arender_map(self, parameters: MapParameters) -> bytes:
-        """Draw the map and return the image, encoded as ``parameters.format_``.
+    async def arender_map(self, parameters: MapParameters) -> RenderedMap | NotRenderedMap:
+        """Draw the map, or tell why the server cannot draw it now.
+
+        The map covers exactly ``parameters.bbox`` in ``parameters.crs``:
+        the route declares both in ``Content-Bbox`` and ``Content-Crs``.
+        ``parameters.style`` is None or one of ``capabilities.styles``.
 
         Parameters
         ----------
@@ -223,15 +282,15 @@ class AsyncMapProvider(Protocol):
 
         Returns
         -------
-        bytes
-            The encoded image.
+        RenderedMap or NotRenderedMap
+            The encoded image and the version it was drawn from, or the
+            reason the server cannot draw it now.
 
         Raises
         ------
-        ProviderItemNotFoundError
-            For a ``style`` the provider does not know; the route answers 404.
         ProviderGenericError
-            When the engine fails; the route answers 500.
+            When the engine fails; the route answers 500 and logs the
+            traceback.
         """
         ...
 

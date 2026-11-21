@@ -322,10 +322,11 @@ def test_only_a_drawn_map_gets_cache_headers(maps):
 def test_a_version_that_cannot_be_known_lets_the_map_through(maps, monkeypatch):
     live = importlib.import_module("app.provider.maplibre").MapLibreMapProvider
 
-    async def unreachable(self, parameters):
+    async def unreachable(self, *args):
         raise OSError("the store is unreachable")
 
     monkeypatch.setattr(live, "aget_version", unreachable)
+    monkeypatch.setattr(live, "adata_version", unreachable)
     r = _map(maps)
 
     assert r.status_code == 200
