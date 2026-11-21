@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import math
 from copy import deepcopy
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Any
 
@@ -66,6 +67,29 @@ vendor parameters.
 """
 
 
+@dataclass(frozen=True)
+class MapOutsideCrs:
+    """A map whose bbox lies entirely outside the bounds of its CRS.
+
+    ``parse_map_parameters`` returns it instead of ``MapParameters``, as
+    the second variant of a typed result: the caller matches on the type,
+    and the type checker makes it handle both. The route answers 204
+    without calling the provider; /req/spatial-subsetting asks for 204 or
+    404 when the values fall entirely outside the valid range of an axis.
+
+    Attributes
+    ----------
+    bbox
+        ``(xmin, ymin, xmax, ymax)`` the client asked for, moved into
+        ``crs`` and not clipped.
+    crs
+        The URI of the CRS of the map.
+    """
+
+    bbox: tuple[float, float, float, float]
+    crs: str
+
+
 def clip_bbox(
     bbox: tuple[float, float, float, float], crs: str
 ) -> tuple[float, float, float, float] | None:
@@ -115,7 +139,7 @@ def parse_map_parameters(
     limits: MapLimits,
     capabilities: MapCapabilities,
     style: str | None,
-) -> MapParameters | None:
+) -> MapParameters | MapOutsideCrs:
     """Check the parameters of a map request against what the collection draws.
 
     Parameters
@@ -135,9 +159,9 @@ def parse_map_parameters(
 
     Returns
     -------
-    MapParameters or None
-        The parameters of the map, or None when the bbox lies entirely
-        outside the CRS of the map.
+    MapParameters or MapOutsideCrs
+        The parameters of the map, or ``MapOutsideCrs`` when the bbox lies
+        entirely outside the bounds of the CRS of the map.
 
     Raises
     ------
@@ -193,7 +217,7 @@ def parse_map_parameters(
         bbox = (moved[0], moved[1], moved[2], moved[3])
     clipped = clip_bbox(bbox, crs)
     if clipped is None:
-        return None
+        return MapOutsideCrs(bbox=bbox, crs=crs)
 
     try:
         processed_datetime = maps_api.validate_datetime(extents, params.get("datetime"))
