@@ -29,6 +29,13 @@ from app.html.views import (
     parameter_row,
     provider_kinds,
 )
+from app.interfaces.ogc import (
+    OGC_REL_COVERAGE,
+    OGC_REL_PREFIX,
+    OGC_REL_QUERYABLES,
+    OGC_REL_SCHEMA,
+    OGC_REL_TILING_SCHEME,
+)
 from app.provider.tile_styles import tile_styles
 from app.tiles.contract import TileContent
 
@@ -39,8 +46,6 @@ MAP_ISLAND = ("pages/map.ts",)
 
 WEB_MERCATOR = "WebMercatorQuad"
 """The tile matrix set a MapLibre map draws."""
-
-REL = "http://www.opengis.net/def/rel/ogc/1.0/"
 
 
 def provider_of(resource: dict[str, Any], kind: str) -> dict[str, Any] | None:
@@ -168,12 +173,12 @@ def _sections(
     rels = {link.get("rel", "") for link in document.get("links", [])}
     offered = [
         ("items", f"{url}/items?f=html", _("Items")),
-        (f"{REL}queryables", f"{url}/queryables?f=html", _("Queryables")),
-        (f"{REL}schema", f"{url}/schema?f=html", _("Schema")),
-        (f"{REL}coverage", f"{url}/coverage?f=html", _("Coverage")),
+        (OGC_REL_QUERYABLES, f"{url}/queryables?f=html", _("Queryables")),
+        (OGC_REL_SCHEMA, f"{url}/schema?f=html", _("Schema")),
+        (OGC_REL_COVERAGE, f"{url}/coverage?f=html", _("Coverage")),
     ]
     sections = [{"label": label, "href": href} for rel, href, label in offered if rel in rels]
-    if any(rel.startswith(f"{REL}tilesets-") for rel in rels):
+    if any(rel.startswith(f"{OGC_REL_PREFIX}tilesets-") for rel in rels):
         sections.append({"label": _("Tilesets"), "href": f"{url}/tiles?f=html"})
     sections += [
         {"label": edr_label(name, _), "href": f"{url}/{name}?f=html"}
@@ -241,9 +246,6 @@ def collection(context: PageContext) -> dict[str, Any]:
     }
 
 
-TILING_SCHEME = f"{REL}tiling-scheme"
-
-
 def collection_only(params: dict[str, str]) -> dict[str, str]:
     """The path parameters of the collection, without the EDR instance its path may carry.
 
@@ -300,7 +302,9 @@ def tileset(context: PageContext) -> dict[str, Any]:
     base = base_url(context)
     links = document.get("links", [])
     template = next((link["href"] for link in links if link.get("rel") == "item"), None)
-    scheme = next((link["href"] for link in links if link.get("rel") == TILING_SCHEME), None)
+    scheme = next(
+        (link["href"] for link in links if link.get("rel") == OGC_REL_TILING_SCHEME), None
+    )
     crs = document.get("crs")
     crs = crs.get("uri") if isinstance(crs, dict) else crs
     tilejson = f"{base}/collections/{collection_id}/tiles/{tms}/metadata?f=tilejson"

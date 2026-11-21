@@ -13,13 +13,16 @@ from pygeoapi.formats import F_HTML, F_JSONLD
 from pygeoapi.linked_data import jsonldify, jsonldify_collection
 
 from app.html.pages import PageContext, with_query
+from app.interfaces.ogc import (
+    OGC_REL_EXECUTE,
+    OGC_REL_JOB_LIST,
+    OGC_REL_PROCESSES,
+    OGC_REL_TILING_SCHEMES,
+)
 from app.pygeoapi.registry import active_specs
 
 Gettext = Callable[[str], str]
 
-PROCESSES = "http://www.opengis.net/def/rel/ogc/1.0/processes"
-JOB_LIST = "http://www.opengis.net/def/rel/ogc/1.0/job-list"
-TILING_SCHEMES = "http://www.opengis.net/def/rel/ogc/1.0/tiling-schemes"
 
 DESCRIPTION_LENGTH = 180
 """How much of a description a card shows."""
@@ -208,9 +211,9 @@ def landing(context: PageContext) -> dict[str, Any]:
     sections = [("data", _("Collections")), ("stac", _("SpatioTemporal Asset Catalog"))]
     # Processes and jobs have routes only when a process is configured.
     if "processes" in specs:
-        sections += [(PROCESSES, _("Processes")), (JOB_LIST, _("Jobs"))]
+        sections += [(OGC_REL_PROCESSES, _("Processes")), (OGC_REL_JOB_LIST, _("Jobs"))]
     if "tiles" in specs:
-        sections.append((TILING_SCHEMES, _("Tile matrix sets")))
+        sections.append((OGC_REL_TILING_SCHEMES, _("Tile matrix sets")))
     sections += [("service-doc", _("API documentation")), ("conformance", _("Conformance"))]
     definition = []
     if hrefs.get("service-doc"):
@@ -444,9 +447,6 @@ def openapi(context: PageContext) -> dict[str, Any]:
     }
 
 
-EXECUTE = "http://www.opengis.net/def/rel/ogc/1.0/execute"
-
-
 def processes(context: PageContext) -> dict[str, Any]:
     """The processes as cards, with the way to their jobs."""
     _ = context.gettext
@@ -494,7 +494,7 @@ def process(context: PageContext) -> dict[str, Any]:
         "dismiss": _("can be dismissed"),
     }
     execute = next(
-        (link["href"] for link in document.get("links", []) if link.get("rel") == EXECUTE),
+        (link["href"] for link in document.get("links", []) if link.get("rel") == OGC_REL_EXECUTE),
         f"{base}/processes/{document['id']}/execution",
     )
     facts = [

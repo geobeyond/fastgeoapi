@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlsplit
 
-from app.html.collection import REL, collection_crumbs, edr_label, preview
+from app.html.collection import collection_crumbs, edr_label, preview
 from app.html.features import feature_name
 from app.html.maps import (
     basemap,
@@ -18,6 +18,7 @@ from app.html.maps import (
 from app.html.pages import PageContext, Related
 from app.html.parameters import Field, parameter_of
 from app.html.views import Gettext, base_url, html_link, json_links, parameter_row
+from app.interfaces.ogc import OGC_REL_COVERAGE
 
 THE_SCHEMA = Related("schema", "/collections/{collection_id:path}/schema")
 """The schema of the collection a page belongs to."""
@@ -69,7 +70,7 @@ def coverage(context: PageContext) -> dict[str, Any]:
     ]
     downloads = []
     for link in described.get("links", []):
-        if link.get("rel") != f"{REL}coverage" or link.get("type") in (None, "text/html"):
+        if link.get("rel") != OGC_REL_COVERAGE or link.get("type") in (None, "text/html"):
             continue
         format_ = parse_qs(urlsplit(link["href"]).query).get("f", [""])[0]
         downloads.append(

@@ -25,6 +25,7 @@ from pygeoapi.provider.base import ProviderGenericError
 from pygeoapi.provider.tile import BaseTileProvider, ProviderTileNotFoundError
 from pygeoapi.util import url_join
 
+from app.interfaces.ogc import OGC_REL_TILING_SCHEME
 from app.provider.base import AsyncProviderMixin, StorageBackedMixin
 from app.provider.dem import check_dem
 from app.provider.storage import SingleFlightRanges
@@ -293,7 +294,7 @@ class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
             LinkType(
                 **{
                     "href": url_join(server_url, f"/TileMatrixSets/{scheme.tileMatrixSet}"),
-                    "rel": "http://www.opengis.net/def/rel/ogc/1.0/tiling-scheme",
+                    "rel": OGC_REL_TILING_SCHEME,
                     "type": "application/json",
                     "title": f"{scheme.tileMatrixSet} tile matrix set definition",
                 }
