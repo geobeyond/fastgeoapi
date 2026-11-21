@@ -555,3 +555,80 @@ def test_a_map_not_drawn_answers_its_status_without_retry_after(tmp_path):
     assert "the map took too long" in response.text
     assert "retry-after" not in response.headers
     assert "etag" not in response.headers
+
+
+def _draw_with_extra_headers(extra_headers, version=None):
+    from app.interfaces.providers import RenderedMap
+
+    async def draw(parameters):
+        return RenderedMap(content=tiny_png(16, 16), version=version, extra_headers=extra_headers)
+
+    return draw
+
+
+def test_an_extra_header_of_the_provider_reaches_the_client(tmp_path):
+    client, provider = _cached_client(tmp_path)
+
+    with patch.object(
+        provider, "arender_map", side_effect=_draw_with_extra_headers({"X-Engine": "fake"})
+    ):
+        response = client.get(CACHED_MAP, params=SMALL)
+
+    assert response.status_code == 200, response.text[:200]
+    assert response.headers["x-engine"] == "fake"
+
+
+def test_the_route_keeps_its_own_headers_over_the_providers(tmp_path):
+    client, provider = _cached_client(tmp_path)
+    extra = {
+        "content-crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+        "Content-Type": "image/jpeg",
+    }
+
+    with patch.object(provider, "arender_map", side_effect=_draw_with_extra_headers(extra, "v1")):
+        response = client.get(CACHED_MAP, params=SMALL)
+
+    assert response.headers["content-crs"] == "http://www.opengis.net/def/crs/EPSG/0/3857"
+    assert response.headers["content-type"] == "image/png"
+
+
+def test_a_provider_cannot_make_an_unversioned_map_cacheable(tmp_path):
+    from app.pygeoapi.api_async import maps
+
+    client, provider = _cached_client(tmp_path)
+    extra = {"Cache-Control": "max-age=3600", "ETag": '"mine"', "Vary": "Accept-Language"}
+
+    with patch.object(maps, "logger") as logger:
+        with patch.object(provider, "arender_map", side_effect=_draw_with_extra_headers(extra)):
+            response = client.get(CACHED_MAP, params=SMALL)
+
+    assert response.status_code == 200, response.text[:200]
+    assert "cache-control" not in response.headers
+    assert "etag" not in response.headers
+    assert "accept-language" not in response.headers.get("vary", "").lower()
+    warned = " ".join(call.args[0] for call in logger.warning.call_args_list)
+    assert "Cache-Control" in warned
+    assert "cached" in warned
+
+
+def test_a_vendor_parameter_reaches_the_provider_and_the_etag(tmp_path):
+    client, provider = _cached_client(tmp_path)
+
+    with patch.object(provider, "arender_map", wraps=provider.arender_map) as drawn:
+        high = client.get(CACHED_MAP, params={**SMALL, "quality": "high"})
+    low = client.get(CACHED_MAP, params={**SMALL, "quality": "low"})
+
+    assert drawn.call_args.args[0].vendor_params == {"quality": "high"}
+    assert high.headers["etag"] != low.headers["etag"]
+
+
+def test_a_header_the_route_set_keeps_the_routes_value():
+    from app.pygeoapi.api_async import maps
+
+    headers = {"Content-Language": "en-US"}
+
+    with patch.object(maps, "logger") as logger:
+        maps.add_extra_headers(headers, {"content-language": "xx", "X-Engine": "fake"}, "roads")
+
+    assert headers == {"Content-Language": "en-US", "X-Engine": "fake"}
+    assert "content-language" in logger.warning.call_args.args[0]

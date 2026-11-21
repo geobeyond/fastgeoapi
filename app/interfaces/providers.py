@@ -5,7 +5,8 @@ any other provider is served by pygeoapi. A class matches a Protocol by
 its members, whether or not it inherits from fastgeoapi's mixin.
 """
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from http import HTTPStatus
@@ -180,6 +181,10 @@ class MapParameters:
         The values asked with ``subset``, parsed by additional dimension,
         as in ``{"h": [1, 5]}``; None without ``subset``
         (/req/general-subsetting/subset-definition).
+    vendor_params
+        The query parameters that OGC API - Maps does not define, by name,
+        as the client sent them; empty when there are none. The route does
+        not check them, and the ``ETag`` of the map depends on them.
     """
 
     style: str | None
@@ -191,6 +196,7 @@ class MapParameters:
     format_: str
     datetime_: datetime | TimeInterval | None
     subsets: dict[str, list[Any]] | None
+    vendor_params: Mapping[str, str]
 
 
 @dataclass(frozen=True)
@@ -207,10 +213,17 @@ class RenderedMap:
         builds the ``ETag`` from it.
         None when the version is unknown, and the map goes without cache
         headers.
+    extra_headers
+        Response headers of the provider's own, empty by default. The route
+        sends them unless it sets a header of the same name, or the header
+        describes the image or its caching (``Content-Type``,
+        ``Cache-Control``, ``ETag``, ``Vary`` and the like): those are
+        dropped, with a warning in the log.
     """
 
     content: bytes
     version: str | None
+    extra_headers: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

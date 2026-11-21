@@ -359,6 +359,7 @@ def read_pygeoapi_arguments(arguments: dict[str, Any]) -> MapParameters:
     takes the default of a map pygeoapi asks for without it. The
     ``datetime_`` pygeoapi passes as text is parsed as the map route
     parses it, and raises ``MapParameterError`` when it cannot be read.
+    pygeoapi passes no vendor parameters, so ``vendor_params`` is empty.
 
     Parameters
     ----------
@@ -382,4 +383,5 @@ def read_pygeoapi_arguments(arguments: dict[str, Any]) -> MapParameters:
         format_=arguments.get("format_", "png"),
         datetime_=None if processed_datetime is None else parse_map_datetime(processed_datetime),
         subsets=arguments.get("subsets"),
+        vendor_params={},
     )

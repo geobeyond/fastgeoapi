@@ -101,6 +101,16 @@ versions.
 The map covers exactly `parameters.bbox` in `parameters.crs`: the route
 declares both in `Content-Bbox` and `Content-Crs`.
 
+A `RenderedMap` may also carry `extra_headers`, response headers of the
+provider's own such as `X-Render-Time`. The route sends them after its own
+headers are set, and keeps its value for a name it has already set. It drops
+the headers that describe the image or its caching, whether or not it sets
+them for that map: `Content-Type`, `Content-Length`, `Content-Encoding`,
+`Content-Crs`, `Content-Bbox`, `Content-Datetime`, `Cache-Control`, `ETag`,
+`Expires`, `Last-Modified`, `Vary` and `Retry-After`. A 304 carries only what
+the route sets, and a map without a version must stay out of caches. Each
+header the route does not send is logged as a warning.
+
 `close()` must not block, and may be called more than once. The plugin cache
 calls it on the instances a reload drops, from the reloading thread, while the
 old sub-app may still be drawing with them. A provider that has to close
@@ -121,9 +131,11 @@ whose fields are:
 | `format_`         | One of `capabilities.formats`.                                                                                                                                     |
 | `datetime_`       | An instant as a `datetime`, or a `TimeInterval` whose open end is None, in UTC and checked against the temporal extent of the collection; None without `datetime`. |
 | `subsets`         | The `subset` values by additional dimension, or None.                                                                                                              |
+| `vendor_params`   | The query parameters OGC API - Maps does not define, by name, as the client sent them; empty when there are none. The route does not check them.                   |
 
 `bbox-crs` never reaches the provider. `aget_version` receives the same
-object as `arender_map`.
+object as `arender_map`. The `ETag` depends on `vendor_params`, so a provider
+that reads one only has to change the image; the version may stay the same.
 
 ## What it leaves to the route
 

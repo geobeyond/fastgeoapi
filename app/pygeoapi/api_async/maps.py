@@ -21,6 +21,7 @@ from pygeoapi.provider.base import (
 )
 from pygeoapi.util import filter_dict_by_key_value, get_from_headers
 
+from app.config.logging import create_logger
 from app.interfaces.providers import AsyncMapProvider, MapFormat, NotRenderedMap, RenderedMap
 from app.provider.maps import MapParameterError
 from app.pygeoapi.api_async.caching import (
@@ -34,7 +35,34 @@ from app.pygeoapi.api_async.map_parameters import format_content_datetime, parse
 from app.pygeoapi.map_limits import clamp_provider_map_limits, get_server_map_limits
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from app.config.app import DevConfig, ProdConfig
+
+logger = create_logger("app.pygeoapi.api_async.maps")
+
+RESERVED_MAP_HEADERS = frozenset(
+    {
+        "cache-control",
+        "content-bbox",
+        "content-crs",
+        "content-datetime",
+        "content-encoding",
+        "content-length",
+        "content-type",
+        "etag",
+        "expires",
+        "last-modified",
+        "retry-after",
+        "vary",
+    }
+)
+"""The headers of a map that only the route sets.
+
+They describe the image or its caching. A 304 repeats only what the route
+sets, and a map without a version must stay out of caches, so the route
+drops these names from the extra headers of a provider.
+"""
 
 
 def find_native_map_provider(api: API, dataset: str) -> tuple[dict, AsyncMapProvider] | None:
@@ -172,7 +200,33 @@ async def get_collection_map(
     headers.update(
         build_cache_headers(http_cache, drawn.version, dataset, "map", parameters, headers)
     )
+    add_extra_headers(headers, drawn.extra_headers, dataset)
     return headers, HTTPStatus.OK, drawn.content
+
+
+def add_extra_headers(headers: dict, extra_headers: Mapping[str, str], dataset: str) -> None:
+    """Add the extra headers of a provider to the headers of its map.
+
+    A header the route has already set keeps the route's value, and a name
+    in ``RESERVED_MAP_HEADERS`` is dropped; both are logged as a warning.
+
+    Parameters
+    ----------
+    headers
+        The headers of the response, completed by the route; changed in
+        place.
+    extra_headers
+        The extra headers of the drawn map.
+    dataset
+        The collection's name, for the warning.
+    """
+    taken = {name.lower() for name in headers}
+    for name, value in extra_headers.items():
+        lowered = name.lower()
+        if lowered in RESERVED_MAP_HEADERS or lowered in taken:
+            logger.warning(f"the map provider of {dataset} cannot set the {name} header")
+            continue
+        headers[name] = value
 
 
 def _is_expected(error: ProviderGenericError | ProviderInvalidDataError) -> bool:
