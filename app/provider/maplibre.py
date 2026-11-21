@@ -36,6 +36,7 @@ from app.maps.queue import RenderQueue
 from app.maps.sources import ObjectUrl, SourceContext
 from app.provider.base import AsyncProviderMixin, StorageBackedMixin
 from app.provider.maps import (
+    MapParameterError,
     StyleDocuments,
     build_map_request,
     build_object_url,
@@ -43,7 +44,6 @@ from app.provider.maps import (
     build_styles,
     check_definition,
     draw_map,
-    parse_map_datetime,
     raise_not_rendered_map,
     render_limit,
 )
@@ -53,6 +53,7 @@ from app.provider.storage.loopback import (
     RangeServer,
     ensure_range_server,
 )
+from app.schemas.temporal import parse_ogc_datetime
 
 logger = create_logger("app.provider.maplibre")
 
@@ -374,6 +375,10 @@ def read_pygeoapi_arguments(arguments: dict[str, Any]) -> MapParameters:
     """
     bbox = arguments.get("bbox")
     processed_datetime = arguments.get("datetime_")
+    try:
+        datetime_ = None if processed_datetime is None else parse_ogc_datetime(processed_datetime)
+    except ValueError as error:
+        raise MapParameterError(user_msg=str(error)) from None
     return MapParameters(
         style=arguments.get("style"),
         bbox=tuple(bbox) if bbox is not None else None,
@@ -382,7 +387,7 @@ def read_pygeoapi_arguments(arguments: dict[str, Any]) -> MapParameters:
         crs=arguments.get("crs"),
         transparent=arguments.get("transparent", True),
         format_=arguments.get("format_", "png"),
-        datetime_=None if processed_datetime is None else parse_map_datetime(processed_datetime),
+        datetime_=datetime_,
         subsets=arguments.get("subsets"),
         vendor_params={},
     )

@@ -593,6 +593,16 @@ def test_the_datetime_pygeoapi_passes_reaches_the_provider_parsed():
     assert isinstance(parameters.datetime_, TimeInterval)
 
 
+def test_a_datetime_pygeoapi_passes_that_cannot_be_read_is_a_bad_parameter():
+    from app.provider.maplibre import read_pygeoapi_arguments
+    from app.provider.maps import MapParameterError
+
+    with pytest.raises(MapParameterError) as error:
+        read_pygeoapi_arguments({"datetime_": "yesterday", "bbox": list(ROME)})
+
+    assert error.value.http_status_code == 400
+
+
 @pytest.mark.asyncio
 async def test_close_leaves_no_renderer_behind_the_queued_maps(archive):
     """A reload closes the provider while maps are still queued on it."""
