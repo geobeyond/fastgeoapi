@@ -69,12 +69,13 @@ def test_the_bbox_is_published_with_four_or_six_numbers(document, path):
 def test_bbox_crs_is_published_as_uris(document, path):
     parameters = _parameters(document, path)
 
+    # No fixed default: without bbox-crs, four numbers are CRS84 and six are CRS84h.
     assert parameters["bbox-crs"]["schema"] == {
         "type": "string",
         "format": "uri",
         "enum": [CRS84, CRS84H, WEB_MERCATOR],
-        "default": CRS84,
     }
+    assert "CRS84h" in parameters["bbox-crs"]["description"]
     refs = [p.get("$ref", "") for p in document["paths"][path]["get"]["parameters"]]
     assert not any(ref.endswith("/bbox-crs-epsg") for ref in refs)
 
