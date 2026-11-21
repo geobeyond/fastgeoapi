@@ -31,6 +31,40 @@ from app.pygeoapi.map_limits import choose_default_map_crs
 WEB_MERCATOR_EDGE = 20037508.342789244
 """How far Web Mercator goes from its origin, in metres, on both axes."""
 
+OGC_MAP_PARAMETERS = frozenset(
+    {
+        "bbox",
+        "bbox-crs",
+        "bgcolor",
+        "center",
+        "center-crs",
+        "collections",
+        "crs",
+        "crs-datum",
+        "crs-proj-center",
+        "crs-proj-method",
+        "crs-proj-params",
+        "datetime",
+        "f",
+        "height",
+        "lang",
+        "mm-per-pixel",
+        "orientation",
+        "scale-denominator",
+        "subset",
+        "subset-crs",
+        "transparent",
+        "void-color",
+        "void-transparent",
+        "width",
+    }
+)
+"""The query parameters of OGC API - Maps, and pygeoapi's ``lang``.
+
+Whether or not the route reads them, they never reach the provider as
+vendor parameters.
+"""
+
 
 def clip_bbox(
     bbox: tuple[float, float, float, float], crs: str
@@ -178,6 +212,7 @@ def parse_map_parameters(
         format_=asked if asked in capabilities.formats else capabilities.formats[0],
         datetime_=datetime_,
         subsets=_parse_subsets(params, extents),
+        vendor_params=_collect_vendor_params(params),
     )
 
 
@@ -277,6 +312,10 @@ def _parse_bbox(value: str) -> tuple[float, float, float, float]:
     if not all(math.isfinite(number) for number in numbers):
         raise MapParameterError(user_msg="bbox values must be finite numbers")
     return (numbers[0], numbers[1], numbers[2], numbers[3])
+
+
+def _collect_vendor_params(params: Any) -> dict[str, str]:
+    return {name: str(value) for name, value in params.items() if name not in OGC_MAP_PARAMETERS}
 
 
 def _parse_subsets(params: Any, extents: dict[str, Any]) -> dict[str, list[Any]] | None:

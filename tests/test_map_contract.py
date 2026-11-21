@@ -245,6 +245,33 @@ def test_a_drawn_map_carries_its_image_and_version():
         drawn.version = "v2"  # ty: ignore[invalid-assignment]
 
 
+def test_a_drawn_map_has_no_extra_headers_unless_the_provider_gives_them():
+    from app.interfaces.providers import RenderedMap
+
+    plain = RenderedMap(content=b"png", version="v1")
+    tagged = RenderedMap(content=b"png", version="v1", extra_headers={"X-Engine": "fake"})
+
+    assert dict(plain.extra_headers) == {}
+    assert dict(tagged.extra_headers) == {"X-Engine": "fake"}
+
+
+def test_map_parameters_carry_the_vendor_parameters():
+    from app.interfaces.providers import MapParameters
+
+    with pytest.raises(TypeError, match="vendor_params"):
+        MapParameters(
+            style=None,
+            bbox=(0.0, 0.0, 1.0, 1.0),
+            width=1,
+            height=1,
+            crs=WEB_MERCATOR,
+            transparent=True,
+            format_="png",
+            datetime_=None,
+            subsets=None,
+        )
+
+
 def test_a_map_not_drawn_carries_its_status_and_when_to_retry():
     from http import HTTPStatus
 

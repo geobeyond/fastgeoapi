@@ -26,6 +26,7 @@ def build_map_parameters(**overrides):
         "format_": "png",
         "datetime_": None,
         "subsets": None,
+        "vendor_params": {},
         **overrides,
     }
     if values["bbox"] is not None:

@@ -52,6 +52,35 @@ def test_a_style_the_provider_draws_reaches_it():
     assert _parse(style="night").style == "night"
 
 
+def test_a_query_parameter_outside_ogc_api_maps_reaches_the_provider():
+    parameters = _parse(width=16, height=16, quality="high", **{"x-engine-hint": "fast"})
+
+    assert parameters.vendor_params == {"quality": "high", "x-engine-hint": "fast"}
+
+
+def test_the_parameters_of_ogc_api_maps_are_not_vendor_parameters():
+    standard = {
+        "bgcolor": "0xFFFFFF",
+        "center": "12.5,41.9",
+        "center-crs": CRS84,
+        "scale-denominator": "5000",
+        "mm-per-pixel": "0.28",
+        "orientation": "0",
+        "void-color": "0x000000",
+        "void-transparent": "true",
+        "collections": "roads",
+        "subset-crs": CRS84,
+        "crs-datum": "WGS84",
+        "crs-proj-method": "mercator",
+        "crs-proj-params": "1",
+        "crs-proj-center": "0,0",
+        "lang": "en",
+        "f": "png",
+    }
+
+    assert _parse(width=16, height=16, **standard).vendor_params == {}
+
+
 @pytest.mark.parametrize("value", ["0", "-3", "1.5", "wide"])
 def test_width_and_height_must_be_positive_integers(value):
     for name in ("width", "height"):
