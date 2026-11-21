@@ -26,8 +26,8 @@ from app.provider.maps import (
     MapParameterError,
     MapStyleNotFoundError,
     MapTooLargeError,
-    parse_map_datetime,
 )
+from app.schemas.temporal import parse_ogc_datetime
 
 OGC_MAP_PARAMETERS = frozenset(
     {
@@ -173,9 +173,9 @@ def parse_map_parameters(
 
     try:
         processed_datetime = maps_api.validate_datetime(extents, params.get("datetime"))
+        datetime_ = None if processed_datetime is None else parse_ogc_datetime(processed_datetime)
     except ValueError as error:
         raise MapParameterError(user_msg=str(error)) from None
-    datetime_ = None if processed_datetime is None else parse_map_datetime(processed_datetime)
 
     return MapParameters(
         style=style,
