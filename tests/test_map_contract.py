@@ -16,6 +16,7 @@ from tests.pmtiles_fixtures import TILE_BYTES, write_archive
 from tests.test_tiles_async_route import _collection, _config
 
 WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
+CRS84 = "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
 
 
 class NoVersion(BaseProvider):
@@ -59,20 +60,24 @@ class Explicit(BaseProvider):
     def capabilities(self):
         from app.interfaces.providers import MapCapabilities
 
-        return MapCapabilities(crs=(WEB_MERCATOR,), formats=("png",), styles=())
+        return MapCapabilities(
+            crs=(WEB_MERCATOR,), default_crs=WEB_MERCATOR, formats=("png",), styles=()
+        )
 
     def close(self):
         """Nothing to release."""
 
 
-def _build_capabilities_property(crs, formats):
-    """Build a ``capabilities`` property that declares ``crs`` and ``formats``."""
+def _build_capabilities_property(crs, formats, default_crs=None):
+    """Build a ``capabilities`` property that declares ``crs``, ``formats`` and the default CRS."""
 
     @property
     def capabilities(self):
         from app.interfaces.providers import MapCapabilities
 
-        return MapCapabilities(crs=crs, formats=formats, styles=())
+        return MapCapabilities(
+            crs=crs, default_crs=default_crs or crs[0], formats=formats, styles=()
+        )
 
     return capabilities
 
@@ -101,6 +106,24 @@ class TwoFormats(Explicit):
     """A native map provider that draws PNG and JPEG and declares no classes."""
 
     capabilities = _build_capabilities_property((WEB_MERCATOR,), ("png", "jpeg"))
+
+
+class DefaultOutsideCrs(Explicit):
+    """A native map provider whose default CRS is not among those it draws."""
+
+    capabilities = _build_capabilities_property((WEB_MERCATOR,), ("png",), CRS84)
+
+
+class Crs84ByDefault(Explicit):
+    """A native map provider that draws in CRS84 by default, whatever ``storage_crs`` says."""
+
+    capabilities = _build_capabilities_property((WEB_MERCATOR, CRS84), ("png",), CRS84)
+
+
+class MercatorByDefault(Explicit):
+    """A native map provider that lists Web Mercator last and draws in it by default."""
+
+    capabilities = _build_capabilities_property((CRS84, WEB_MERCATOR), ("png",), WEB_MERCATOR)
 
 
 class Wider(Explicit):
@@ -215,7 +238,7 @@ def test_the_maplibre_capabilities_are_web_mercator_and_png(tmp_path):
     provider = MapLibreMapProvider(map_provider(_archive(tmp_path)))
 
     assert provider.capabilities == MapCapabilities(
-        crs=(WEB_MERCATOR,), formats=("png",), styles=()
+        crs=(WEB_MERCATOR,), default_crs=WEB_MERCATOR, formats=("png",), styles=()
     )
 
 
@@ -232,7 +255,14 @@ def test_capabilities_name_the_styles_a_provider_draws():
     from app.interfaces.providers import MapCapabilities
 
     with pytest.raises(TypeError, match="styles"):
-        MapCapabilities(crs=(WEB_MERCATOR,), formats=("png",))
+        MapCapabilities(crs=(WEB_MERCATOR,), default_crs=WEB_MERCATOR, formats=("png",))
+
+
+def test_capabilities_name_the_default_crs():
+    from app.interfaces.providers import MapCapabilities
+
+    with pytest.raises(TypeError, match="default_crs"):
+        MapCapabilities(crs=(WEB_MERCATOR,), formats=("png",), styles=())
 
 
 def test_a_drawn_map_carries_its_image_and_version():
@@ -402,6 +432,10 @@ def test_each_map_format_has_its_media_type(format_, media_type):
             "UnknownCrs",
             "names the CRS http://www.opengis.net/def/crs/EPSG/0/999999, which is not an OGC CRS URI",
         ),
+        (
+            "DefaultOutsideCrs",
+            f"draws by default in {CRS84}, which is not among its CRSs",
+        ),
     ],
 )
 def test_a_native_map_provider_with_capabilities_outside_the_standard_is_refused(provider, message):
@@ -570,3 +604,48 @@ def test_the_crs_class_is_declared_once_the_collection_lists_the_crss():
     )
 
     assert f"{MAPS}/crs" in declared
+
+
+def test_a_map_without_crs_is_drawn_in_the_default_crs_of_the_provider():
+    client = _serve(_collection("Lakes", [_definition("tests.test_map_contract.Crs84ByDefault")]))
+    Explicit.received.clear()
+
+    r = client.get("/collections/lakes/map", params={"width": 16, "height": 8})
+
+    assert r.status_code == 200, r.text[:200]
+    assert Explicit.received[-1].crs == CRS84
+    assert r.headers["content-crs"] == CRS84
+
+
+def test_the_crs_parameter_publishes_the_default_crs_of_the_provider():
+    from app.pygeoapi.factory import build_openapi
+
+    name = "tests.test_map_contract.Crs84ByDefault"
+    document = build_openapi(_config({"lakes": _collection("Lakes", [_definition(name)])}))
+    parameters = document["paths"]["/collections/lakes/map"]["get"]["parameters"]
+    crs = next(p for p in parameters if p.get("name") == "crs")
+
+    assert crs["schema"]["default"] == CRS84
+
+
+def test_the_collection_lists_the_default_crs_first_as_its_storage_crs():
+    name = "tests.test_map_contract.MercatorByDefault"
+    collection = _serve(_collection("Lakes", [_definition(name)])).get(
+        "/collections/lakes", params={"f": "json"}
+    )
+
+    described = collection.json()
+    assert described["crs"][0] == WEB_MERCATOR
+    assert described["storageCrs"] == WEB_MERCATOR
+
+
+def test_a_collection_drawn_in_crs84_by_default_has_no_storage_crs():
+    name = "tests.test_map_contract.Crs84ByDefault"
+    described = (
+        _serve(_collection("Lakes", [_definition(name)]))
+        .get("/collections/lakes", params={"f": "json"})
+        .json()
+    )
+
+    assert described["crs"][0] == CRS84
+    assert "storageCrs" not in described

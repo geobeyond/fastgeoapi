@@ -27,7 +27,6 @@ from app.provider.maps import (
     MapTooLargeError,
     parse_map_datetime,
 )
-from app.pygeoapi.map_limits import choose_default_map_crs
 
 WEB_MERCATOR_EDGE = 20037508.342789244
 """How far Web Mercator goes from its origin, in metres, on both axes."""
@@ -134,8 +133,7 @@ def clip_bbox(
 
 def parse_map_parameters(
     request: APIRequest,
-    collection_def: dict[str, Any],
-    extents: dict[str, Any],
+    collection: dict[str, Any],
     limits: MapLimits,
     capabilities: MapCapabilities,
     style: str | None,
@@ -146,14 +144,13 @@ def parse_map_parameters(
     ----------
     request
         The request.
-    collection_def
-        The definition of the collection's map provider.
-    extents
-        The collection's extents.
+    collection
+        The collection's configuration, whose ``extents`` bound the map.
     limits
         The collection's limits, clamped to the server's.
     capabilities
-        The CRSs, formats and styles the provider draws.
+        The CRSs, the default CRS, the formats and the styles the provider
+        draws.
     style
         The style named in the path, or None for the default one.
 
@@ -176,6 +173,7 @@ def parse_map_parameters(
     if style is not None and style not in capabilities.styles:
         raise MapStyleNotFoundError(user_msg=f"style {style} not found")
     params = request.params
+    extents = collection["extents"]
     width = _parse_positive_integer(params.get("width", 500), "width")
     height = _parse_positive_integer(params.get("height", 300), "height")
     if width > limits.max_width or height > limits.max_height:
@@ -184,8 +182,9 @@ def parse_map_parameters(
     if limits.max_pixels is not None and width * height > limits.max_pixels:
         raise MapTooLargeError(user_msg=f"width * height must be at most {limits.max_pixels}")
 
-    crs = _match_declared_crs(params.get("crs"), capabilities.crs, "crs") or choose_default_map_crs(
-        collection_def, capabilities
+    # Without crs, the map is drawn in the CRS the provider chose as its default.
+    crs = (
+        _match_declared_crs(params.get("crs"), capabilities.crs, "crs") or capabilities.default_crs
     )
     bbox_crs = _match_declared_crs(
         params.get("bbox-crs"), (DEFAULT_CRS, *capabilities.crs), "bbox-crs"

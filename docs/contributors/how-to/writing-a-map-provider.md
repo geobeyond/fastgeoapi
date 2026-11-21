@@ -49,7 +49,12 @@ class MyMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
     @property
     def capabilities(self) -> MapCapabilities:
-        return MapCapabilities(crs=(WEB_MERCATOR,), formats=(MapFormat.PNG,), styles=("night",))
+        return MapCapabilities(
+            crs=(WEB_MERCATOR,),
+            default_crs=WEB_MERCATOR,
+            formats=(MapFormat.PNG,),
+            styles=("night",),
+        )
 
     async def arender_map(self, parameters: MapParameters) -> RenderedMap | NotRenderedMap: ...
 
@@ -66,8 +71,8 @@ smaller (`FASTGEOAPI_MAPS_MAX_WIDTH`, `FASTGEOAPI_MAPS_MAX_HEIGHT`,
 `FASTGEOAPI_MAPS_MAX_PIXELS`), they apply, and a warning at startup names
 the collection.
 
-`capabilities` gives the CRSs the engine draws in, the encodings it
-draws maps in and the names of its styles. A CRS is an OGC CRS URI, such as
+`capabilities` gives the CRSs the engine draws in, the default CRS, the
+encodings it draws maps in and the names of its styles. A CRS is an OGC CRS URI, such as
 `http://www.opengis.net/def/crs/EPSG/0/3857`, that pyproj knows; an
 encoding is a member of `MapFormat`, one per encoding class of OGC API -
 Maps (PNG, JPEG, JPEG XL, TIFF, SVG and HTML). A configuration whose
@@ -77,12 +82,19 @@ names the class and the value. The document publishes them as the `crs` and
 is called. A `{styleId}` that is not among the styles gets a 404, also before
 the call.
 
+`default_crs` is the CRS of a map whose request names no `crs`, and must be
+one of `crs`; a configuration where it is not is refused at startup. The
+provider chooses it when it is built, usually the `storage_crs` of its
+definition when it draws in it: the route reads no CRS from the definition.
+The order of `crs` does not matter. The route publishes `default_crs` as the
+default of the `crs` parameter and first in the collection's `crs` list, and
+as the collection's `storageCrs` when it is not CRS84.
+
 The provider declares no conformance classes. `/conformance` derives them
 from the capabilities: `core`, `collection-map`, `crs` and the class of each
 encoding. The collection description lists the CRSs in `crs`, with
-`storageCrs` and `storageCrsBbox` when maps are drawn by default in a CRS
-other than CRS84, and
-links one map per encoding.
+`storageCrs` and `storageCrsBbox` when `default_crs` is not CRS84, and links
+one map per encoding.
 
 `arender_map` returns a `RenderedMap`: the encoded image and the version it
 was drawn from. `aget_version` returns the version of the image `arender_map`

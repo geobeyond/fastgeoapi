@@ -51,7 +51,9 @@ class PlainMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
     def capabilities(self):
         from app.interfaces.providers import MapCapabilities
 
-        return MapCapabilities(crs=(WEB_MERCATOR,), formats=("png",), styles=())
+        return MapCapabilities(
+            crs=(WEB_MERCATOR,), default_crs=WEB_MERCATOR, formats=("png",), styles=()
+        )
 
     async def arender_map(self, parameters):
         from app.provider.maps import build_map_request, draw_map

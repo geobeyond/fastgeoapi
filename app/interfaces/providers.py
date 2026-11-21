@@ -123,13 +123,22 @@ class MapFormat(StrEnum):
 class MapCapabilities:
     """The map provider's capabilities: its CRSs, its encodings and its styles.
 
+    The provider chooses ``default_crs`` when it is built, usually the
+    ``storage_crs`` of its definition when it draws in it. The route reads
+    no CRS from the definition. A configuration whose ``default_crs`` is not
+    among the ``crs`` is refused at startup and at every reload.
+
     Attributes
     ----------
     crs
-        The OGC URIs of the CRSs, such as
-        ``http://www.opengis.net/def/crs/EPSG/0/3857``, in the provider's
-        order of preference: the first is the default when the collection's
-        ``storage_crs`` is not among them (/req/crs/crs-definition).
+        The OGC URIs of the CRSs the provider draws in, such as
+        ``http://www.opengis.net/def/crs/EPSG/0/3857``, in any order
+        (/req/crs/crs-definition).
+    default_crs
+        The CRS of a map whose request names none, one of ``crs``. The
+        collection publishes it as the default of the ``crs`` parameter,
+        first in its ``crs`` list, and as its ``storageCrs`` when it is not
+        CRS84 (/req/collection-map/desc-crs).
     formats
         The encodings; each one declares its conformance class.
     styles
@@ -139,6 +148,7 @@ class MapCapabilities:
     """
 
     crs: tuple[str, ...]
+    default_crs: str
     formats: tuple[MapFormat, ...]
     styles: tuple[str, ...]
 

@@ -75,7 +75,7 @@ drops these names from the extra headers of a provider.
 """
 
 
-def find_native_map_provider(api: API, dataset: str) -> tuple[dict, AsyncMapProvider] | None:
+def find_native_map_provider(api: API, dataset: str) -> AsyncMapProvider | None:
     """Find the native map provider of a collection.
 
     Parameters
@@ -87,10 +87,10 @@ def find_native_map_provider(api: API, dataset: str) -> tuple[dict, AsyncMapProv
 
     Returns
     -------
-    tuple of (dict, AsyncMapProvider) or None
-        The provider's definition and its instance. None when the collection
-        does not exist, or its map provider does not load or is not native;
-        pygeoapi's route then serves the map.
+    AsyncMapProvider or None
+        The provider. None when the collection does not exist, or its map
+        provider does not load or is not native; pygeoapi's route then
+        serves the map.
     """
     collections = filter_dict_by_key_value(api.config["resources"], "type", "collection")
     if dataset not in collections:
@@ -101,7 +101,7 @@ def find_native_map_provider(api: API, dataset: str) -> tuple[dict, AsyncMapProv
     except (KeyError, ProviderTypeError, ProviderGenericError):
         return None
     if isinstance(provider, AsyncMapProvider) and provider.native_async:
-        return provider_def, provider
+        return provider
     return None
 
 
@@ -110,7 +110,6 @@ async def get_collection_map(
     request: APIRequest,
     dataset: str,
     style: str | None,
-    collection_def: dict,
     provider: AsyncMapProvider,
     http_cache: HttpCache | None = None,
     settings: DevConfig | ProdConfig | None = None,
@@ -132,8 +131,6 @@ async def get_collection_map(
         The collection's name.
     style
         The style named in the path, or None.
-    collection_def
-        The definition of the collection's map provider.
     provider
         The collection's map provider.
     http_cache
@@ -157,8 +154,7 @@ async def get_collection_map(
     try:
         parameters = parse_map_parameters(
             request,
-            collection_def,
-            api.config["resources"][dataset]["extents"],
+            api.config["resources"][dataset],
             limits,
             provider.capabilities,
             style,

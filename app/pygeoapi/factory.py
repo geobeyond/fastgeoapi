@@ -73,6 +73,7 @@ from app.pygeoapi.plugin import invalidate_plugin_cache, patch_load_plugin
 
 if TYPE_CHECKING:
     from app.config.app import DevConfig, ProdConfig
+    from app.interfaces.providers import AsyncMapProvider
 
 # The fastgeoapi runtime patches apply once, at factory import: every
 # sub-app built afterwards inherits them (the same moment the old
@@ -628,18 +629,20 @@ def build_routes(
 
     # Which collections have a natively async map provider, probed once
     # per collection like the tile providers above.
-    map_natives: dict[str, tuple | None] = {}
+    map_natives: dict[str, AsyncMapProvider | None] = {}
 
     async def collection_map(request: Request) -> Response:
         dataset = _get_path_param(request, "collection_id")
         style = _get_path_param(request, "style_id")
         if dataset in map_natives:
-            probe = map_natives[dataset]
+            map_provider = map_natives[dataset]
         else:
-            probe = await asyncio.to_thread(async_maps.find_native_map_provider, api, dataset)
+            map_provider = await asyncio.to_thread(
+                async_maps.find_native_map_provider, api, dataset
+            )
             if dataset in api.config["resources"]:
-                map_natives[dataset] = probe
-        if probe is None:
+                map_natives[dataset] = map_provider
+        if map_provider is None:
             return await execute(api, maps_api.get_collection_map, request, dataset, style)
         api_request = await APIRequest.from_starlette(request, api.locales)
         if not api_request.is_valid():
@@ -652,7 +655,7 @@ def build_routes(
                     api_request,
                     dataset,
                     style,
-                    *probe,
+                    provider=map_provider,
                     http_cache=http_cache,
                     settings=settings,
                 ),
