@@ -170,6 +170,13 @@ def test_the_crs_takes_the_spelling_the_provider_declares():
     assert _parse(crs=WEB_MERCATOR.lower()).crs == WEB_MERCATOR
 
 
+@pytest.mark.parametrize("name", ["crs", "bbox-crs"])
+@pytest.mark.parametrize("curie", ["[FOO:1]", "[OGC:CRS84h]", "OGC:unknown"])
+def test_a_curie_pygeoapi_cannot_read_is_a_bad_parameter(name, curie):
+    with pytest.raises(MapParameterError):
+        _parse(bbox="12.4,41.8,12.6,42.0", **{name: curie})
+
+
 def test_the_canonical_crs84_uri_is_a_valid_bbox_crs():
     parameters = _parse(bbox="12.4,41.8,12.6,42.0", **{"bbox-crs": CRS84})
 

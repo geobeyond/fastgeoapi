@@ -322,6 +322,9 @@ def _match_declared_crs(
         uri = get_uri(value)
     except (ValueError, CRSError):
         uri = value
+    if not isinstance(uri, str):
+        # pygeoapi returns the CRSError of a CURIE it cannot read instead of raising it.
+        uri = value
     for candidate in declared:
         if candidate.lower() == uri.lower():
             return candidate
