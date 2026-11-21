@@ -382,6 +382,7 @@ def read_pygeoapi_arguments(arguments: dict[str, Any]) -> MapParameters:
     return MapParameters(
         style=arguments.get("style"),
         bbox=tuple(bbox) if bbox is not None else None,
+        heights=None,
         width=arguments.get("width", 500),
         height=arguments.get("height", 300),
         crs=arguments.get("crs"),

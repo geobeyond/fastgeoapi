@@ -133,17 +133,18 @@ something asynchronously schedules it from there.
 The route reads the query, checks it and passes one `MapParameters` object,
 whose fields are:
 
-| Field             | What the route has already done                                                                                                                                                                     |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `style`           | `None` for the default style, or one of `capabilities.styles`. The route answers 404 to any other `{styleId}`.                                                                                      |
-| `bbox`            | Four finite numbers, moved from `bbox-crs` into `crs` and clipped to the extent of `crs`. A box entirely outside it answers 204 without calling the provider.                                       |
-| `width`, `height` | Positive integers within the published limits.                                                                                                                                                      |
-| `crs`             | One of the URIs in `capabilities.crs`, spelled as published.                                                                                                                                        |
-| `transparent`     | A boolean.                                                                                                                                                                                          |
-| `format_`         | One of `capabilities.formats`: the one `f` names, else the first one `Accept` names, else the first format for `*/*`, `image/*` or no `Accept`. Any other `f` gets a 400, any other `Accept` a 406. |
-| `datetime_`       | An instant as a `datetime`, or a `TimeInterval` whose open end is None, in UTC and checked against the temporal extent of the collection; None without `datetime`.                                  |
-| `subsets`         | The `subset` values by additional dimension, or None.                                                                                                                                               |
-| `vendor_params`   | The query parameters OGC API - Maps does not define, by name, as the client sent them; empty when there are none. The route does not check them.                                                    |
+| Field             | What the route has already done                                                                                                                                                                                           |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `style`           | `None` for the default style, or one of `capabilities.styles`. The route answers 404 to any other `{styleId}`.                                                                                                            |
+| `bbox`            | Four finite numbers, the horizontal part of the request's `bbox` of four or six, moved from `bbox-crs` into `crs` and clipped to the extent of `crs`. A box entirely outside it answers 204 without calling the provider. |
+| `heights`         | The minimum and maximum height of a `bbox` of six numbers, in metres above the WGS 84 ellipsoid, or None. A provider that draws in two dimensions ignores them.                                                           |
+| `width`, `height` | Positive integers within the published limits.                                                                                                                                                                            |
+| `crs`             | One of the URIs in `capabilities.crs`, spelled as published.                                                                                                                                                              |
+| `transparent`     | A boolean.                                                                                                                                                                                                                |
+| `format_`         | One of `capabilities.formats`: the one `f` names, else the first one `Accept` names, else the first format for `*/*`, `image/*` or no `Accept`. Any other `f` gets a 400, any other `Accept` a 406.                       |
+| `datetime_`       | An instant as a `datetime`, or a `TimeInterval` whose open end is None, in UTC and checked against the temporal extent of the collection; None without `datetime`.                                                        |
+| `subsets`         | The `subset` values by additional dimension, or None.                                                                                                                                                                     |
+| `vendor_params`   | The query parameters OGC API - Maps does not define, by name, as the client sent them; empty when there are none. The route does not check them.                                                                          |
 
 `bbox-crs` never reaches the provider. `aget_version` receives the same
 object as `arender_map`. The `ETag` depends on `vendor_params`, so a provider

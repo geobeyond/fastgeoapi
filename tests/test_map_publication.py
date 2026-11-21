@@ -10,6 +10,7 @@ from tests.pmtiles_fixtures import TILE_BYTES, write_archive
 from tests.test_tiles_async_route import _collection, _config
 
 CRS84 = "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+CRS84H = "http://www.opengis.net/def/crs/OGC/0/CRS84h"
 WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
 MAP = "/collections/roads/map"
 STYLED = "/collections/roads/styles/{styleId}/map"
@@ -52,10 +53,14 @@ def document(tmp_path_factory):
 
 
 @pytest.mark.parametrize("path", PATHS)
-def test_the_bbox_is_published_with_four_numbers(document, path):
+def test_the_bbox_is_published_with_four_or_six_numbers(document, path):
     schema = _parameters(document, path)["bbox"]["schema"]
 
-    assert (schema["minItems"], schema["maxItems"]) == (4, 4)
+    assert schema["oneOf"] == [
+        {"minItems": 4, "maxItems": 4},
+        {"minItems": 6, "maxItems": 6},
+    ]
+    assert "minItems" not in schema
     # The features keep the shared definition, with its six numbers.
     assert document["components"]["parameters"]["bbox"]["schema"]["maxItems"] == 6
 
@@ -67,7 +72,7 @@ def test_bbox_crs_is_published_as_uris(document, path):
     assert parameters["bbox-crs"]["schema"] == {
         "type": "string",
         "format": "uri",
-        "enum": [CRS84, WEB_MERCATOR],
+        "enum": [CRS84, CRS84H, WEB_MERCATOR],
         "default": CRS84,
     }
     refs = [p.get("$ref", "") for p in document["paths"][path]["get"]["parameters"]]

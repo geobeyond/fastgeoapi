@@ -25,6 +25,7 @@ from app.pygeoapi.api_async.map_parameters import (
 from app.schemas.temporal import TimeInterval
 
 CRS84 = "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+CRS84H = "http://www.opengis.net/def/crs/OGC/0/CRS84h"
 WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
 LIMITS = MapLimits(2048, 2048, None)
 CAPABILITIES = MapCapabilities(
@@ -113,10 +114,61 @@ def test_without_max_pixels_only_the_sides_count():
     assert (parameters.width, parameters.height) == (2048, 2048)
 
 
-@pytest.mark.parametrize("bbox", ["1,2,3", "a,b,c,d", "nan,0,1,1", "inf,0,1,1"])
-def test_a_bbox_needs_four_finite_numbers(bbox):
+@pytest.mark.parametrize(
+    "bbox", ["1,2,3", "1,2,3,4,5", "1,2,3,4,5,6,7", "a,b,c,d", "nan,0,1,1", "inf,0,1,1"]
+)
+def test_a_bbox_needs_four_or_six_finite_numbers(bbox):
     with pytest.raises(MapParameterError):
         _parse(bbox=bbox)
+
+
+def test_a_bbox_of_four_numbers_has_no_heights():
+    assert _parse(bbox="12.4,41.8,12.6,42.0").heights is None
+
+
+@pytest.mark.parametrize("bbox_crs", [None, CRS84H, "[OGC:CRS84h]", "OGC:CRS84h"])
+def test_a_bbox_of_six_numbers_is_three_dimensional(bbox_crs):
+    params = {"bbox": "12.4,41.8,0,12.6,42.0,1000"}
+    if bbox_crs is not None:
+        params["bbox-crs"] = bbox_crs
+
+    parameters = _parse(**params)
+
+    assert parameters.heights == (0.0, 1000.0)
+    assert parameters.bbox[0] == pytest.approx(1380361.7, abs=1.0)
+    assert len(parameters.bbox) == 4
+
+
+def test_a_bbox_of_six_numbers_needs_a_three_dimensional_crs():
+    with pytest.raises(MapParameterError):
+        _parse(bbox="12.4,41.8,0,12.6,42.0,1000", **{"bbox-crs": CRS84})
+
+
+def test_a_bbox_of_four_numbers_needs_a_two_dimensional_crs():
+    with pytest.raises(MapParameterError):
+        _parse(bbox="12.4,41.8,12.6,42.0", **{"bbox-crs": CRS84H})
+
+
+def test_a_bbox_whose_heights_are_upside_down_is_refused():
+    with pytest.raises(MapParameterError):
+        _parse(bbox="12.4,41.8,1000,12.6,42.0,0")
+
+
+def test_a_bbox_of_six_numbers_and_a_subset_of_heights_are_refused_together():
+    extents = {**EXTENTS, "h": {"interval": [0, 5000]}}
+
+    assert _parse(extents=extents, subset="h(0:100)").subsets == {"h": [0, 100]}
+    with pytest.raises(MapParameterError):
+        _parse(extents=extents, bbox="12.4,41.8,0,12.6,42.0,1000", subset="h(0:100)")
+
+
+def test_an_extent_of_six_numbers_covers_the_map_without_heights():
+    rome = {"spatial": {"bbox": [12.4, 41.8, 0, 12.6, 42.0, 100], "crs": CRS84}}
+
+    parameters = _parse(extents=rome, width=64, height=64)
+
+    assert parameters.heights is None
+    assert parameters.bbox[0] == pytest.approx(1380361.7, abs=1.0)
 
 
 def test_a_degenerate_bbox_is_refused():
