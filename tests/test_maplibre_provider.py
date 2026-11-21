@@ -977,6 +977,38 @@ async def test_a_drawn_map_carries_the_version_of_the_map(archive):
 
 
 @pytest.mark.asyncio
+async def test_a_local_archive_replaced_during_the_draw_gives_a_map_without_version(archive):
+    FakeRenderer.gate = asyncio.Event()
+    provider = _provider(archive, fake="gate")
+    drawing = asyncio.create_task(_draw(provider))
+    await _until(lambda: provider.waiting == 1)
+
+    write_archive(
+        archive,
+        {(0, 0, 0): TILE_BYTES(0, 0, 0), (1, 0, 0): TILE_BYTES(1, 0, 0)},
+        metadata={"name": "roads", "vector_layers": [{"id": "roads"}]},
+    )
+    FakeRenderer.gate.set()
+    drawn = await drawing
+
+    assert drawn.content
+    assert drawn.version is None
+
+
+@pytest.mark.asyncio
+async def test_a_local_archive_left_alone_keeps_the_version_of_the_map(archive):
+    FakeRenderer.gate = asyncio.Event()
+    provider = _provider(archive, fake="gate")
+    drawing = asyncio.create_task(_draw(provider))
+    await _until(lambda: provider.waiting == 1)
+
+    FakeRenderer.gate.set()
+    drawn = await drawing
+
+    assert drawn.version == await _version(provider)
+
+
+@pytest.mark.asyncio
 async def test_another_style_gives_another_version(archive, tmp_path):
     styles = {
         "night": _line_style(tmp_path / "night.json", "#000000"),

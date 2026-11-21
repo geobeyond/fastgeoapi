@@ -108,7 +108,9 @@ goes without cache headers.
 The map must be drawn from the data its version names. Read the data pinned to
 one version, as `CachedRanges` does with `if_match`, and return that version
 even when a newer one arrives during the draw. Fail rather than mix two
-versions.
+versions. When the reads cannot be pinned, as for a local file, read the
+version again once the map is drawn, and return None if it changed: the map
+then goes without cache headers.
 
 The map covers exactly `parameters.bbox` in `parameters.crs`: the route
 declares both in `Content-Bbox` and `Content-Crs`.
