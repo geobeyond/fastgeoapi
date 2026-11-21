@@ -15,6 +15,9 @@ for a family of relations, such as ``tilesets-vector`` and ``tilesets-map``.
 OGC_CRS_WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
 """Web Mercator, EPSG:3857."""
 
+OGC_CRS_CRS84H = "http://www.opengis.net/def/crs/OGC/0/CRS84h"
+"""WGS 84 longitude, latitude and ellipsoidal height in metres, the CRS of a 3D bbox."""
+
 MAPS_CONFORMANCE_PREFIX = "http://www.opengis.net/spec/ogcapi-maps-1/1.0/conf"
 """The start of the URI of every OGC API - Maps conformance class."""
 
