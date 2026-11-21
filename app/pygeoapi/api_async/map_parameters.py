@@ -17,12 +17,14 @@ from typing import Any
 import pygeoapi.api.maps as maps_api
 from pygeoapi.api import APIRequest, validate_subset
 from pygeoapi.crs import DEFAULT_CRS, get_uri, transform_bbox
+from pygeoapi.util import get_choice_from_headers
 from pyproj.exceptions import CRSError
 
 from app.interfaces.ogc import OGC_CRS_WEB_MERCATOR
-from app.interfaces.providers import MapCapabilities, MapLimits, MapParameters
+from app.interfaces.providers import MapCapabilities, MapFormat, MapLimits, MapParameters
 from app.maps.web_mercator import clip_web_mercator_bbox, is_outside_web_mercator
 from app.provider.maps import (
+    MapNotAcceptableError,
     MapParameterError,
     MapStyleNotFoundError,
     MapTooLargeError,
@@ -147,10 +149,7 @@ def parse_map_parameters(
     if transparent not in ("true", "false"):
         raise MapParameterError(user_msg="transparent must be either true or false")
 
-    format_ = params.get("f")
-    asked = format_ if format_ is not None else request.format
-    if asked is not None and asked != "html" and asked not in capabilities.formats:
-        raise MapParameterError(user_msg=f"maps are drawn as {', '.join(capabilities.formats)}")
+    format_ = _choose_map_format(params.get("f"), request.headers, capabilities.formats)
 
     if params.get("bbox") is None:
         # Without a bbox the map covers the collection, in the CRS of its extent.
@@ -184,8 +183,7 @@ def parse_map_parameters(
         height=height,
         crs=crs,
         transparent=transparent == "true",
-        # Without f, and for f=html, the map is drawn in the first format the provider declares.
-        format_=asked if asked in capabilities.formats else capabilities.formats[0],
+        format_=format_,
         datetime_=datetime_,
         subsets=_parse_subsets(params, extents),
         vendor_params=_collect_vendor_params(params),
@@ -227,6 +225,58 @@ def _format_instant(value: Any) -> str | None:
     if isinstance(value, date):
         return value.isoformat()
     return str(value)
+
+
+def _choose_map_format(f: str | None, headers: Any, formats: tuple[MapFormat, ...]) -> str:
+    """Choose the format of a map from ``f``, else from the ``Accept`` header.
+
+    ``f`` names one format: one the provider does not draw is a parameter
+    with a wrong value. Without ``f`` the format is negotiated
+    (/req/core/map-op, NOTE 1): the first media type of ``Accept``, in
+    order of ``q``, that the provider draws wins; ``*/*``, and ``image/*``
+    for an image format, take the provider's first format, and so does a
+    request without ``Accept``. A browser always sends ``*/*``.
+
+    Parameters
+    ----------
+    f
+        The ``f`` parameter, or None.
+    headers
+        The headers of the request.
+    formats
+        The formats the provider draws, its default first.
+
+    Returns
+    -------
+    str
+        The format to draw the map in.
+
+    Raises
+    ------
+    MapParameterError
+        For an ``f`` the provider does not draw; the route answers 400.
+    MapNotAcceptableError
+        For an ``Accept`` that names no drawn format and no wildcard; the
+        route answers 406.
+    """
+    if f is not None:
+        if f not in formats:
+            raise MapParameterError(user_msg=f"maps are drawn as {', '.join(formats)}")
+        return f
+    accepted = get_choice_from_headers(headers, "accept", all=True)
+    if not accepted:
+        return formats[0]
+    by_media_type = {MapFormat(format_).media_type: format_ for format_ in formats}
+    images = [format_ for format_ in formats if MapFormat(format_).media_type.startswith("image/")]
+    for media_type in (value.strip().lower() for value in accepted):
+        if media_type in by_media_type:
+            return by_media_type[media_type]
+        if media_type == "*/*":
+            return formats[0]
+        if media_type == "image/*" and images:
+            return images[0]
+    drawn = ", ".join(by_media_type)
+    raise MapNotAcceptableError(user_msg=f"maps are drawn as {drawn}")
 
 
 def _parse_positive_integer(value: Any, name: str) -> int:

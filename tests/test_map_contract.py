@@ -508,7 +508,6 @@ def _serve(collection: dict) -> TestClient:
     [
         ("jpeg", "image/jpeg", "jpeg"),
         ("png", "image/png", "png"),
-        ("html", "image/png", "png"),
     ],
 )
 def test_a_map_carries_the_type_of_the_format_it_was_drawn_in(asked, media_type, drawn):
@@ -528,6 +527,39 @@ def test_a_map_carries_the_type_of_the_format_it_was_drawn_in(asked, media_type,
     assert r.status_code == 200
     assert r.headers["content-type"] == media_type
     assert Explicit.received[-1].format_ == drawn
+
+
+def test_f_html_is_a_bad_parameter_for_a_provider_that_draws_no_html():
+    client = _serve(_collection("Lakes", [_definition("tests.test_map_contract.TwoFormats")]))
+
+    r = client.get("/collections/lakes/map", params={"width": 16, "height": 8, "f": "html"})
+
+    assert r.status_code == 400
+
+
+def test_an_accept_the_provider_cannot_meet_is_not_acceptable():
+    client = _serve(_collection("Lakes", [_definition("tests.test_map_contract.TwoFormats")]))
+
+    r = client.get(
+        "/collections/lakes/map",
+        params={"width": 16, "height": 8},
+        headers={"Accept": "image/tiff"},
+    )
+
+    assert r.status_code == 406
+
+
+def test_a_browser_that_opens_the_map_gets_the_image():
+    client = _serve(_collection("Lakes", [_definition("tests.test_map_contract.TwoFormats")]))
+
+    r = client.get(
+        "/collections/lakes/map",
+        params={"width": 16, "height": 8},
+        headers={"Accept": "text/html,application/xhtml+xml,*/*;q=0.8"},
+    )
+
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "image/png"
 
 
 def test_the_map_responses_list_every_format_drawn():

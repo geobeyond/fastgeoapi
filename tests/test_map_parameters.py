@@ -11,7 +11,12 @@ from pygeoapi.api import APIRequest
 from starlette.requests import Request
 
 from app.interfaces.providers import MapCapabilities, MapLimits
-from app.provider.maps import MapParameterError, MapStyleNotFoundError, MapTooLargeError
+from app.provider.maps import (
+    MapNotAcceptableError,
+    MapParameterError,
+    MapStyleNotFoundError,
+    MapTooLargeError,
+)
 from app.pygeoapi.api_async.map_parameters import (
     MapOutsideCrs,
     format_content_datetime,
@@ -28,13 +33,15 @@ CAPABILITIES = MapCapabilities(
 EXTENTS = {"spatial": {"bbox": [-180, -90, 180, 90], "crs": CRS84}}
 
 
-def _parse(limits=LIMITS, extents=EXTENTS, style=None, capabilities=CAPABILITIES, **params):
+def _parse(
+    limits=LIMITS, extents=EXTENTS, style=None, capabilities=CAPABILITIES, accept=None, **params
+):
     scope = {
         "type": "http",
         "method": "GET",
         "path": "/collections/roads/map",
         "query_string": urlencode(params).encode(),
-        "headers": [],
+        "headers": [] if accept is None else [(b"accept", accept.encode())],
     }
     request = APIRequest(Request(scope), ["en-US"])
     return parse_map_parameters(request, {"extents": extents}, limits, capabilities, style)
@@ -178,6 +185,49 @@ def test_a_bbox_crs_outside_the_published_ones_is_refused():
 def test_a_format_outside_the_capabilities_is_refused():
     with pytest.raises(MapParameterError):
         _parse(f="jpeg")
+
+
+def test_f_html_is_refused_when_the_provider_draws_no_html():
+    with pytest.raises(MapParameterError):
+        _parse(f="html")
+
+
+@pytest.mark.parametrize("accept", ["image/jpeg", "text/html", "image/jpeg, text/html"])
+def test_an_accept_without_a_drawn_format_or_a_wildcard_is_not_acceptable(accept):
+    with pytest.raises(MapNotAcceptableError) as error:
+        _parse(accept=accept, width=16, height=16)
+
+    assert error.value.http_status_code == 406
+
+
+@pytest.mark.parametrize(
+    "accept",
+    [
+        None,
+        "*/*",
+        "image/*",
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+    ],
+)
+def test_an_accept_with_a_wildcard_gets_the_first_format(accept):
+    assert _parse(accept=accept, width=16, height=16).format_ == "png"
+
+
+@pytest.mark.parametrize(
+    ("accept", "drawn"),
+    [
+        ("image/jpeg;q=0.5, image/png", "png"),
+        ("image/jpeg, image/png;q=0.5", "jpeg"),
+        ("image/tiff, image/jpeg;q=0.2", "jpeg"),
+    ],
+)
+def test_the_accepted_format_the_client_prefers_is_drawn(accept, drawn):
+    capabilities = MapCapabilities(
+        crs=(WEB_MERCATOR,), default_crs=WEB_MERCATOR, formats=("png", "jpeg"), styles=()
+    )
+
+    assert _parse(capabilities=capabilities, accept=accept, width=16, height=16).format_ == drawn
 
 
 def test_content_datetime_spans_the_temporal_extent():
