@@ -3,8 +3,9 @@
 import pytest
 from pyproj import Transformer
 
-from app.maps.camera import HALF_WORLD, TILE_SIZE, camera_for_bbox
+from app.maps.camera import TILE_SIZE, camera_for_bbox
 from app.maps.contract import MapRequest
+from app.maps.web_mercator import WEB_MERCATOR_EDGE
 
 _TO_3857 = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
 
@@ -17,19 +18,19 @@ def _bbox_3857(lon0, lat0, lon1, lat1):
 
 def _bbox_from_camera(camera):
     """The EPSG:3857 extent a camera shows at its render size."""
-    world = 2 * HALF_WORLD
+    world = 2 * WEB_MERCATOR_EDGE
     n = TILE_SIZE * 2**camera.zoom
     lon, lat = camera.center
     x, y = _TO_3857.transform(lon, lat)
-    cx = (x + HALF_WORLD) / world * n
-    cy = (HALF_WORLD - y) / world * n
+    cx = (x + WEB_MERCATOR_EDGE) / world * n
+    cy = (WEB_MERCATOR_EDGE - y) / world * n
     width, height = camera.size
 
     def to_x(px):
-        return px / n * world - HALF_WORLD
+        return px / n * world - WEB_MERCATOR_EDGE
 
     def to_y(py):
-        return HALF_WORLD - py / n * world
+        return WEB_MERCATOR_EDGE - py / n * world
 
     return (
         to_x(cx - width / 2),
@@ -64,7 +65,9 @@ def test_the_center_is_the_mercator_midpoint():
 
 
 def test_the_whole_world_at_512_pixels_is_zoom_zero():
-    camera = camera_for_bbox((-HALF_WORLD, -HALF_WORLD, HALF_WORLD, HALF_WORLD), 512, 512)
+    camera = camera_for_bbox(
+        (-WEB_MERCATOR_EDGE, -WEB_MERCATOR_EDGE, WEB_MERCATOR_EDGE, WEB_MERCATOR_EDGE), 512, 512
+    )
 
     assert camera.zoom == pytest.approx(0)
     assert camera.center == pytest.approx((0.0, 0.0))
@@ -104,19 +107,17 @@ def test_a_request_does_not_print_its_style():
 
 
 def test_a_bbox_past_the_antimeridian_is_centred_within_the_world():
-    from app.maps.camera import HALF_WORLD, camera_for_bbox
-
-    bbox = (HALF_WORLD - 1_000_000.0, 0.0, HALF_WORLD + 3_000_000.0, 1_000_000.0)
+    bbox = (WEB_MERCATOR_EDGE - 1_000_000.0, 0.0, WEB_MERCATOR_EDGE + 3_000_000.0, 1_000_000.0)
     camera = camera_for_bbox(bbox, 512, 128)
 
     assert -180 <= camera.center[0] <= 180
-    assert camera.center[0] == pytest.approx((HALF_WORLD + 1_000_000.0) / HALF_WORLD * 180 - 360)
+    assert camera.center[0] == pytest.approx(
+        (WEB_MERCATOR_EDGE + 1_000_000.0) / WEB_MERCATOR_EDGE * 180 - 360
+    )
 
 
 def test_an_image_smaller_than_the_world_at_zoom_zero_is_drawn_at_zoom_zero():
-    from app.maps.camera import HALF_WORLD, TILE_SIZE, camera_for_bbox
-
-    world = (-HALF_WORLD, -HALF_WORLD, HALF_WORLD, HALF_WORLD)
+    world = (-WEB_MERCATOR_EDGE, -WEB_MERCATOR_EDGE, WEB_MERCATOR_EDGE, WEB_MERCATOR_EDGE)
     camera = camera_for_bbox(world, 500, 300)
 
     # Renderers take no zoom below 0: the render is larger and is scaled down.
@@ -125,8 +126,6 @@ def test_an_image_smaller_than_the_world_at_zoom_zero_is_drawn_at_zoom_zero():
 
 
 def test_a_bbox_smaller_than_zoom_24_shows_is_drawn_at_zoom_24():
-    from app.maps.camera import camera_for_bbox
-
     camera = camera_for_bbox((1_400_000.0, 5_150_000.0, 1_400_002.0, 5_150_002.0), 1024, 1024)
 
     # Renderers take no zoom above 24: the render is smaller and is scaled up.

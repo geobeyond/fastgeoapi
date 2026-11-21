@@ -660,16 +660,16 @@ def test_the_map_errors_name_their_problem_in_the_log():
 
 @pytest.mark.asyncio
 async def test_a_bbox_across_the_antimeridian_is_drawn(archive):
-    from app.maps.camera import HALF_WORLD
+    from app.maps.web_mercator import WEB_MERCATOR_EDGE
 
     # West edge in the east, east edge in the west: the bbox crosses 180°.
-    west, east = HALF_WORLD - 1_000_000.0, -HALF_WORLD + 1_000_000.0
+    west, east = WEB_MERCATOR_EDGE - 1_000_000.0, -WEB_MERCATOR_EDGE + 1_000_000.0
     provider = _provider(archive)
     await _map(provider, bbox=[west, 5_140_000.0, east, 5_160_000.0])
 
     (request,) = FakeRenderer.instances[0].requests
     assert request.bbox[0] == west
-    assert request.bbox[2] == pytest.approx(east + 2 * HALF_WORLD)
+    assert request.bbox[2] == pytest.approx(east + 2 * WEB_MERCATOR_EDGE)
 
 
 @pytest.mark.asyncio

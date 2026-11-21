@@ -29,10 +29,13 @@ from pygeoapi.util import (
 )
 
 from app.config.logging import create_logger
-from app.interfaces.ogc import OGC_REL_MAP
+from app.interfaces.ogc import OGC_CRS_WEB_MERCATOR, OGC_REL_MAP
 from app.interfaces.providers import MapFormat
-from app.provider.maps import WEB_MERCATOR
-from app.pygeoapi.api_async.map_parameters import clip_bbox
+from app.maps.web_mercator import (
+    WEB_MERCATOR_MAX_LATITUDE,
+    clip_web_mercator_bbox,
+    is_outside_web_mercator,
+)
 from app.pygeoapi.api_async.maps import find_native_map_provider
 
 if TYPE_CHECKING:
@@ -98,10 +101,6 @@ def match_items_to_providers(api: API, request: APIRequest, dataset: str, collec
         # pygeoapi left them out: the default provider serves raster tiles or maps.
         collection["links"].extend(items_links(api, request, dataset))
     return collection
-
-
-_MERCATOR_LATITUDE = 85.0511287798
-"""The latitude where Web Mercator ends."""
 
 
 def describe_native_map(api: API, dataset: str, collection: dict) -> dict:
@@ -207,13 +206,17 @@ def _project_bbox(bbox: list, crs: str) -> list[float] | None:
         The four coordinates in ``crs``.
     """
     minx, miny, maxx, maxy = (float(value) for value in bbox[:4])
-    if crs.lower() == WEB_MERCATOR.lower():
+    if crs.lower() == OGC_CRS_WEB_MERCATOR.lower():
         # Web Mercator has no y for the poles: the transform would give infinity.
-        miny = max(miny, -_MERCATOR_LATITUDE)
-        maxy = min(maxy, _MERCATOR_LATITUDE)
+        miny = max(miny, -WEB_MERCATOR_MAX_LATITUDE)
+        maxy = min(maxy, WEB_MERCATOR_MAX_LATITUDE)
     moved = transform_bbox([minx, miny, maxx, maxy], DEFAULT_CRS, crs, always_xy=True)
-    clipped = clip_bbox((moved[0], moved[1], moved[2], moved[3]), crs)
-    return list(clipped) if clipped is not None else None
+    projected = (moved[0], moved[1], moved[2], moved[3])
+    if crs.lower() != OGC_CRS_WEB_MERCATOR.lower():
+        return list(projected)
+    if is_outside_web_mercator(projected):
+        return None
+    return list(clip_web_mercator_bbox(projected))
 
 
 @jsonldify

@@ -3,11 +3,17 @@
 A name says what kind of URI it holds. ``<SPEC>_CONFORMANCE_PREFIX`` starts
 the conformance classes of one OGC API standard, such as
 ``MAPS_CONFORMANCE_PREFIX``. ``OGC_REL_<NAME>`` is a link relation of the
-OGC register at ``http://www.opengis.net/def/rel/ogc/1.0/``, which every OGC
+OGC registry at ``http://www.opengis.net/def/rel/ogc/1.0/``, which every OGC
 API standard shares: ``<NAME>`` is the relation's name in upper case, with
 ``_`` for ``-``, as in ``OGC_REL_TILING_SCHEME``. ``OGC_REL_PREFIX`` is
 for a family of relations, such as ``tilesets-vector`` and ``tilesets-map``.
+``OGC_CRS_<NAME>`` is a CRS of the OGC registry at
+``http://www.opengis.net/def/crs/``, named by its common name, as in
+``OGC_CRS_WEB_MERCATOR``.
 """
+
+OGC_CRS_WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
+"""Web Mercator, EPSG:3857."""
 
 MAPS_CONFORMANCE_PREFIX = "http://www.opengis.net/spec/ogcapi-maps-1/1.0/conf"
 """The start of the URI of every OGC API - Maps conformance class."""

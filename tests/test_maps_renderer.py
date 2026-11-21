@@ -202,12 +202,12 @@ async def test_no_blocking_call_reaches_the_loop_while_a_map_is_drawn(archive):
 
 @pytest.mark.asyncio
 async def test_the_whole_world_in_a_small_image_is_drawn(archive):
-    from app.maps.camera import HALF_WORLD
+    from app.maps.web_mercator import WEB_MERCATOR_EDGE
 
     # Smaller than the world at zoom 0, as a map asked for without a bbox.
     provider = _provider(map_provider(archive, renderer=REAL))
     try:
-        world = [-HALF_WORLD, -HALF_WORLD, HALF_WORLD, HALF_WORLD]
+        world = [-WEB_MERCATOR_EDGE, -WEB_MERCATOR_EDGE, WEB_MERCATOR_EDGE, WEB_MERCATOR_EDGE]
         png = await _map(provider, bbox=world, width=500, height=300)
     finally:
         await provider.aclose()

@@ -24,8 +24,8 @@ from typing import Any, NoReturn
 from pygeoapi.provider.base import ProviderGenericError, ProviderItemNotFoundError
 
 from app.config.logging import create_logger
+from app.interfaces.ogc import OGC_CRS_WEB_MERCATOR
 from app.interfaces.providers import NotRenderedMap, RenderedMap
-from app.maps.camera import HALF_WORLD
 from app.maps.contract import (
     MapRenderer,
     MapRequest,
@@ -36,15 +36,13 @@ from app.maps.contract import (
 )
 from app.maps.queue import DrawTimeoutError, QueueFullError, RenderQueue
 from app.maps.sources import ObjectUrl, SourceFormat, source_for
+from app.maps.web_mercator import WEB_MERCATOR_EDGE
 from app.provider.dem import check_dem
 from app.provider.storage import cache as range_caches
 from app.provider.storage import load_store, split_source
 from app.schemas.temporal import TimeInterval, parse_ogc_datetime
 
 logger = create_logger("app.provider.maps")
-
-WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
-"""The only CRS maps are drawn in."""
 
 
 class _MapError(ProviderGenericError):
@@ -147,10 +145,10 @@ def check_definition(provider_def: dict, options: dict[str, Any]) -> SourceForma
     MapLibre does not read, and for a public bucket without ``data_url``
     when the range cache is off.
     """
-    storage_crs = provider_def.get("storage_crs", WEB_MERCATOR)
-    if storage_crs != WEB_MERCATOR:
+    storage_crs = provider_def.get("storage_crs", OGC_CRS_WEB_MERCATOR)
+    if storage_crs != OGC_CRS_WEB_MERCATOR:
         raise ProviderGenericError(
-            user_msg=f"the map provider draws in {WEB_MERCATOR}, not in {storage_crs}"
+            user_msg=f"the map provider draws in {OGC_CRS_WEB_MERCATOR}, not in {storage_crs}"
         )
     try:
         source_format = source_for(provider_def["data"])
@@ -300,7 +298,7 @@ def _parse_flag(value: Any) -> bool:
 def _clamp(value: float) -> float:
     if math.isnan(value):
         return value
-    return max(-HALF_WORLD, min(HALF_WORLD, value))
+    return max(-WEB_MERCATOR_EDGE, min(WEB_MERCATOR_EDGE, value))
 
 
 def build_map_request(
@@ -322,8 +320,8 @@ def build_map_request(
     a style that is not configured.
     """
     # pygeoapi's get_uri lowercases a CRS URI on its way here.
-    if crs is not None and crs.lower() != WEB_MERCATOR.lower():
-        raise MapParameterError(user_msg=f"maps are drawn in {WEB_MERCATOR} only")
+    if crs is not None and crs.lower() != OGC_CRS_WEB_MERCATOR.lower():
+        raise MapParameterError(user_msg=f"maps are drawn in {OGC_CRS_WEB_MERCATOR} only")
     # pygeoapi's map route answers f=html with the image itself, as there is no
     # HTML map page: a PNG is drawn for it too.
     if format_ not in (None, "png", "html"):
@@ -344,13 +342,13 @@ def build_map_request(
     except SourceNotDrawableError as error:
         raise ProviderGenericError(user_msg=f"map source not drawable: {error}") from error
     if bbox is None:
-        bbox = [-HALF_WORLD, -HALF_WORLD, HALF_WORLD, HALF_WORLD]
+        bbox = [-WEB_MERCATOR_EDGE, -WEB_MERCATOR_EDGE, WEB_MERCATOR_EDGE, WEB_MERCATOR_EDGE]
     try:
         xmin, ymin, xmax, ymax = (_clamp(float(value)) for value in bbox)
         if xmin > xmax:
             # The west edge lies east of the east edge: the bbox crosses the
             # antimeridian, and its east edge is one world further on.
-            xmax += 2 * HALF_WORLD
+            xmax += 2 * WEB_MERCATOR_EDGE
         return MapRequest(
             bbox=(xmin, ymin, xmax, ymax),
             width=int(width),

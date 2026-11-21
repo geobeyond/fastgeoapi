@@ -19,17 +19,15 @@ from pygeoapi.api import APIRequest, validate_subset
 from pygeoapi.crs import DEFAULT_CRS, get_uri, transform_bbox
 from pyproj.exceptions import CRSError
 
+from app.interfaces.ogc import OGC_CRS_WEB_MERCATOR
 from app.interfaces.providers import MapCapabilities, MapLimits, MapParameters
+from app.maps.web_mercator import clip_web_mercator_bbox, is_outside_web_mercator
 from app.provider.maps import (
-    WEB_MERCATOR,
     MapParameterError,
     MapStyleNotFoundError,
     MapTooLargeError,
     parse_map_datetime,
 )
-
-WEB_MERCATOR_EDGE = 20037508.342789244
-"""How far Web Mercator goes from its origin, in metres, on both axes."""
 
 OGC_MAP_PARAMETERS = frozenset(
     {
@@ -89,48 +87,6 @@ class MapOutsideCrs:
     crs: str
 
 
-def clip_bbox(
-    bbox: tuple[float, float, float, float], crs: str
-) -> tuple[float, float, float, float] | None:
-    """Clip ``bbox`` to the bounds of ``crs``.
-
-    Only Web Mercator has bounds here; a bbox in another CRS comes back as
-    it is. The coordinates that fall outside are moved to the edge, as
-    /per/spatial-subsetting/map-outside-bounds allows.
-
-    Parameters
-    ----------
-    bbox
-        ``(xmin, ymin, xmax, ymax)`` in ``crs``; ``xmin > xmax`` crosses the
-        antimeridian, and stays a crossing.
-    crs
-        The URI of the CRS of ``bbox``.
-
-    Returns
-    -------
-    tuple of float or None
-        The clipped bbox, or None when an axis lies entirely outside the
-        bounds and there is nothing to draw.
-    """
-    if crs.lower() != WEB_MERCATOR.lower():
-        return bbox
-    xmin, ymin, xmax, ymax = bbox
-    edge = WEB_MERCATOR_EDGE
-    if ymin >= edge or ymax <= -edge:
-        return None
-    crossing = xmin > xmax
-    if (not crossing and (xmin >= edge or xmax <= -edge)) or (
-        crossing and xmin >= edge and xmax <= -edge
-    ):
-        return None
-    return (
-        _clamp_to_edge(xmin, edge),
-        _clamp_to_edge(ymin, edge),
-        _clamp_to_edge(xmax, edge),
-        _clamp_to_edge(ymax, edge),
-    )
-
-
 def parse_map_parameters(
     request: APIRequest,
     collection: dict[str, Any],
@@ -182,14 +138,10 @@ def parse_map_parameters(
     if limits.max_pixels is not None and width * height > limits.max_pixels:
         raise MapTooLargeError(user_msg=f"width * height must be at most {limits.max_pixels}")
 
-    # Without crs, the map is drawn in the CRS the provider chose as its default.
-    crs = (
-        _match_declared_crs(params.get("crs"), capabilities.crs, "crs") or capabilities.default_crs
-    )
+    crs = _match_declared_crs(params.get("crs"), capabilities.crs, capabilities.default_crs, "crs")
     bbox_crs = _match_declared_crs(
-        params.get("bbox-crs"), (DEFAULT_CRS, *capabilities.crs), "bbox-crs"
+        params.get("bbox-crs"), (DEFAULT_CRS, *capabilities.crs), DEFAULT_CRS, "bbox-crs"
     )
-    bbox_crs = bbox_crs or DEFAULT_CRS
 
     transparent = str(params.get("transparent", "true")).lower()
     if transparent not in ("true", "false"):
@@ -214,9 +166,10 @@ def parse_map_parameters(
     if bbox_crs.lower() != crs.lower():
         moved = transform_bbox(list(bbox), bbox_crs, crs, always_xy=True)
         bbox = (moved[0], moved[1], moved[2], moved[3])
-    clipped = clip_bbox(bbox, crs)
-    if clipped is None:
-        return MapOutsideCrs(bbox=bbox, crs=crs)
+    if crs.lower() == OGC_CRS_WEB_MERCATOR.lower():
+        if is_outside_web_mercator(bbox):
+            return MapOutsideCrs(bbox=bbox, crs=crs)
+        bbox = clip_web_mercator_bbox(bbox)
 
     try:
         processed_datetime = maps_api.validate_datetime(extents, params.get("datetime"))
@@ -226,7 +179,7 @@ def parse_map_parameters(
 
     return MapParameters(
         style=style,
-        bbox=clipped,
+        bbox=bbox,
         width=width,
         height=height,
         crs=crs,
@@ -276,10 +229,6 @@ def _format_instant(value: Any) -> str | None:
     return str(value)
 
 
-def _clamp_to_edge(value: float, edge: float) -> float:
-    return max(-edge, min(edge, value))
-
-
 def _parse_positive_integer(value: Any, name: str) -> int:
     try:
         number = int(value)
@@ -290,7 +239,9 @@ def _parse_positive_integer(value: Any, name: str) -> int:
     return number
 
 
-def _match_declared_crs(value: str | None, declared: tuple[str, ...], name: str) -> str | None:
+def _match_declared_crs(
+    value: str | None, declared: tuple[str, ...], default: str, name: str
+) -> str:
     """Find the declared URI ``value`` names, in any case and as a URI or a CURIE.
 
     Parameters
@@ -299,13 +250,16 @@ def _match_declared_crs(value: str | None, declared: tuple[str, ...], name: str)
         The CRS of the request, as the client wrote it, or None.
     declared
         The URIs of the CRSs the provider declares.
+    default
+        The URI for a request without the parameter.
     name
         The name of the request parameter, for the error message.
 
     Returns
     -------
-    str or None
-        The declared URI, written as declared, or None when ``value`` is None.
+    str
+        The declared URI, written as declared, or ``default`` when
+        ``value`` is None.
 
     Raises
     ------
@@ -313,7 +267,7 @@ def _match_declared_crs(value: str | None, declared: tuple[str, ...], name: str)
         When ``value`` names no declared CRS; the route answers 400.
     """
     if value is None:
-        return None
+        return default
     try:
         uri = get_uri(value)
     except (ValueError, CRSError):
