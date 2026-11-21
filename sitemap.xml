@@ -184,16 +184,10 @@
         <loc>https://geobeyond.github.io/fastgeoapi/contributors/explanation/async-providers/</loc>
       </url>
       <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/contributors/how-to/checking-a-requirement/</loc>
-      </url>
-      <url>
         <loc>https://geobeyond.github.io/fastgeoapi/contributors/how-to/development-setup/</loc>
       </url>
       <url>
         <loc>https://geobeyond.github.io/fastgeoapi/contributors/how-to/running-the-tests/</loc>
-      </url>
-      <url>
-        <loc>https://geobeyond.github.io/fastgeoapi/contributors/how-to/writing-a-map-provider/</loc>
       </url>
       <url>
         <loc>https://geobeyond.github.io/fastgeoapi/contributors/how-to/writing-an-async-provider/</loc>
