@@ -19,6 +19,7 @@ def build_map_parameters(**overrides):
     values = {
         "style": None,
         "bbox": None,
+        "heights": None,
         "width": 500,
         "height": 300,
         "crs": "http://www.opengis.net/def/crs/EPSG/0/3857",

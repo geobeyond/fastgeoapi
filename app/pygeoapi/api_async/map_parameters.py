@@ -20,7 +20,7 @@ from pygeoapi.crs import DEFAULT_CRS, get_uri, transform_bbox
 from pygeoapi.util import get_choice_from_headers
 from pyproj.exceptions import CRSError
 
-from app.interfaces.ogc import OGC_CRS_WEB_MERCATOR
+from app.interfaces.ogc import OGC_CRS_CRS84H, OGC_CRS_WEB_MERCATOR
 from app.interfaces.providers import MapCapabilities, MapFormat, MapLimits, MapParameters
 from app.maps.web_mercator import clip_web_mercator_bbox, is_outside_web_mercator
 from app.provider.maps import (
@@ -141,9 +141,18 @@ def parse_map_parameters(
         raise MapTooLargeError(user_msg=f"width * height must be at most {limits.max_pixels}")
 
     crs = _match_declared_crs(params.get("crs"), capabilities.crs, capabilities.default_crs, "crs")
+    bbox, heights = (None, None) if params.get("bbox") is None else _parse_bbox(params["bbox"])
+    # Without bbox-crs, a bbox of six numbers is in CRS84h and one of four in CRS84.
     bbox_crs = _match_declared_crs(
-        params.get("bbox-crs"), (DEFAULT_CRS, *capabilities.crs), DEFAULT_CRS, "bbox-crs"
+        params.get("bbox-crs"),
+        (DEFAULT_CRS, OGC_CRS_CRS84H, *capabilities.crs),
+        DEFAULT_CRS if heights is None else OGC_CRS_CRS84H,
+        "bbox-crs",
     )
+    if bbox is not None and (heights is None) == (bbox_crs == OGC_CRS_CRS84H):
+        raise MapParameterError(
+            user_msg="a bbox of six numbers needs bbox-crs CRS84h, one of four a 2D bbox-crs"
+        )
 
     transparent = str(params.get("transparent", "true")).lower()
     if transparent not in ("true", "false"):
@@ -151,19 +160,19 @@ def parse_map_parameters(
 
     format_ = _choose_map_format(params.get("f"), request.headers, capabilities.formats)
 
-    if params.get("bbox") is None:
+    if bbox is None:
         # Without a bbox the map covers the collection, in the CRS of its extent.
         spatial = extents.get("spatial") or {}
-        bbox = _parse_bbox(",".join(str(value) for value in spatial.get("bbox") or ()))
+        bbox, _ = _parse_bbox(",".join(str(value) for value in spatial.get("bbox") or ()))
         bbox_crs = spatial.get("crs") or DEFAULT_CRS
-    else:
-        bbox = _parse_bbox(params.get("bbox"))
     if bbox[1] > bbox[3]:
         raise MapParameterError(user_msg="the bbox has its minimum y above its maximum y")
     if bbox[0] == bbox[2] or bbox[1] == bbox[3]:
         raise MapParameterError(user_msg="the bbox has no area")
-    if bbox_crs.lower() != crs.lower():
-        moved = transform_bbox(list(bbox), bbox_crs, crs, always_xy=True)
+    # The horizontal axes of CRS84h are those of CRS84.
+    horizontal_crs = DEFAULT_CRS if bbox_crs == OGC_CRS_CRS84H else bbox_crs
+    if horizontal_crs.lower() != crs.lower():
+        moved = transform_bbox(list(bbox), horizontal_crs, crs, always_xy=True)
         bbox = (moved[0], moved[1], moved[2], moved[3])
     if crs.lower() == OGC_CRS_WEB_MERCATOR.lower():
         if is_outside_web_mercator(bbox):
@@ -176,16 +185,22 @@ def parse_map_parameters(
     except ValueError as error:
         raise MapParameterError(user_msg=str(error)) from None
 
+    subsets = _parse_subsets(params, extents)
+    if heights is not None and any(axis.lower() in ("h", "z") for axis in subsets or {}):
+        # /req/spatial-subsetting/bbox-definition, B: one axis is subset once.
+        raise MapParameterError(user_msg="a bbox of six numbers cannot be used with a subset of h")
+
     return MapParameters(
         style=style,
         bbox=bbox,
+        heights=heights,
         width=width,
         height=height,
         crs=crs,
         transparent=transparent == "true",
         format_=format_,
         datetime_=datetime_,
-        subsets=_parse_subsets(params, extents),
+        subsets=subsets,
         vendor_params=_collect_vendor_params(params),
     )
 
@@ -289,6 +304,10 @@ def _parse_positive_integer(value: Any, name: str) -> int:
     return number
 
 
+_OGC_CURIES = {"ogc:crs84h": OGC_CRS_CRS84H}
+"""The OGC CURIEs pygeoapi's get_uri does not read, by their lower case."""
+
+
 def _match_declared_crs(
     value: str | None, declared: tuple[str, ...], default: str, name: str
 ) -> str:
@@ -324,24 +343,52 @@ def _match_declared_crs(
         uri = value
     if not isinstance(uri, str):
         # pygeoapi returns the CRSError of a CURIE it cannot read instead of raising it.
-        uri = value
+        uri = _OGC_CURIES.get(value.strip("[]").lower(), value)
     for candidate in declared:
         if candidate.lower() == uri.lower():
             return candidate
     raise MapParameterError(user_msg=f"{name} must be one of {', '.join(declared)}")
 
 
-def _parse_bbox(value: str) -> tuple[float, float, float, float]:
+def _parse_bbox(
+    value: str,
+) -> tuple[tuple[float, float, float, float], tuple[float, float] | None]:
+    """Read a bbox of four numbers, or of six with the heights in third and sixth place.
+
+    Parameters
+    ----------
+    value
+        The comma-separated numbers (/req/spatial-subsetting/bbox-definition).
+
+    Returns
+    -------
+    tuple
+        ``(xmin, ymin, xmax, ymax)``, and ``(minimum, maximum)`` of the
+        heights, or None for four numbers.
+
+    Raises
+    ------
+    MapParameterError
+        For a count other than four or six, a value that is not a finite
+        number, or heights upside down; the route answers 400.
+    """
     parts = value.split(",")
-    if len(parts) != 4:
-        raise MapParameterError(user_msg="bbox values should be minx,miny,maxx,maxy")
+    if len(parts) not in (4, 6):
+        raise MapParameterError(
+            user_msg="bbox values should be minx,miny,maxx,maxy or minx,miny,minz,maxx,maxy,maxz"
+        )
     try:
         numbers = [float(part) for part in parts]
     except ValueError:
         raise MapParameterError(user_msg="bbox values must be numbers") from None
     if not all(math.isfinite(number) for number in numbers):
         raise MapParameterError(user_msg="bbox values must be finite numbers")
-    return (numbers[0], numbers[1], numbers[2], numbers[3])
+    if len(numbers) == 4:
+        return (numbers[0], numbers[1], numbers[2], numbers[3]), None
+    xmin, ymin, zmin, xmax, ymax, zmax = numbers
+    if zmin > zmax:
+        raise MapParameterError(user_msg="the bbox has its minimum height above its maximum")
+    return (xmin, ymin, xmax, ymax), (zmin, zmax)
 
 
 def _collect_vendor_params(params: Any) -> dict[str, str]:

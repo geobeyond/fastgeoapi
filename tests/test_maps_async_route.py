@@ -632,3 +632,14 @@ def test_a_header_the_route_set_keeps_the_routes_value():
 
     assert headers == {"Content-Language": "en-US", "X-Engine": "fake"}
     assert "content-language" in logger.warning.call_args.args[0]
+
+
+def test_a_map_of_a_bbox_of_six_numbers_declares_the_four_it_draws(tmp_path):
+    client, provider = _cached_client(tmp_path)
+
+    with patch.object(provider, "arender_map", wraps=provider.arender_map) as drawn:
+        response = client.get(CACHED_MAP, params={**SMALL, "bbox": "12.4,41.8,0,12.6,42.0,1000"})
+
+    assert response.status_code == 200, response.text[:200]
+    assert len(response.headers["content-bbox"].split(",")) == 4
+    assert drawn.call_args.args[0].heights == (0.0, 1000.0)

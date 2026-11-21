@@ -25,6 +25,7 @@ from pygeoapi.openapi import (
 
 from app.auth.models import unauthorized
 from app.config.logging import create_logger
+from app.interfaces.ogc import OGC_CRS_CRS84H
 from app.interfaces.providers import MapCapabilities, MapFormat, MapLimits
 from app.pygeoapi.models import not_found
 
@@ -763,7 +764,12 @@ def _publish_map_parameters(
     additional = set(extents) - {"spatial", "temporal"}
     bbox_crs = [
         DEFAULT_CRS,
-        *(c for c in capabilities.crs if c.lower() != DEFAULT_CRS.lower()),
+        OGC_CRS_CRS84H,
+        *(
+            c
+            for c in capabilities.crs
+            if c.lower() not in (DEFAULT_CRS.lower(), OGC_CRS_CRS84H.lower())
+        ),
     ]
     published: list[Parameter | Reference] = []
     for parameter in operation.parameters or []:
@@ -818,14 +824,16 @@ def _build_bbox_parameter() -> Parameter:
     return Parameter(
         name="bbox",
         param_in=ParameterLocation.QUERY,
-        description="The area of the map: minx,miny,maxx,maxy, in the CRS of bbox-crs.",
+        description=(
+            "The area of the map, in the CRS of bbox-crs: minx,miny,maxx,maxy, or "
+            "minx,miny,minz,maxx,maxy,maxz with the heights in CRS84h."
+        ),
         required=False,
         style="form",
         explode=False,
         param_schema=Schema(
             type=DataType.ARRAY,
-            minItems=4,
-            maxItems=4,
+            oneOf=[Schema(minItems=4, maxItems=4), Schema(minItems=6, maxItems=6)],
             items=Schema(type=DataType.NUMBER),
         ),
     )

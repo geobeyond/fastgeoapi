@@ -167,6 +167,11 @@ class MapParameters:
         ``(xmin, ymin, xmax, ymax)`` in ``crs``, within its extent;
         ``xmin > xmax`` means that the box crosses the antimeridian
         (/req/spatial-subsetting/bbox-definition).
+    heights
+        ``(minimum, maximum)`` of the third axis of a bbox of six numbers,
+        in metres above the WGS 84 ellipsoid; None for a bbox of four
+        numbers or none (/req/spatial-subsetting/bbox-definition). A
+        provider that draws in two dimensions ignores them.
     width
         The width of the image in pixels, a positive integer
         (/req/scaling/width-definition).
@@ -199,6 +204,7 @@ class MapParameters:
 
     style: str | None
     bbox: tuple[float, float, float, float]
+    heights: tuple[float, float] | None
     width: int
     height: int
     crs: str
