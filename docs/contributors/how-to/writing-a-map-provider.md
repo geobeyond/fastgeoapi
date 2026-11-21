@@ -26,7 +26,14 @@ service.
 ```python
 from pygeoapi.provider.base import BaseProvider
 
-from app.interfaces.providers import MapCapabilities, MapFormat, MapLimits, MapParameters
+from app.interfaces.providers import (
+    MapCapabilities,
+    MapFormat,
+    MapLimits,
+    MapParameters,
+    NotRenderedMap,
+    RenderedMap,
+)
 from app.provider.base import AsyncProviderMixin, StorageBackedMixin
 
 WEB_MERCATOR = "http://www.opengis.net/def/crs/EPSG/0/3857"
@@ -42,9 +49,9 @@ class MyMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
     @property
     def capabilities(self) -> MapCapabilities:
-        return MapCapabilities(crs=(WEB_MERCATOR,), formats=(MapFormat.PNG,))
+        return MapCapabilities(crs=(WEB_MERCATOR,), formats=(MapFormat.PNG,), styles=("night",))
 
-    async def arender_map(self, parameters: MapParameters) -> bytes: ...
+    async def arender_map(self, parameters: MapParameters) -> RenderedMap | NotRenderedMap: ...
 
     async def aget_version(self, parameters: MapParameters) -> str | None: ...
 
@@ -59,15 +66,16 @@ smaller (`FASTGEOAPI_MAPS_MAX_WIDTH`, `FASTGEOAPI_MAPS_MAX_HEIGHT`,
 `FASTGEOAPI_MAPS_MAX_PIXELS`), they apply, and a warning at startup names
 the collection.
 
-`capabilities` gives the CRSs the engine draws in and the encodings it
-draws maps in. A CRS is an OGC CRS URI, such as
+`capabilities` gives the CRSs the engine draws in, the encodings it
+draws maps in and the names of its styles. A CRS is an OGC CRS URI, such as
 `http://www.opengis.net/def/crs/EPSG/0/3857`, that pyproj knows; an
 encoding is a member of `MapFormat`, one per encoding class of OGC API -
 Maps (PNG, JPEG, JPEG XL, TIFF, SVG and HTML). A configuration whose
 provider declares anything else is refused at startup, with an error that
 names the class and the value. The document publishes them as the `crs` and
 `f` enums, and a request for anything else gets a 400 before the provider
-is called.
+is called. A `{styleId}` that is not among the styles gets a 404, also before
+the call.
 
 The provider declares no conformance classes. `/conformance` derives them
 from the capabilities: `core`, `collection-map`, `crs` and the class of each
@@ -76,19 +84,22 @@ encoding. The collection description lists the CRSs in `crs`, with
 other than CRS84, and
 links one map per encoding.
 
-`arender_map` returns the encoded image. `aget_version` returns the version
-of the image `arender_map` would draw for the same parameters, without drawing
-it. The route builds the `ETag` from that version, and answers 304 to a
-request that already has the map. The version must change whenever the image
-can change: the data, the definition, the style or the engine. Return None
-when the version of the data is unknown; the map then goes without cache
-headers.
+`arender_map` returns a `RenderedMap`: the encoded image and the version it
+was drawn from. `aget_version` returns the version of the image `arender_map`
+would draw for the same parameters, without drawing it. The route builds the
+`ETag` from these versions: it answers 304 to a request that already has the
+map, and gives a drawn map the `ETag` of its own version. The version must
+change whenever the image can change: the data, the definition, the style or
+the engine. Return None when the version of the data is unknown; the map then
+goes without cache headers.
 
-The map served with an `ETag` must be drawn from the data that `ETag` names.
-Read the data pinned to the version you return, as `CachedRanges` does with
-`if_match`, and fail rather than mix two versions when the data changes during
-a draw. The route reads the version again after the draw and drops the cache
-headers when it moved.
+The map must be drawn from the data its version names. Read the data pinned to
+one version, as `CachedRanges` does with `if_match`, and return that version
+even when a newer one arrives during the draw. Fail rather than mix two
+versions.
+
+The map covers exactly `parameters.bbox` in `parameters.crs`: the route
+declares both in `Content-Bbox` and `Content-Crs`.
 
 `close()` must not block, and may be called more than once. The plugin cache
 calls it on the instances a reload drops, from the reloading thread, while the
@@ -102,7 +113,7 @@ whose fields are:
 
 | Field             | What the route has already done                                                                                                                                    |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `style`           | `None` for the default style, or the `{styleId}` of the path. An unknown name is the provider's to refuse with `ProviderItemNotFoundError`, which answers 404.     |
+| `style`           | `None` for the default style, or one of `capabilities.styles`. The route answers 404 to any other `{styleId}`.                                                     |
 | `bbox`            | Four finite numbers, moved from `bbox-crs` into `crs` and clipped to the extent of `crs`. A box entirely outside it answers 204 without calling the provider.      |
 | `width`, `height` | Positive integers within the published limits.                                                                                                                     |
 | `crs`             | One of the URIs in `capabilities.crs`, spelled as published.                                                                                                       |
@@ -116,13 +127,17 @@ object as `arender_map`.
 
 ## What it leaves to the route
 
-The provider does not answer 400 or 413: the route has checked the parameters
-before the call. The provider and its engine decide how many maps are drawn at
-once and how long a map may wait. The route answers a provider error with
-the error's `http_status_code`, and adds `Retry-After` when the error carries a
-`retry_after`. The MapLibre provider answers a full queue with 503 and
-`Retry-After`, and a map past its timeout with 504. The provider raises
-`ProviderGenericError` when the engine fails, which answers 500.
+The provider does not answer 400, 404 or 413: the route has checked the
+parameters before the call. The provider and its engine decide how many maps
+are drawn at once and how long a map may wait. When the server is too busy to
+draw the map now, `arender_map` returns a `NotRenderedMap` with the status of
+the answer and, when it knows them, the seconds before a retry. The route
+answers with that status, and with `Retry-After` when the seconds are there.
+The MapLibre provider answers a full
+queue with 503 and `Retry-After: 5`, and a map past its timeout with 504.
+
+A fault of the engine is raised, as pygeoapi's providers do:
+`ProviderGenericError` answers 500, and the route logs its traceback.
 
 ## Running the contract suite
 

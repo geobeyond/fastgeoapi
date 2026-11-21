@@ -22,6 +22,7 @@ from app.interfaces.providers import MapCapabilities, MapLimits, MapParameters
 from app.provider.maps import (
     WEB_MERCATOR,
     MapParameterError,
+    MapStyleNotFoundError,
     MapTooLargeError,
     parse_map_datetime,
 )
@@ -94,9 +95,9 @@ def parse_map_parameters(
     limits
         The collection's limits, clamped to the server's.
     capabilities
-        The CRSs and formats the provider draws.
+        The CRSs, formats and styles the provider draws.
     style
-        The style named in the path, or None.
+        The style named in the path, or None for the default one.
 
     Returns
     -------
@@ -106,12 +107,16 @@ def parse_map_parameters(
 
     Raises
     ------
+    MapStyleNotFoundError
+        For a style the provider does not declare; the route answers 404.
     MapParameterError
         For a parameter the route cannot read or the provider does not
         draw; the route answers 400.
     MapTooLargeError
         For a map above the collection's limits; the route answers 413.
     """
+    if style is not None and style not in capabilities.styles:
+        raise MapStyleNotFoundError(user_msg=f"style {style} not found")
     params = request.params
     width = _parse_positive_integer(params.get("width", 500), "width")
     height = _parse_positive_integer(params.get("height", 300), "height")

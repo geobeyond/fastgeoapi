@@ -37,9 +37,17 @@ def _provider(archive, **options):
     return MapLibreMapProvider(map_provider(archive, **options))
 
 
-async def _map(provider, **kwargs):
+async def _draw(provider, **kwargs):
     args = {"bbox": list(ROME), "width": 64, "height": 64, "crs": WEB_MERCATOR}
     return await provider.arender_map(build_map_parameters(**{**args, **kwargs}))
+
+
+async def _map(provider, **kwargs):
+    from app.interfaces.providers import RenderedMap
+
+    drawn = await _draw(provider, **kwargs)
+    assert isinstance(drawn, RenderedMap), drawn
+    return drawn.content
 
 
 async def _until(condition, timeout=2.0):
@@ -407,7 +415,7 @@ async def test_a_named_style_is_used(archive, tmp_path):
 
 @pytest.mark.asyncio
 async def test_a_full_queue_answers_503(archive):
-    from app.provider.maps import MapRendererBusyError
+    from app.interfaces.providers import NotRenderedMap
 
     FakeRenderer.gate = asyncio.Event()
     provider = _provider(archive, fake="gate", queue=1)
@@ -415,9 +423,9 @@ async def test_a_full_queue_answers_503(archive):
     waiting = asyncio.create_task(_map(provider))
     await _until(lambda: provider.waiting == 2)
 
-    with pytest.raises(MapRendererBusyError) as error:
-        await _map(provider)
-    assert error.value.http_status_code == HTTPStatus.SERVICE_UNAVAILABLE
+    busy = await _draw(provider)
+    assert isinstance(busy, NotRenderedMap)
+    assert (busy.status, busy.retry_after) == (HTTPStatus.SERVICE_UNAVAILABLE, 5)
 
     FakeRenderer.gate.set()
     await asyncio.gather(rendering, waiting)
@@ -425,13 +433,13 @@ async def test_a_full_queue_answers_503(archive):
 
 @pytest.mark.asyncio
 async def test_a_slow_render_answers_504_and_keeps_drawing_for_the_cache(archive):
-    from app.provider.maps import MapRenderTimeoutError
+    from app.interfaces.providers import NotRenderedMap
 
     FakeRenderer.gate = asyncio.Event()
     provider = _provider(archive, fake="gate", timeout=0.05, render_limit=5)
-    with pytest.raises(MapRenderTimeoutError) as error:
-        await _map(provider)
-    assert error.value.http_status_code == HTTPStatus.GATEWAY_TIMEOUT
+    late = await _draw(provider)
+    assert isinstance(late, NotRenderedMap)
+    assert (late.status, late.retry_after) == (HTTPStatus.GATEWAY_TIMEOUT, None)
 
     # The render goes on, so the tiles it reads stay cached for the next maps.
     (renderer,) = FakeRenderer.instances
@@ -444,12 +452,9 @@ async def test_a_slow_render_answers_504_and_keeps_drawing_for_the_cache(archive
 
 @pytest.mark.asyncio
 async def test_a_render_past_its_limit_replaces_the_renderer(archive):
-    from app.provider.maps import MapRenderTimeoutError
-
     # Four times the timeout by default; the limit given here comes much sooner.
     provider = _provider(archive, fake="slow", timeout=1, render_limit=0.1)
-    with pytest.raises(MapRenderTimeoutError):
-        await _map(provider)
+    assert (await _draw(provider)).status == HTTPStatus.GATEWAY_TIMEOUT
 
     await _until(lambda: FakeRenderer.instances[0].closed, timeout=0.5)
     assert provider.renderer_is_built is False
@@ -457,17 +462,13 @@ async def test_a_render_past_its_limit_replaces_the_renderer(archive):
 
 @pytest.mark.asyncio
 async def test_a_map_waiting_behind_a_long_render_answers_504_in_time(archive):
-    from app.provider.maps import MapRenderTimeoutError
-
     FakeRenderer.gate = asyncio.Event()
     provider = _provider(archive, fake="gate", timeout=0.05, render_limit=5)
-    with pytest.raises(MapRenderTimeoutError):
-        await _map(provider)
+    assert (await _draw(provider)).status == HTTPStatus.GATEWAY_TIMEOUT
 
     loop = asyncio.get_running_loop()
     started = loop.time()
-    with pytest.raises(MapRenderTimeoutError):
-        await _map(provider)
+    assert (await _draw(provider)).status == HTTPStatus.GATEWAY_TIMEOUT
     assert loop.time() - started < 1
     FakeRenderer.gate.set()
 
@@ -558,6 +559,26 @@ async def test_the_sync_face_takes_the_arguments_pygeoapi_passes(archive):
     png = await asyncio.to_thread(provider.query, **pygeoapi_arguments)
 
     assert png.startswith(b"\x89PNG")
+
+
+@pytest.mark.asyncio
+async def test_the_sync_face_answers_a_full_queue_with_its_error(archive):
+    from app.provider.maps import MapRendererBusyError
+
+    FakeRenderer.gate = asyncio.Event()
+    provider = _provider(archive, fake="gate", queue=1)
+    rendering = asyncio.create_task(_map(provider))
+    waiting = asyncio.create_task(_map(provider))
+    await _until(lambda: provider.waiting == 2)
+
+    with pytest.raises(MapRendererBusyError) as error:
+        await asyncio.to_thread(
+            provider.query, bbox=list(ROME), width=32, height=32, crs=WEB_MERCATOR
+        )
+    assert error.value.http_status_code == HTTPStatus.SERVICE_UNAVAILABLE
+
+    FakeRenderer.gate.set()
+    await asyncio.gather(rendering, waiting)
 
 
 def test_the_datetime_pygeoapi_passes_reaches_the_provider_parsed():
@@ -936,6 +957,16 @@ async def test_the_version_of_a_map_is_known_without_drawing_it(archive):
 
 
 @pytest.mark.asyncio
+async def test_a_drawn_map_carries_the_version_of_the_map(archive):
+    provider = _provider(archive)
+
+    drawn = await _draw(provider)
+
+    assert drawn.version is not None
+    assert drawn.version == await _version(provider)
+
+
+@pytest.mark.asyncio
 async def test_another_style_gives_another_version(archive, tmp_path):
     styles = {
         "night": _line_style(tmp_path / "night.json", "#000000"),
@@ -977,13 +1008,13 @@ async def test_a_bucket_map_has_its_version_from_the_range_cache(tmp_path):
     try:
         version = await _version(provider)
         again = await _version(provider)
+        drawn = await _draw(provider)
     finally:
         await provider.aclose()
         await close_range_server()
 
     assert version is not None
-    assert version == again
-    assert FakeRenderer.instances == []
+    assert version == again == drawn.version
 
 
 def _digest_style(url, color="#000000", basemap="https://tiles.example/{z}/{x}/{y}.png"):

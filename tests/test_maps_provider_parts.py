@@ -51,7 +51,7 @@ class PlainMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
     def capabilities(self):
         from app.interfaces.providers import MapCapabilities
 
-        return MapCapabilities(crs=(WEB_MERCATOR,), formats=("png",))
+        return MapCapabilities(crs=(WEB_MERCATOR,), formats=("png",), styles=())
 
     async def arender_map(self, parameters):
         from app.provider.maps import build_map_request, draw_map
@@ -67,7 +67,7 @@ class PlainMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             transparent=parameters.transparent,
             format_=parameters.format_,
         )
-        return await draw_map(self._queue, request)
+        return await draw_map(self._queue, request, version=None)
 
     async def aget_version(self, parameters):
         return None
@@ -91,12 +91,12 @@ async def test_another_family_draws_by_composing_the_same_parts(tmp_path):
 
     provider = PlainMapProvider(map_provider(tmp_path / "roads.bin"))
 
-    png = await provider.arender_map(
+    drawn = await provider.arender_map(
         build_map_parameters(bbox=ROME, width=16, height=16, crs=WEB_MERCATOR)
     )
 
     assert isinstance(provider, AsyncMapProvider)
-    assert png.startswith(b"\x89PNG")
+    assert drawn.content.startswith(b"\x89PNG")
     assert FakeRenderer.instances[0].requests[0].style == {"data": str(tmp_path / "roads.bin")}
 
 

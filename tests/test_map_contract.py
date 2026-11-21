@@ -41,8 +41,10 @@ class Explicit(BaseProvider):
     received: ClassVar[list[dict]] = []
 
     async def arender_map(self, parameters):
+        from app.interfaces.providers import RenderedMap
+
         Explicit.received.append(parameters)
-        return tiny_png(parameters.width, parameters.height)
+        return RenderedMap(content=tiny_png(parameters.width, parameters.height), version=None)
 
     async def aget_version(self, parameters):
         return None
@@ -57,7 +59,7 @@ class Explicit(BaseProvider):
     def capabilities(self):
         from app.interfaces.providers import MapCapabilities
 
-        return MapCapabilities(crs=(WEB_MERCATOR,), formats=("png",))
+        return MapCapabilities(crs=(WEB_MERCATOR,), formats=("png",), styles=())
 
     def close(self):
         """Nothing to release."""
@@ -70,7 +72,7 @@ def _build_capabilities_property(crs, formats):
     def capabilities(self):
         from app.interfaces.providers import MapCapabilities
 
-        return MapCapabilities(crs=crs, formats=formats)
+        return MapCapabilities(crs=crs, formats=formats, styles=())
 
     return capabilities
 
@@ -212,7 +214,47 @@ def test_the_maplibre_capabilities_are_web_mercator_and_png(tmp_path):
 
     provider = MapLibreMapProvider(map_provider(_archive(tmp_path)))
 
-    assert provider.capabilities == MapCapabilities(crs=(WEB_MERCATOR,), formats=("png",))
+    assert provider.capabilities == MapCapabilities(
+        crs=(WEB_MERCATOR,), formats=("png",), styles=()
+    )
+
+
+def test_the_maplibre_capabilities_name_the_configured_styles(tmp_path):
+    from app.provider.maplibre import MapLibreMapProvider
+
+    styles = {"night": "night.json", "day": "day.json"}
+    provider = MapLibreMapProvider(map_provider(_archive(tmp_path), styles=styles))
+
+    assert provider.capabilities.styles == ("day", "night")
+
+
+def test_capabilities_name_the_styles_a_provider_draws():
+    from app.interfaces.providers import MapCapabilities
+
+    with pytest.raises(TypeError, match="styles"):
+        MapCapabilities(crs=(WEB_MERCATOR,), formats=("png",))
+
+
+def test_a_drawn_map_carries_its_image_and_version():
+    from app.interfaces.providers import RenderedMap
+
+    drawn = RenderedMap(content=b"png", version="v1")
+
+    assert (drawn.content, drawn.version) == (b"png", "v1")
+    with pytest.raises(AttributeError):
+        drawn.version = "v2"  # ty: ignore[invalid-assignment]
+
+
+def test_a_map_not_drawn_carries_its_status_and_when_to_retry():
+    from http import HTTPStatus
+
+    from app.interfaces.providers import NotRenderedMap
+
+    busy = NotRenderedMap(status=HTTPStatus.SERVICE_UNAVAILABLE, message="busy", retry_after=5)
+
+    assert (busy.status, busy.message, busy.retry_after) == (503, "busy", 5)
+    with pytest.raises(AttributeError):
+        busy.retry_after = 1  # ty: ignore[invalid-assignment]
 
 
 def test_the_maplibre_provider_meets_the_contract(tmp_path):

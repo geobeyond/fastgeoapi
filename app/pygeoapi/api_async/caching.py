@@ -182,7 +182,42 @@ async def get_cache_headers(
     except Exception as error:
         _warn(kind, dataset, error)
         return {}
-    if version is None:
+    return build_cache_headers(http_cache, version, dataset, kind, arguments, response_headers)
+
+
+def build_cache_headers(
+    http_cache: HttpCache | None,
+    version: str | None,
+    dataset: str,
+    kind: str,
+    arguments: dict[str, Any] | MapParameters,
+    response_headers: dict,
+) -> dict[str, str]:
+    """Build the cache headers of an answer whose version is already known.
+
+    Parameters
+    ----------
+    http_cache
+        The cache policy, or None for no cache headers.
+    version
+        The version of the answer, or None when it is unknown.
+    dataset
+        The collection's name.
+    kind
+        What the answer is, ``"tile"`` or ``"map"``; it takes part in the ETag.
+    arguments
+        The arguments of the provider's data method.
+    response_headers
+        The headers of the response so far; their content coding takes
+        part in the ETag.
+
+    Returns
+    -------
+    dict of str to str
+        The ``ETag``, ``Cache-Control`` and ``Vary`` headers, or an empty
+        dict without a policy or a version.
+    """
+    if http_cache is None or not http_cache.enabled or version is None:
         return {}
     values = asdict(arguments) if isinstance(arguments, MapParameters) else arguments
     coded = {**values, "encoding": response_headers.get("Content-Encoding")}

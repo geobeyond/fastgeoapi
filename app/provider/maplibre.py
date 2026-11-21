@@ -13,6 +13,7 @@ import asyncio
 import hashlib
 import importlib.metadata
 import json
+from contextvars import ContextVar
 from copy import deepcopy
 from datetime import timedelta
 from functools import lru_cache
@@ -20,11 +21,14 @@ from typing import Any
 
 from pygeoapi.provider.base import BaseProvider, ProviderGenericError
 
+from app.config.logging import create_logger
 from app.interfaces.providers import (
     MapCapabilities,
     MapFormat,
     MapLimits,
     MapParameters,
+    NotRenderedMap,
+    RenderedMap,
 )
 from app.maps.contract import MapRequest, MapSource, MapStyles
 from app.maps.queue import RenderQueue
@@ -40,13 +44,20 @@ from app.provider.maps import (
     check_definition,
     draw_map,
     parse_map_datetime,
+    raise_not_rendered_map,
     render_limit,
 )
+from app.provider.storage.base import ObjectMeta
 from app.provider.storage.loopback import (
     SOURCES,
     RangeServer,
     ensure_range_server,
 )
+
+logger = create_logger("app.provider.maplibre")
+
+_drawn_meta: ContextVar[ObjectMeta | None] = ContextVar("drawn_meta", default=None)
+"""The version of the archive the map being built reads; None outside a map."""
 
 
 @lru_cache(maxsize=1)
@@ -132,8 +143,12 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
     @property
     def capabilities(self) -> MapCapabilities:
-        """Web Mercator and PNG as the CRS and the encoding of the drawn maps."""
-        return MapCapabilities(crs=(WEB_MERCATOR,), formats=(MapFormat.PNG,))
+        """Web Mercator, PNG and the configured styles of the drawn maps."""
+        return MapCapabilities(
+            crs=(WEB_MERCATOR,),
+            formats=(MapFormat.PNG,),
+            styles=tuple(self.list_style_names()),
+        )
 
     @property
     def renderer_is_built(self) -> bool:
@@ -152,9 +167,12 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
     def _locate_object(self) -> ObjectUrl:
         cached, server = self.cached_ranges, self._range_server
         if cached is not None and server is not None:
-            # The renderer reads the object through this process, by version.
+            # The renderer reads the object through this process, by version:
+            # the one the map being built pinned, or the one known last.
             return ObjectUrl(
-                resolver=lambda: server.url_for(cached, cached.known_meta() or cached.meta())
+                resolver=lambda: server.url_for(
+                    cached, _drawn_meta.get() or cached.known_meta() or cached.meta()
+                )
             )
         return build_object_url(
             self.provider_def["data"],
@@ -199,7 +217,9 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         )
 
     def _compute_drawn_version(self, parameters: MapParameters) -> str:
-        request = self._build_request(parameters)
+        return self._digest_request(self._build_request(parameters))
+
+    def _digest_request(self, request: MapRequest) -> str:
         drawn = digest_style(request.style, self.options["style_source"])
         return f"{drawn}|{get_renderer_version()}"
 
@@ -231,13 +251,17 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         drawn = await self.run_sync(self._compute_drawn_version, parameters)
         return f"{data}|{self.definition_digest()}|{drawn}"
 
-    async def arender_map(self, parameters: MapParameters) -> bytes:
-        """Draw the map and return the PNG.
+    async def arender_map(self, parameters: MapParameters) -> RenderedMap | NotRenderedMap:
+        """Draw the map, or tell why the renderer cannot draw it now.
 
         :func:`~app.provider.maps.build_map_request` checks its parameters, and its
         render waits in the :class:`~app.maps.queue.RenderQueue`. An archive
         has no time and no other dimension, so ``datetime_`` and ``subsets``
         change nothing.
+
+        A map read through the range cache reads the version of the archive
+        known when it starts, and carries that version even when a newer one
+        arrives while it is drawn.
 
         Parameters
         ----------
@@ -246,20 +270,44 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
         Returns
         -------
-        bytes
-            The PNG.
+        RenderedMap or NotRenderedMap
+            The PNG and the version :meth:`aget_version` gives for it; or a
+            503 when the queue is full, and a 504 when the render runs out
+            of time.
         """
         cached = self.cached_ranges
+        meta = None
         if cached is not None:
             self._range_server = await ensure_range_server()
             # Registered only once the version is known: until then, on a reload,
             # the provider this one replaces keeps serving the maps it is drawing.
             # Past the TTL the map draws the version it knows and the HEAD runs behind.
-            await cached.ameta_without_waiting()
+            meta = await cached.ameta_without_waiting()
             SOURCES.register(cached)
-        # In a thread: at the first map the styles read their documents and the source.
-        request = await self.run_sync(self._build_request, parameters)
-        return await draw_map(self._queue, request)
+        token = _drawn_meta.set(meta)
+        try:
+            # In a thread: at the first map the styles read their documents and
+            # the source. The thread gets a copy of the context, and the style
+            # points at the pinned version.
+            request = await self.run_sync(self._build_request, parameters)
+        finally:
+            _drawn_meta.reset(token)
+        data = meta.etag if meta is not None else await self._read_data_version()
+        version = (
+            None
+            if data is None
+            else f"{data}|{self.definition_digest()}|{self._digest_request(request)}"
+        )
+        return await draw_map(self._queue, request, version=version)
+
+    async def _read_data_version(self) -> str | None:
+        try:
+            return await self.adata_version()
+        except Exception as error:
+            # The map is drawn all the same, without cache headers. The type
+            # only: the message of a store error may name the object.
+            logger.warning(f"a map goes without its version: {type(error).__name__}")
+            return None
 
     def query(self, **kwargs: Any) -> bytes:
         """Draw the map for pygeoapi's synchronous route.
@@ -273,7 +321,10 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
                 user_msg="maps are drawn on the async route; no event loop owns the renderer"
             )
         parameters = read_pygeoapi_arguments(kwargs)
-        return asyncio.run_coroutine_threadsafe(self.arender_map(parameters), loop).result()
+        drawn = asyncio.run_coroutine_threadsafe(self.arender_map(parameters), loop).result()
+        if isinstance(drawn, NotRenderedMap):
+            raise_not_rendered_map(drawn)
+        return drawn.content
 
     async def aclose(self) -> None:
         """Close the renderer and wait until it is closed.

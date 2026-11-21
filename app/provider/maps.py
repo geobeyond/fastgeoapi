@@ -19,11 +19,12 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from datetime import datetime, timedelta
 from http import HTTPStatus
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 from pygeoapi.provider.base import ProviderGenericError, ProviderItemNotFoundError
 
 from app.config.logging import create_logger
+from app.interfaces.providers import NotRenderedMap, RenderedMap
 from app.maps.camera import HALF_WORLD
 from app.maps.contract import (
     MapRenderer,
@@ -72,6 +73,14 @@ class MapTooLargeError(MapParameterError):
     default_msg = "the map is larger than this server draws"
 
 
+class MapStyleNotFoundError(MapParameterError):
+    """A ``{styleId}`` the provider does not declare among its styles."""
+
+    ogc_exception_code = "NotFound"
+    http_status_code = HTTPStatus.NOT_FOUND
+    default_msg = "style not found"
+
+
 def parse_map_datetime(value: str) -> datetime | TimeInterval:
     """Parse the ``datetime`` of a map request into UTC datetimes.
 
@@ -97,14 +106,19 @@ def parse_map_datetime(value: str) -> datetime | TimeInterval:
         raise MapParameterError(user_msg=str(error)) from None
 
 
+BUSY_RETRY_AFTER_SECONDS = 5
+"""When a client should ask again for a map refused by a full queue.
+
+A warm map takes well under a second, the first map of a small area from
+2 to 9 seconds.
+"""
+
+
 class MapRendererBusyError(_MapError):
     """Too many maps are already waiting for the renderer."""
 
     http_status_code = HTTPStatus.SERVICE_UNAVAILABLE
     default_msg = "the map renderer is busy, retry later"
-    # Seconds for the Retry-After header: a warm map takes well under one, the
-    # first map of a small area from 2 to 9.
-    retry_after = 5
 
 
 class MapRenderTimeoutError(_MapError):
@@ -348,13 +362,68 @@ def build_map_request(
         raise MapParameterError(user_msg=str(error)) from error
 
 
-async def draw_map(queue: RenderQueue, request: MapRequest) -> bytes:
-    """The PNG of ``request`` from ``queue``, with its outcomes as pygeoapi errors."""
+async def draw_map(
+    queue: RenderQueue, request: MapRequest, *, version: str | None
+) -> RenderedMap | NotRenderedMap:
+    """Draw ``request`` in ``queue``, or tell why the queue cannot draw it now.
+
+    Parameters
+    ----------
+    queue
+        The queue of the provider's renderer.
+    request
+        The map to draw.
+    version
+        The version of the map ``request`` draws, or None when it is unknown.
+
+    Returns
+    -------
+    RenderedMap or NotRenderedMap
+        The image as the renderer encodes it, with ``version``; or a 503
+        when the queue is full, and a 504 when the render runs out of time.
+
+    Raises
+    ------
+    ProviderGenericError
+        When the renderer fails; the route answers 500.
+    """
     try:
-        return await queue.draw(request)
+        image = await queue.draw(request)
     except QueueFullError:
-        raise MapRendererBusyError() from None
+        return NotRenderedMap(
+            status=MapRendererBusyError.http_status_code,
+            message=MapRendererBusyError.default_msg,
+            retry_after=BUSY_RETRY_AFTER_SECONDS,
+        )
     except DrawTimeoutError:
-        raise MapRenderTimeoutError() from None
+        return NotRenderedMap(
+            status=MapRenderTimeoutError.http_status_code,
+            message=MapRenderTimeoutError.default_msg,
+            retry_after=None,
+        )
     except RenderError:
         raise ProviderGenericError(user_msg="the map renderer failed") from None
+    return RenderedMap(content=image, version=version)
+
+
+def raise_not_rendered_map(not_rendered: NotRenderedMap) -> NoReturn:
+    """Raise the error pygeoapi answers with the status of ``not_rendered``.
+
+    pygeoapi's synchronous route expects the provider to raise, and turns
+    the error into its answer.
+
+    Parameters
+    ----------
+    not_rendered
+        Why the map was not drawn.
+
+    Raises
+    ------
+    MapRendererBusyError
+        For a 503.
+    MapRenderTimeoutError
+        For any other status.
+    """
+    if not_rendered.status == HTTPStatus.SERVICE_UNAVAILABLE:
+        raise MapRendererBusyError(user_msg=not_rendered.message)
+    raise MapRenderTimeoutError(user_msg=not_rendered.message)
