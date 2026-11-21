@@ -15,6 +15,7 @@ import importlib.metadata
 import json
 from contextvars import ContextVar
 from copy import deepcopy
+from dataclasses import replace
 from datetime import timedelta
 from functools import lru_cache
 from typing import Any
@@ -263,7 +264,9 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
         A map read through the range cache reads the version of the archive
         known when it starts, and carries that version even when a newer one
-        arrives while it is drawn.
+        arrives while it is drawn. A local file is read unpinned: its version
+        is read again once the map is drawn, and a map whose file changed in
+        between carries no version.
 
         Parameters
         ----------
@@ -300,7 +303,13 @@ class MapLibreMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
             if data is None
             else f"{data}|{self.definition_digest()}|{self._digest_request(request)}"
         )
-        return await draw_map(self._queue, request, version=version)
+        drawn = await draw_map(self._queue, request, version=version)
+        if meta is None and data is not None and isinstance(drawn, RenderedMap):
+            # Nothing pins the reads of a local file: if it changed while the map
+            # waited or was drawn, the image may hold either version, and gets none.
+            if await self._read_data_version() != data:
+                return replace(drawn, version=None)
+        return drawn
 
     async def _read_data_version(self) -> str | None:
         try:
