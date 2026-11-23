@@ -50,6 +50,10 @@ from app.pygeoapi.api_async import maps as async_maps
 from app.pygeoapi.api_async import tiles as async_tiles
 from app.pygeoapi.api_async.caching import HttpCache, get_default_http_cache
 from app.pygeoapi.config_extensions import extension_problem
+from app.pygeoapi.edr_contract import (
+    validate_edr_contract_or_problem,
+    validate_edr_provider_or_problem,
+)
 from app.pygeoapi.map_contract import validate_map_contract_or_problem
 from app.pygeoapi.map_limits import (
     collect_native_map_capabilities,
@@ -121,7 +125,8 @@ def _validate(config: dict) -> None:
 def validate_configuration_or_problem(config: dict) -> tuple[str, str] | None:
     """Validate a configuration against the checks fastgeoapi adds to pygeoapi's.
 
-    The checks cover fastgeoapi's own keys and the native map providers.
+    The checks cover fastgeoapi's own keys and the native map and EDR
+    providers.
 
     Parameters
     ----------
@@ -138,6 +143,8 @@ def validate_configuration_or_problem(config: dict) -> tuple[str, str] | None:
         extension_problem(config)
         or validate_map_contract_or_problem(config)
         or validate_map_provider_or_problem(config)
+        or validate_edr_contract_or_problem(config)
+        or validate_edr_provider_or_problem(config)
     )
 
 

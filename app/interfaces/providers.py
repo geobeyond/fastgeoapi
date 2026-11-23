@@ -12,7 +12,9 @@ from enum import StrEnum
 from http import HTTPStatus
 from typing import Any, ClassVar, Protocol, runtime_checkable
 
-from app.interfaces.ogc import MAPS_CONFORMANCE_PREFIX
+from shapely.geometry import MultiPoint, MultiPolygon, Point, Polygon
+
+from app.interfaces.ogc import EDR_CONFORMANCE_PREFIXES, MAPS_CONFORMANCE_PREFIX
 from app.schemas.temporal import TimeInterval
 
 
@@ -382,5 +384,326 @@ class VersionedProvider(Protocol):
         -------
         str or None
             The version, or None when it is unknown.
+        """
+        ...
+
+
+class EdrFormat(StrEnum):
+    """The encodings of an EDR data response.
+
+    Each member is the value of ``f`` that asks for it.
+    """
+
+    COVERAGEJSON = "CoverageJSON"
+
+    @property
+    def media_type(self) -> str:
+        """The media type of a response in this encoding."""
+        return "application/prs.coverage+json"
+
+    @property
+    def conformance_classes(self) -> tuple[str, str]:
+        """The URIs of the conformance class of this encoding, in EDR 1.0 and in EDR 1.1."""
+        first, second = (f"{prefix}/covjson" for prefix in EDR_CONFORMANCE_PREFIXES)
+        return first, second
+
+
+@dataclass(frozen=True)
+class EdrParameter:
+    """A parameter a collection offers, such as a temperature.
+
+    Attributes
+    ----------
+    name
+        The identifier clients put in ``parameter-name``.
+    label
+        The name a person reads.
+    unit
+        The unit of the values, as a symbol.
+    description
+        What the parameter measures; None when there is nothing to add.
+    standard_name
+        The CF standard name; None when the parameter has none.
+    """
+
+    name: str
+    label: str
+    unit: str
+    description: str | None = None
+    standard_name: str | None = None
+
+
+@dataclass(frozen=True)
+class EdrLimits:
+    """The provider's limit on the size of an answer.
+
+    Attributes
+    ----------
+    max_values
+        The most values one query may return, counted over parameters,
+        times and places; None when the provider sets no limit and only the
+        server's applies.
+    """
+
+    max_values: int | None
+
+
+@dataclass(frozen=True)
+class EdrCapabilities:
+    """What an EDR provider offers: query types, CRSs, encodings and parameters.
+
+    Attributes
+    ----------
+    query_types
+        The queries the collection answers: ``position``, ``area`` or both.
+    crs
+        The CRSs a query may name, as OGC URIs. CRS84 must be among them.
+    default_crs
+        The CRS of a query that names none; one of ``crs``.
+    formats
+        The encodings the collection answers in.
+    parameters
+        The parameters the collection offers.
+    """
+
+    query_types: tuple[str, ...]
+    crs: tuple[str, ...]
+    default_crs: str
+    formats: tuple[EdrFormat, ...]
+    parameters: tuple[EdrParameter, ...]
+
+
+@dataclass(frozen=True)
+class PositionQuery:
+    """The checked parameters of a position query.
+
+    Attributes
+    ----------
+    coords
+        The point or points to sample, in ``crs``.
+    parameter_names
+        The parameters asked for; every one is in ``capabilities.parameters``.
+    datetime_
+        The instant or interval asked for; None for the whole time axis.
+    crs
+        One of ``capabilities.crs``.
+    format_
+        One of ``capabilities.formats``.
+    max_values
+        The limit the route applies, the smaller of the provider's and the
+        server's. The provider counts against it and returns ``DataTooLarge``
+        when the query exceeds it.
+    vendor_params
+        The query parameters the standard does not define, as received.
+    """
+
+    coords: Point | MultiPoint
+    parameter_names: tuple[str, ...]
+    datetime_: datetime | TimeInterval | None
+    crs: str
+    format_: str
+    max_values: int
+    vendor_params: Mapping[str, str]
+
+
+@dataclass(frozen=True)
+class AreaQuery:
+    """The checked parameters of an area query.
+
+    Attributes
+    ----------
+    coords
+        The polygon or polygons to sample, in ``crs``.
+    parameter_names
+        The parameters asked for; every one is in ``capabilities.parameters``.
+    datetime_
+        The instant or interval asked for; None for the whole time axis.
+    crs
+        One of ``capabilities.crs``.
+    format_
+        One of ``capabilities.formats``.
+    max_values
+        The limit the route applies, the smaller of the provider's and the
+        server's. The provider counts against it and returns ``DataTooLarge``
+        when the query exceeds it.
+    vendor_params
+        The query parameters the standard does not define, as received.
+    resolution_x
+        The number of samples along x; None to use the grid's own.
+    resolution_y
+        The number of samples along y; None to use the grid's own.
+    """
+
+    coords: Polygon | MultiPolygon
+    parameter_names: tuple[str, ...]
+    datetime_: datetime | TimeInterval | None
+    crs: str
+    format_: str
+    max_values: int
+    vendor_params: Mapping[str, str]
+    resolution_x: int | None
+    resolution_y: int | None
+
+
+EdrQuery = PositionQuery | AreaQuery
+
+
+@dataclass(frozen=True)
+class RetrievedData:
+    """The data the provider read.
+
+    Attributes
+    ----------
+    content
+        The response body, encoded as ``query.format_``.
+    version
+        The version of the data as read, the value ``aget_version`` returns
+        for the same query when nothing changes in between; the route builds
+        the ``ETag`` from it. None when the version is unknown, and the
+        response goes without cache headers.
+    extra_headers
+        Response headers of the provider's own, empty by default. The route
+        sends them unless it sets a header of the same name, or the header
+        describes the body or its caching: those are dropped, with a warning
+        in the log.
+    """
+
+    content: bytes
+    version: str | None
+    extra_headers: Mapping[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class NoDataFound:
+    """The query matched no value: the place or the time lies outside the data.
+
+    The route answers 204.
+    """
+
+
+@dataclass(frozen=True)
+class NotRetrievedData:
+    """Data the provider did not read because the server is busy for now.
+
+    The provider returns this value for a condition that clears by itself,
+    so the route answers with ``status`` and logs no traceback. A fault of
+    the store is raised as an exception instead, and the route answers 500.
+
+    Attributes
+    ----------
+    status
+        The status of the answer: 503 for a busy store, 504 for a read that
+        ran out of time.
+    message
+        What the client reads in the error.
+    retry_after
+        Seconds before the client should try again, sent as ``Retry-After``;
+        None to send no header.
+    """
+
+    status: HTTPStatus
+    message: str
+    retry_after: int | None
+
+
+@dataclass(frozen=True)
+class DataTooLarge:
+    """A query that would return more values than ``query.max_values``.
+
+    The route answers 413.
+
+    Attributes
+    ----------
+    values
+        The number of values the query would return.
+    limit
+        The limit it exceeds.
+    """
+
+    values: int
+    limit: int
+
+
+@runtime_checkable
+class AsyncEdrProvider(Protocol):
+    """The contract with members of a native EDR provider.
+
+    A class that sets ``native_async`` must define all of them; a
+    configuration that names a class missing one is refused at start-up,
+    and the error says which.
+
+    Attributes
+    ----------
+    native_async
+        ``True`` when the provider is served natively.
+    """
+
+    native_async: ClassVar[bool]
+
+    @property
+    def limits(self) -> EdrLimits:
+        """The largest answer a query may return."""
+        ...
+
+    @property
+    def capabilities(self) -> EdrCapabilities:
+        """The query types, CRSs, encodings and parameters of the collection."""
+        ...
+
+    async def aretrieve_data(
+        self, query: EdrQuery
+    ) -> RetrievedData | NoDataFound | NotRetrievedData | DataTooLarge:
+        """Read the data a query asks for, or tell why the route cannot answer.
+
+        ``query.parameter_names``, ``query.crs`` and ``query.format_`` come
+        from ``capabilities``, and ``query.max_values`` is the limit to
+        count against.
+
+        Parameters
+        ----------
+        query
+            The checked parameters of the query.
+
+        Returns
+        -------
+        RetrievedData or NoDataFound or NotRetrievedData or DataTooLarge
+            The encoded data and its version (200); no value (204); the
+            reason the server is busy (503 or 504); or the size of a query
+            over the limit (413).
+
+        Raises
+        ------
+        ProviderGenericError
+            When the store fails; the route answers 500 and logs the
+            traceback.
+        """
+        ...
+
+    async def aget_version(self, query: EdrQuery) -> str | None:
+        """Get the version of the data this query would read, without reading it.
+
+        The HTTP cache compares it with the client's to decide between
+        reading the data and answering 304, so it must be cheap: it reads
+        metadata and never the values. A provider that cannot pin its reads
+        to one version returns None.
+
+        Parameters
+        ----------
+        query
+            The checked parameters of the query, as ``aretrieve_data`` gets
+            them.
+
+        Returns
+        -------
+        str or None
+            The version, or None when the version of the data is unknown.
+        """
+        ...
+
+    def close(self) -> None:
+        """Clean up the resources the provider owns.
+
+        It is safe to call from any thread, returns without waiting for the
+        queries in progress, and does nothing when called again.
         """
         ...
