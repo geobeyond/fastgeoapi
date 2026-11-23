@@ -46,6 +46,7 @@ from app.provider.interrupts import Interrupts
 from app.pygeoapi.api import itemtypes as items_override
 from app.pygeoapi.api import patch_validate_datetime_overflow
 from app.pygeoapi.api.collections import describe_collections, item_provider_type
+from app.pygeoapi.api_async import edr as async_edr
 from app.pygeoapi.api_async import maps as async_maps
 from app.pygeoapi.api_async import tiles as async_tiles
 from app.pygeoapi.api_async.caching import HttpCache, get_default_http_cache
@@ -77,7 +78,7 @@ from app.pygeoapi.plugin import invalidate_plugin_cache, patch_load_plugin
 
 if TYPE_CHECKING:
     from app.config.app import DevConfig, ProdConfig
-    from app.interfaces.providers import AsyncMapProvider
+    from app.interfaces.providers import AsyncEdrProvider, AsyncMapProvider
 
 # The fastgeoapi runtime patches apply once, at factory import: every
 # sub-app built afterwards inherits them (the same moment the old
@@ -710,11 +711,60 @@ def build_routes(
         )
         return patch_response(response=response)
 
+    # Which collections have a natively async EDR provider, probed once
+    # per collection like the map providers above.
+    edr_natives: dict[str, AsyncEdrProvider | None] = {}
+
+    async def edr_native_query(
+        request: Request, collection_id: str, query_type: str, edr_provider: AsyncEdrProvider
+    ) -> Response:
+        api_request = await APIRequest.from_starlette(request, api.locales)
+        if not api_request.is_valid():
+            headers, status, content = api.get_format_exception(api_request)
+        else:
+            answered = await _run_unless_disconnected(
+                request,
+                async_edr.get_collection_edr_query(
+                    api,
+                    api_request,
+                    collection_id,
+                    query_type,
+                    provider=edr_provider,
+                    http_cache=http_cache,
+                    settings=settings,
+                ),
+            )
+            if answered is None:
+                return Response(status_code=CLIENT_CLOSED_REQUEST)
+            headers, status, content = answered
+        if status not in _BODILESS:
+            content = _gzip_without_timestamp(headers, content)
+        return _convert_to_response(headers, status, content)
+
     async def edr_query(request: Request) -> Response:
         collection_id = _get_path_param(request, "collection_id")
         instance_id = _get_path_param(request, "instance_id")
         if collection_id and "/instances/" in collection_id:
             collection_id, _, instance_id = collection_id.partition("/instances/")
+        if collection_id:
+            if collection_id in edr_natives:
+                edr_provider = edr_natives[collection_id]
+            else:
+                edr_provider = await asyncio.to_thread(
+                    async_edr.find_native_edr_provider, api, collection_id
+                )
+                if collection_id in api.config["resources"]:
+                    edr_natives[collection_id] = edr_provider
+            if edr_provider is not None:
+                # Every EDR path of a native collection is answered here,
+                # and a query type it does not offer is a 404.
+                if _get_path_param(request, "location_id") is not None:
+                    query_type = "locations"
+                elif instance_id is not None:
+                    query_type = "instances"
+                else:
+                    query_type = request["path"].split("/")[-1]
+                return await edr_native_query(request, collection_id, query_type, edr_provider)
         if request.url.path.endswith("instances") or (
             instance_id is not None and request.url.path.endswith(instance_id)
         ):

@@ -13,7 +13,7 @@ from typing import Any
 
 import pygeoapi.api.maps as maps_api
 from pygeoapi.api import APIRequest
-from pygeoapi.crs import get_uri
+from pygeoapi.crs import get_uri, transform_bbox
 from pygeoapi.util import get_choice_from_headers
 from pyproj.exceptions import CRSError
 from shapely import wkt
@@ -332,7 +332,14 @@ def _parse_resolution(value: str | None, name: str) -> int | None:
 
 
 def _is_outside_extent(coords: Any, extents: dict[str, Any]) -> bool:
-    boxes = (extents.get("spatial") or {}).get("bbox") or ()
-    if not boxes:
+    spatial = extents.get("spatial") or {}
+    bbox = spatial.get("bbox")
+    if not bbox:
         return False
-    return not any(coords.intersects(box(*extent[:4])) for extent in boxes)
+    # The configuration writes one bbox: four numbers, or six with the heights
+    # after each horizontal pair.
+    horizontal = [bbox[0], bbox[1], bbox[3], bbox[4]] if len(bbox) == 6 else list(bbox[:4])
+    crs = spatial.get("crs") or OGC_CRS_CRS84
+    if crs.lower() not in (OGC_CRS_CRS84.lower(), OGC_CRS_CRS84H.lower()):
+        horizontal = transform_bbox(horizontal, crs, OGC_CRS_CRS84, always_xy=True)
+    return not coords.intersects(box(*horizontal))

@@ -116,6 +116,9 @@ class DevConfig(GlobalConfig):
     FASTGEOAPI_MAPS_MAX_WIDTH: int = 2048
     FASTGEOAPI_MAPS_MAX_HEIGHT: int = 2048
     FASTGEOAPI_MAPS_MAX_PIXELS: int | None = None
+    # The most values one EDR query may return, counted over parameters,
+    # times and places; a collection may lower it, never raise it.
+    FASTGEOAPI_EDR_MAX_VALUES: int = 1_000_000
 
     model_config = SettingsConfigDict(
         env_prefix="DEV_",
@@ -212,6 +215,9 @@ class ProdConfig(GlobalConfig):
     FASTGEOAPI_MAPS_MAX_WIDTH: int = 2048
     FASTGEOAPI_MAPS_MAX_HEIGHT: int = 2048
     FASTGEOAPI_MAPS_MAX_PIXELS: int | None = None
+    # The most values one EDR query may return, counted over parameters,
+    # times and places; a collection may lower it, never raise it.
+    FASTGEOAPI_EDR_MAX_VALUES: int = 1_000_000
 
     model_config = SettingsConfigDict(
         env_prefix="PROD_",

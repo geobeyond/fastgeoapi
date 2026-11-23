@@ -43,7 +43,7 @@ CAPABILITIES = EdrCapabilities(
     ),
 )
 EXTENTS = {
-    "spatial": {"bbox": [[-10, 30, 30, 60]], "crs": CRS84},
+    "spatial": {"bbox": [-10, 30, 30, 60], "crs": CRS84},
     "temporal": {
         "begin": datetime(2020, 1, 1, tzinfo=UTC),
         "end": datetime(2020, 12, 31, tzinfo=UTC),
@@ -124,10 +124,24 @@ def test_a_point_outside_the_extent_is_answered_204():
     assert isinstance(_parse("area", coords=POLYGON), AreaQuery)
 
 
-def test_any_box_of_the_extent_counts():
-    extents = {"spatial": {"bbox": [[-10, 30, 30, 60], [100, 0, 110, 10]]}}
+def test_a_bbox_with_heights_is_read_without_them():
+    extents = {"spatial": {"bbox": [-10, 30, 0, 30, 60, 100], "crs": CRS84}}
 
-    assert isinstance(_parse(extents=extents, coords="POINT(105 5)"), PositionQuery)
+    assert isinstance(_parse(extents=extents, coords="POINT(100 40)"), EdrOutsideExtent)
+    assert isinstance(_parse(extents=extents, coords="POINT(10 40)"), PositionQuery)
+
+
+def test_an_extent_in_another_crs_is_reprojected():
+    # About -10..30 east and 30..60 north, in Web Mercator.
+    extents = {
+        "spatial": {
+            "bbox": [-1113194.9, 3503549.8, 3339584.7, 8399737.9],
+            "crs": "http://www.opengis.net/def/crs/EPSG/0/3857",
+        }
+    }
+
+    assert isinstance(_parse(extents=extents, coords="POINT(100 40)"), EdrOutsideExtent)
+    assert isinstance(_parse(extents=extents, coords="POINT(10 40)"), PositionQuery)
 
 
 def test_without_a_spatial_extent_nothing_is_outside():
