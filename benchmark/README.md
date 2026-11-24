@@ -126,9 +126,10 @@ target. An empty tile answers `204` on A and C.
 ## Results
 
 > [!NOTE]
-> The runs below predate the martin tile provider. Case A was then the `/martin-wrapper` mount,
-> since removed: a Starlette sub-app calling martin-py on martin's own `{z}/{x}/{y}` paths, loading
-> the same `martin.yaml` as B. Its numbers are kept as history; re-run step 3 for the provider's.
+> The runs up to 2026-11-18 predate the martin tile provider. Case A was then the `/martin-wrapper`
+> mount, since removed: a Starlette sub-app calling martin-py on martin's own `{z}/{x}/{y}` paths,
+> loading the same `martin.yaml` as B. Their numbers are kept as history; the provider's are in
+> [Martin tile provider, 2026-11-24](#martin-tile-provider-2026-11-24).
 
 Run on 2026-10-27, on an AMD Ryzen 7 8845HS (16 threads, 92 GB RAM, Linux) with server and
 load generator on the same host. The data stayed on Tigris. The run used 100 tiles (25 per
@@ -260,6 +261,55 @@ Parity: **0** tiles differ by more than 2% (max 0.3%), and both return the same 
   `martin-core` 0.11 to 0.17, so this run alone doesn't prove which change is responsible.
 - Until this is fixed upstream, martin-py could pin a martin version with DuckDB 1.5.x. Its
   source config would then lose the object-store keys the `store_options` translation relies on.
+
+### Martin tile provider, 2026-11-24
+
+Same host, same tile list and options as step 3. What changed:
+
+- **A** is the martin tile provider: the `lazio-roads-martin` collection, served through the OGC
+  API Tiles route (`{z}/{y}/{x}`), with the martin-py **v0.1.1** release wheel (martin
+  `2.0.0-beta.7`) and `cache_size_mb: 0`.
+- **B** is martin `2.0.0-beta.7` from crates.io, release build, DuckDB only, loading the
+  `martin.yaml` written from A's provider definition (step 1).
+- fastgeoapi ran with `DEV_JWKS_ENABLED=false DEV_API_KEY_ENABLED=false DEV_OPA_ENABLED=false`.
+
+Raw output: [`results/abc-cache-off-2026-11-24.txt`](results/abc-cache-off-2026-11-24.txt).
+
+| Case       | Pass      |      p50 |      p95 |      p99 |  req/s |    MB | status           |
+| ---------- | --------- | -------: | -------: | -------: | -----: | ----: | ---------------- |
+| A provider | first c=1 |  2940 ms |  6072 ms | 13155 ms |    0.3 | 25.28 | 200 ×100         |
+|            | warm c=1  |  2632 ms |  3661 ms |  4034 ms |    0.4 |       |                  |
+|            | warm c=4  |  6546 ms | 10433 ms | 13529 ms |    0.6 |       |                  |
+|            | warm c=16 | 27292 ms | 32500 ms | 38228 ms |    0.6 |       |                  |
+| B martin   | first c=1 |  2671 ms |  3500 ms |  5380 ms |    0.4 | 25.28 | 200 ×100         |
+|            | warm c=1  |  2647 ms |  3666 ms |  4838 ms |    0.4 |       |                  |
+|            | warm c=4  |  6041 ms | 10333 ms | 17391 ms |    0.6 |       |                  |
+|            | warm c=16 | 25780 ms | 31246 ms | 36956 ms |    0.6 |       |                  |
+| C PMTiles  | first c=1 |     2 ms |     5 ms |   249 ms |  204.3 |  8.32 | 200 ×86, 204 ×14 |
+|            | warm c=1  |     1 ms |     3 ms |     3 ms |  640.5 |       |                  |
+|            | warm c=4  |     4 ms |     7 ms |     9 ms |  982.5 |       |                  |
+|            | warm c=16 |    14 ms |    20 ms |    25 ms | 1107.9 |       |                  |
+
+Parity: A vs B **0** tiles differ by more than 2% (max 0.3%), and both return the same 100 tiles.
+A vs C is unchanged: 83 tiles differ, 14 exist only in A.
+
+- **The provider costs about what the wrapper did.** Warm, A and B are level at c=1 (2632 against
+  2647 ms) and have the same throughput at every level (0.4–0.6 req/s); at c=4 and c=16 A's p50 is
+  6–8% higher. Against the wrapper's 2026-11-18 run, A's warm p50 is unchanged at c=1 (2632 against
+  2643 ms) and within 6% at c=16. The OGC route, the zoom limits and the version check add
+  nothing that shows next to a tile DuckDB takes seconds to cut; in-process, without the network,
+  the provider answers a trivial GeoJSON tile in under 1 ms (`tests/test_martin_benchmark.py`).
+- **A's first pass has a longer tail** (p99 13.2 s against 5.4 s for B). With one sample per cell
+  this is a handful of slow tiles, not a trend: the readiness check had already made martin load
+  the source, so A's first pass paid for no extra loading. Re-run with `--repeat 3` before reading
+  anything into it.
+- **martin 2.0.0-beta.7 is still the bottleneck:** A and B remain about 8× slower than the
+  2026-10-27 run on the local martin checkout, and flat at 0.6 req/s from c=4 up (see
+  [martin 1.16.1 vs 2.0.0-beta.7](#martin-1161-vs-200-beta7)).
+- **C's first pass is no longer cold.** fastgeoapi's range cache keeps the archive's byte ranges on
+  disk across restarts (`.cache/ranges/`, or `FASTGEOAPI_CACHE_DIR`), so this first pass (p50 2 ms)
+  was mostly served from earlier runs' cache. It is not comparable with the 2026-10-27 first pass
+  (p50 223 ms); empty that directory, or set `DEV_FASTGEOAPI_RANGE_CACHE=off`, for a cold one.
 
 ## Caveats
 
