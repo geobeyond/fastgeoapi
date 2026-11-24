@@ -25,8 +25,8 @@ network and the tiler.
 
 ## Files
 
-| File                                                     | What it is                                                                           |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| File                                                     | What it is                                                                                   |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | [`pygeoapi-config.bench.yml`](pygeoapi-config.bench.yml) | pygeoapi config: `lazio-roads-martin` (A), `lazio-roads-tiles` (C), `lazio-roads` (features) |
 | [`martin.yaml`](martin.yaml)                             | B's Martin config, written from A's provider definition (see step 1)                         |
 | [`martin-https.yaml`](martin-https.yaml)                 | same object over public HTTPS, for martin 1.16.1 (no object-store keys)                      |
@@ -56,8 +56,7 @@ uv run python scripts/bench_tiles.py config \
 (`MartinTilesConfig.from_provider_def`), the Tigris `store_options` translated to Martin's
 object-store keys — so standalone martin serves exactly the same source.
 
-> [!IMPORTANT]
-> **Keep martin's tile cache off on both sides.** martin's default tile cache answers every
+> [!IMPORTANT] > **Keep martin's tile cache off on both sides.** martin's default tile cache answers every
 > warm pass from memory: [`results/auto-mode-cache-on.txt`](results/auto-mode-cache-on.txt)
 > shows warm p50 **1 ms** with the cache against **324 ms** for an uncached martin. The provider
 > carries `cache_size_mb: 0` in its options, which becomes `cache.size_mb: 0` in `martin.yaml`;

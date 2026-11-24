@@ -41,7 +41,7 @@ lakes:
       name: app.provider.martin.MartinTilesProvider
       data: tests/data/ne_110m_lakes.geojson
       options:
-        zoom: {min: 0, max: 14}
+        zoom: { min: 0, max: 14 }
         schemes: [WebMercatorQuad]
       format:
         name: pbf
@@ -88,6 +88,7 @@ Connection**, then set:
   ```
 
   `{z}`, `{y}`, `{x}` lowercase, in that order.
+
 - **Min./max. zoom level**: those of the provider's `zoom` option.
 - **Authentication**: none, unless the API key or OAuth2 is enabled.
 
