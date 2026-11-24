@@ -318,6 +318,9 @@ def ty(session: Session) -> None:
         # The blocking-call guard (ADR-0010) lives in the `dev` group;
         # the unlocked lanes need it by name.
         "blockbuster>=1.5,<2",
+        # The mapli extra: app/provider/mapli.py imports mapli at module level.
+        # ty only reads its stubs, so the EGL it loads at runtime is not needed.
+        "mapli>=0.5.0; sys_platform == 'linux'",
     )
     session.run("ty", *args)
 
@@ -357,6 +360,10 @@ def tests(session: Session) -> None:
         # The blocking-call guard (ADR-0010) lives in the `dev` group;
         # the unlocked lanes need it by name.
         "blockbuster>=1.5,<2",
+        # The mapli extra: the demo configuration has a mapli collection, so
+        # building its OpenAPI document imports mapli. Where EGL can draw, the
+        # mapli renderer tests run too.
+        "mapli>=0.5.0; sys_platform == 'linux'",
     )
     try:
         session.run("coverage", "run", "--parallel", "-m", "pytest", *session.posargs)
@@ -413,15 +420,17 @@ def typeguard(session: Session) -> None:
         # The blocking-call guard (ADR-0010) lives in the `dev` group;
         # the unlocked lanes need it by name.
         "blockbuster>=1.5,<2",
+        # The mapli extra: the demo configuration has a mapli collection, so
+        # building its OpenAPI document imports mapli. Where EGL can draw, the
+        # mapli renderer tests run too.
+        "mapli>=0.5.0; sys_platform == 'linux'",
     )
     session.run("pytest", f"--typeguard-packages={package}", *session.posargs)
 
 
 @session(python=python_versions)
 def maps(session: Session) -> None:
-    """Run the tests that draw with the real MapLibre Native renderer (Linux)."""
-    # Always from the lock: the mlnative fork is reachable only through the
-    # wheel URLs in [tool.uv.sources], never from PyPI.
+    """Run the tests that draw with MapLibre Native, through mlnative and mapli (Linux)."""
     session.run_install(
         "uv",
         "sync",
@@ -429,6 +438,8 @@ def maps(session: Session) -> None:
         "maps",
         "--extra",
         "pmtiles",
+        "--extra",
+        "mapli",
         env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
     )
     session.run("pytest", "-m", "renderer", "-rs", *session.posargs)
@@ -437,8 +448,8 @@ def maps(session: Session) -> None:
 @session(python=python_versions)
 def conformance(session: Session) -> None:
     """Validate the responses against the official OGC schemas."""
-    # The demo configuration names the GeoParquet and PMTiles providers, and
-    # its OpenAPI document cannot be built without them.
+    # The demo configuration names the GeoParquet, PMTiles and mapli
+    # providers, and its OpenAPI document cannot be built without them.
     session.run_install(
         "uv",
         "sync",
@@ -448,6 +459,8 @@ def conformance(session: Session) -> None:
         "geoparquet",
         "--extra",
         "pmtiles",
+        "--extra",
+        "mapli",
         env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
     )
     session.run("pytest", "tests/conformance", "-rs", *session.posargs)

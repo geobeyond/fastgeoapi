@@ -35,13 +35,28 @@ def _maplibre_native(archive: Path, **options: Any) -> dict:
     return map_provider(archive, **{"renderer": REAL_RENDERER, **options})
 
 
+def _mapli(archive: Path, **options: Any) -> dict:
+    # mapli reads a style from a URL, so a style file is given as a file:// URL.
+    styles = {name: Path(path).as_uri() for name, path in options.pop("styles", {}).items()}
+    return {
+        "type": "map",
+        "name": "app.provider.mapli.MapliMapProvider",
+        "data": str(archive),
+        "storage_crs": "http://www.opengis.net/def/crs/EPSG/0/3857",
+        "options": {**options, "styles": styles},
+        "format": {"name": "png", "mimetype": "image/png"},
+    }
+
+
 PROVIDERS: dict[str, Callable[..., dict]] = {
     # MapLibre styles drawn by a renderer that records the requests.
     "maplibre": _maplibre,
     # The same provider drawing with MapLibre Native, where mlnative installs.
     "maplibre-native": _maplibre_native,
+    # The mapli provider, where mapli installs and finds an OpenGL (EGL) context.
+    "mapli": _mapli,
 }
-NEEDS_RENDERER = {"maplibre-native"}
+NEEDS_RENDERER = {"maplibre-native", "mapli"}
 
 
 def _skip_without_mlnative() -> None:
@@ -50,6 +65,20 @@ def _skip_without_mlnative() -> None:
         mlnative.get_binary_path()
     except Exception:
         pytest.skip("the mlnative binary is missing")
+
+
+def _skip_without_mapli() -> None:
+    mapli = pytest.importorskip("mapli")
+    try:
+        mapli.RenderPool(workers=1)
+    except mapli.GraphicsUnavailableError:
+        pytest.skip("mapli finds no OpenGL (EGL) context to draw with")
+
+
+SKIP_WITHOUT_RENDERER: dict[str, Callable[[], None]] = {
+    "maplibre-native": _skip_without_mlnative,
+    "mapli": _skip_without_mapli,
+}
 
 
 @dataclass
@@ -130,7 +159,7 @@ class Contract:
 def contract(request, tmp_path):
     """The collection ``under_test``, served by one entry of :data:`PROVIDERS`."""
     if request.param in NEEDS_RENDERER:
-        _skip_without_mlnative()
+        SKIP_WITHOUT_RENDERER[request.param]()
     contract = Contract(request.param, tmp_path, land_archive(tmp_path / "land.pmtiles"))
     contract.open_client(contract.build_definition())
     try:

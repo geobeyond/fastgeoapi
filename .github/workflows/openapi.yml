@@ -30,14 +30,21 @@ jobs:
           cache-dependency-glob: "pyproject.toml"
           version: "0.10.9"
 
-      # From the lock, with the extras the demo's GeoParquet and tile
+      # mapli's native core links the system's EGL and GL, and building the
+      # demo's document imports it. Nothing is drawn, so no driver is needed.
+      - name: Install the libraries mapli links
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libgl1
+
+      # From the lock, with the extras the demo's GeoParquet, tile and mapli
       # collections import: the documents come from the versions the
       # server runs. The demo configuration adds the GeoParquet, tile and
       # map collections the example one does not have; building its
       # document reads no data, so no credentials are needed.
       - name: Create the OpenAPI documents with the fastgeoapi CLI
         run: |
-          uv sync --locked --no-dev --extra geoparquet --extra pmtiles
+          uv sync --locked --no-dev --extra geoparquet --extra pmtiles --extra mapli
           uv run --no-sync fastgeoapi openapi
           DEV_PYGEOAPI_CONFIG=pygeoapi-config.demo.yml \
           DEV_PYGEOAPI_OPENAPI=pygeoapi-demo-openapi.yml \
@@ -83,14 +90,21 @@ jobs:
           cache-dependency-glob: "pyproject.toml"
           version: "0.10.9"
 
-      # From the lock, with the extras the demo's GeoParquet and tile
+      # mapli's native core links the system's EGL and GL, and building the
+      # demo's document imports it. Nothing is drawn, so no driver is needed.
+      - name: Install the libraries mapli links
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libgl1
+
+      # From the lock, with the extras the demo's GeoParquet, tile and mapli
       # collections import: the documents come from the versions the
       # server runs. The demo configuration adds the GeoParquet, tile and
       # map collections the example one does not have; building its
       # document reads no data, so no credentials are needed.
       - name: Create the OpenAPI documents with the fastgeoapi CLI
         run: |
-          uv sync --locked --no-dev --extra geoparquet --extra pmtiles
+          uv sync --locked --no-dev --extra geoparquet --extra pmtiles --extra mapli
           uv run --no-sync fastgeoapi openapi
           DEV_PYGEOAPI_CONFIG=pygeoapi-config.demo.yml \
           DEV_PYGEOAPI_OPENAPI=pygeoapi-demo-openapi.yml \
