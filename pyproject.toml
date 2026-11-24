@@ -75,15 +75,15 @@ geoparquet = [
     # extra nor the dependency: `obstore[fsspec]` installs nothing.
     "fsspec>=2024.6",
 ]
-# `/martin-wrapper` (app/tiles/martin_wrapper.py): in-process comparison of
-# pygeoapi's tile path against martin's, via martin-py's PyO3 bindings.
+# The martin tile provider (app/provider/martin.py): vector tiles cut on
+# request by martin, in-process, via martin-py's PyO3 bindings.
 # Sourced from a martin-py GitHub Release wheel (see [tool.uv.sources])
 # rather than PyPI: martin-py isn't published there yet. `cp312`-only for now, hence
 # the marker — the project's `<3.14` 3.13 lane resolves without it. Wheels
 # exist for Linux x86_64/aarch64, macOS arm64/x86_64 and Windows x86_64 (one
 # `[tool.uv.sources]` entry each); anywhere else the extra installs nothing
-# and the wrapper is simply not mounted (app.main logs why).
-martin_wrapper = [
+# and building the martin tile provider fails with an install hint.
+martin = [
     "martin-py>=0.1.1,<0.2; python_version < '3.13' and ((sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')) or (sys_platform == 'darwin' and (platform_machine == 'arm64' or platform_machine == 'x86_64')) or (sys_platform == 'win32' and platform_machine == 'AMD64'))",
 ]
 pmtiles = [
@@ -159,7 +159,7 @@ members = ["packages/*"]
 
 [tool.uv.sources]
 # Wheels published by martin-py's CI on each `v*` tag, one per platform, not
-# yet on PyPI — see the `martin_wrapper` extra above. To bump: tag a new
+# yet on PyPI — see the `martin` extra above. To bump: tag a new
 # martin-py version, update the version in every URL below, then `uv lock`.
 # To try a local martin-py build instead, after `uv sync`:
 #   uv pip install --reinstall ../martin-py/target/wheels/martin_py-<version>-cp311-abi3-<platform>.whl
@@ -235,8 +235,8 @@ exclude = [
 
 [tool.ty.analysis]
 # martin-py ships only as release wheels (see [tool.uv.sources]), behind the
-# `martin_wrapper` extra the nox sessions do not install; its imports are
-# guarded at runtime (app/tiles/martin_wrapper.py, pytest.importorskip).
+# `martin` extra the nox sessions do not install; its imports are
+# guarded at runtime (app/provider/martin.py, pytest.importorskip).
 allowed-unresolved-imports = ["martin_py"]
 
 [tool.ty.rules]
@@ -321,7 +321,7 @@ testpaths = ["tests"]
 asyncio_mode = "strict"
 markers = [
     "renderer: draws with the real MapLibre Native renderer (the maps group, on Linux)",
-    "benchmark: measures request throughput/latency rather than correctness; can be slow (see tests/test_martin_wrapper_benchmark.py, tests/test_martin_wrapper_duckdb_benchmark.py) — deselect with -m 'not benchmark'",
+    "benchmark: measures request throughput/latency rather than correctness; can be slow (see tests/test_martin_benchmark.py, tests/test_martin_duckdb_benchmark.py) — deselect with -m 'not benchmark'",
 ]
 filterwarnings = [
     # passlib uses deprecated crypt module, will be fixed in future versions

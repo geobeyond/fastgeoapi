@@ -1,16 +1,18 @@
-"""`get_tile` benchmark for the `duckdb` (GeoParquet) source, at scale.
+"""Tile benchmark for the martin tile provider over GeoParquet, at scale.
 
 Three dataset sizes — 100K, 1M and 10M randomly-placed points — each its own
 GeoParquet file, generated once per test session by DuckDB itself
 (`app.provider.duckdb_.connect`, the same engine `test_geoparquet_provider.py`
-uses to build its fixture): the `duckdb` source name in `app/tiles/martin_wrapper.py`
-and Martin's own config is DuckDB-*read*, but the file on disk is GeoParquet.
+uses to build its fixture): martin reads it with its `duckdb` source, which is
+DuckDB-*read*, but the file on disk is GeoParquet. Every tile is requested
+through the OGC API Tiles route of an in-process pygeoapi sub-app, whose
+collection is served by `app.provider.martin.MartinTilesProvider`.
 
-Same protocol as `test_martin_wrapper_benchmark.py` (see
+Same protocol as `test_martin_benchmark.py` (see
 `tile_bench_support.py` for the shared harness): 100 warm-up requests
 discarded, then 1000 timed ones, every one — warm-up and timed alike —
-drawing its own random `{z}/{x}/{y}`. Martin's tile cache, which martin-py
-serves through, is turned off in the benchmark config (`cache.size_mb: 0`),
+drawing its own random `{z}/{x}/{y}`. martin's tile cache is turned off in
+the provider's options (`cache_size_mb: 0`),
 so a coordinate drawn twice is resolved twice; varying the coordinates keeps
 DuckDB's own query-plan cache from dominating the per-request path this
 benchmark means to time.
@@ -36,7 +38,7 @@ latency drops from ~450ms to ~35ms at 10M rows and from ~170ms to ~50ms at
 Even pruned, the 10M-row case is still the slowest of the three, and this
 file is more requests than routine correctness tests make. Run it explicitly
 rather than folding it into a full-suite pass — `pytest -s
-tests/test_martin_wrapper_duckdb_benchmark.py`, or select one size with
+tests/test_martin_duckdb_benchmark.py`, or select one size with
 `-k 100k`/`-k 1m`/`-k 10m` — or exclude it with `-m "not benchmark"`, the
 marker every test here carries.
 """
@@ -50,22 +52,9 @@ from pathlib import Path
 
 import pytest
 
-# ruff: file-ignore[module-import-not-at-top-of-file] -- the imports below follow the temporary skip
-# The /martin-wrapper mount these time was removed in favour of the tile
-# provider app.provider.martin.MartinTilesProvider; the benchmark is to be
-# rewritten against /collections/{id}/tiles.
-pytest.skip(
-    "the /martin-wrapper benchmark awaits its port to MartinTilesProvider",
-    allow_module_level=True,
-)
-import yaml
-from starlette.testclient import TestClient
+from tests.tile_bench_support import martin_client, run_tiles
 
-from tests.tile_bench_support import run_tiles
-
-pytest.importorskip(
-    "martin_py", reason="the /martin-wrapper benchmark needs the `martin_wrapper` extra"
-)
+pytest.importorskip("martin_py", reason="the martin benchmark needs the `martin` extra")
 
 WARMUP_REQUESTS = 100
 BENCHMARK_REQUESTS = 1000
@@ -211,66 +200,42 @@ def duckdb_dataset_10m(tmp_path_factory) -> Path:
     return path
 
 
-def _build_duckdb_wrapper_app(tmp_path: Path, dataset_path: Path, layer_id: str):
-    from app.tiles.martin_wrapper import build_martin_wrapper_app
-
-    config_path = tmp_path / f"martin-config-{layer_id}.yaml"
-    config_path.write_text(
-        yaml.safe_dump(
-            {
-                # martin-py serves through martin's tile cache: off, so every
-                # request is resolved rather than answered from memory
-                "cache": {"size_mb": 0},
-                "duckdb": {
-                    "sources": [
-                        {
-                            "geoparquet": str(dataset_path),
-                            "layer_id": layer_id,
-                            "geometry_column": "geom",
-                            "srid": 4326,
-                        }
-                    ]
-                },
-            }
-        )
-    )
-    return build_martin_wrapper_app(str(config_path))
-
-
-def _benchmark(tmp_path: Path, dataset_path: Path, label: str, capsys) -> None:
+def _benchmark(dataset_path: Path, label: str, capsys) -> None:
     n_rows = ROW_COUNTS[label]
-    layer_id = f"duckdb_{label}"
-    sub_app = _build_duckdb_wrapper_app(tmp_path, dataset_path, layer_id)
+    collection = f"duckdb_{label}"
     min_zoom = _min_zoom_for(n_rows)
     rng = random.Random(1234)  # ruff: ignore[suspicious-non-cryptographic-random-usage] - reproducible benchmark
 
-    with TestClient(sub_app) as client:
-        run_tiles(client, layer_id, rng, WARMUP_REQUESTS, min_zoom=min_zoom, max_zoom=MAX_ZOOM)
+    client = martin_client(
+        dataset_path, collection, layer_id=collection, max_zoom=MAX_ZOOM, geometry_column="geom"
+    )
+    with client:
+        run_tiles(client, collection, rng, WARMUP_REQUESTS, min_zoom=min_zoom, max_zoom=MAX_ZOOM)
         stats = run_tiles(
-            client, layer_id, rng, BENCHMARK_REQUESTS, min_zoom=min_zoom, max_zoom=MAX_ZOOM
+            client, collection, rng, BENCHMARK_REQUESTS, min_zoom=min_zoom, max_zoom=MAX_ZOOM
         )
 
     with capsys.disabled():
         print(
-            f"\n[martin-wrapper duckdb benchmark] {label} ({n_rows:,} rows, "
+            f"\n[martin provider duckdb benchmark] {label} ({n_rows:,} rows, "
             f"minzoom={min_zoom}): {stats.report()}"
         )
     assert stats.count == BENCHMARK_REQUESTS
 
 
 @pytest.mark.benchmark
-def test_get_tile_benchmark_100k(tmp_path, duckdb_dataset_100k, capsys):
+def test_get_tile_benchmark_100k(duckdb_dataset_100k, capsys):
     """Warm up with 100 random tiles, then benchmark 1000 more (100K rows)."""
-    _benchmark(tmp_path, duckdb_dataset_100k, "100k", capsys)
+    _benchmark(duckdb_dataset_100k, "100k", capsys)
 
 
 @pytest.mark.benchmark
-def test_get_tile_benchmark_1m(tmp_path, duckdb_dataset_1m, capsys):
+def test_get_tile_benchmark_1m(duckdb_dataset_1m, capsys):
     """Warm up with 100 random tiles, then benchmark 1000 more (1M rows)."""
-    _benchmark(tmp_path, duckdb_dataset_1m, "1m", capsys)
+    _benchmark(duckdb_dataset_1m, "1m", capsys)
 
 
 @pytest.mark.benchmark
-def test_get_tile_benchmark_10m(tmp_path, duckdb_dataset_10m, capsys):
+def test_get_tile_benchmark_10m(duckdb_dataset_10m, capsys):
     """Warm up with 100 random tiles, then benchmark 1000 more (10M rows)."""
-    _benchmark(tmp_path, duckdb_dataset_10m, "10m", capsys)
+    _benchmark(duckdb_dataset_10m, "10m", capsys)

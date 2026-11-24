@@ -1,132 +1,102 @@
 # app/tiles
 
-In-process tile-serving surfaces that sit alongside pygeoapi's own OGC API
-tile provider. Today that's one module: [`martin_wrapper.py`](martin_wrapper.py),
-which mounts `/geoapi/martin-wrapper/{source_ids}/{z}/{x}/{y}` — vector tiles served
-straight from [martin-py](https://martin.maplibre.org/)'s in-process
-bindings, for benchmarking pygeoapi's tile path against martin's own under
-the same process and load generator. See that module's docstring for the
-full design rationale (ADR-0003); this file is the practical how-to.
+The contract between fastgeoapi's tile provider and the backends that read
+tiles ([`contract.py`](contract.py)), and the registry that picks a backend
+for a dataset ([`sources.py`](sources.py)). The provider itself is
+[`app/provider/tiles.py`](../provider/tiles.py); a backend is a tile source
+plus, optionally, a provider subclass naming it — PMTiles
+([`app/provider/pmtiles.py`](../provider/pmtiles.py)) and martin
+([`app/provider/martin.py`](../provider/martin.py)).
 
-**Opt-in, off by default.**
+This file is the practical how-to for the martin backend: vector tiles cut
+on request by [martin](https://martin.maplibre.org/), in-process, through
+the `martin-py` bindings. See `app/provider/martin.py`'s docstring for the
+design.
 
-## 1. Run fastgeoapi with `/martin-wrapper` enabled
+## 1. Serve a collection's tiles with martin
 
 ### Install the optional dependency
 
-`martin-py` is the `martin_wrapper` extra. It ships as a locally-built
-wheel, not (yet) published on PyPI — see `[tool.uv.sources]` in
-`pyproject.toml`.
+`martin-py` is the `martin` extra. It ships as GitHub Release wheels, not
+(yet) published on PyPI — see `[tool.uv.sources]` in `pyproject.toml`.
 
 ```shell
-uv sync --extra martin_wrapper
+uv sync --extra martin
 ```
 
-If this extra isn't installed, setting the config below still starts the
-server — it just logs a warning and skips the mount rather than crashing.
+Without it, a collection configured with the martin provider fails to load
+with an error saying to install the extra.
 
-### Point `FASTGEOAPI_MARTIN_WRAPPER_CONFIG` at some data
+### Configure a tile provider in the pygeoapi config
 
-In dev (`ENV_STATE=dev`, the default locally), settings are read with a
-`DEV_` prefix — add one of these to your `.env`:
-
-**`auto`** — derives the Martin config from the pygeoapi config this same
-boot already loaded (`app.tiles.martin_wrapper._martin_config_from_pygeoapi`),
-no second file to keep in sync:
-
-```shell
-DEV_FASTGEOAPI_MARTIN_WRAPPER_CONFIG=auto
-```
-
-Only providers this build of martin-py can actually open are translated —
-keyed by the pygeoapi resource id:
-
-| pygeoapi provider                                                                    | martin-py source            |
-| ------------------------------------------------------------------------------------ | --------------------------- |
-| `GeoJSON`, or `data` ending `.geojson`/`.json`                                       | `geojson`                   |
-| `app.provider.geoparquet.GeoParquetProvider`, `Parquet`, or `data` ending `.parquet` | `duckdb` (reads GeoParquet) |
-| `data` ending `.pmtiles`                                                             | `pmtiles`                   |
-
-Everything else (CSV, OGR/GPKG, PostgreSQL, MVT-\*, rasterio, xarray, ...)
-has no equivalent here and is skipped.
-
-**A path to a hand-written Martin config file** — the same format the
-`martin` server itself reads:
-
-```shell
-DEV_FASTGEOAPI_MARTIN_WRAPPER_CONFIG=/path/to/martin-config.yaml
-```
+Add a `tile` provider to a resource. martin tiles GeoParquet (a file, a
+glob or a bucket prefix), GeoJSON and PMTiles:
 
 ```yaml
-# martin-config.yaml
-geojson:
-  sources:
-    lakes: tests/data/ne_110m_lakes.geojson
+lakes:
+  type: collection
+  # ... title, extents, other providers ...
+  providers:
+    - type: tile
+      name: app.provider.martin.MartinTilesProvider
+      data: tests/data/ne_110m_lakes.geojson
+      options:
+        zoom: {min: 0, max: 14}
+        schemes: [WebMercatorQuad]
+      format:
+        name: pbf
+        mimetype: application/vnd.mapbox-vector-tile
 ```
 
-### Start the server
+For GeoParquet, `options` also take `geometry_column` (default `geom`) and
+`srid` (default `4326`); `store_options` reach a private bucket the same
+way they do for the GeoParquet feature provider. `layer_id` names the layer
+in the tiles (default: the file's stem), `worker_threads` and
+`cache_size_mb` size martin's runtime and tile cache.
+
+### Request a tile
+
+The tiles go out through the OGC API Tiles routes, behind the same auth as
+every other collection:
 
 ```shell
-uv run fastgeoapi run --host 0.0.0.0 --port 5000 --reload
+curl 'http://localhost:5000/geoapi/collections/lakes/tiles/WebMercatorQuad/0/0/0?f=mvt'
+curl 'http://localhost:5000/geoapi/collections/lakes/tiles/WebMercatorQuad/metadata?f=tilejson'
 ```
 
-A successful mount logs:
+Note the order: `{tileMatrix}/{tileRow}/{tileCol}`, so `z/y/x`.
 
-```
-Martin wrapper endpoint mounted at /geoapi/martin-wrapper (config: ...); for benchmarking only.
-```
-
-### Try it
-
-```shell
-curl http://localhost:5000/geoapi/martin-wrapper/<source_id>/<z>/<x>/<y>
-# e.g. curl http://localhost:5000/geoapi/martin-wrapper/lakes/0/0/0
-```
-
-The endpoint is behind the same auth as `/geoapi`: with `API_KEY_ENABLED`, add
-`-H "X-API-KEY: <key>"`; with OPA/JWKS, a bearer token.
-
-`<source_id>` is the pygeoapi resource id (`auto` mode) or the source
-key/`layer_id` from your config file. Errors follow martin's own server:
-
-- `404` `NotFound`: no source with that id.
-- `400` `InvalidParameterValue`: the request can't be served as asked (zoom
-  outside the source's range, an impossible coordinate, incompatible sources
-  combined, a malformed query).
-- `500` `NoApplicableCode`: the source failed to produce the tile (storage,
-  database, ...); the details are in fastgeoapi's log, not in the response.
+- `200` with the tile; `204` where the data has nothing.
+- `404`: outside the configured `zoom` or the tile matrix.
+- `500`: martin could not load the data or cut the tile; the details are in
+  fastgeoapi's log, not in the response.
 
 ## 2. Load it as a vector tile source in QGIS
 
-The response is `application/x-protobuf` — Mapbox Vector Tiles, **not**
-raster PNG/JPEG. QGIS handles that through its **Vector Tiles** connection
-type, not the plain **XYZ Tiles** one (which expects raster imagery and
-will fail to render this).
+The response is `application/vnd.mapbox-vector-tile` — Mapbox Vector Tiles,
+**not** raster PNG/JPEG. QGIS handles that through its **Vector Tiles**
+connection type, not the plain **XYZ Tiles** one.
 
 **Layer ▸ Add Layer ▸ Add Vector Tile Layer... ▸ New ▸ New Generic
 Connection**, then set:
 
-- **Name**: anything, e.g. `fastgeoapi martin-wrapper`
+- **Name**: anything, e.g. `fastgeoapi lakes`
 - **URL**:
-  ```
-  http://localhost:5000/geoapi/martin-wrapper/<source_id>/{z}/{x}/{y}
-  ```
-  `{z}`, `{x}`, `{y}` lowercase, exactly as shown — QGIS's placeholder
-  syntax matches the wrapper's own route
-  (`/{source_ids}/{z:int}/{x:int}/{y:int}`).
-- **Min./max. zoom level**: leave the defaults (0–14) unless your data
-  needs narrower bounds.
-- **Authentication**: none — leave blank.
 
-Click **OK**, select the new connection, **Add**. The layer should render
-with QGIS's default vector-tile styling (edit it via the layer's
-**Symbology** tab, or load/generate a style resource separately — this
-endpoint serves tiles only, no accompanying style document).
+  ```text
+  http://localhost:5000/geoapi/collections/lakes/tiles/WebMercatorQuad/{z}/{y}/{x}?f=mvt
+  ```
+
+  `{z}`, `{y}`, `{x}` lowercase, in that order.
+- **Min./max. zoom level**: those of the provider's `zoom` option.
+- **Authentication**: none, unless the API key or OAuth2 is enabled.
+
+Click **OK**, select the new connection, **Add**.
 
 ### Troubleshooting
 
-| Symptom in QGIS                            | Likely cause                                                                                                                                                  |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Layer added but nothing draws              | Wrong `<source_id>`, or the resource's data genuinely has no features nearby                                                                                  |
-| Connection fails outright                  | Server not running, port/host wrong, or `/martin-wrapper` wasn't mounted — check the startup log for the warning about the missing dependency or unset config |
-| Tiles look like garbage / layer won't load | Added as an **XYZ Tiles** connection instead of **Vector Tiles** — protobuf isn't raster imagery                                                              |
+| Symptom in QGIS                            | Likely cause                                                                                   |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| Layer added but nothing draws              | Wrong collection id, `{y}`/`{x}` swapped, or the data has no features nearby                   |
+| Connection fails outright                  | Server not running, port/host wrong, or the collection failed to load — check fastgeoapi's log |
+| Tiles look like garbage / layer won't load | Added as an **XYZ Tiles** connection instead of **Vector Tiles**                               |

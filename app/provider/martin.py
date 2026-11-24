@@ -29,10 +29,9 @@ Configuration::
         cache_size_mb: 256             # martin's tile cache; 0 turns it off
       format: {name: pbf, mimetype: application/vnd.mapbox-vector-tile}
 
-The ``/martin-wrapper`` mount (:mod:`app.tiles.martin_wrapper`) serves
-the same tiles over martin's own URL scheme, for benchmarking; both build
-their martin config with the translation functions of this module, which
-work without martin-py installed.
+The translation from fastgeoapi's provider vocabulary to a martin config
+works without martin-py installed: ``scripts/bench_tiles.py`` uses it to
+write the config of a standalone martin server serving the same data.
 """
 
 from __future__ import annotations
@@ -40,8 +39,8 @@ from __future__ import annotations
 import dataclasses
 import gzip
 import os
-import re
 import threading
+from collections.abc import Mapping
 from typing import Any, ClassVar, Literal
 from urllib.parse import urlsplit
 
@@ -63,8 +62,8 @@ from app.tiles.contract import (
 )
 from app.tiles.sources import TileSourceContext
 
-# Optional: the translation below (pygeoapi provider -> martin config) is
-# used without it too, by the /martin-wrapper mount and its tests, so a
+# Optional: the translation below (provider definition -> martin config) is
+# used without it too (scripts/bench_tiles.py, test_martin_config.py), so a
 # missing martin-py fails when a provider is built, not on import.
 try:
     import martin_py
@@ -90,23 +89,13 @@ _DEFAULT_BOUNDS = (-180.0, -85.05112877980659, 180.0, 85.05112877980659)
 
 
 # -- martin configs from fastgeoapi's provider vocabulary ----------------------
-# Pure translation, no I/O and no martin_py: shared with the /martin-wrapper
-# mount (app.tiles.martin_wrapper).
+# Pure translation, no I/O and no martin_py.
 
 type MartinSourceKind = Literal["geojson", "pmtiles", "duckdb"]
 
 DEFAULT_SRID = 4326
 DEFAULT_GEOMETRY_COLUMN = "geom"
 """The GeoParquet provider's own default (``app.provider.geoparquet``)."""
-
-_EPSG_SUFFIX = re.compile(r"EPSG/\d+/(\d+)$")
-
-# pygeoapi provider `name` values whose `data` martin-py can open directly.
-# Everything else — CSV, OGR/GPKG, PostgreSQL, MVT-* (mbtiles/postgres/
-# elastic/proxy), rasterio, xarray, SensorThings, ... — has no martin-py
-# equivalent here and is skipped.
-_GEOJSON_PROVIDER_NAMES = frozenset({"GeoJSON"})
-_DUCKDB_PROVIDER_NAMES = frozenset({"app.provider.geoparquet.GeoParquetProvider", "Parquet"})
 
 
 def source_kind(data: str) -> MartinSourceKind | None:
@@ -150,27 +139,6 @@ def names_one_object(data: str) -> bool:
     if data.endswith("/") or any(char in data for char in "*?["):
         return False
     return "." in data.rpartition("/")[2]
-
-
-def srid_from_storage_crs(storage_crs: str | None) -> int:
-    """Best-effort EPSG code from a pygeoapi ``storage_crs`` URI.
-
-    pygeoapi's ``storage_crs`` is an OGC CRS URI
-    (``.../def/crs/EPSG/0/4326``), not a bare EPSG code; ``CRS84`` and an
-    absent value both mean "geographic WGS 84", which is EPSG:4326 anyway.
-
-    Parameters
-    ----------
-    storage_crs : str | None
-        A provider's ``storage_crs``, if any.
-
-    Returns
-    -------
-    int
-        The EPSG code, or 4326 when the URI carries none.
-    """
-    match = _EPSG_SUFFIX.search(storage_crs or "")
-    return int(match.group(1)) if match else DEFAULT_SRID
 
 
 def geoparquet_location(data: str) -> str:
@@ -231,10 +199,10 @@ def martin_store_options(store_options: dict | None, data: str) -> dict[str, Any
     obstore, takes object_store's (``virtual_hosted_style_request``, an
     ``endpoint`` URL that, virtual-hosted, names the bucket) and turns them
     back into the DuckDB S3 secret it creates on each connection. So the
-    translation the obstore reader already uses is reused here. ``scope``
-    is dropped: martin's secret lives on the source's own connections and
-    needs none, and an unknown key would only be warned about. A plain
-    ``http`` endpoint is refused by martin unless ``allow_http`` says so.
+    translation the obstore reader already uses is reused here, ``scope``
+    dropped included: martin's secret lives on the source's own connections
+    and needs none. A plain ``http`` endpoint is refused by martin unless
+    ``allow_http`` says so.
 
     Parameters
     ----------
@@ -251,7 +219,7 @@ def martin_store_options(store_options: dict | None, data: str) -> dict[str, Any
     """
     if not store_options or "://" not in data:
         return {}
-    options = _for_obstore({k: v for k, v in store_options.items() if k != "scope"}, data)
+    options = _for_obstore(store_options, data)
     if str(options.get("endpoint", "")).startswith("http://"):
         options["allow_http"] = True
     return options
@@ -326,81 +294,6 @@ def martin_config_for_source(
     return config
 
 
-def martin_config_from_pygeoapi(pygeoapi_config: dict) -> dict[str, Any]:
-    """Derive a martin-py config from an already-loaded pygeoapi config.
-
-    One pygeoapi resource maps to (at most) one martin-py source, keyed
-    by the resource id — the same id then names it in
-    ``/martin-wrapper/{source_ids}/{z}/{x}/{y}`` and in pygeoapi's own
-    ``/collections/{resource_id}/...``, so the two can be benchmarked
-    tile-for-tile against the same underlying data. Only providers this
-    ``martin-py`` build can actually open are translated:
-
-    - ``GeoJSON`` (or any provider whose ``data`` ends in ``.geojson``/
-      ``.json``) -> a ``geojson`` source.
-    - ``data`` ending in ``.pmtiles`` -> a ``pmtiles`` source (no
-      built-in pygeoapi provider is named for it, so this is
-      extension-only detection).
-    - the project's GeoParquet provider (or upstream ``Parquet``, or any
-      provider whose ``data`` ends in ``.parquet``) -> a ``duckdb``
-      source, carrying over ``geometry_column`` and a best-effort SRID.
-
-    A resource whose provider ``data`` is not a string (e.g. an inline
-    OGR connection dict), or whose provider is anything else (CSV,
-    OGR/GPKG, PostgreSQL, MVT-*, rasterio, xarray, ...), contributes no
-    source — there is no one-to-one martin-py equivalent for it here.
-
-    Parameters
-    ----------
-    pygeoapi_config : dict
-        A parsed pygeoapi configuration document (``resources`` mapping
-        included), such as the one ``load_config_source`` returns.
-
-    Returns
-    -------
-    dict
-        A martin-py config. Only the top-level keys (``geojson``,
-        ``pmtiles``, ``duckdb``) that actually gained a source are present;
-        an empty dict means no resource had a provider this build of
-        martin-py can manage.
-    """
-    geojson_sources: dict[str, str] = {}
-    pmtiles_sources: dict[str, str] = {}
-    duckdb_sources: list[dict[str, Any]] = []
-
-    for resource_id, resource in (pygeoapi_config.get("resources") or {}).items():
-        for provider in resource.get("providers") or []:
-            data = provider.get("data")
-            if not isinstance(data, str):
-                continue
-            name = provider.get("name")
-            if name in _GEOJSON_PROVIDER_NAMES or data.endswith((".geojson", ".json")):
-                geojson_sources[resource_id] = data
-            elif data.endswith(".pmtiles"):
-                pmtiles_sources[resource_id] = data
-            elif name in _DUCKDB_PROVIDER_NAMES or data.endswith(".parquet"):
-                duckdb_sources.append(
-                    duckdb_source(
-                        data,
-                        layer_id_from_data(data, resource_id)
-                        if data.endswith((".parquet", ".geoparquet"))
-                        else resource_id,
-                        geometry_column=provider.get("geometry_column", DEFAULT_GEOMETRY_COLUMN),
-                        srid=srid_from_storage_crs(provider.get("storage_crs")),
-                        store_options=provider.get("store_options"),
-                    )
-                )
-
-    martin_config: dict[str, Any] = {}
-    if geojson_sources:
-        martin_config["geojson"] = {"sources": geojson_sources}
-    if pmtiles_sources:
-        martin_config["pmtiles"] = {"sources": pmtiles_sources}
-    if duckdb_sources:
-        martin_config["duckdb"] = {"sources": duckdb_sources}
-    return martin_config
-
-
 # -- the tile source and the provider -------------------------------------------
 
 
@@ -429,27 +322,46 @@ class MartinTilesConfig:
     @classmethod
     def from_context(cls, context: TileSourceContext) -> MartinTilesConfig:
         """Read the configuration from what the tile provider hands its source."""
-        kind = source_kind(context.data)
+        return cls.from_parts(context.data, context.options, context.store_options)
+
+    @classmethod
+    def from_provider_def(cls, provider_def: dict) -> MartinTilesConfig:
+        """Read the configuration from a pygeoapi tile provider definition.
+
+        The same reading the provider does, without building it: what
+        ``scripts/bench_tiles.py`` uses to give a standalone martin server
+        exactly the source the provider serves.
+        """
+        return cls.from_parts(
+            provider_def["data"],
+            provider_def.get("options") or {},
+            provider_def.get("store_options"),
+        )
+
+    @classmethod
+    def from_parts(
+        cls, data: str, options: Mapping[str, Any], store_options: Mapping[str, Any] | None
+    ) -> MartinTilesConfig:
+        """Read the configuration from a provider's ``data``, ``options`` and ``store_options``."""
+        kind = source_kind(data)
         if kind is None:
             raise ProviderGenericError(
                 user_msg=(
-                    f"martin cannot tile {context.data}: give a GeoParquet, GeoJSON or "
-                    "PMTiles location"
+                    f"martin cannot tile {data}: give a GeoParquet, GeoJSON or PMTiles location"
                 )
             )
-        options = context.options
         try:
             return cls(
-                data=context.data,
+                data=data,
                 kind=kind,
                 layer_id=str(
-                    options.get("layer_id") or layer_id_from_data(context.data, _DEFAULT_LAYER_ID)
+                    options.get("layer_id") or layer_id_from_data(data, _DEFAULT_LAYER_ID)
                 ),
                 geometry_column=str(options.get("geometry_column", DEFAULT_GEOMETRY_COLUMN)),
                 srid=int(options.get("srid", DEFAULT_SRID)),
                 worker_threads=_optional_int(options.get("worker_threads")),
                 cache_size_mb=_optional_int(options.get("cache_size_mb")),
-                store_options=dict(context.store_options) if context.store_options else None,
+                store_options=dict(store_options) if store_options else None,
             )
         except (TypeError, ValueError) as error:
             raise ProviderGenericError(user_msg=f"invalid martin option: {error}") from None
@@ -506,8 +418,7 @@ class MartinTiles:
         """Check the configuration; no I/O."""
         if martin_py is None:
             raise ImportError(
-                "the martin tile provider needs the 'martin_wrapper' extra: "
-                "uv sync --extra martin_wrapper"
+                "the martin tile provider needs the 'martin' extra: uv sync --extra martin"
             )
         self._context = context
         self.config = MartinTilesConfig.from_context(context)
@@ -523,8 +434,11 @@ class MartinTiles:
             return None
         if not is_remote(self.config.data):
             return self._local_version()
-        cached = self._context.cached()
-        return None if cached is None else _object_version(cached.meta())
+        try:
+            cached = self._context.cached()
+            return None if cached is None else _object_version(cached.meta())
+        except Exception as error:
+            return self._stop_following_version(error)
 
     async def adata_version(self) -> str | None:
         """Async twin of :meth:`data_version`; the range cache answers without waiting."""
@@ -533,8 +447,28 @@ class MartinTiles:
         if not is_remote(self.config.data):
             # one stat: cheaper than a trip to a worker thread
             return self._local_version()
-        cached = self._context.cached()
-        return None if cached is None else _object_version(await cached.ameta_without_waiting())
+        try:
+            cached = self._context.cached()
+            if cached is None:
+                return None
+            return _object_version(await cached.ameta_without_waiting())
+        except Exception as error:
+            return self._stop_following_version(error)
+
+    def _stop_following_version(self, error: Exception) -> None:
+        """Serve without a version from now on, as for a glob, rather than fail every tile.
+
+        The version only lets tiles follow a replaced object and carry an
+        ETag: martin reads the data with its own reader, which may well
+        work where the store asking the version does not (an option the
+        store refuses, a HEAD the bucket forbids). Logged once.
+        """
+        self._follows_version = False
+        logger.warning(
+            f"martin serves {self.config.data} without following its version, which "
+            f"cannot be read ({type(error).__name__}: {error}); a replaced object is "
+            "seen after a restart"
+        )
 
     def _local_version(self) -> str | None:
         path = urlsplit(self.config.data).path if "://" in self.config.data else self.config.data

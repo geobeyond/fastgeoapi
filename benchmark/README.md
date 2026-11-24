@@ -1,17 +1,20 @@
-# Vector tile benchmark: martin-wrapper vs martin vs pygeoapi PMTiles
+# Vector tile benchmark: martin tile provider vs martin vs pygeoapi PMTiles
 
 This compares three ways fastgeoapi can serve the **same Lazio road segments**
 as Mapbox Vector Tiles. All three run against one fixed, seeded tile list,
 with the same load generator, on the same machine.
 
-| Case                          | Endpoint                                                                        | Source                                                        | Tiles made                                       |
-| ----------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------ |
-| **A. fastgeoapi + martin-py** | `/geoapi/martin-wrapper/transportation-lazio/{z}/{x}/{y}`                       | `s3://fastgeoapi-demo/overture/transportation-lazio.parquet`  | on request, by Martin's DuckDB tiler, in-process |
-| **B. standalone `martin`**    | `/transportation-lazio/{z}/{x}/{y}`                                             | same GeoParquet, same derived config                          | on request, same tiler, no Python                |
-| **C. pygeoapi PMTiles**       | `/geoapi/collections/lazio-roads-tiles/tiles/WebMercatorQuad/{z}/{y}/{x}?f=mvt` | `s3://fastgeoapi-demo/tiles/lazio-roads.pmtiles` (tippecanoe) | ahead of time; read by byte range                |
+| Case                          | Endpoint                                                                         | Source                                                        | Tiles made                                       |
+| ----------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------ |
+| **A. fastgeoapi + martin-py** | `/geoapi/collections/lazio-roads-martin/tiles/WebMercatorQuad/{z}/{y}/{x}?f=mvt` | `s3://fastgeoapi-demo/overture/transportation-lazio.parquet`  | on request, by Martin's DuckDB tiler, in-process |
+| **B. standalone `martin`**    | `/transportation-lazio/{z}/{x}/{y}`                                              | same GeoParquet, same martin config                           | on request, same tiler, no Python                |
+| **C. pygeoapi PMTiles**       | `/geoapi/collections/lazio-roads-tiles/tiles/WebMercatorQuad/{z}/{y}/{x}?f=mvt`  | `s3://fastgeoapi-demo/tiles/lazio-roads.pmtiles` (tippecanoe) | ahead of time; read by byte range                |
 
-- **A vs B** isolates what the Python side costs: Starlette, the threadpool hop and the PyO3 call.
-  The tiler, its config and the data are identical.
+- **A** is the martin tile provider (`app.provider.martin.MartinTilesProvider`) serving the
+  `lazio-roads-martin` collection through the OGC API Tiles route, like any other tile collection.
+- **A vs B** isolates what the Python side costs: the OGC API route, the tile provider (its zoom
+  limits and the version check of the data) and the PyO3 call. The tiler, its config and the data
+  are identical: B's config is written from A's provider definition.
 - **A/B vs C** compares generating tiles from GeoParquet when they're requested with serving
   tiles built ahead of time. The tile _content_ differs (tippecanoe simplifies and drops
   features), so this is a comparison of serving strategies, not a like-for-like one.
@@ -24,42 +27,41 @@ network and the tiler.
 
 | File                                                     | What it is                                                                           |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| [`pygeoapi-config.bench.yml`](pygeoapi-config.bench.yml) | pygeoapi config with `lazio-roads` (GeoParquet) and `lazio-roads-tiles` (PMTiles)    |
-| [`martin.yaml`](martin.yaml)                             | Martin config derived from it (generated, see step 1); used by **both** A and B      |
-| [`martin-https.yaml`](martin-https.yaml)                 | same object over public HTTPS, for martin 1.16.1 (no object-store keys)              |
-| [`../scripts/bench_tiles.py`](../scripts/bench_tiles.py) | `config`: derive `martin.yaml` · `run`: fetch the tile list from each target, report |
-| [`results/`](results/)                                   | raw output of the runs below                                                         |
+| [`pygeoapi-config.bench.yml`](pygeoapi-config.bench.yml) | pygeoapi config: `lazio-roads-martin` (A), `lazio-roads-tiles` (C), `lazio-roads` (features) |
+| [`martin.yaml`](martin.yaml)                             | B's Martin config, written from A's provider definition (see step 1)                         |
+| [`martin-https.yaml`](martin-https.yaml)                 | same object over public HTTPS, for martin 1.16.1 (no object-store keys)                      |
+| [`../scripts/bench_tiles.py`](../scripts/bench_tiles.py) | `config`: write `martin.yaml` · `run`: fetch the tile list from each target, report          |
+| [`results/`](results/)                                   | raw output of the runs below                                                                 |
 
 ## Prerequisites
 
 ```shell
-uv sync --extra martin_wrapper      # martin-py; build the wheel with --release
+uv sync --extra martin              # martin-py; build the wheel with --release
 cargo build --release -p martin     # in the martin repo, for case B
 ```
 
 Use release builds for both. A debug build of martin-py or martin decides the result by itself.
 
-## 1. Derive the Martin config
+## 1. Write B's Martin config
 
 ```shell
 uv run python scripts/bench_tiles.py config \
     --pygeoapi-config benchmark/pygeoapi-config.bench.yml \
-    --resource lazio-roads \
+    --resource lazio-roads-martin \
     --output benchmark/martin.yaml
 ```
 
-This produces exactly what `FASTGEOAPI_MARTIN_WRAPPER_CONFIG=auto` would derive for
-`lazio-roads` (the Tigris `store_options` are translated to Martin's object-store keys). It
-also adds `cache.size_mb: 0`.
+(These are the defaults.) This writes the Martin config the martin tile provider of
+`lazio-roads-martin` loads in-process — read with the same code
+(`MartinTilesConfig.from_provider_def`), the Tigris `store_options` translated to Martin's
+object-store keys — so standalone martin serves exactly the same source.
 
-`--resource lazio-roads` is needed. Without it, `auto` also turns `lazio-roads-tiles` into a
-Martin `pmtiles` source, but without its Tigris endpoint, so it can't be read.
-
-> [!IMPORTANT] > **Don't benchmark case A with `auto`.** martin-py builds its tile manager from the config, and
-> Martin's default tile cache is 512 MB. Under `auto` nothing turns it off, so after the first
-> pass the wrapper answers from memory. [`results/auto-mode-cache-on.txt`](results/auto-mode-cache-on.txt)
-> shows warm p50 **1 ms** for the wrapper against **324 ms** for an uncached martin. Point
-> fastgeoapi at the generated file instead, so A and B run with the same cache setting.
+> [!IMPORTANT]
+> **Keep martin's tile cache off on both sides.** martin's default tile cache answers every
+> warm pass from memory: [`results/auto-mode-cache-on.txt`](results/auto-mode-cache-on.txt)
+> shows warm p50 **1 ms** with the cache against **324 ms** for an uncached martin. The provider
+> carries `cache_size_mb: 0` in its options, which becomes `cache.size_mb: 0` in `martin.yaml`;
+> `config` warns when it is missing.
 
 ## 2. Start the servers
 
@@ -68,7 +70,6 @@ Restart both servers before every run if the first pass is meant to be cold.
 ```shell
 # A and C: one fastgeoapi process serves both
 DEV_PYGEOAPI_CONFIG=benchmark/pygeoapi-config.bench.yml \
-DEV_FASTGEOAPI_MARTIN_WRAPPER_CONFIG=$PWD/benchmark/martin.yaml \
 MARTIN_PY_POLL_DIRECTLY= RUST_LOG=warn \
 uv run fastgeoapi run --host 127.0.0.1 --port 5999
 
@@ -79,13 +80,15 @@ RUST_LOG=warn ../martin/target/release/martin \
 
 - Don't use `--reload`.
 - Unset `MARTIN_PY_POLL_DIRECTLY`; it's a debugging aid for the config load.
-- fastgeoapi logs `Martin wrapper endpoint mounted at /geoapi/martin-wrapper` once case A is ready.
+- martin loads the source at A's first tile, not at startup: the readiness check below (or the
+  TileJSON at `/geoapi/collections/lazio-roads-martin/tiles/WebMercatorQuad/metadata?f=tilejson`)
+  pays for it, so the first pass doesn't.
 
 ## 3. Run
 
 ```shell
 uv run python scripts/bench_tiles.py run \
-  --target 'A-wrapper=http://127.0.0.1:5999/geoapi/martin-wrapper/transportation-lazio/{z}/{x}/{y}' \
+  --target 'A-provider=http://127.0.0.1:5999/geoapi/collections/lazio-roads-martin/tiles/WebMercatorQuad/{z}/{y}/{x}?f=mvt' \
   --target 'B-martin=http://127.0.0.1:3999/transportation-lazio/{z}/{x}/{y}' \
   --target 'C-pmtiles=http://127.0.0.1:5999/geoapi/collections/lazio-roads-tiles/tiles/WebMercatorQuad/{z}/{y}/{x}?f=mvt' \
   --zoom 10 --zoom 11 --zoom 12 --zoom 13 --per-zoom 25 \
@@ -93,7 +96,7 @@ uv run python scripts/bench_tiles.py run \
   | tee benchmark/results/abc-cache-off.txt
 ```
 
-Mind the tile order: Martin's path is `{z}/{x}/{y}`, while OGC API - Tiles uses
+Mind the tile order: Martin's path (B) is `{z}/{x}/{y}`, while OGC API - Tiles (A and C) uses
 `{tileMatrix}/{tileRow}/{tileCol}`, which is `{z}/{y}/{x}`. The zooms stop at 13 because
 that's the PMTiles archive's `maxzoom`.
 
@@ -116,11 +119,16 @@ first target's.
 | `--repeat`             | 2                     | warm passes per concurrency level                         |
 | `--tolerance`          | 0.02                  | tile size difference still counted as on par              |
 
-All requests send `Accept-Encoding: identity`. The wrapper never compresses tiles,
-standalone Martin would if asked, and a byte count should mean the same thing on every
-target.
+All requests send `Accept-Encoding: identity`. fastgeoapi and standalone Martin would both
+compress if asked, but not alike, and a byte count should mean the same thing on every
+target. An empty tile answers `204` on A and C.
 
 ## Results
+
+> [!NOTE]
+> The runs below predate the martin tile provider. Case A was then the `/martin-wrapper` mount,
+> since removed: a Starlette sub-app calling martin-py on martin's own `{z}/{x}/{y}` paths, loading
+> the same `martin.yaml` as B. Its numbers are kept as history; re-run step 3 for the provider's.
 
 Run on 2026-10-27, on an AMD Ryzen 7 8845HS (16 threads, 92 GB RAM, Linux) with server and
 load generator on the same host. The data stayed on Tigris. The run used 100 tiles (25 per
@@ -172,13 +180,13 @@ Parity:
 
 Same host, same command and parameters as above. What changed:
 
-- **A** uses the martin-py **v0.1.1** release wheel (`uv sync --extra martin_wrapper`), linked against
+- **A** uses the martin-py **v0.1.1** release wheel (the extra was then named `martin_wrapper`), linked against
   crates.io martin `2.0.0-beta.7`.
 - **B** is martin `2.0.0-beta.7` from crates.io, built in release mode with only DuckDB support
   (`cargo install martin --version =2.0.0-beta.7 --locked --no-default-features --features unstable-duckdb`),
   so A and B run the same martin version.
 - fastgeoapi ran with `DEV_JWKS_ENABLED=false DEV_API_KEY_ENABLED=false DEV_OPA_ENABLED=false`.
-  `/martin-wrapper` is now behind the same auth chain as `/geoapi`, and `bench_tiles.py` sends no
+  The wrapper was by then behind the same auth chain as `/geoapi`, and `bench_tiles.py` sends no
   credentials.
 
 Raw output: [`results/abc-cache-off-2026-11-18.txt`](results/abc-cache-off-2026-11-18.txt).
@@ -251,7 +259,7 @@ Parity: **0** tiles differ by more than 2% (max 0.3%), and both return the same 
   1.20000.1, i.e. DuckDB 1.5.5 → 2.0.0). Between these versions martin also goes from
   `martin-core` 0.11 to 0.17, so this run alone doesn't prove which change is responsible.
 - Until this is fixed upstream, martin-py could pin a martin version with DuckDB 1.5.x. Its
-  source config would then lose the object-store keys that `auto` mode relies on.
+  source config would then lose the object-store keys the `store_options` translation relies on.
 
 ## Caveats
 
@@ -262,6 +270,6 @@ Parity: **0** tiles differ by more than 2% (max 0.3%), and both return the same 
   Tigris.
 - `--repeat 1` gives one sample per cell. Use `--repeat 3` or more before drawing
   conclusions from p99.
-- [`results/auto-mode-cache-on.txt`](results/auto-mode-cache-on.txt) is a partial run, stopped
-  during martin's warm passes. It's kept only as evidence of the `auto`-mode tile cache
-  (see step 1).
+- [`results/auto-mode-cache-on.txt`](results/auto-mode-cache-on.txt) is a partial run of the former
+  wrapper with martin's tile cache left on, stopped during martin's warm passes. It's kept only as
+  evidence of what that cache does to the numbers (see step 1).

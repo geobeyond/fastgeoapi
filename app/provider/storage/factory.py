@@ -133,6 +133,10 @@ def _for_obstore(store_options: dict, base: str = "") -> dict:
         The same options in obstore's vocabulary.
     """
     options = dict(store_options)
+    # The prefix a DuckDB secret applies to. A store is built for one bucket
+    # already and has no such key: obstore refuses it, which made the store
+    # of a dataset whose options carry it unusable.
+    options.pop("scope", None)
     translated: dict = {}
     for name, obstore_name in (("key_id", "access_key_id"), ("secret", "secret_access_key")):
         if name in options:

@@ -18,12 +18,12 @@ import yaml
 from pygeoapi.provider.tile import ProviderTileNotFoundError
 from starlette.testclient import TestClient
 
-pytest.importorskip("martin_py", reason="the martin provider needs the `martin_wrapper` extra")
+pytest.importorskip("martin_py", reason="the martin provider needs the `martin` extra")
 
 from app.provider.martin import MartinTilesProvider
 from app.tiles.contract import TileOutsideError, TileSourceError
 
-FIXTURE_GEOJSON = Path(__file__).parent / "data" / "martin_wrapper" / "feature_collection.geojson"
+FIXTURE_GEOJSON = Path(__file__).parent / "data" / "martin" / "feature_collection.geojson"
 MVT = "application/vnd.mapbox-vector-tile"
 
 
@@ -93,6 +93,20 @@ def test_a_changed_file_is_loaded_again_with_a_new_version(geojson):
     provider.get_tiles(z=0, x=0, y=0)
     assert provider.source._loaded is not first
     assert asyncio.run(provider.aversion(z=0, x=0, y=0)) not in (None, version)
+
+
+def test_a_version_that_cannot_be_read_serves_tiles_without_one(geojson):
+    """The store asking the version may fail where martin's own reader works."""
+    provider = MartinTilesProvider(_provider_def(f"s3://bucket/{geojson.name}"))
+
+    def refused():
+        raise ValueError("Configuration key: 'scope' is not valid for store 'S3'")
+
+    with mock.patch("app.provider.martin.is_remote", return_value=True):
+        object.__setattr__(provider.source._context, "cached", refused)
+        assert asyncio.run(provider.aversion(z=0, x=0, y=0)) is None
+        assert provider.source.data_version() is None
+    assert not provider.source._follows_version
 
 
 def test_a_glob_has_no_version():
@@ -221,7 +235,7 @@ def test_without_martin_py_the_module_imports_and_the_provider_refuses_to_build(
         sys.modules.pop("app.provider.martin", None)
         module = importlib.import_module("app.provider.martin")
         assert module.martin_py is None
-        with pytest.raises(ImportError, match="uv sync --extra martin_wrapper"):
+        with pytest.raises(ImportError, match="uv sync --extra martin"):
             module.MartinTilesProvider(_provider_def(geojson))
 
 

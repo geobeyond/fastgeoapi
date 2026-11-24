@@ -1,6 +1,8 @@
 # Benchmark-only pygeoapi config: see benchmark/README.md.
-# lazio-roads (GeoParquet) feeds the martin-wrapper and standalone martin,
-# lazio-roads-tiles (PMTiles of the same segments) feeds pygeoapi's own tile path.
+# lazio-roads-martin (martin tile provider over the lazio-roads GeoParquet) is
+# case A, and the definition `scripts/bench_tiles.py config` turns into the
+# config of the standalone martin of case B; lazio-roads-tiles (PMTiles of the
+# same segments) is case C. lazio-roads serves the same segments as features.
 
 server:
   bind:
@@ -183,6 +185,61 @@ resources:
             max: 13
           schemes:
             - WebMercatorQuad
+        format:
+          name: pbf
+          mimetype: application/vnd.mapbox-vector-tile
+
+  lazio-roads-martin:
+    type: collection
+    title: Lazio roads as vector tiles, cut by martin
+    description:
+      The Lazio road segments of the lazio-roads collection, cut into vector tiles on
+      request by martin's DuckDB tiler, in-process, from the GeoParquet object on Tigris
+    keywords:
+      - overture
+      - transportation
+      - roads
+      - lazio
+      - martin
+      - vector tiles
+    links:
+      - type: text/html
+        rel: canonical
+        title: Overture Maps Foundation
+        href: https://overturemaps.org/
+        hreflang: en-US
+    extents:
+      spatial:
+        bbox:
+          - 11.4
+          - 41.2
+          - 14.1
+          - 42.9
+        crs: http://www.opengis.net/def/crs/OGC/1.3/CRS84
+    providers:
+      - type: tile
+        name: app.provider.martin.MartinTilesProvider
+        data: s3://fastgeoapi-demo/overture/transportation-lazio.parquet
+        # lazio-roads' keys, in DuckDB's vocabulary: the provider translates
+        # them to martin's object-store keys.
+        store_options:
+          endpoint: t3.storage.dev
+          region: auto
+          url_style: vhost
+          skip_signature: true
+          scope: s3://fastgeoapi-demo
+        options:
+          zoom:
+            min: 0
+            max: 14
+          schemes:
+            - WebMercatorQuad
+          geometry_column: geometry
+          srid: 4326
+          # The source id and layer name standalone martin uses too.
+          layer_id: transportation-lazio
+          # Off, like standalone martin's: every request cuts its tile.
+          cache_size_mb: 0
         format:
           name: pbf
           mimetype: application/vnd.mapbox-vector-tile

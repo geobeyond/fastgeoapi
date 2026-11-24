@@ -1,34 +1,33 @@
 r"""Benchmark vector tile endpoints on one fixed, seeded tile list.
 
-The sources come from ``pygeoapi-config.yml``: today the ``lazio-roads``
-collection, Overture transportation segments for Lazio staged on Tigris
-as a single Hilbert-ordered GeoParquet with a ``bbox`` covering
-(``s3://fastgeoapi-demo/overture/transportation-lazio.parquet``). One
-object of known size, rather than a whole Overture release, keeps run to
-run variance down to the network and the tiler.
+The sources come from ``benchmark/pygeoapi-config.bench.yml``: Overture
+transportation segments for Lazio staged on Tigris, as a single
+Hilbert-ordered GeoParquet with a ``bbox`` covering
+(``s3://fastgeoapi-demo/overture/transportation-lazio.parquet``) and as a
+PMTiles archive. One object of known size, rather than a whole Overture
+release, keeps run to run variance down to the network and the tiler.
 
-First derive the Martin config for the standalone ``martin`` binary from
-the same pygeoapi config, so it reads exactly what fastgeoapi's
-``FASTGEOAPI_MARTIN_WRAPPER_CONFIG=auto`` derives at boot, plus
-``cache.size_mb: 0``. martin-py serves through martin's tile cache just like
-the binary does, so both servers load this same file and run without one:
+First write the config of the standalone ``martin`` binary from the martin
+tile provider of the ``lazio-roads-martin`` collection, so both read
+exactly the same source with the same tile cache setting (off):
 
     uv run python scripts/bench_tiles.py config --output benchmark/martin.yaml
 
 Then start both servers (each freshly, if the first pass is to be cold)
 and run the same tiles against both:
 
-    DEV_FASTGEOAPI_MARTIN_WRAPPER_CONFIG=benchmark/martin.yaml uv run fastgeoapi run --port 5000
+    DEV_PYGEOAPI_CONFIG=benchmark/pygeoapi-config.bench.yml uv run fastgeoapi run --port 5000
     martin --config benchmark/martin.yaml --listen-addresses 0.0.0.0:3000
 
+    TILES=http://localhost:5000/geoapi/collections/lazio-roads-martin/tiles/WebMercatorQuad
     uv run python scripts/bench_tiles.py run \\
-        --target \\
-          'wrapper=http://localhost:5000/geoapi/martin-wrapper/transportation-lazio/{z}/{x}/{y}' \\
+        --target "provider=$TILES/{z}/{y}/{x}?f=mvt" \\
         --target 'martin=http://localhost:3000/transportation-lazio/{z}/{x}/{y}' \\
         --concurrency 1 --concurrency 4 --concurrency 16
 
-The source id is ``transportation-lazio``: martin names a GeoParquet
-source after its file, not after the pygeoapi resource.
+Mind the order: OGC API - Tiles paths are ``{z}/{y}/{x}``, martin's are
+``{z}/{x}/{y}``. The source id is ``transportation-lazio``, the provider's
+``layer_id`` option.
 """
 
 from __future__ import annotations
@@ -142,34 +141,44 @@ def _report(label: str, result: Pass) -> None:
     )
 
 
+MARTIN_PROVIDER = "app.provider.martin.MartinTilesProvider"
+
+
 @app.command()
 def config(
     pygeoapi_config: Annotated[
         Path, typer.Option(help="The pygeoapi config fastgeoapi boots with.")
-    ] = Path("pygeoapi-config.yml"),
+    ] = Path("benchmark/pygeoapi-config.bench.yml"),
     resource: Annotated[
-        str | None,
-        typer.Option(help="Only this resource (default: every one `auto` would mount)."),
-    ] = None,
+        str, typer.Option(help="The collection whose martin tile provider to copy.")
+    ] = "lazio-roads-martin",
     output: Annotated[Path, typer.Option(help="Where to write it.")] = Path(
         "benchmark/martin.yaml"
     ),
 ) -> None:
-    """Write the Martin config `auto` mode derives, tile cache off."""
+    """Write the martin config the collection's martin tile provider loads."""
     # Here, not at the top: importing `app` turns on its DEBUG logging,
     # which would bury `run`'s report under httpx's request traces.
-    from app.tiles.martin_wrapper import _martin_config_from_pygeoapi
+    from app.provider.martin import MartinTilesConfig
 
     document = yaml.safe_load(pygeoapi_config.read_text())
     resources = document.get("resources") or {}
-    if resource is not None:
-        if resource not in resources:
-            raise typer.BadParameter(f"no resource {resource!r} in {pygeoapi_config}")
-        resources = {resource: resources[resource]}
-    martin_config = _martin_config_from_pygeoapi({"resources": resources})
-    if not martin_config:
-        raise typer.BadParameter(f"martin-py has no source kind for any of {list(resources)}")
-    martin_config["cache"] = {"size_mb": 0}
+    if resource not in resources:
+        raise typer.BadParameter(f"no resource {resource!r} in {pygeoapi_config}")
+    providers = [
+        provider
+        for provider in resources[resource].get("providers") or []
+        if provider.get("name") == MARTIN_PROVIDER
+    ]
+    if not providers:
+        raise typer.BadParameter(f"resource {resource!r} has no {MARTIN_PROVIDER}")
+    martin_config = MartinTilesConfig.from_provider_def(providers[0]).martin_config()
+    if martin_config.get("cache", {}).get("size_mb") != 0:
+        typer.echo(
+            "warning: martin's tile cache is on (no `cache_size_mb: 0` option): "
+            "warm passes will be answered from memory",
+            err=True,
+        )
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(yaml.safe_dump(martin_config, sort_keys=False))
     typer.echo(f"wrote {output}")
@@ -209,7 +218,7 @@ def run(
     async def bench() -> dict[str, Pass]:
         firsts: dict[str, Pass] = {}
         for name, template in targets.items():
-            # identity: the wrapper never compresses, the binary would if asked.
+            # identity: fastgeoapi and the binary would compress if asked, not alike.
             headers = {"Accept-Encoding": "identity"}
             limits = httpx.Limits(max_connections=max(concurrency))
             async with httpx.AsyncClient(headers=headers, limits=limits, timeout=timeout) as client:

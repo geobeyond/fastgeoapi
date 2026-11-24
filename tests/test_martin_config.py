@@ -2,22 +2,18 @@
 
 Pure translation from a tile provider's definition to a martin config:
 no `martin_py` involved, so these run whether or not the
-`martin_wrapper` extra is installed.
+`martin` extra is installed.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
-import yaml
 from pygeoapi.provider.base import ProviderGenericError
 
 from app.provider.martin import (
     MartinTilesConfig,
     layer_id_from_data,
     martin_config_for_source,
-    martin_config_from_pygeoapi,
     names_one_object,
     source_kind,
 )
@@ -226,13 +222,21 @@ def test_one_source_config_per_kind():
     }
 
 
-# --- a whole pygeoapi config (kept for the benchmark) ---------------------------
+# --- from a provider definition, as scripts/bench_tiles.py reads it ------------
 
 
-def test_a_pygeoapi_config_keeps_only_what_martin_can_serve():
-    """The repo fixture (GeoJSON `lakes` + CSV `obs`): only `lakes` survives."""
-    pygeoapi_config = yaml.safe_load(Path("tests/data/pygeoapi-config.yml").read_text())
-    assert martin_config_from_pygeoapi(pygeoapi_config) == {
-        "geojson": {"sources": {"lakes": "tests/data/ne_110m_lakes.geojson"}}
+def test_a_provider_definition_gives_the_config_the_provider_loads():
+    provider_def = {
+        "type": "tile",
+        "name": "app.provider.martin.MartinTilesProvider",
+        "data": "s3://bucket/places.parquet",
+        "store_options": {"key_id": "k", "secret": "s"},
+        "options": {"zoom": {"min": 0, "max": 14}, "layer_id": "places", "cache_size_mb": 0},
+        "format": {"name": "pbf", "mimetype": MVT},
     }
-    assert martin_config_from_pygeoapi({}) == {}
+    assert MartinTilesConfig.from_provider_def(provider_def).martin_config() == _martin_config(
+        "s3://bucket/places.parquet",
+        store_options={"key_id": "k", "secret": "s"},
+        layer_id="places",
+        cache_size_mb=0,
+    )
