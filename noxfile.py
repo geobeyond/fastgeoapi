@@ -420,6 +420,10 @@ def typeguard(session: Session) -> None:
         # The blocking-call guard (ADR-0010) lives in the `dev` group;
         # the unlocked lanes need it by name.
         "blockbuster>=1.5,<2",
+        # The mapli extra: the demo configuration has a mapli collection, so
+        # building its OpenAPI document imports mapli. Where EGL can draw, the
+        # mapli renderer tests run too.
+        "mapli>=0.5.0; sys_platform == 'linux'",
     )
     session.run("pytest", f"--typeguard-packages={package}", *session.posargs)
 

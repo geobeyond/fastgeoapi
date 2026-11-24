@@ -106,11 +106,11 @@ jobs:
           echo "DISPLAY=:99" >> "$GITHUB_ENV"
           echo "LIBGL_ALWAYS_SOFTWARE=1" >> "$GITHUB_ENV"
 
-      # The tests session installs mapli: the demo configuration has a mapli
-      # collection, and the mapli renderer tests draw through EGL, which needs
-      # a GL driver and a display: start a virtual one.
+      # The tests and typeguard sessions install mapli: the demo configuration
+      # has a mapli collection, and the mapli renderer tests draw through EGL,
+      # which needs a GL driver and a display: start a virtual one.
       - name: Install the mapli runtime
-        if: matrix.session == 'tests'
+        if: matrix.session == 'tests' || matrix.session == 'typeguard'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libegl1 libegl-mesa0 libgl1 libgl1-mesa-dri xvfb
