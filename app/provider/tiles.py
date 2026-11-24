@@ -142,6 +142,7 @@ class TilesProvider(AsyncProviderMixin, StorageBackedMixin, BaseTileProvider):
                 ranges=lambda: SingleFlightRanges(self.byte_ranges()),
                 cached=lambda: self.cached_ranges,
                 offload=self.run_sync,
+                store_options=self.provider_def.get("store_options"),
             )
         )
 

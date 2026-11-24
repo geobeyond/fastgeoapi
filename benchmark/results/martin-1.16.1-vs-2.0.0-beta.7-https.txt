@@ -1,0 +1,15 @@
+100 tiles, zooms [10, 11, 12, 13], bbox 11.4,41.2,14.1,42.9, seed 42
+
+[martin-1.16.1] http://127.0.0.1:3998/transportation-lazio/{z}/{x}/{y}
+  first pass, c=1          p50     327 ms  p95    1078 ms  p99    1237 ms |    2.6 req/s |   25.28 MB | 200:100 errors:0
+  warm c=1 #1              p50     329 ms  p95     367 ms  p99     415 ms |    3.0 req/s |   25.28 MB | 200:100 errors:0
+  warm c=4 #1              p50     650 ms  p95    1397 ms  p99    6649 ms |    4.4 req/s |   25.28 MB | 200:100 errors:0
+  warm c=16 #1             p50    2843 ms  p95    3277 ms  p99    4029 ms |    5.5 req/s |   25.28 MB | 200:100 errors:0
+
+[martin-2.0.0-beta.7] http://127.0.0.1:3999/transportation-lazio/{z}/{x}/{y}
+  first pass, c=1          p50    2729 ms  p95    3565 ms  p99    4385 ms |    0.4 req/s |   25.28 MB | 200:100 errors:0
+  warm c=1 #1              p50    2656 ms  p95    3535 ms  p99    3927 ms |    0.4 req/s |   25.28 MB | 200:100 errors:0
+  warm c=4 #1              p50    6345 ms  p95   11005 ms  p99   25256 ms |    0.6 req/s |   25.28 MB | 200:100 errors:0
+  warm c=16 #1             p50   25747 ms  p95   29998 ms  p99   34592 ms |    0.6 req/s |   25.28 MB | 200:100 errors:0
+
+parity martin-1.16.1 vs martin-2.0.0-beta.7: 0 tiles differ by more than 2% (max 0.3%), 0 tiles found by only one

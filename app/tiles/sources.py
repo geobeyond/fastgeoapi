@@ -41,6 +41,10 @@ class TileSourceContext:
     """Returns the range cache of a remote object, or None."""
     offload: Callable[..., Awaitable[Any]]
     """Runs a blocking call in a worker thread: ``await offload(fn, *args)``."""
+    store_options: Mapping[str, Any] | None = None
+    """The provider's ``store_options``, for a source that opens the data with
+    its own reader rather than through ``ranges`` (martin's DuckDB). They may
+    hold credentials: never log them or put them in an error message."""
 
 
 @dataclass(frozen=True, slots=True)

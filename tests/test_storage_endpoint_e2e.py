@@ -108,3 +108,13 @@ def test_the_path_style_endpoint_is_left_alone(monkeypatch):
     )
 
     assert store.backend.config["endpoint"] == "https://fly.storage.tigris.dev"
+
+
+def test_a_duckdb_secret_scope_is_not_given_to_the_store():
+    """`scope` scopes a DuckDB secret; obstore has no such key and refuses it."""
+    store = load_store(
+        "s3://fastgeoapi-demo/",
+        {"region": "auto", "skip_signature": True, "scope": "s3://fastgeoapi-demo"},
+    )
+
+    assert "scope" not in store.backend.config

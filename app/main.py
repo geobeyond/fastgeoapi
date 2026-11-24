@@ -108,6 +108,8 @@ def _bootstrap_pygeoapi() -> tuple[PygeoapiHolder, dict]:
     never touches disk nor env vars. The holder is the single target for
     both the externally-mounted (auth-wrapped) surface and the MCP
     ``ASGITransport``, so a reload swap reaches every consumer at once.
+
+    Returns the holder and the generated OpenAPI document.
     """
     from app.config.source import ConfigSourceError, load_config_source
     from app.pygeoapi.factory import (

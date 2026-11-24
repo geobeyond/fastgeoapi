@@ -1,0 +1,22 @@
+100 tiles, zooms [10, 11, 12, 13], bbox 11.4,41.2,14.1,42.9, seed 42
+
+[A-provider] http://127.0.0.1:5999/geoapi/collections/lazio-roads-martin/tiles/WebMercatorQuad/{z}/{y}/{x}?f=mvt
+  first pass, c=1          p50    2940 ms  p95    6072 ms  p99   13155 ms |    0.3 req/s |   25.28 MB | 200:100 errors:0
+  warm c=1 #1              p50    2632 ms  p95    3661 ms  p99    4034 ms |    0.4 req/s |   25.28 MB | 200:100 errors:0
+  warm c=4 #1              p50    6546 ms  p95   10433 ms  p99   13529 ms |    0.6 req/s |   25.28 MB | 200:100 errors:0
+  warm c=16 #1             p50   27292 ms  p95   32500 ms  p99   38228 ms |    0.6 req/s |   25.28 MB | 200:100 errors:0
+
+[B-martin] http://127.0.0.1:3999/transportation-lazio/{z}/{x}/{y}
+  first pass, c=1          p50    2671 ms  p95    3500 ms  p99    5380 ms |    0.4 req/s |   25.28 MB | 200:100 errors:0
+  warm c=1 #1              p50    2647 ms  p95    3666 ms  p99    4838 ms |    0.4 req/s |   25.28 MB | 200:100 errors:0
+  warm c=4 #1              p50    6041 ms  p95   10333 ms  p99   17391 ms |    0.6 req/s |   25.27 MB | 200:100 errors:0
+  warm c=16 #1             p50   25780 ms  p95   31246 ms  p99   36956 ms |    0.6 req/s |   25.28 MB | 200:100 errors:0
+
+[C-pmtiles] http://127.0.0.1:5999/geoapi/collections/lazio-roads-tiles/tiles/WebMercatorQuad/{z}/{y}/{x}?f=mvt
+  first pass, c=1          p50       2 ms  p95       5 ms  p99     249 ms |  204.3 req/s |    8.32 MB | 200:86 204:14 errors:0
+  warm c=1 #1              p50       1 ms  p95       3 ms  p99       3 ms |  640.5 req/s |    8.32 MB | 200:86 204:14 errors:0
+  warm c=4 #1              p50       4 ms  p95       7 ms  p99       9 ms |  982.5 req/s |    8.32 MB | 200:86 204:14 errors:0
+  warm c=16 #1             p50      14 ms  p95      20 ms  p99      25 ms | 1107.9 req/s |    8.32 MB | 200:86 204:14 errors:0
+
+parity A-provider vs B-martin: 0 tiles differ by more than 2% (max 0.3%), 0 tiles found by only one
+parity A-provider vs C-pmtiles: 83 tiles differ by more than 2% (max 86.7%), 14 tiles found by only one
