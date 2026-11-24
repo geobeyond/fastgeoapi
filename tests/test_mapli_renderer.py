@@ -31,10 +31,25 @@ def _provider(data, options=None):
     )
 
 
-async def _map(provider, **kwargs):
-    args = {"bbox": list(ROME), "width": 64, "height": 48, "crs": WEB_MERCATOR}
+async def _map(provider, **changes):
+    from app.interfaces.providers import MapParameters
+
+    parameters = {
+        "style": None,
+        "bbox": tuple(ROME),
+        "heights": None,
+        "width": 64,
+        "height": 48,
+        "crs": WEB_MERCATOR,
+        "transparent": True,
+        "format_": "png",
+        "datetime_": None,
+        "subsets": None,
+        "vendor_params": {},
+    }
     try:
-        return await provider.aquery(**{**args, **kwargs})
+        rendered_map = await provider.arender_map(MapParameters(**{**parameters, **changes}))
+        return rendered_map.content
     except Exception as error:
         if isinstance(error.__cause__, mapli.GraphicsUnavailableError):
             pytest.skip("no graphics device to draw with")
@@ -68,10 +83,10 @@ async def test_a_transparent_map_lets_the_land_show_through(tmp_path):
 
 @pytest.mark.asyncio
 async def test_a_bbox_across_the_antimeridian_is_drawn(tmp_path):
-    from app.maps.camera import HALF_WORLD
+    from app.maps.web_mercator import WEB_MERCATOR_EDGE
 
     provider = _provider(land_archive(tmp_path / "land.pmtiles"))
-    bbox = [0.9 * HALF_WORLD, -1e6, -0.9 * HALF_WORLD, 1e6]
+    bbox = [0.9 * WEB_MERCATOR_EDGE, -1e6, -0.9 * WEB_MERCATOR_EDGE, 1e6]
 
     image = _image(await _map(provider, bbox=bbox, transparent=False))
 
@@ -82,13 +97,13 @@ async def test_a_bbox_across_the_antimeridian_is_drawn(tmp_path):
 async def test_a_bbox_is_stretched_over_an_image_of_another_aspect(tmp_path):
     import math
 
-    from app.maps.camera import HALF_WORLD
+    from app.maps.web_mercator import WEB_MERCATOR_EDGE
 
     # A black square whose south-west corner lies 250 m east and 750 m north of the
     # south-west corner of a 1000 m bbox: a quarter of the way across, three
     # quarters of the way up.
-    west = 250 / HALF_WORLD * 180
-    south = math.degrees(math.atan(math.sinh(750 / HALF_WORLD * math.pi)))
+    west = 250 / WEB_MERCATOR_EDGE * 180
+    south = math.degrees(math.atan(math.sinh(750 / WEB_MERCATOR_EDGE * math.pi)))
     square = [[west, south], [1, south], [1, 1], [west, 1], [west, south]]
     corner_style = {
         "version": 8,
@@ -136,9 +151,12 @@ async def test_a_bbox_is_stretched_over_an_image_of_another_aspect(tmp_path):
 
 @pytest.mark.asyncio
 async def test_an_elevation_archive_is_shaded(tmp_path):
-    provider = _provider(terrarium_archive(tmp_path / "t.pmtiles"), {"dem": "terrarium"})
+    from app.maps.web_mercator import WEB_MERCATOR_EDGE
 
-    image = _image(await _map(provider, bbox=None, width=128, height=128, transparent=False))
+    provider = _provider(terrarium_archive(tmp_path / "t.pmtiles"), {"dem": "terrarium"})
+    world = (-WEB_MERCATOR_EDGE, -WEB_MERCATOR_EDGE, WEB_MERCATOR_EDGE, WEB_MERCATOR_EDGE)
+
+    image = _image(await _map(provider, bbox=world, width=128, height=128, transparent=False))
 
     assert len(set(image.getdata())) > 1
 

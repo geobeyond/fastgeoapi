@@ -27,24 +27,34 @@ from urllib.parse import urlsplit
 from pygeoapi.provider.base import (
     BaseProvider,
     ProviderGenericError,
-    ProviderItemNotFoundError,
 )
 
 from app.config.logging import create_logger
+from app.interfaces.ogc import OGC_CRS_WEB_MERCATOR
+from app.interfaces.providers import (
+    MapCapabilities,
+    MapFormat,
+    MapLimits,
+    MapParameters,
+    RenderedMap,
+)
 from app.maps.contract import SourceNotDrawableError
 from app.maps.sources import (
     ObjectUrl,
     PMTilesSource,
+)
+from app.maps.web_mercator import (
+    WEB_MERCATOR_EDGE,
+    clip_web_mercator_bbox,
+    is_outside_web_mercator,
 )
 from app.provider.base import (
     AsyncProviderMixin,
     StorageBackedMixin,
 )
 from app.provider.maps import (
-    HALF_WORLD,
-    MAPS_CONFORMANCE,
-    WEB_MERCATOR,
     MapParameterError,
+    MapStyleNotFoundError,
     MapTooLargeError,
 )
 from app.provider.storage import CachedRanges, is_remote
@@ -94,10 +104,10 @@ class _ObjectVersionReader:
     Instances of this class are tied to one version of the object, as
     identified by its ETag, and only ever return bytes of that version.
 
-    Every read is a conditional request (``If-Match``), so a read made after the
-    object has been replaced raises ``ObjectChangedError``. This ensures that
-    whenever the underlying dataset changes, calling code is forced to fetch
-    the new version of the data and its metadata.
+    Every read is gated by a conditional request subject to the same ETag.
+    This means that if the object is modified a read raises ``ObjectChangedError``.
+    This ensures that whenever the underlying dataset changes, calling code is
+    forced to fetch the new version of the data and its metadata.
 
     The purpose of this class is to provide a ``ByteRanges`` reader for data
     that is not read through the fastgeoapi range cache.
@@ -256,9 +266,9 @@ class _MapliSchemeHandler:
 
     This is useful because:
 
-    - data in private buckets can only be accessed with authentication, which
-      the fastgeoapi store provides and MapLibre Native does not. The URLs hold
-      neither the data's location nor any credentials.
+    - data in private buckets can only be accessed with authentication, and
+      the fastgeoapi store is already capable of reading it. MapLibre Native
+      alone cannot authenticate to private buckets.
 
     - each version of the data has its own URL, derived from its ETag (or, for
       a local file, its size and modification time). MapLibre Native caches an
@@ -345,7 +355,7 @@ class MapliMapProviderConfig:
     # low on slim nodes
     num_workers: int = 1
     max_renderers_per_worker: int = 4
-    storage_crs: str = WEB_MERCATOR
+    storage_crs: str = OGC_CRS_WEB_MERCATOR
     default_vector_colors: tuple[str, ...] = (
         "#e15759",
         "#4e79a7",
@@ -358,17 +368,17 @@ class MapliMapProviderConfig:
     default_hillshade_background_color: str = "#f2efe9"
     default_style: str | None = None
     dem_data_encodings: str | None = None
-    min_image_width: int = 1
     max_image_width: int = 2048
-    min_image_height: int = 1
     max_image_height: int = 2048
     styles: dict[str, Any] = dataclasses.field(default_factory=dict)
 
     def __post_init__(self):
         """Perform further validation of input parameters"""
-        if self.storage_crs != WEB_MERCATOR:
+        if self.storage_crs != OGC_CRS_WEB_MERCATOR:
             raise ProviderGenericError(
-                user_msg=f"MapliMapProvider only supports {WEB_MERCATOR!r} as its storage_crs",
+                user_msg=(
+                    f"MapliMapProvider only supports {OGC_CRS_WEB_MERCATOR!r} as its storage_crs"
+                ),
             )
         if self.default_style and self.default_style not in self.styles.keys():
             raise ProviderGenericError(
@@ -419,11 +429,9 @@ class MapliMapProviderConfig:
             default_hillshade_background_color=options.get(
                 "default_hillshade_background_color", cls.default_hillshade_background_color
             ),
-            min_image_width=options.get("min_image_width", cls.min_image_width),
             max_image_width=options.get(
                 "max_image_width", options.get("max_size", cls.max_image_width)
             ),
-            min_image_height=options.get("min_image_height", cls.min_image_height),
             max_image_height=options.get(
                 "max_image_height", options.get("max_size", cls.max_image_height)
             ),
@@ -431,27 +439,31 @@ class MapliMapProviderConfig:
 
 
 @dataclasses.dataclass(frozen=True)
-class _MapArguments:
-    """Arguments of a map request, already checked and ready for rendering."""
+class _MapStyles:
+    """Holds the styles that maps are drawn with, for one version of the data.
 
-    style_id: str
-    lon_lat_bbox: tuple[float, float, float, float]
-    width: int
-    height: int
-    transparent: bool
+    ``dataset_metadata`` is the metadata of that version. ``data_version`` is
+    the name the scheme handler serves that version under, and ``dataset_url``
+    is the URL that mapli reads it from.
+    """
+
+    dataset_metadata: "ObjectMeta"
+    data_version: str
+    styles: dict[str, str | dict]
+    dataset_url: str
 
 
 @dataclasses.dataclass(frozen=True)
-class _MapStyles:
-    """The styles to draw maps with, for one version of the data.
+class _RegisteredStyle:
+    """Holds a style that has been registered in a render pool.
 
-    ``data_version`` is None when the version of the data is not known.
-    ``dataset_url`` is the URL mapli reads that version of the data at.
+    ``identifier`` is the identifier the style is registered under.
+    ``dataset_metadata`` is the metadata of the version of the data that the
+    style was built from, and gives the version of the maps it draws.
     """
 
-    data_version: str | None
-    styles: dict[str, str | dict]
-    dataset_url: str
+    identifier: str
+    dataset_metadata: "ObjectMeta"
 
 
 class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
@@ -462,9 +474,6 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
 
     # Needed by AsyncProviderMixin
     native_async = True
-
-    # Needed by pygeoapi's conformance machinery
-    conformance_classes = MAPS_CONFORMANCE
 
     # Automatically set by AsyncProviderMixin
     provider_def: dict[str, Any]
@@ -495,105 +504,101 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         if Path(urlsplit(self._config.data).path).suffix.lower() != ".pmtiles":
             raise ProviderGenericError(user_msg=f"map source not supported: {self._config.data}")
 
-    async def aversion(self, **kwargs: Any) -> str | None:
-        """Entry point of fastgeoapi's VersionedProvider protocol."""
-        return await self._compute_map_version(**kwargs)
+    @property
+    def limits(self) -> MapLimits:
+        """The largest map size that can be drawn.
 
-    async def aquery(self, **kwargs: Any) -> bytes:
-        """Entry point of fastgeoapi's async map provider interface."""
-        return await self._render_map(**kwargs)
-
-    def query(self, **kwargs: Any) -> bytes:
-        """Entry point of pygeoapi's map provider interface."""
-        return asyncio.run(self._render_map(**kwargs))
-
-    async def _fetch_data_version(self) -> str | None:
-        scheme_object = self._scheme_object
-        if isinstance(scheme_object, _UncachedObject):
-            meta = await scheme_object.ameta_without_waiting()
-            if meta.etag is None and not scheme_object.is_local_file:
-                return None
-            return scheme_object.compute_version(meta)
-        return await self.adata_version()
-
-    def _compute_definition_digest(self) -> str:
-        """Compute a digest of the provider's definition.
-
-        Any change to the configuration of the provider, its options included,
-        changes the digest. Credentials in ``store_options`` never leave the
-        computation: only the digest is returned.
+        The width and height are limited by the ``max_image_width`` and
+        ``max_image_height`` options. There is no separate limit on the area.
         """
-        return self.definition_digest()
+        # NOTE: This cannot be set as an instance variable due to:
+        # https://github.com/geobeyond/fastgeoapi/issues/555
 
-    async def _compute_map_version(
-        self,
-        style: str | None = None,
-        bbox: list[float] | None = None,
-        width: int = 500,
-        height: int = 300,
-        crs: str | None = None,
-        transparent: Any = True,
-        format_: str | None = "png",
-        **kwargs: Any,
-    ) -> str | None:
-        """Determine the map version that would be used for rendering.
-
-        This method can be used to help decide whether a map needs to be
-        re-rendered or if a cached version can be used instead. It joins the
-        data version, the digest of the provider's definition and the version
-        of mapli.
-
-        The style is not part of the version: it is generated from the data,
-        the provider's definition and the request's arguments, and fastgeoapi's
-        HTTP caching adds the request's arguments to the ETag already.
-
-        If the data has no version (a remote archive whose server sends no
-        ETag), it returns None, indicating that the version cannot be
-        determined.
-
-        The output of this can be used by fastgeoapi's HTTP caching
-        mechanism to build suitable ETag headers and also to decide whether to
-        render a map image to return to clients, or just return an empty
-        response with a status of '304 Not Modified'.
-
-        NOTE: A style given as a URL is identified by its URL only, so a
-        change to the document at that URL does not change the version.
-        """
-        if (data_version := await self._fetch_data_version()) is None:
-            return None
-        self._validate_arguments(
-            style=style,
-            bbox=bbox,
-            width=width,
-            height=height,
-            crs=crs,
-            transparent=transparent,
-            format_=format_,
-        )
-        return "|".join((data_version, self._compute_definition_digest(), MAPLI_VERSION))
-
-    async def _render_map(
-        self,
-        style: str | None = None,
-        bbox: list[float] | None = None,
-        width: int = 500,
-        height: int = 300,
-        crs: str | None = None,
-        transparent: Any = True,
-        format_: str | None = "png",
-        **kwargs: Any,
-    ) -> bytes:
-        """Generate a map image."""
-        arguments = self._validate_arguments(
-            style=style,
-            bbox=bbox,
-            width=width,
-            height=height,
-            crs=crs,
-            transparent=transparent,
-            format_=format_,
+        return MapLimits(
+            max_width=self._config.max_image_width,
+            max_height=self._config.max_image_height,
         )
 
+    @property
+    def capabilities(self) -> MapCapabilities:
+        """The kinds of maps that can be drawn.
+
+        Maps are drawn in Web Mercator and encoded as PNG. The styles are the
+        generated style, published as ``default``, followed by the configured
+        styles in alphabetical order. A configured style named ``default``
+        replaces the generated one.
+        """
+        # NOTE: This cannot be set as an instance variable due to:
+        # https://github.com/geobeyond/fastgeoapi/issues/555
+
+        configured_style_names = sorted(
+            name for name in self._config.styles if name != self._DEFAULT_STYLE_NAME
+        )
+        return MapCapabilities(
+            crs=(OGC_CRS_WEB_MERCATOR,),
+            default_crs=OGC_CRS_WEB_MERCATOR,
+            formats=(MapFormat.PNG,),
+            styles=(self._DEFAULT_STYLE_NAME, *configured_style_names),
+        )
+
+    async def aget_version(self, parameters: MapParameters) -> str | None:
+        """Get the version of a map without drawing it.
+
+        The version is made of the version of the data, a digest of the
+        provider's definition and the version of mapli. Computing it reads
+        only the metadata of the data, not the data itself.
+
+        The style is not part of the version, because the ETag built from the
+        version already depends on the map parameters, including the style. A
+        style given as a URL is identified by its URL alone, so changing the
+        document at that URL does not change the version.
+
+        Parameters
+        ----------
+        parameters
+            The parameters of the map, already checked.
+
+        Returns
+        -------
+        str or None
+            The version of the map, or None when the data is remote and its
+            server sends no ETag.
+        """
+        convert_bbox_for_mapli(parameters.bbox)
+        dataset_metadata = await self._scheme_object.ameta_without_waiting()
+        return self._compute_map_version(dataset_metadata)
+
+    async def arender_map(self, parameters: MapParameters) -> RenderedMap:
+        """Draw a map as a PNG.
+
+        The map is drawn from the current version of the data, and is
+        returned with the version of the data it was drawn from. This is the
+        same version that ``aget_version`` returns for that data.
+
+        The data has no time or other dimensions, so ``datetime_``,
+        ``subsets`` and ``heights`` are ignored.
+
+        Raises ``MapParameterError`` when the bbox has no area once its
+        latitudes are limited to those that mapli can draw.
+
+        Parameters
+        ----------
+        parameters
+            The parameters of the map, already checked.
+
+        Returns
+        -------
+        RenderedMap
+            The PNG and the version of the map. The version is None when the
+            data is remote and its server sends no ETag.
+
+        Raises
+        ------
+        ProviderGenericError
+            When a style cannot be loaded, or when mapli fails to draw the map.
+        """
+        lon_lat_bbox = convert_bbox_for_mapli(parameters.bbox)
+        style_name = parameters.style or self._config.default_style or self._DEFAULT_STYLE_NAME
         scheme_object = self._scheme_object
         # refresh the data's metadata before drawing, so the map uses its current version
         # (with the range cache, the known version, checked again once its interval passes)
@@ -601,117 +606,185 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         _SCHEME_HANDLER.register_source(self._scheme_source_key, scheme_object)
 
         try:
-            registered_style_identifier = await self.run_sync(
-                self._register_style, arguments.style_id, arguments.transparent
+            # the style is registered and drawn in the same pool, even if
+            # ``close`` releases it in between
+            render_pool = await self.run_sync(self._get_render_pool)
+            registered_style = await self.run_sync(
+                self._register_style, render_pool, style_name, parameters.transparent
             )
-            return await self._get_render_pool().arender_bbox(
-                style_id=registered_style_identifier,
-                bbox=arguments.lon_lat_bbox,
-                width=arguments.width,
-                height=arguments.height,
+            map_image = await render_pool.arender_bbox(
+                style_id=registered_style.identifier,
+                bbox=lon_lat_bbox,
+                width=parameters.width,
+                height=parameters.height,
             )
         except mapli.StyleLoadError as error:
-            logger.warning(f"mapli could not load style {arguments.style_id!r}: {error}")
+            logger.warning(f"mapli could not load style {style_name!r}: {error}")
             raise ProviderGenericError(
-                user_msg=f"style {arguments.style_id} could not be loaded"
+                user_msg=f"style {style_name} could not be loaded"
             ) from error
         except mapli.MapliError as error:
             logger.warning(f"mapli failed to render with {type(error).__name__}: {error}")
             raise ProviderGenericError(user_msg="the map renderer failed") from error
+        return RenderedMap(
+            content=map_image,
+            version=self._compute_map_version(registered_style.dataset_metadata),
+        )
 
-    def _validate_arguments(
+    def query(
         self,
-        style: str | None,
-        bbox: list[float] | None,
-        width: int,
-        height: int,
-        crs: str | None,
-        transparent: Any,
-        format_: str | None,
-    ) -> _MapArguments:
-        """Check the arguments of a map request and return them ready for rendering.
+        style: str | None = None,
+        bbox: Sequence[float] | None = None,
+        width: int = 500,
+        height: int = 300,
+        crs: str | None = None,
+        transparent: Any = True,
+        format_: str | None = "png",
+        **kwargs: Any,
+    ) -> bytes:
+        """Draw a map as a PNG, for vanilla pygeoapi's map route.
 
-        Both ``compute_map_version`` and ``render_map`` call this first, so a
-        request that ``render_map`` refuses never gets a version. It reads nothing.
+        This checks its arguments and then draws the map with ``arender_map``.
+        It runs its own event loop, so it must be called from a thread that
+        has no running event loop. It raises ``ProviderGenericError`` when a
+        style cannot be loaded, or when mapli fails to draw the map.
+
+        Parameters
+        ----------
+        style
+            The name of a published style, or None to use the default style.
+        bbox
+            ``(xmin, ymin, xmax, ymax)`` in ``crs``, or None for the whole of
+            Web Mercator. Parts of the bbox that lie beyond Web Mercator are
+            clipped.
+        width
+            The width of the image in pixels.
+        height
+            The height of the image in pixels.
+        crs
+            The CRS of the map and of ``bbox``. Only Web Mercator is
+            supported, and None also means Web Mercator.
+        transparent
+            Whether the background is transparent. Either a bool, or the text
+            ``true`` or ``false`` in any letter case.
+        format_
+            Either ``png`` or ``html``. Both return a PNG.
+        **kwargs
+            Any other arguments, such as ``datetime_`` and ``subsets``. They
+            are ignored, because the data has no time or other dimensions.
+
+        Returns
+        -------
+        bytes
+            The PNG.
+
+        Raises
+        ------
+        MapStyleNotFoundError
+            When ``style`` is not a published style.
+        MapTooLargeError
+            When ``width`` or ``height`` is above the limits.
+        MapParameterError
+            When any other argument is invalid.
         """
+        if style is not None and style not in self.capabilities.styles:
+            raise MapStyleNotFoundError(user_msg=f"style {style} not found")
+        if width < 1 or height < 1:
+            raise MapParameterError(user_msg="width and height must be at least 1")
+        if width > self._config.max_image_width or height > self._config.max_image_height:
+            raise MapTooLargeError(
+                user_msg=(
+                    f"width must be at most {self._config.max_image_width} "
+                    f"and height at most {self._config.max_image_height}"
+                )
+            )
+        if crs is not None and crs.lower() != OGC_CRS_WEB_MERCATOR.lower():
+            raise MapParameterError(user_msg=f"maps are drawn in {OGC_CRS_WEB_MERCATOR} only")
         if format_ not in ("png", "html"):
             raise MapParameterError(user_msg="maps are drawn as PNG only")
-
-        # The `transparent` query param may arrive as the string of the request:
-        # pygeoapi's route passes it on as is, and so does fastgeoapi's async
-        # route until https://github.com/geobeyond/fastgeoapi/issues/491 is fixed
         if isinstance(transparent, bool):
-            with_transparency = transparent
+            transparent_background = transparent
         elif isinstance(transparent, str) and transparent.lower() in ("true", "false"):
-            with_transparency = transparent.lower() == "true"
+            transparent_background = transparent.lower() == "true"
         else:
-            raise MapParameterError(user_msg="'transparent' must be either true or false")
-
-        if width < self._config.min_image_width:
-            raise MapParameterError(
-                user_msg=f"Please provide a width of at least {self._config.min_image_width}"
-            )
-        if width > self._config.max_image_width:
-            raise MapTooLargeError(
-                user_msg=f"Please provide a width of at most {self._config.max_image_width}"
-            )
-        if height < self._config.min_image_height:
-            raise MapParameterError(
-                user_msg=f"Please provide a height of at least {self._config.min_image_height}"
-            )
-        if height > self._config.max_image_height:
-            raise MapTooLargeError(
-                user_msg=f"Please provide a height of at most {self._config.max_image_height}"
-            )
-
-        effective_crs = crs or WEB_MERCATOR
-        if effective_crs.lower() != WEB_MERCATOR.lower():
-            raise MapParameterError(user_msg=f"maps are drawn in {WEB_MERCATOR} only")
-
-        web_mercator_bbox = (
-            [float(i) for i in bbox] if bbox else (-HALF_WORLD, -HALF_WORLD, HALF_WORLD, HALF_WORLD)
-        )
-        if not all(math.isfinite(i) for i in web_mercator_bbox):
-            raise MapParameterError(user_msg="bounding box values must be finite numbers")
-        west, south, east, north = parse_web_mercator_bbox_as_crs84_bbox(web_mercator_bbox)
-        # mapli refuses a bbox without area, which includes one lying entirely
-        # beyond the poles, as its latitudes are clamped to the same value. A
-        # west edge east of the east edge is fine: the bbox crosses the antimeridian
-        if west == east or south >= north:
-            raise MapParameterError(user_msg="bounding box must have a positive width and height")
-
-        style_id = style or self._config.default_style or self._DEFAULT_STYLE_NAME
-        if style_id != self._DEFAULT_STYLE_NAME and style_id not in self._config.styles:
-            # the style names the resource in the request's path
-            raise ProviderItemNotFoundError(user_msg=f"Unknown style {style_id}")
-
-        return _MapArguments(
-            style_id=style_id,
-            lon_lat_bbox=(west, south, east, north),
+            raise MapParameterError(user_msg="transparent must be either true or false")
+        parameters = MapParameters(
+            style=style,
+            bbox=check_web_mercator_bbox(bbox),
+            heights=None,
             width=width,
             height=height,
-            transparent=with_transparency,
+            crs=OGC_CRS_WEB_MERCATOR,
+            transparent=transparent_background,
+            format_=MapFormat.PNG,
+            datetime_=None,
+            subsets=None,
+            vendor_params={},
         )
+        return asyncio.run(self.arender_map(parameters)).content
 
-    def _register_style(self, style_id: str, transparent_background: bool) -> str:
-        """Register the style with mapli, if needed, and return its identifier there.
+    def close(self) -> None:
+        """Release the render pool.
 
-        This blocks, as it may create the render pool and read the data, so it is
-        meant to run in a thread.
+        The pool's workers stop once no map is being drawn with it. A map that
+        is being drawn keeps using the pool until it finishes, and the next map
+        creates a new pool. This can be called from any thread, and more than
+        once.
         """
-        render_pool = self._get_render_pool()
+        with self._render_pool_lock:
+            self._render_pool = None
+
+    async def aclose(self) -> None:
+        """Release the render pool, like ``close``."""
+        # this method is not part of the AsyncMapProvider protocol, but is used in tests
+        # https://github.com/geobeyond/fastgeoapi/issues/556
+        self.close()
+
+    def _compute_map_version(self, dataset_metadata: "ObjectMeta") -> str | None:
+        """Compute the version of a map drawn from one version of the data.
+
+        ``dataset_metadata`` is the metadata of that version of the data.
+        Returns None when the data is remote and its server sends no ETag.
+        """
+        scheme_object = self._scheme_object
+        match scheme_object:
+            case CachedRanges():
+                if dataset_metadata.etag is None:
+                    return None
+                data_version = dataset_metadata.etag
+            case _UncachedObject():
+                if dataset_metadata.etag is None and not scheme_object.is_local_file:
+                    return None
+                data_version = scheme_object.compute_version(dataset_metadata)
+            case _:
+                assert_never(scheme_object)
+        return "|".join((data_version, self.definition_digest(), MAPLI_VERSION))
+
+    def _register_style(
+        self, render_pool: mapli.RenderPool, style_name: str, transparent_background: bool
+    ) -> _RegisteredStyle:
+        """Register a style in ``render_pool``, unless it is already registered.
+
+        Returns the identifier the style is registered under, and the metadata
+        of the data that the style was built from. This blocks, because it may
+        read the data, so it should run in a thread.
+        """
+        map_styles = self._get_map_styles()
         registered_style_identifier, style_definition = self._generate_registered_style(
-            style_id, transparent_background
+            map_styles, style_name, transparent_background
         )
         if not render_pool.has_style(registered_style_identifier):
             if isinstance(style_definition, str):
                 render_pool.register_style(registered_style_identifier, url=style_definition)
             else:
                 render_pool.register_style(registered_style_identifier, json=style_definition)
-        return registered_style_identifier
+        return _RegisteredStyle(
+            identifier=registered_style_identifier,
+            dataset_metadata=map_styles.dataset_metadata,
+        )
 
     def _generate_registered_style(
-        self, style_id: str, transparent_background: bool
+        self, map_styles: _MapStyles, style_name: str, transparent_background: bool
     ) -> tuple[str, dict | str]:
         """Generate the style and the identifier mapli registers it under.
 
@@ -721,13 +794,13 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         A style given as a URL is registered under its name.
         """
         style_definition = self._generate_style(
-            style_id, transparent_background=transparent_background
+            map_styles, style_name, transparent_background=transparent_background
         )
         if isinstance(style_definition, str):
-            return style_id, style_definition
+            return style_name, style_definition
         serialized = json.dumps(style_definition, sort_keys=True)
         style_digest = hashlib.sha256(serialized.encode()).hexdigest()[:16]
-        return f"{style_id}-{style_digest}", style_definition
+        return f"{style_name}-{style_digest}", style_definition
 
     def _get_render_pool(self) -> mapli.RenderPool:
         """Return the mapli render pool, creating it on first use.
@@ -757,14 +830,15 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         metadata of the data.
         """
         scheme_object = self._scheme_object
-        meta = scheme_object.known_meta() or scheme_object.meta()
-        data_version = compute_scheme_object_version(scheme_object, meta)
-        read_data = scheme_object.at(meta).read
+        dataset_metadata = scheme_object.known_meta() or scheme_object.meta()
+        data_version = compute_scheme_object_version(scheme_object, dataset_metadata)
+        read_data = scheme_object.at(dataset_metadata).read
         dataset_url = _SCHEME_HANDLER.generate_scheme_url(self._scheme_source_key, data_version)
         with self._map_styles_lock:
             map_styles = self._map_styles
             if map_styles is None or map_styles.data_version != data_version:
                 map_styles = self._map_styles = _MapStyles(
+                    dataset_metadata=dataset_metadata,
                     data_version=data_version,
                     styles=self._generate_map_styles(read_data),
                     dataset_url=f"pmtiles://{dataset_url}",
@@ -845,9 +919,10 @@ class MapliMapProvider(AsyncProviderMixin, StorageBackedMixin, BaseProvider):
         default_style["sources"] = {self._DATASET_SOURCE_NAME: dataset_source}
         return default_style
 
-    def _generate_style(self, style_identifier: str, transparent_background: bool) -> dict | str:
-        map_styles = self._get_map_styles()
-        style_definition = map_styles.styles[style_identifier]
+    def _generate_style(
+        self, map_styles: _MapStyles, style_name: str, transparent_background: bool
+    ) -> dict | str:
+        style_definition = map_styles.styles[style_name]
         if isinstance(style_definition, str):
             # this is a URL to a remote style
             # TODO: retrieve the style from the remote and modify if needed
@@ -875,20 +950,22 @@ def parse_web_mercator_bbox_as_crs84_bbox(
     if xmin > xmax:
         # The west edge lies east of the east edge: bbox crosses the
         # antimeridian, and its east edge is one world further on.
-        xmax += 2 * HALF_WORLD
+        xmax += 2 * WEB_MERCATOR_EDGE
 
-    if xmax - xmin >= 2 * HALF_WORLD:
+    if xmax - xmin >= 2 * WEB_MERCATOR_EDGE:
         # bbox spanning one world or more is drawn as the whole world
-        xmin, xmax = -HALF_WORLD, HALF_WORLD
+        xmin, xmax = -WEB_MERCATOR_EDGE, WEB_MERCATOR_EDGE
     else:
         # shift bbox by whole worlds until its west edge lies within web mercator
-        shift = math.floor((xmin + HALF_WORLD) / (2 * HALF_WORLD)) * 2 * HALF_WORLD
+        shift = (
+            math.floor((xmin + WEB_MERCATOR_EDGE) / (2 * WEB_MERCATOR_EDGE)) * 2 * WEB_MERCATOR_EDGE
+        )
         xmin, xmax = xmin - shift, xmax - shift
 
     # clamp y values because web mercator only works correctly
-    # when `-HALF_WORLD <= lat <= HALF_WORLD`
-    ymin = max(-HALF_WORLD, min(HALF_WORLD, web_mercator_bbox[1]))
-    ymax = max(-HALF_WORLD, min(HALF_WORLD, web_mercator_bbox[3]))
+    # when `-WEB_MERCATOR_EDGE <= lat <= WEB_MERCATOR_EDGE`
+    ymin = max(-WEB_MERCATOR_EDGE, min(WEB_MERCATOR_EDGE, web_mercator_bbox[1]))
+    ymax = max(-WEB_MERCATOR_EDGE, min(WEB_MERCATOR_EDGE, web_mercator_bbox[3]))
 
     # Here we use an optimization: The inverse of web mercator, which
     # projects WGS84 coordinates as if the earth were a sphere, is a pair of
@@ -898,17 +975,88 @@ def parse_web_mercator_bbox_as_crs84_bbox(
     # target CRS. A map request converts its bbox up to twice, once for its ETag
     # when HTTP caching is on and once to draw it, and the conversion ran on
     # the event loop, so concurrent requests waited in line behind it.
-    west = xmin / HALF_WORLD * 180
-    east = xmax / HALF_WORLD * 180
+    west = xmin / WEB_MERCATOR_EDGE * 180
+    east = xmax / WEB_MERCATOR_EDGE * 180
     if east > 180:
         # the east edge of a bbox across the antimeridian, back within -180 and 180
         east -= 360
-    south = math.degrees(math.atan(math.sinh(ymin / HALF_WORLD * math.pi)))
-    north = math.degrees(math.atan(math.sinh(ymax / HALF_WORLD * math.pi)))
+    south = math.degrees(math.atan(math.sinh(ymin / WEB_MERCATOR_EDGE * math.pi)))
+    north = math.degrees(math.atan(math.sinh(ymax / WEB_MERCATOR_EDGE * math.pi)))
     # The edge of web mercator comes out a hair beyond the latitude mapli accepts
     south = max(-mapli.MAX_LAT, min(mapli.MAX_LAT, south))
     north = max(-mapli.MAX_LAT, min(mapli.MAX_LAT, north))
     return west, south, east, north
+
+
+def convert_bbox_for_mapli(
+    web_mercator_bbox: Sequence[float],
+) -> tuple[float, float, float, float]:
+    """Convert a Web Mercator bbox into the CRS84 bbox that mapli draws.
+
+    Parameters
+    ----------
+    web_mercator_bbox
+        ``(xmin, ymin, xmax, ymax)`` in Web Mercator. When ``xmin > xmax``,
+        the bbox crosses the antimeridian.
+
+    Returns
+    -------
+    tuple of float
+        ``(west, south, east, north)`` in degrees, with the latitudes limited
+        to those that mapli can draw. When ``west > east``, the bbox crosses
+        the antimeridian.
+
+    Raises
+    ------
+    MapParameterError
+        When the bbox has no area once its latitudes are limited to those
+        that mapli can draw.
+    """
+    west, south, east, north = parse_web_mercator_bbox_as_crs84_bbox(web_mercator_bbox)
+    if west == east or south >= north:
+        raise MapParameterError(user_msg="bounding box must have a positive width and height")
+    return west, south, east, north
+
+
+def check_web_mercator_bbox(
+    bbox: Sequence[float] | None,
+) -> tuple[float, float, float, float]:
+    """Check a Web Mercator bbox and clip it to the edges of Web Mercator.
+
+    Parameters
+    ----------
+    bbox
+        ``(xmin, ymin, xmax, ymax)`` in Web Mercator, or None for the whole of
+        Web Mercator. When ``xmin > xmax``, the bbox crosses the antimeridian.
+
+    Returns
+    -------
+    tuple of float
+        The bbox, with any coordinates beyond the edges of Web Mercator moved
+        onto them.
+
+    Raises
+    ------
+    MapParameterError
+        When the bbox is not four numbers, when its minimum y is above its
+        maximum y, when it has no area, or when it lies entirely outside Web
+        Mercator.
+    """
+    if bbox is None:
+        return (-WEB_MERCATOR_EDGE, -WEB_MERCATOR_EDGE, WEB_MERCATOR_EDGE, WEB_MERCATOR_EDGE)
+    try:
+        xmin, ymin, xmax, ymax = (float(value) for value in bbox)
+    except (TypeError, ValueError):
+        raise MapParameterError(user_msg="bbox must be four numbers") from None
+    if any(math.isnan(value) for value in (xmin, ymin, xmax, ymax)):
+        raise MapParameterError(user_msg="bbox values must be numbers")
+    if ymin > ymax:
+        raise MapParameterError(user_msg="the bbox has its minimum y above its maximum y")
+    if xmin == xmax or ymin == ymax:
+        raise MapParameterError(user_msg="the bbox has no area")
+    if is_outside_web_mercator((xmin, ymin, xmax, ymax)):
+        raise MapParameterError(user_msg="the bbox lies outside Web Mercator")
+    return clip_web_mercator_bbox((xmin, ymin, xmax, ymax))
 
 
 def generate_default_vector_style(

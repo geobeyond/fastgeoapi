@@ -79,9 +79,34 @@ def _provider(data, options=None, **top_level):
     return MapliMapProvider(_definition(data, options, **top_level))
 
 
-async def _map(provider, **kwargs):
+def _build_map_parameters(**changes):
+    from app.interfaces.providers import MapParameters
+
+    return MapParameters(
+        **{
+            "style": None,
+            "bbox": tuple(ROME),
+            "heights": None,
+            "width": 64,
+            "height": 64,
+            "crs": WEB_MERCATOR,
+            "transparent": True,
+            "format_": "png",
+            "datetime_": None,
+            "subsets": None,
+            "vendor_params": {},
+            **changes,
+        }
+    )
+
+
+async def _map(provider, **changes):
+    return (await provider.arender_map(_build_map_parameters(**changes))).content
+
+
+def _draw_map_with_query(provider, **kwargs):
     args = {"bbox": list(ROME), "width": 64, "height": 64, "crs": WEB_MERCATOR}
-    return await provider.aquery(**{**args, **kwargs})
+    return provider.query(**{**args, **kwargs})
 
 
 def _pool() -> FakeRenderPool:
@@ -202,11 +227,11 @@ def test_a_bucket_does_not_need_the_range_cache():
 
 
 def test_the_world_in_web_mercator_is_the_world_in_crs84():
-    from app.maps.camera import HALF_WORLD
+    from app.maps.web_mercator import WEB_MERCATOR_EDGE
     from app.provider.mapli import parse_web_mercator_bbox_as_crs84_bbox
 
     west, south, east, north = parse_web_mercator_bbox_as_crs84_bbox(
-        [-HALF_WORLD, -HALF_WORLD, HALF_WORLD, HALF_WORLD]
+        [-WEB_MERCATOR_EDGE, -WEB_MERCATOR_EDGE, WEB_MERCATOR_EDGE, WEB_MERCATOR_EDGE]
     )
 
     assert (west, east) == pytest.approx((-180, 180))
@@ -214,33 +239,33 @@ def test_the_world_in_web_mercator_is_the_world_in_crs84():
 
 
 def test_the_world_stays_within_the_latitudes_mapli_draws():
-    from app.maps.camera import HALF_WORLD
+    from app.maps.web_mercator import WEB_MERCATOR_EDGE
     from app.provider.mapli import parse_web_mercator_bbox_as_crs84_bbox
 
     _, south, _, north = parse_web_mercator_bbox_as_crs84_bbox(
-        [-HALF_WORLD, -HALF_WORLD, HALF_WORLD, HALF_WORLD]
+        [-WEB_MERCATOR_EDGE, -WEB_MERCATOR_EDGE, WEB_MERCATOR_EDGE, WEB_MERCATOR_EDGE]
     )
 
     assert -mapli.MAX_LAT <= south < north <= mapli.MAX_LAT
 
 
 def test_a_bbox_beyond_the_poles_is_clamped():
-    from app.maps.camera import HALF_WORLD
+    from app.maps.web_mercator import WEB_MERCATOR_EDGE
     from app.provider.mapli import parse_web_mercator_bbox_as_crs84_bbox
 
     _, south, _, north = parse_web_mercator_bbox_as_crs84_bbox(
-        [0, -3 * HALF_WORLD, 1, 3 * HALF_WORLD]
+        [0, -3 * WEB_MERCATOR_EDGE, 1, 3 * WEB_MERCATOR_EDGE]
     )
 
     assert (south, north) == pytest.approx((-85.0511, 85.0511), abs=1e-4)
 
 
 def test_a_bbox_across_the_antimeridian_keeps_its_west_east_of_its_east():
-    from app.maps.camera import HALF_WORLD
+    from app.maps.web_mercator import WEB_MERCATOR_EDGE
     from app.provider.mapli import parse_web_mercator_bbox_as_crs84_bbox
 
     west, _, east, _ = parse_web_mercator_bbox_as_crs84_bbox(
-        [0.9 * HALF_WORLD, -1e6, -0.9 * HALF_WORLD, 1e6]
+        [0.9 * WEB_MERCATOR_EDGE, -1e6, -0.9 * WEB_MERCATOR_EDGE, 1e6]
     )
 
     assert (west, east) == pytest.approx((162, -162))
@@ -261,10 +286,10 @@ def test_a_bbox_across_the_antimeridian_keeps_its_west_east_of_its_east():
     ],
 )
 def test_a_bbox_beyond_web_mercator_is_drawn_where_it_points(worlds, longitudes):
-    from app.maps.camera import HALF_WORLD
+    from app.maps.web_mercator import WEB_MERCATOR_EDGE
     from app.provider.mapli import parse_web_mercator_bbox_as_crs84_bbox
 
-    xmin, xmax = (value * HALF_WORLD for value in worlds)
+    xmin, xmax = (value * WEB_MERCATOR_EDGE for value in worlds)
     west, _, east, _ = parse_web_mercator_bbox_as_crs84_bbox([xmin, -1e6, xmax, 1e6])
 
     assert (west, east) == pytest.approx(longitudes)
@@ -275,69 +300,30 @@ def test_a_bbox_beyond_web_mercator_is_drawn_where_it_points(worlds, longitudes)
 
 @pytest.mark.asyncio
 async def test_a_map_is_drawn_over_the_bbox_in_crs84(archive):
-    png = await _map(_provider(archive))
+    map_image = await _map(_provider(archive))
 
     (render,) = _pool().renders
     west, south, east, north = render["bbox"]
-    assert png.startswith(b"\x89PNG")
+    assert map_image.startswith(b"\x89PNG")
     assert render["size"] == (64, 64)
     assert 12.3 < west < east < 12.7
     assert 41.7 < south < north < 42.1
 
 
 @pytest.mark.asyncio
-async def test_a_map_without_bbox_is_the_world(archive):
-    await _provider(archive).aquery(width=32, height=32)
-
-    west, _, east, _ = _pool().renders[0]["bbox"]
-    assert (west, east) == pytest.approx((-180, 180))
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "parameters",
-    [
-        {"crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"},
-        {"format_": "jpeg"},
-        {"width": 0},
-        {"height": 0},
-        {"bbox": [math.nan, 0, 1, 1]},
-        {"bbox": [math.inf, 0, math.inf, 1]},
-        {"bbox": [0, -math.inf, 1, 1]},
-        {"bbox": [1379000.0, 5140000.0, 1379000.0, 5160000.0]},  # no width
-        {"bbox": [1379000.0, 5160000.0, 1403000.0, 5140000.0]},  # south above north
-        {"bbox": [0.0, 21000000.0, 1.0, 22000000.0]},  # beyond the north pole
-        {"transparent": "1"},
-        {"transparent": "yes"},
-    ],
-)
-async def test_a_bad_parameter_answers_400(archive, parameters):
+async def test_a_bbox_without_area_within_the_latitudes_mapli_draws_answers_400(archive):
+    from app.maps.web_mercator import WEB_MERCATOR_EDGE
     from app.provider.maps import MapParameterError
 
-    with pytest.raises(MapParameterError) as error:
-        await _map(_provider(archive), **parameters)
-    assert error.value.http_status_code == HTTPStatus.BAD_REQUEST
+    provider = _provider(archive)
+    # Within Web Mercator, but north of the last latitude mapli draws.
+    bbox_north_of_mapli_latitudes = (0.0, WEB_MERCATOR_EDGE - 1e-9, 1.0, WEB_MERCATOR_EDGE)
+
+    with pytest.raises(MapParameterError):
+        await provider.aget_version(_build_map_parameters(bbox=bbox_north_of_mapli_latitudes))
+    with pytest.raises(MapParameterError):
+        await _map(provider, bbox=bbox_north_of_mapli_latitudes)
     assert all(pool.renders == [] for pool in FakeRenderPool.instances)
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("parameters", [{"width": 2049}, {"height": 2049}])
-async def test_a_map_larger_than_the_maximum_answers_413(archive, parameters):
-    from app.provider.maps import MapTooLargeError
-
-    with pytest.raises(MapTooLargeError) as error:
-        await _map(_provider(archive), **parameters)
-    assert error.value.http_status_code == HTTPStatus.REQUEST_ENTITY_TOO_LARGE
-    assert all(pool.renders == [] for pool in FakeRenderPool.instances)
-
-
-@pytest.mark.asyncio
-async def test_an_unknown_style_answers_404(archive):
-    from pygeoapi.provider.base import ProviderItemNotFoundError
-
-    with pytest.raises(ProviderItemNotFoundError) as error:
-        await _map(_provider(archive), style="night")
-    assert error.value.http_status_code == HTTPStatus.NOT_FOUND
 
 
 @pytest.mark.asyncio
@@ -349,39 +335,132 @@ async def test_a_tiny_map_is_drawn(archive):
 
 @pytest.mark.asyncio
 async def test_a_bbox_across_the_antimeridian_is_drawn(archive):
-    await _map(_provider(archive), bbox=[19000000.0, 0.0, -19000000.0, 1000000.0])
+    await _map(_provider(archive), bbox=(19000000.0, 0.0, -19000000.0, 1000000.0))
 
     assert len(_pool().renders) == 1
 
 
-@pytest.mark.asyncio
-async def test_max_size_bounds_the_width_and_height(archive):
-    from app.provider.maps import MapParameterError
+def test_the_limits_are_the_maximum_size(archive):
+    from app.interfaces.providers import MapLimits
 
     provider = _provider(archive, {"max_size": 100})
-    await _map(provider, width=100, height=100)
 
-    with pytest.raises(MapParameterError):
-        await _map(provider, width=101)
+    assert provider.limits == MapLimits(max_width=100, max_height=100)
 
 
-@pytest.mark.asyncio
-async def test_web_mercator_is_recognised_whatever_the_case(archive):
-    await _map(_provider(archive), crs=WEB_MERCATOR.lower())
+def test_the_maps_are_drawn_in_web_mercator_as_png(archive):
+    from app.interfaces.providers import MapFormat
+
+    capabilities = _provider(archive).capabilities
+
+    assert capabilities.crs == (WEB_MERCATOR,)
+    assert capabilities.default_crs == WEB_MERCATOR
+    assert capabilities.formats == (MapFormat.PNG,)
+
+
+def test_the_generated_style_is_published_as_default_before_the_configured_ones(archive):
+    empty_style = {"version": 8, "sources": {}, "layers": []}
+    provider = _provider(
+        archive, {"styles": {"night": empty_style, "dawn": empty_style, "default": empty_style}}
+    )
+
+    assert provider.capabilities.styles == ("default", "dawn", "night")
+
+
+def test_the_provider_meets_the_native_map_contract(archive):
+    from app.interfaces.providers import AsyncMapProvider
+
+    assert isinstance(_provider(archive), AsyncMapProvider)
+
+
+# query, for vanilla pygeoapi's map route
+
+
+def test_query_draws_with_the_arguments_it_is_given(archive):
+    map_image = _draw_map_with_query(_provider(archive), width=40, height=20)
+
+    assert map_image.startswith(b"\x89PNG")
+    assert _pool().renders[0]["size"] == (40, 20)
+
+
+def test_query_draws_the_world_without_bbox(archive):
+    _draw_map_with_query(_provider(archive), bbox=None, width=32, height=32)
+
+    west, _, east, _ = _pool().renders[0]["bbox"]
+    assert (west, east) == pytest.approx((-180, 180))
+
+
+def test_query_draws_a_bbox_beyond_web_mercator_within_it(archive):
+    # pygeoapi's default bbox, the whole of CRS84, comes out slightly beyond the poles
+    _draw_map_with_query(_provider(archive), bbox=[-3e7, -3e7, 3e7, 3e7], width=32, height=32)
+
+    _, south, _, north = _pool().renders[0]["bbox"]
+    assert (south, north) == pytest.approx((-85.0511, 85.0511), abs=1e-4)
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        {"crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"},
+        {"format_": "jpeg"},
+        {"width": 0},
+        {"height": 0},
+        {"bbox": [math.nan, 0, 1, 1]},
+        {"bbox": [1379000.0, 5140000.0, 1379000.0, 5160000.0]},  # no width
+        {"bbox": [1379000.0, 5160000.0, 1403000.0, 5140000.0]},  # south above north
+        {"bbox": [0.0, 21000000.0, 1.0, 22000000.0]},  # beyond the north pole
+        {"bbox": [0.0, 1.0, 2.0]},
+        {"transparent": "1"},
+        {"transparent": "yes"},
+    ],
+)
+def test_query_answers_400_to_a_bad_argument(archive, arguments):
+    from app.provider.maps import MapParameterError
+
+    with pytest.raises(MapParameterError) as error:
+        _draw_map_with_query(_provider(archive), **arguments)
+    assert error.value.http_status_code == HTTPStatus.BAD_REQUEST
+    assert all(pool.renders == [] for pool in FakeRenderPool.instances)
+
+
+@pytest.mark.parametrize("arguments", [{"width": 101}, {"height": 101}])
+def test_query_answers_413_above_the_maximum_size(archive, arguments):
+    from app.provider.maps import MapTooLargeError
+
+    provider = _provider(archive, {"max_size": 100})
+    _draw_map_with_query(provider, width=100, height=100)
+
+    with pytest.raises(MapTooLargeError) as error:
+        _draw_map_with_query(provider, **arguments)
+    assert error.value.http_status_code == HTTPStatus.REQUEST_ENTITY_TOO_LARGE
+
+
+def test_query_answers_404_to_an_unknown_style(archive):
+    from app.provider.maps import MapStyleNotFoundError
+
+    with pytest.raises(MapStyleNotFoundError) as error:
+        _draw_map_with_query(_provider(archive), style="night")
+    assert error.value.http_status_code == HTTPStatus.NOT_FOUND
+
+
+def test_query_recognises_web_mercator_whatever_the_case(archive):
+    _draw_map_with_query(_provider(archive), crs=WEB_MERCATOR.lower())
 
     assert len(_pool().renders) == 1
 
 
-@pytest.mark.asyncio
-async def test_html_is_answered_with_the_image(archive):
-    assert (await _map(_provider(archive), format_="html")).startswith(b"\x89PNG")
+def test_query_answers_html_with_the_image(archive):
+    assert _draw_map_with_query(_provider(archive), format_="html").startswith(b"\x89PNG")
 
 
-def test_the_sync_face_draws_with_the_arguments_it_is_given(archive):
-    png = _provider(archive).query(bbox=list(ROME), width=40, height=20, crs=WEB_MERCATOR)
+@pytest.mark.parametrize(
+    ("transparent", "visibility"),
+    [("true", "none"), ("TRUE", "none"), ("false", "visible"), (False, "visible")],
+)
+def test_query_reads_transparent_as_text(archive, transparent, visibility):
+    _draw_map_with_query(_provider(archive), transparent=transparent)
 
-    assert png.startswith(b"\x89PNG")
-    assert _pool().renders[0]["size"] == (40, 20)
+    assert _background(_pool().rendered_style())["layout"]["visibility"] == visibility
 
 
 # Styles
@@ -425,10 +504,7 @@ async def test_the_default_hillshade_background_colour_is_configurable(tmp_path)
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("transparent", "visibility"),
-    [(True, "none"), ("true", "none"), ("TRUE", "none"), (False, "visible"), ("false", "visible")],
-)
+@pytest.mark.parametrize(("transparent", "visibility"), [(True, "none"), (False, "visible")])
 async def test_transparent_hides_the_background(archive, transparent, visibility):
     await _map(_provider(archive), transparent=transparent)
 
@@ -670,9 +746,9 @@ async def test_the_first_map_of_a_bucket_blocks_nothing_on_the_loop(tmp_path):
 
     provider, _ = _bucket_provider(tmp_path)
     with loop_guard():
-        png = await _map(provider)
+        map_image = await _map(provider)
 
-    assert png.startswith(b"\x89PNG")
+    assert map_image.startswith(b"\x89PNG")
 
 
 # Data in a bucket without the range cache, read straight from its store
@@ -810,23 +886,23 @@ async def test_the_version_of_a_local_archive_does_not_depend_on_its_inode(tmp_p
 
     archive = land_archive(tmp_path / "land.pmtiles")
     provider = _provider(archive)
-    first = await provider.aversion()
+    first = await provider.aget_version(_build_map_parameters())
     # A copy that keeps the size and modification time, as on another machine
     shutil.copy2(archive, tmp_path / "copy.pmtiles")
     (tmp_path / "copy.pmtiles").replace(archive)
 
     assert first is not None
-    assert await provider.aversion() == first
+    assert await provider.aget_version(_build_map_parameters()) == first
 
 
 @pytest.mark.asyncio
 async def test_the_version_of_a_local_archive_follows_the_file(tmp_path):
     archive = land_archive(tmp_path / "land.pmtiles")
     provider = _provider(archive)
-    first = await provider.aversion()
+    first = await provider.aget_version(_build_map_parameters())
     raster_archive(tmp_path / "raster.pmtiles").replace(archive)
 
-    assert await provider.aversion() != first
+    assert await provider.aget_version(_build_map_parameters()) != first
 
 
 # The default style follows the version of the data
@@ -975,8 +1051,8 @@ def test_the_provider_tells_the_version_of_its_maps(archive):
 
 @pytest.mark.asyncio
 async def test_two_providers_of_one_definition_give_one_version_without_rendering(archive):
-    first = await _provider(archive).aversion()
-    second = await _provider(archive).aversion()
+    first = await _provider(archive).aget_version(_build_map_parameters())
+    second = await _provider(archive).aget_version(_build_map_parameters())
 
     assert first is not None
     assert first == second
@@ -989,18 +1065,20 @@ async def test_a_local_archive_written_again_gives_a_new_version(tmp_path):
 
     path = land_archive(tmp_path / "land.pmtiles")
     provider = _provider(path)
-    before = await provider.aversion()
+    before = await provider.aget_version(_build_map_parameters())
     path.write_bytes(path.read_bytes() + b"\x00")
     later = path.stat().st_mtime + 10
     os.utime(path, (later, later))
 
-    assert await provider.aversion() != before
+    assert await provider.aget_version(_build_map_parameters()) != before
 
 
 @pytest.mark.asyncio
 async def test_another_definition_gives_another_version(archive):
-    default = await _provider(archive).aversion()
-    recoloured = await _provider(archive, {"default_vector_colors": ["#000000"]}).aversion()
+    default = await _provider(archive).aget_version(_build_map_parameters())
+    recoloured = await _provider(archive, {"default_vector_colors": ["#000000"]}).aget_version(
+        _build_map_parameters()
+    )
 
     assert default != recoloured
 
@@ -1009,53 +1087,84 @@ async def test_another_definition_gives_another_version(archive):
 async def test_the_version_reads_the_metadata_of_the_archive_only(tmp_path):
     provider, origin = _uncached_bucket_provider(tmp_path)
 
-    assert await provider.aversion() is not None
+    assert await provider.aget_version(_build_map_parameters()) is not None
     assert origin.heads == 1
     assert origin.range_reads == []
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "parameters",
-    [
-        {"crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"},
-        {"format_": "jpeg"},
-        {"width": 0},
-        {"width": 2049},
-        {"height": 0},
-        {"height": 2049},
-        {"bbox": [math.nan, 0, 1, 1]},
-        {"bbox": [1379000.0, 5160000.0, 1403000.0, 5140000.0]},
-        {"transparent": "1"},
-        {"style": "night"},
-    ],
-)
-async def test_a_bad_parameter_gets_no_version(archive, parameters):
-    from pygeoapi.provider.base import ProviderGenericError
+async def test_a_drawn_map_carries_the_version_of_its_parameters(archive):
+    provider = _provider(archive)
 
-    with pytest.raises(ProviderGenericError):
-        await _provider(archive).aversion(**parameters)
+    rendered_map = await provider.arender_map(_build_map_parameters())
+
+    assert rendered_map.version is not None
+    assert rendered_map.version == await provider.aget_version(_build_map_parameters())
+
+
+@pytest.mark.asyncio
+async def test_a_map_of_a_bucket_without_etag_carries_no_version(tmp_path):
+    import dataclasses
+
+    provider, origin = _uncached_bucket_provider(tmp_path)
+    metadata_without_etag = dataclasses.replace(origin.head("land.pmtiles"), etag=None)
+
+    with mock.patch.object(origin, "head", return_value=metadata_without_etag):
+        with mock.patch.object(origin, "ahead", return_value=metadata_without_etag):
+            rendered_map = await provider.arender_map(_build_map_parameters())
+            version = await provider.aget_version(_build_map_parameters())
+
+    assert (rendered_map.version, version) == (None, None)
+
+
+@pytest.mark.asyncio
+async def test_a_map_of_a_bucket_without_etag_read_through_the_range_cache_carries_no_version(
+    tmp_path,
+):
+    import dataclasses
+
+    provider, origin = _bucket_provider(tmp_path)
+    metadata_without_etag = dataclasses.replace(origin.head("land.pmtiles"), etag=None)
+
+    with mock.patch.object(origin, "head", return_value=metadata_without_etag):
+        with mock.patch.object(origin, "ahead", return_value=metadata_without_etag):
+            rendered_map = await provider.arender_map(_build_map_parameters())
+            version = await provider.aget_version(_build_map_parameters())
+
+    assert (rendered_map.version, version) == (None, None)
+
+
+@pytest.mark.asyncio
+async def test_closing_lets_go_of_the_render_pool_and_a_later_map_creates_another(archive):
+    provider = _provider(archive)
+    await _map(provider)
+
+    provider.close()
+    provider.close()
+    await _map(provider)
+
+    assert len(FakeRenderPool.instances) == 2
 
 
 @pytest.mark.asyncio
 async def test_a_bucket_map_follows_the_version_the_range_cache_knows(tmp_path):
     provider, origin = _bucket_provider(tmp_path)
-    first = await provider.aversion()
+    first = await provider.aget_version(_build_map_parameters())
     origin.put("land.pmtiles", origin.get("land.pmtiles") + b"\x00")
     provider.cached_ranges.invalidate()
 
     assert first is not None
-    assert await provider.aversion() != first
+    assert await provider.aget_version(_build_map_parameters()) != first
 
 
 @pytest.mark.asyncio
 async def test_a_bucket_map_without_the_range_cache_follows_the_store_version(tmp_path):
     provider, origin = _uncached_bucket_provider(tmp_path)
-    first = await provider.aversion()
+    first = await provider.aget_version(_build_map_parameters())
     origin.put("land.pmtiles", origin.get("land.pmtiles") + b"\x00")
 
     assert first is not None
-    assert await provider.aversion() != first
+    assert await provider.aget_version(_build_map_parameters()) != first
     assert origin.heads == 2
 
 

@@ -68,8 +68,8 @@ providers:
 - `storage_crs` must be EPSG:3857, because maps are drawn in Web Mercator only.
 
 The collection then serves `/collections/{collectionId}/map`, and one
-`/collections/{collectionId}/styles/{styleId}/map` route for each configured
-style.
+`/collections/{collectionId}/styles/{styleId}/map` route for each style: the
+style the provider generates, published as `default`, and each configured style.
 
 ## Configuration
 
@@ -85,7 +85,6 @@ The provider's own settings go under `options`:
 | `dem`                                 | none                                                             | If provided, must be either `terrarium` or `mapbox`, for a raster archive of elevations. The generated style shades the relief.                                  |
 | `max_size`                            | 2048                                                             | The largest `width` and `height` a request may ask for.                                                                                                          |
 | `max_image_width`, `max_image_height` | `max_size`                                                       | The largest `width` and `height`, set separately.                                                                                                                |
-| `min_image_width`, `min_image_height` | 1                                                                | The smallest `width` and `height`.                                                                                                                               |
 | `num_workers`                         | 1                                                                | Number of rendering threads used by mapli.                                                                                                                       |
 | `max_renderers_per_worker`            | 4                                                                | Renderers each thread keeps: one per style, whatever the image size. Each holds its own tile cache; a thread's renderers share its GL context.                   |
 | `range_cache`                         | true                                                             | Read a bucket archive through the range cache. `false` reads each range from the bucket.                                                                         |
@@ -98,6 +97,9 @@ depending on the type of data being read:
 - **Vector layers** are drawn in one of `default_vector_colors`.
 - **Rasters** are drawn as a simple raster layer.
 - **An elevation archive with `dem`:** the relief is drawn as a hillshade.
+
+The generated style is always published as the `default` style, alongside the
+configured ones. A configured style named `default` takes its place.
 
 A style in `styles` is either the URL of a MapLibre style document, which mapli
 fetches itself, or a style written inline in the configuration. inline styles
@@ -215,8 +217,13 @@ A map request recognizes the following query parameters, most of which are speci
 #### Errors
 
 - an unknown style returns 404.
-- `width` or `height` above the maximum returns 413, and below the minimum returns 400
-- as bbox without area or any other `transparent` value also returns 400.
+- `width` or `height` above the maximum returns 413, and below 1 returns 400.
+- a bbox without area or any other `transparent` value also returns 400.
+- a bbox entirely outside Web Mercator returns 204, without an image.
+
+The provider also serves vanilla pygeoapi's map route, which checks the same
+parameters and answers with the same statuses, except for a bbox entirely
+outside Web Mercator, which returns 400.
 
 ## HTTP caching
 
