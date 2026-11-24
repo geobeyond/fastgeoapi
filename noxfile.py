@@ -320,7 +320,7 @@ def ty(session: Session) -> None:
         "blockbuster>=1.5,<2",
         # The mapli extra: app/provider/mapli.py imports mapli at module level.
         # ty only reads its stubs, so the EGL it loads at runtime is not needed.
-        "mapli>=0.4.1; sys_platform == 'linux'",
+        "mapli>=0.5.0; sys_platform == 'linux'",
     )
     session.run("ty", *args)
 
@@ -360,6 +360,10 @@ def tests(session: Session) -> None:
         # The blocking-call guard (ADR-0010) lives in the `dev` group;
         # the unlocked lanes need it by name.
         "blockbuster>=1.5,<2",
+        # The mapli extra: the demo configuration has a mapli collection, so
+        # building its OpenAPI document imports mapli. Where EGL can draw, the
+        # mapli renderer tests run too.
+        "mapli>=0.5.0; sys_platform == 'linux'",
     )
     try:
         session.run("coverage", "run", "--parallel", "-m", "pytest", *session.posargs)
@@ -435,8 +439,6 @@ def maps(session: Session) -> None:
         env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
     )
     session.run("pytest", "-m", "renderer", "-rs", *session.posargs)
-    # The mapli provider's other tests need the wheel too, which no other session installs
-    session.run("pytest", "tests/test_mapli_provider.py", "-rs", *session.posargs)
 
 
 @session(python=python_versions)
